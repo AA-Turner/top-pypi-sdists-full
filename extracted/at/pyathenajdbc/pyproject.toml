@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "PyAthenaJDBC"
+version = "3.0.1"  # https://github.com/laughingman7743/PyAthenaJDBC/blob/master/pyathenajdbc/__init__.py#L10
+description = "Amazon Athena JDBC driver wrapper for the Python DB API 2.0 (PEP 249)"
+license = "MIT"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Database :: Front-Ends",
+    "Programming Language :: Java",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9"
+]
+homepage = "https://github.com/laughingman7743/PyAthenaJDBC/"
+authors = [
+    "laughingman7743 <laughingman7743@gmail.com>"
+]
+readme = "README.rst"
+packages = [
+    { include = "pyathenajdbc" },
+]
+include = [
+    { path = "jdbc" },
+    { path = "pyathenajdbc/*.jar", format = "wheel" },
+    { path = "pyathenajdbc/*.properties" },
+]
+
+[tool.poetry.dependencies]
+# https://github.com/pandas-dev/pandas/pull/29212#issuecomment-551370118
+python = "^3.6.1"
+jpype1 = "<2.0.0,>=1.1.0"
+pandas = {version = ">=1.0.0", optional = true}
+sqlalchemy = {version = "<2.0.0,>=1.0.0", optional = true}
+
+[tool.poetry.dev-dependencies]
+awscli = "*"
+tox = "*"
+wheel = "*"
+twine = "*"
+pandas = ">=1.0.0"
+sqlalchemy = ">=1.0.0, <2.0.0"
+mypy = "*"
+pytest = ">=3.5"
+pytest-cov = "*"
+pytest-flake8 = ">=1.0.1"
+pytest-black = "*"
+pytest-isort = "*"
+pytest-xdist = "*"
+pytest-mypy = "*"
+codecov = "*"
+
+[tool.poetry.extras]
+pandas = ["pandas"]
+sqlalchemy = ["sqlalchemy"]
+
+[tool.poetry.plugins."sqlalchemy.dialects"]
+"awsathena.jdbc" = "pyathenajdbc.sqlalchemy_athena:AthenaDialect"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

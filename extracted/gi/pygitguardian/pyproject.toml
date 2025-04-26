@@ -1,0 +1,95 @@
+[project]
+name = "pygitguardian"
+dynamic = []
+description = "Python Wrapper for GitGuardian's API -- Scan security policy breaks everywhere"
+keywords = [
+    "api-client devsecops secrets-detection security-tools library gitguardian",
+]
+readme = "README.md"
+authors = [
+    { name = "GitGuardian", email = "support@gitguardian.com" },
+]
+maintainers = [
+    { name = "GitGuardian", email = "support@gitguardian.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Security",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "marshmallow>=3.5, <4",
+    "requests>=2, <3",
+    "marshmallow-dataclass >=8.5.8, <8.6.0",
+    "typing-extensions",
+    "setuptools>=70.1.0",
+]
+version = "1.20.0"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/GitGuardian/py-gitguardian"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "black==24.3.0",
+    "coverage",
+    "flake8",
+    "flake8-isort",
+    "isort",
+    "pre-commit",
+    "pytest",
+    "vcrpy!=4.3.1,<4.4.0,>=4.3.0",
+    "urllib3<2",
+    "scriv[toml]",
+    "responses<0.24.0,>=0.23.1",
+    "pyright==1.1.367",
+]
+
+[tool.pdm.version]
+source = "file"
+path = "pygitguardian/__init__.py"
+
+[tool.black]
+target-version = [
+    "py39",
+]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+lines_after_imports = 2
+
+[tool.pyright]
+include = [
+    "pygitguardian",
+]
+reportIncompatibleMethodOverride = true
+reportMissingParameterType = true
+reportUnknownParameterType = true
+reportUnnecessaryTypeIgnoreComment = true
+
+[tool.scriv]
+version = "literal: pygitguardian/__init__.py: __version__"
+format = "md"
+md_header_level = "2"
+insert_marker = "# Changelog"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: pysdfgen
+Version: 0.2.0
+Summary: SDFGen for Python
+Home-page: https://github.com/iory/pySDFGen
+Author: iory
+Author-email: ab.ioryz@gmail.com
+License: MIT
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Description-Content-Type: text/markdown
+
+# pySDFGen
+
+[![Build Status](https://github.com/iory/pysdfgen/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/iory/pysdfgen/actions)
+
+SDFGen for Python
+
+## Install
+
+```
+pip install pysdfgen
+```
+
+## Example
+
+```
+$ python
+>>> from pysdfgen import mesh2sdf
+>>> mesh2sdf('./examples/bunny.obj')
+# ./examples/bunny.sdf will be created.
+```
+
+

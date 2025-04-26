@@ -1,0 +1,26 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "pytest_freezer"
+authors = [{name = "Wim Jeantine-Glenn", email = "hey@wimglenn.com"}]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Framework :: Pytest",
+]
+version = "0.4.9"
+dependencies = ["pytest >= 3.6", "freezegun >= 1.1"]
+requires-python = ">= 3.6"
+readme = "README.md"
+description = "Pytest plugin providing a fixture interface for spulec/freezegun"
+
+[project.urls]
+Homepage = "https://github.com/pytest-dev/pytest-freezer"
+
+[project.entry-points.pytest11]
+freezer = "pytest_freezer"
+
+[tool.flit.sdist]
+include = ["tests/"]

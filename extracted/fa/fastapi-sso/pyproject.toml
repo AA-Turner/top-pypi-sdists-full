@@ -1,0 +1,119 @@
+[tool.poetry]
+name = "fastapi-sso"
+version = "0.18.0"
+description = "FastAPI plugin to enable SSO to most common providers (such as Facebook login, Google login and login via Microsoft Office 365 Account)"
+authors = ["Tomas Votava <info@tomasvotava.eu>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/tomasvotava/fastapi-sso"
+homepage = "https://tomasvotava.github.io/fastapi-sso/"
+documentation = "https://tomasvotava.github.io/fastapi-sso/"
+keywords = [
+    "fastapi",
+    "sso",
+    "oauth",
+    "google",
+    "facebook",
+    "spotify",
+    "linkedin",
+]
+include = ["fastapi_sso/py.typed"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests/"]
+asyncio_mode = "auto"
+addopts = [
+    "-v",
+    "--cov=fastapi_sso",
+    "--cov-report=xml:coverage.xml",
+    "--cov-report=json:coverage.json",
+    "--cov-report=term-missing",
+]
+
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    #"D",
+    "E",
+    "F",
+    "B",
+    "I",
+    "N",
+    "UP",
+    "S",
+    "A",
+    "DTZ",
+    "PT",
+    "SIM",
+    "PTH",
+    "PD",
+    "RUF",
+    "T20",
+]
+
+ignore = [
+    "B028", # allow warning without specifying `stacklevel`
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["fastapi_sso"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests*/**/*.py" = ["S101"] # Allow asserts in tests
+"**/__init__.py" = ["D104"] # Allow missing docstrings in __init__ files
+
+[tool.poe.tasks]
+ruff = "ruff check fastapi_sso"
+black = "black fastapi_sso"
+isort = "isort --settings-path .isort.cfg fastapi_sso"
+mypy = "mypy --config-file mypy.ini fastapi_sso"
+black-check = "black --check fastapi_sso"
+isort-check = "isort --settings-path .isort.cfg --check-only fastapi_sso"
+
+format = ["black", "isort"]
+lint = ["ruff", "mypy", "black-check", "isort-check"]
+pre-commit = "pre-commit"
+
+test = "pytest"
+coverage = "coverage report"
+
+docs = "mkdocs build --clean"
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.7.0"
+isort = "^5"
+markdown-include = "^0.8.1"
+mkdocs-material = { extras = ["imaging"], version = "^9.3.2" }
+mkdocstrings = { extras = ["python"], version = ">=0.23,<0.27" }
+mypy = "^1"
+poethepoet = ">=0.21.1,<0.31.0"
+pre-commit = "^3"
+pytest = ">=7,<9"
+pytest-asyncio = "^0.24"
+pytest-cov = ">=4,<6"
+uvicorn = ">=0.23.1"
+ruff = ">=0.4.2,<0.12.0"
+
+[tool.poetry.dependencies]
+fastapi = ">=0.80"
+httpx = ">=0.23.0"
+oauthlib = ">=3.1.0"
+pydantic = { extras = ["email"], version = ">=1.8.0" }
+python = ">=3.9,<4.0"
+typing-extensions = { version = "^4.12.2", python = "<3.10" }
+pyjwt = "^2.10.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

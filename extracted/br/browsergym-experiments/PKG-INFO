@@ -1,0 +1,50 @@
+Metadata-Version: 2.3
+Name: browsergym-experiments
+Version: 0.13.3
+Summary: Experimentation tools for BrowserGym
+Project-URL: homepage, https://github.com/ServiceNow/BrowserGym
+Author: Massimo Caccia, Alex Lacoste, Thibault Le Sellier De Chezelles, Maxime Gasse
+License: Apache-2.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >3.7
+Requires-Dist: browsergym-core==0.13.3
+Requires-Dist: dataclasses-json
+Requires-Dist: tiktoken>=0.4
+Provides-Extra: all
+Requires-Dist: browsergym-experiment[assistantbench]; extra == 'all'
+Requires-Dist: browsergym-experiment[miniwob]; extra == 'all'
+Requires-Dist: browsergym-experiment[visualwebarena]; extra == 'all'
+Requires-Dist: browsergym-experiment[webarena]; extra == 'all'
+Requires-Dist: browsergym-experiment[weblinx]; extra == 'all'
+Requires-Dist: browsergym-experiment[workarena]; extra == 'all'
+Provides-Extra: assistantbench
+Requires-Dist: browsergym-assistantbench; extra == 'assistantbench'
+Provides-Extra: miniwob
+Requires-Dist: browsergym-miniwob; extra == 'miniwob'
+Provides-Extra: visualwebarena
+Requires-Dist: browsergym-visualwebarena; extra == 'visualwebarena'
+Provides-Extra: webarena
+Requires-Dist: browsergym-webarena; extra == 'webarena'
+Provides-Extra: weblinx
+Requires-Dist: weblinx-browsergym; extra == 'weblinx'
+Provides-Extra: workarena
+Requires-Dist: browsergym-workarena; extra == 'workarena'
+Description-Content-Type: text/markdown
+
+# BrowserGym experiments
+
+This package provides `browsergym.experiments`, a suite of experimentation tools for [BrowserGym](https://github.com/ServiceNow/BrowserGym).
+
+As a convenience namespace, it also provides `bgym`.
+
+## Setup
+
+1. Install the package
+```sh
+pip install browsergym-experiments
+```

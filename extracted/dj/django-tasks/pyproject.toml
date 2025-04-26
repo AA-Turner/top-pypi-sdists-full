@@ -1,0 +1,107 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools",
+]
+
+[project]
+name = "django-tasks"
+description = "An implementation and backport of background workers and tasks in Django"
+authors = [
+    {name = "Jake Howard"},
+]
+version = "0.6.1"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "Django>=4.2",
+    "typing_extensions",
+    "django-stubs-ext",
+]
+
+[project.urls]
+Source = "https://github.com/RealOrangeOne/django-tasks"
+Issues = "https://github.com/RealOrangeOne/django-tasks/issues"
+Changelog = "https://github.com/RealOrangeOne/django-tasks/releases"
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "coverage",
+    "django-stubs[compatible-mypy]",
+    "dj-database-url",
+]
+mysql = [
+    "mysqlclient"
+]
+postgres = [
+    "psycopg[binary]",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "N", "B", "A", "C4", "T20", "DJ"]
+ignore = ["E501", "DJ008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/db_worker_test_settings.py" = ["F403", "F405"]
+"tests/settings_fast.py" = ["F403", "F405"]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+warn_unused_ignores = true
+warn_return_any = true
+show_error_codes = true
+strict_optional = true
+implicit_optional = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+exclude_also = [
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc.)?abstractmethod",
+
+    # Nor complain about type checking
+    "if TYPE_CHECKING:",
+]

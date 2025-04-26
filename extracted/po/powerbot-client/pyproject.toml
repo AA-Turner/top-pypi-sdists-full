@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "powerbot_client"
+version = "2.22.1"
+description = "PowerBot Asyncio Client"
+authors = ["PowerBot <support@powerbot-trading.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+six = "^1.16.0"
+certifi = "^2024.7.4"
+urllib3 = "^2.2.2"
+python-dateutil = "^2.9.0.post0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

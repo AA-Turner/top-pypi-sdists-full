@@ -1,0 +1,96 @@
+[tool.poetry]
+name = "spaces"
+version = "0.35.0"
+description = "Utilities for Hugging Face Spaces"
+authors = ["Charles Bensimon <charles@huggingface.co>"]
+readme = "README.md"
+homepage = "https://huggingface.co"
+repository = "https://github.com/huggingface/huggingface_hub"
+license = "Apache-2.0"
+
+[tool.poetry.dependencies]
+python = "^3.7" # Actually requires 3.8+ for `import spaces` and 3.9+ for `@spaces.GPU`
+packaging = "*"
+psutil = ">=2,<6"
+typing-extensions = "^4"
+requests = "^2.19"
+gradio = "*" # Actually requires 3.2+ if for `@spaces.GPU`
+pydantic = ">=1,<3"
+httpx = ">=0.20"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+pytest-dotenv = "^0.5.2"
+pytest-mock = "^3.10.0"
+requests-mock = "^1.10.0"
+pytest-timeout = "^2.1.0"
+poethepoet = "^0.20.0"
+coverage = "^7.2.6"
+pyright = "^1.1.311"
+pytest-order = "^1.1.0"
+pynvml = "^11.5.0"
+websockets = "^11.0"
+pytest-asyncio = "^0.21.1"
+pytest-httpx = "^0.27.0"
+
+[tool.poetry.group.test.dependencies]
+diffusers = "*"
+transformers = "*"
+accelerate = "*"
+xformers = "*"
+bitsandbytes = "*"
+torch = "2.4.1"
+scipy = "*"
+peft = "*"
+
+[tool.pytest.ini_options]
+addopts = "-v"
+testpaths = ["tests"]
+env_files = ["tests/.env"]
+
+[tool.coverage.run]
+source = ["spaces"]
+omit = [
+    "spaces/zero/api.py",
+    "spaces/zero/torch/patching_legacy.py",
+]
+concurrency = ["thread", "multiprocessing"]
+
+[tool.coverage.report]
+fail_under = 100
+exclude_also = [
+    "^\\s*if TYPE_CHECKING:\\s*$",
+    "^\\s*assert_never\\(.*\\)\\s*$",
+    "^\\s*debug\\(.*\\)\\s*$",
+    "^\\s*\\.\\.\\.\\s*$",
+]
+
+[tool.poe.tasks.test]
+shell = """set -e
+    pyright
+    coverage erase
+    coverage run -m pytest tests/cpu
+    coverage run -m pytest tests/gpu
+    find e2e -name '*.py' | xargs -I {} coverage run {}
+    coverage combine -q
+    coverage xml  || true
+    coverage html || true
+    coverage report -m
+"""
+
+[tool.poe.tasks.publish]
+shell = """set -e
+    git diff --quiet
+    poetry publish --build
+"""
+
+[tool.pyright]
+include = ["spaces", "tests"]
+pythonVersion = "3.8"
+reportPossiblyUnboundVariable = "error"
+reportUnnecessaryComparison = true
+reportPrivateImportUsage = "information"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

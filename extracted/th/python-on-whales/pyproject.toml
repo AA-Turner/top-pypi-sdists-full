@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-on-whales"
+version = "0.76.1"
+description = "A Docker client for Python, designed to be fun and intuitive!"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8, <4"
+dynamic = ["dependencies"]
+
+# Temporary workaround for https://github.com/astral-sh/uv/issues/9513, https://github.com/pypa/setuptools/issues/4759
+[tool.setuptools]
+license-files = []
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.5.6",
+    "pytest==7.*",
+    "pytest-mock>=3.14.0",
+    "pytz>=2024.2",
+    "astunparse==1.6.3",
+    "griffe==1.2.0",
+    "markdown==3.7",
+    "markupsafe==2.1.5",
+    "mkdocs==1.6.1",
+    "mkdocs-autorefs==1.1.0",
+    "mkdocs-get-deps==0.2.0",
+    "mkdocs-material==9.5.34",
+    "mkdocstrings==0.25.2",
+    "mkdocstrings-python==1.10.9",
+    "pymdown-extensions==10.9",
+]
+
+[project.urls]
+"Source" = "https://github.com/gabrieldemarmiesse/python-on-whales"
+"Documentation" = "https://gabrieldemarmiesse.github.io/python-on-whales/"
+"Bug Tracker" = "https://github.com/gabrieldemarmiesse/python-on-whales/issues"
+
+[project.scripts]
+python-on-whales = "python_on_whales.command_line_entrypoint:main"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docs*"]
+
+[tool.ruff]
+target-version = "py38"
+
+[tool.ruff.lint]
+ignore = [
+  "E501", # Line too long
+]
+select = [
+  "I", # isort
+  "F", # Pyflakes
+  "E", # pycodestyle
+  "W", # pycodestyle
+
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "docker: marks tests as needing a docker engine to run",
+  "podman: marks tests as needing a podman engine to run",
+]
+xfail_strict = true
+pythonpath = ["./"]
+

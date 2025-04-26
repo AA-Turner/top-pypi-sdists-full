@@ -1,0 +1,28 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "aiorun"
+author = "Caleb Hattingh"
+author-email = "caleb.hattingh@gmail.com"
+home-page = "https://github.com/cjrh/aiorun"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent"
+    ]
+description-file = "README.rst"
+requires-python = ">=3.7"
+
+[tool.flit.metadata.requires-extra]
+dev = [
+    "pytest",
+    "pytest-cov"
+]

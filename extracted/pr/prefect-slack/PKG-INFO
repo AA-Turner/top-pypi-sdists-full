@@ -1,0 +1,97 @@
+Metadata-Version: 2.1
+Name: prefect-slack
+Version: 0.3.1
+Summary: Prefect integrations with Slack
+Author-email: "Prefect Technologies, Inc." <help@prefect.io>
+License: Apache License 2.0
+Project-URL: Homepage, https://github.com/PrefectHQ/prefect/tree/main/src/integrations/prefect-slack
+Keywords: prefect
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: slack_sdk>=3.15.1
+Requires-Dist: prefect>=3.0.0
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: interrogate; extra == "dev"
+Requires-Dist: mkdocs-gen-files; extra == "dev"
+Requires-Dist: mkdocs-material; extra == "dev"
+Requires-Dist: mkdocs; extra == "dev"
+Requires-Dist: mkdocstrings[python]; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pillow; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: pytest-env; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+
+# prefect-slack
+
+## Welcome!
+
+`prefect-slack` is a collection of prebuilt Prefect tasks that can be used to quickly construct Prefect flows.
+
+## Getting Started
+
+### Python setup
+
+Requires an installation of Python 3.9+
+
+We recommend using a Python virtual environment manager such as pipenv, conda or virtualenv.
+
+These tasks are designed to work with Prefect 2.0. For more information about how to use Prefect, please refer to the [Prefect documentation](https://docs.prefect.io/).
+
+### Installation
+
+Install `prefect-slack`
+
+```bash
+pip install prefect-slack
+```
+
+### Slack setup
+
+In order to use tasks in the collection, you'll first need to create an Slack app and install it in your Slack workspace. You can create a Slack app by navigating to the [apps page](https://api.slack.com/apps) for your Slack account and selecting 'Create New App'.
+
+For tasks that require a Bot user OAuth token, you can get a token for your app by navigating to your apps __OAuth & Permissions__ page.
+
+For tasks that require and Webhook URL, you get generate new Webhook URLs by navigating to you apps __Incoming Webhooks__ page.
+
+Slack's [Basic app setup](https://api.slack.com/authentication/basics) guide provides additional details on setting up a Slack app.
+
+### Write and run a flow
+
+```python
+from prefect import flow
+from prefect.context import get_run_context
+from prefect_slack import SlackCredentials
+from prefect_slack.messages import send_chat_message
+
+
+@flow
+def example_send_message_flow():
+   context = get_run_context()
+
+   # Run other tasks and subflows here
+
+   token = "xoxb-your-bot-token-here"
+   send_chat_message(
+         slack_credentials=SlackCredentials(token),
+         channel="#prefect",
+         text=f"Flow run {context.flow_run.name} completed :tada:"
+   )
+
+example_send_message_flow()
+```

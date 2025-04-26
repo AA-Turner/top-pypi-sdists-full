@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "pinecone-plugin-interface"
+version = "0.0.7"
+packages = [
+    { include="pinecone_plugin_interface", from="src" },
+    { include="pinecone_plugin_interface/py.typed", from="src" },
+]
+description = "Plugin interface for the Pinecone python client"
+authors = ["Pinecone Systems, Inc. <support@pinecone.io>"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/pinecone-io/python-plugin-interface"
+homepage = "https://www.pinecone.io"
+documentation = "https://pinecone.io/docs"
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.0.0"
+pytest-timeout = "^2.3.1"
+mypy = "^1.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = "src"

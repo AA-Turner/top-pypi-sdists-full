@@ -1,0 +1,23 @@
+Metadata-Version: 1.2
+Name: japanese-numbers-python
+Version: 0.2.1
+Summary: A parser for Japanese number (Kanji, arabic) in the natulal language.
+Home-page: UNKNOWN
+Author: Takumakanari
+Author-email: chemtrails.t@gmail.com
+Maintainer: Takumakanari
+Maintainer-email: chemtrails.t@gmail.com
+License: MIT
+Description: UNKNOWN
+Keywords: japanese numbers parser kanji arabic
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

@@ -1,0 +1,124 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edk2-pytool-extensions"
+maintainers = [{name = "EDK2 Pytool Maintainers", email = "edk2-pytools@microsoft.com"}]
+dynamic = ["version"]
+description = "Python tools supporting UEFI EDK2 firmware development"
+readme = {file = "readme.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = [
+    "edk2-pytool-library>=0.20.0",
+    "pyyaml>=6.0.0",
+    "pefile>=2023.2.7",
+    "semantic_version>=2.10.0",
+    "GitPython>=3.1.30",
+    "openpyxl>=3.1.2",
+    "XlsxWriter>=3.0.9",
+    "pywin32>=305; sys_platform=='win32'",
+    "setuptools>=68.2.2",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
+]
+
+[project.urls]
+homepage = "https://github.com/tianocore/edk2-pytool-extensions"
+documentation = "https://www.tianocore.org/edk2-pytool-extensions/"
+issues = "https://github.com/tianocore/edk2-pytool-extensions/issues"
+
+[project.optional-dependencies]
+dev = [
+    "edk2-pytool-extensions[openssl]",
+    "ruff == 0.9.10",
+    "pytest == 8.3.3",
+    "coverage == 7.6.10",
+    "robotframework == 7.1.1",
+    "regex == 2024.11.6",
+    "pre-commit == 4.1.0",
+]
+publish = [
+    "setuptools == 75.8.2",
+    "build == 1.2.2.post1",
+    "twine == 6.1.0",
+]
+docs = [
+    "black==24.10.0",
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.5.40",
+    "mkdocstrings[python]==0.27.0",
+    "mkdocstrings-python==1.11.1",
+    "markdown-include==0.8.1",
+    "mkdocs-gen-files==0.5.0",
+    "mkdocs-exclude==1.0.2",
+    "mkdocs-awesome-pages-plugin==2.9.3",
+]
+openssl = [
+    "pyopenssl",
+    "cryptography >= 39.0.1",
+]
+
+[project.scripts]
+stuart_setup = "edk2toolext.invocables.edk2_setup:main"
+stuart_update = "edk2toolext.invocables.edk2_update:main"
+stuart_build = "edk2toolext.invocables.edk2_platform_build:main"
+stuart_ci_setup = "edk2toolext.invocables.edk2_ci_setup:main"
+stuart_pr_eval = "edk2toolext.invocables.edk2_pr_eval:main"
+stuart_ci_build = "edk2toolext.invocables.edk2_ci_build:main"
+stuart_parse = "edk2toolext.invocables.edk2_parse:main"
+stuart_report = "edk2toolext.edk2_report:main"
+omnicache = "edk2toolext.omnicache:main"
+nuget-publish = "edk2toolext.nuget_publishing:go"
+patch_var_store_tool = "edk2toolext.uefi.patch_var_store:main"
+sig_db_tool = "edk2toolext.uefi.sig_db_tool:main"
+firmware_policy_tool = "edk2toolext.windows.policy.firmware_policy_tool:main"
+edk2_capsule_tool = "edk2toolext.capsule.capsule_tool:main"
+versioninfo_tool = "edk2toolext.versioninfo.versioninfo_tool:main"
+validate_image_tool = "edk2toolext.image_validation:main"
+secureboot_audit = "edk2toolext.windows.secureboot.secureboot_audit:main"
+
+[tool.setuptools_scm]
+
+[tool.coverage.run]
+include = ["edk2toolext/*"]
+
+[tool.ruff]
+src = ["edk2toolext"]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", # Pycodestyle errors
+    "W", # Pycodestyle warnings
+    "F", # PyFlakes
+    "D", # pydocstyle
+    "I", # isort
+    "PIE", # flake8 - PIE
+    "ANN", # function annotations
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+
+[tool.ruff.lint.flake8-quotes]
+avoid-escape = false
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests.unit"
+]

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools==75.1.0", "wheel~=0.44.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apischema"
+version = "0.19.0"
+authors = [{ name = "Joseph Perez", email = "joperez@hotmail.fr" }]
+license = { text = "MIT" }
+description = "JSON (de)serialization, GraphQL and JSON schema generation using Python typing."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Repository = "https://github.com/wyfo/apischema"
+Documentation = "https://wyfo.github.io/apischema"
+
+[project.optional-dependencies]
+graphql = ["graphql-core>=3.0.0"]
+examples = [
+    "graphql-core>=3.0.0",
+    "attrs",
+    "docstring_parser",
+    "bson",
+    "orjson",
+    "pydantic",
+    "pytest",
+    "sqlalchemy",
+]
+
+[tool.setuptools.packages.find]
+include = ["apischema*"]
+
+[tool.setuptools.package-data]
+apischema = ["py.typed"]
+"apischema.deserialization" = ["methods.c"]
+"apischema.serialization" = ["methods.c"]

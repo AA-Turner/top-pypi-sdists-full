@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: nerfacc
+Version: 0.5.3
+Summary: A General NeRF Acceleration Toolbox
+Home-page: https://github.com/KAIR-BAIR/nerfacc
+Download-URL: https://github.com/KAIR-BAIR/nerfacc/archive/0.5.3.tar.gz
+Author: Ruilong
+Author-email: ruilongli94@gmail.com
+Requires-Python: >=3.7
+Provides-Extra: dev
+License-File: LICENSE

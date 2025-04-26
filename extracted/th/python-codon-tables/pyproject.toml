@@ -1,0 +1,25 @@
+[project]
+name = "python_codon_tables"
+version = "0.1.15"
+license = "CC0-1.0"
+authors = [{ name = "Zulko" }]
+description = "Codon Usage Tables for Python, from kazusa.or.jp"
+readme = "python_codon_tables/README.rst"
+keywords = ["DNA", "codon", "usage"]
+dependencies = ["biopython"]
+
+[project.urls]
+Homepage = "https://github.com/Edinburgh-Genome-Foundry/codon-usage-tables"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+python_codon_tables = ["../codon_usage_data/*", "../codon_usage_data/**/*"]
+
+[tool.setuptools.packages.find]
+exclude = ["docs"]

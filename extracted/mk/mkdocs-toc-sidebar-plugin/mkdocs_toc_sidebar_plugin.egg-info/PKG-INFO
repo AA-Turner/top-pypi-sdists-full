@@ -1,0 +1,23 @@
+Metadata-Version: 1.2
+Name: mkdocs-toc-sidebar-plugin
+Version: 0.1.0
+Summary: An MkDocs plugin
+Home-page: https://github.com/midnightprioriem/mkdocs-toc-sidebar-plugin
+Author: Zach Hannum
+Author-email: zacharyhannum@gmail.com
+License: MIT
+Download-URL: https://github.com/midnightprioriem/mkdocs-toc-sidebar-plugin/archive/v_010.tar.gz
+Description: An MkDocs plugin that allows users to add additional content to the ToC sidebar using the Material theme
+Keywords: mkdocs
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=2.7

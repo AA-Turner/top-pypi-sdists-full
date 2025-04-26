@@ -1,0 +1,94 @@
+Metadata-Version: 2.1
+Name: sklearndf
+Version: 2.3.0
+Summary: Data frame support and feature traceability for `scikit-learn`.
+Home-page: https://github.com/BCG-X-Official/sklearndf
+License: Apache Software License v2.0
+Author: Boston Consulting Group (BCG)
+Requires-Python: >=3.7,<4a
+Description-Content-Type: text/x-rst
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: gamma-pytools  ~=2.1
+Requires-Dist: numpy          >=1.21,<2a
+Requires-Dist: packaging      >=20
+Requires-Dist: pandas         >=1
+Requires-Dist: scikit-learn   >=1,<1.4a
+Requires-Dist: scipy          ~=1.6
+Requires-Dist: sphinx ~= 4.5 ; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints ~= 1.19 ; extra == "docs"
+Requires-Dist: pydata-sphinx-theme ~= 0.8.1 ; extra == "docs"
+Requires-Dist: jinja2 ~= 2.11 ; extra == "docs"
+Requires-Dist: nbsphinx ~= 0.8.9 ; extra == "docs"
+Requires-Dist: jupyter == 1 ; extra == "docs"
+Requires-Dist: docutils ~= 0.17 ; extra == "docs"
+Requires-Dist: xlrd ~= 1.2 ; extra == "docs"
+Requires-Dist: m2r ~= 0.2 ; extra == "docs"
+Requires-Dist: pytest ~= 7.1 ; extra == "testing"
+Requires-Dist: pytest-cov ~= 2.12 ; extra == "testing"
+Requires-Dist: lightgbm ~= 3.0 ; extra == "testing"
+Requires-Dist: xgboost ~= 1.0 ; extra == "testing"
+Project-URL: Documentation, https://bcg-x-official.github.io/sklearndf/
+Project-URL: Repository, https://github.com/BCG-X-Official/sklearndf
+Provides-Extra: docs
+Provides-Extra: testing
+
+*sklearndf* is an open source library designed to address a common need with
+`scikit-learn <https://github.com/scikit-learn/scikit-learn>`__: the outputs of
+transformers are numpy arrays, even when the input is a
+data frame. However, to inspect a model it is essential to keep track of the
+feature names.
+
+To this end, *sklearndf* enhances scikit-learn's estimators as follows:
+
+- **Preserve data frame structure**:
+    Return data frames as results of transformations, preserving feature names as the column index.
+- **Feature name tracing**:
+    Add additional estimator properties to enable tracing a feature name back to its original input feature; this is especially useful for transformers that create new features (e.g., one-hot encode), and for pipelines that include such transformers.
+- **Easy use**:
+    Simply append DF at the end of your usual scikit-learn class names to get enhanced data frame support!
+
+.. Begin-Badges
+
+|pypi| |conda| |python_versions| |code_style| |made_with_sphinx_doc| |License_badge|
+
+.. End-Badges
+
+License
+---------------------------
+
+*sklearndf* is licensed under Apache 2.0 as described in the
+`LICENSE <https://github.com/BCG-X-Official/sklearndf/blob/develop/LICENSE>`_ file.
+
+.. Begin-Badges
+
+.. |conda| image:: https://anaconda.org/bcg_gamma/sklearndf/badges/version.svg
+    :target: https://anaconda.org/BCG_Gamma/sklearndf
+
+.. |pypi| image:: https://badge.fury.io/py/sklearndf.svg
+    :target: https://pypi.org/project/sklearndf/
+
+.. |python_versions| image:: https://img.shields.io/badge/python-3.7|3.8|3.9-blue.svg
+    :target: https://www.python.org/downloads/release/python-380/
+
+.. |code_style| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+
+.. |made_with_sphinx_doc| image:: https://img.shields.io/badge/Made%20with-Sphinx-1f425f.svg
+    :target: https://bcg-x-official.github.io/sklearndf/index.html
+
+.. |license_badge| image:: https://img.shields.io/badge/License-Apache%202.0-olivegreen.svg
+    :target: https://opensource.org/licenses/Apache-2.0
+
+.. End-Badges

@@ -1,0 +1,32 @@
+[tool.ruff]
+target-version = "py38"
+extend-exclude = [
+    "tests/messages/data",
+]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C",
+    "COM", # Trailing commas
+    "E",
+    "F",
+    "I", # import sorting
+    "SIM300", # Yoda conditions
+    "UP", # upgrades
+    "RUF022", # unsorted __all__
+]
+ignore = [
+    "C901", # Complexity
+    "E501", # Line length
+    "E731", # Do not assign a lambda expression (we use them on purpose)
+    "E741", # Ambiguous variable name
+    "UP012", # "utf-8" is on purpose
+    "UP031", # A bunch of places where % formatting is better
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/import_cldr.py" = ["E402"]

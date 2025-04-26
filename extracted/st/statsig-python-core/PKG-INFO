@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: statsig_python_core
+Version: 0.2.1
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: requests
+License: ISC
+Requires-Python: >=3.7

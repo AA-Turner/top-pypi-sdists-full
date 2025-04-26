@@ -1,0 +1,61 @@
+[tool.black]
+target-version = ['py38']
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+lint.fixable = ["ALL"]
+target-version = "py38"
+lint.select = [
+    "F",
+    "E",
+    "W",
+    "C90",
+    "I",
+    "N",
+    "YTT",
+    "S",
+    "BLE",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "CPY",
+    "C4",
+    "T10",
+    "EM",
+    "EXE",
+    # "FA",
+    "ISC",
+    "ICN",
+    "G",
+    "PIE",
+    "PYI",
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SIM",
+    "TCH",
+    "INT",
+    "ARG",
+    "PTH",
+    "ERA",
+    "PL",
+    "PERF",
+    "RUF"
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"utest/*" = [
+    "S",
+    "SLF",
+    "PLR",
+    "B018"
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 9
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"

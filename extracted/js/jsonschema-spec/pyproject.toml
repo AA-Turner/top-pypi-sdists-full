@@ -1,0 +1,81 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source =["jsonschema_spec"]
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"
+
+[tool.mypy]
+files = "jsonschema_spec"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "jsonschema_specifications"
+ignore_missing_imports = true
+
+[tool.poetry]
+name = "jsonschema-spec"
+version = "0.2.4"
+description = "JSONSchema Spec with object-oriented paths"
+authors = ["Artur Maciag <maciag.artur@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.rst"
+repository = "https://github.com/p1c2u/jsonschema-spec"
+keywords = ["jsonschema", "swagger", "spec"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries",
+]
+
+[tool.poetry.dependencies]
+pathable = "^0.4.1"
+python = "^3.8.0"
+PyYAML = ">=5.1"
+requests = {version = "^2.31.0", optional = true}
+referencing = ">=0.28.0,<0.31.0"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "*"
+pytest = "^7.4.0"
+pytest-flake8 = "=1.1.1"
+pytest-cov = "^4.1.0"
+isort = "^5.12.0"
+black = "^23.7.0"
+flynt = "1.0.1"
+mypy = "^1.5.0"
+types-PyYAML = "^6.0.12"
+types-requests = "^2.31.0"
+typing-extensions = "^4.6.0"  # required by responses. See https://github.com/p1c2u/jsonschema-spec/issues/44
+responses = "^0.23.3"
+deptry = "^0.12.0"
+
+[tool.pytest.ini_options]
+addopts = """
+--capture=no
+--verbose
+--showlocals
+--junitxml=reports/junit.xml
+--cov=jsonschema_spec
+--cov-report=term-missing
+--cov-report=xml
+"""
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+line_length = 79
+force_single_line = true

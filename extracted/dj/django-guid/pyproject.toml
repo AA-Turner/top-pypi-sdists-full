@@ -1,0 +1,107 @@
+[tool.poetry]
+name = "django-guid"
+version = "3.5.1"  # Remember to also change __init__.py version
+description = "Middleware that enables single request-response cycle tracing by injecting a unique ID into project logs"
+authors = ["Jonas Krüger Svensson <jonas-ks@hotmail.com>"]
+maintainers = ["Sondre Lillebø Gundersen <sondrelg@live.no>"]
+license = "MIT"
+readme = "docs/README_PYPI.rst"
+homepage = "https://github.com/snok/django-guid"
+repository = "https://github.com/snok/django-guid"
+documentation = "https://django-guid.readthedocs.io/en/latest"
+keywords = [
+    'asgi', 'async', 'async support', 'correlation', 'correlation-id', 'django', 'guid', 'log id', 'logging',
+    'logging id', 'middleware', 'request', 'request id', 'request-id', 'uuid', 'web', 'sentry', 'celery'
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Web Environment',
+    'Framework :: Django',
+    'Framework :: Django :: 4.2',
+    'Framework :: Django :: 5.0',
+    'Framework :: Django :: 5.1',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Topic :: Internet :: WWW/HTTP',
+    'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+    'Topic :: Internet :: WWW/HTTP :: WSGI',
+    'Topic :: Software Development',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Application Frameworks',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+include = ["CHANGELOG.rst"]
+packages = [{ include = 'django_guid' }]
+
+[tool.poetry.urls]
+"Release notes" = "https://github.com/snok/django-guid/releases"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+django = [
+    { version = "^4.0", python = ">=3.8,<3.10" },
+    { version = "^4.0 | ^5.0", python = ">=3.10" }
+]
+
+
+[tool.poetry.group.dev.dependencies]
+coverage = {extras = ["toml"], version = "^6.5.0"}
+pre-commit = "^2.9"
+sphinx = "^2.4.4"
+sphinx_rtd_theme = "^0.4.3"
+pytest = "^8.3.2"
+pytest-django = "^4.9.0"
+pytest-mock = "^3"
+pytest-subtests = "^0.13"
+djangorestframework = "^3.15.0"
+sentry-sdk = ">=0.14.3,<2.9.0"
+gunicorn = "^23.0.0"
+uvicorn = "^0.30.6"
+pytest-asyncio = "^0.24.0"
+celery = "^5.0.2"
+redis = "^3.5.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+target-version = ['py37']
+include = '\.pyi?$'
+exclude = '''
+(
+    (\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|\venv|\.github|\docs|\tests|\__pycache__)
+)
+'''
+
+[tool.isort]
+profile = "black"
+src_paths = ["django_guid"]
+combine_as_imports = true
+line_length = 120
+sections = [
+    'FUTURE',
+    'STDLIB',
+    'DJANGO',
+    'THIRDPARTY',
+    'FIRSTPARTY',
+    'LOCALFOLDER'
+]
+known_django = ['django']
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "pragma: no cover",
+]

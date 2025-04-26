@@ -1,0 +1,65 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "fissix"
+dynamic = ["description", "version"]
+readme = "README.md"
+authors = [
+    {name = "Amethyst Reese", email="amethyst@n7.gg"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Python Software Foundation License",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "appdirs >= 1.4.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "attribution==1.7.1",
+    "black==24.4.0",
+    "flit==3.9.0",
+    "isort==5.8.0",
+    "pytest==8.1.1",
+]
+docs = [
+    "sphinx==7.3.7",
+    "sphinx-mdinclude==0.6.0",
+]
+
+[project.urls]
+Github = "https://github.com/amyreese/fissix"
+
+[tool.flit.sdist]
+include = [
+    "fissix/*.txt",
+]
+exclude = [
+    ".github/",
+    "cpython/",
+    "scripts/",
+    "tests/",
+]
+
+[tool.black]
+# try to remove this after future black updates
+exclude = "tests/data/"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict=true
+addopts = "--strict-markers --strict-config"
+filterwarnings = ["error"]
+
+[tool.attribution]
+name = "fissix"
+package = "fissix"
+signed_tags = true
+version_file = true
+ignored_authors = ["dependabot", "pyup.io"]

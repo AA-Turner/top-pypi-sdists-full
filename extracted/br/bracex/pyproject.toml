@@ -1,0 +1,138 @@
+[build-system]
+requires = [
+    "hatchling>=0.21.1",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "bracex"
+description = "Bash style brace expander."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
+]
+keywords = [
+    "bash",
+    "brace",
+    "expand"
+]
+dynamic = [
+    "classifiers",
+    "version",
+]
+
+[project.urls]
+Homepage = "https://github.com/facelessuser/bracex"
+
+[tool.hatch.version]
+source = "code"
+path = "bracex/__meta__.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/bracex",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/docs/src/markdown/**/*.md",
+    "/docs/src/markdown/**/*.gif",
+    "/docs/src/markdown/**/*.png",
+    "/docs/src/markdown/dictionary/*.txt",
+    "/docs/theme/**/*.css",
+    "/docs/theme/**/*.js",
+    "/docs/theme/**/*.html",
+    "/requirements/*.txt",
+    "/bracex/**/*.py",
+    "/bracex/py.typed",
+    "/tests/**/*.py",
+    "/tests/**/*.txt",
+    "/tests/**/*.sh",
+    "/tools/**/*.py",
+    "/.pyspelling.yml",
+    "/.coveragerc",
+    "/mkdocs.yml"
+]
+
+[tool.mypy]
+files = [
+    "bracex"
+]
+strict = true
+show_error_codes = true
+
+[tool.hatch.metadata.hooks.custom]
+
+[tool.ruff]
+line-length = 120
+
+lint.select = [
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "D",    # pydocstyle
+    "C4",   # flake8-comprehensions
+    "N",    # pep8-naming
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "PGH",  # pygrep-hooks
+    "RUF",  # ruff
+    # "UP",   # pyupgrade
+    "W",    # pycodestyle
+    "YTT",  # flake8-2020,
+    "PERF"  # Perflint
+]
+
+lint.ignore = [
+    "E741",
+    "D202",
+    "D401",
+    "D212",
+    "D203",
+    "N802",
+    "N801",
+    "N803",
+    "N806",
+    "N818",
+    "RUF012",
+    "RUF005",
+    "PGH004",
+    "RUF100"
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+skipsdist=true
+envlist=
+    py38,py39,py310,py311,py312,py313,
+    lint
+
+[testenv]
+passenv= *
+deps=
+    -rrequirements/test.txt
+commands=
+    {envpython} -m mypy
+    {envpython} -m pytest --cov bracex --cov-append tests
+    {envpython} -m coverage html -d {envtmpdir}/coverage
+    {envpython} -m coverage xml
+    {envpython} -m coverage report --show-missing
+
+[testenv:lint]
+passenv= *
+deps=
+    -rrequirements/lint.txt
+commands=
+    "{envbindir}"/ruff check .
+
+[testenv:documents]
+passenv= *
+deps=
+    -rrequirements/docs.txt
+commands=
+    mkdocs build --clean --verbose --strict
+    pyspelling
+"""

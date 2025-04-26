@@ -1,0 +1,66 @@
+[build-system]
+requires = [
+    'flit_core >=3.11,<4',
+]
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'sphinxcontrib-confluencebuilder'
+description = 'Sphinx extension to build Atlassian Confluence Storage Markup'
+authors = [
+    {name = 'Anthony Shaw', email = 'anthonyshaw@apache.org'},
+    {name = 'James Knight', email = 'git@jdknight.me'},
+]
+maintainers = [
+    {name = 'James Knight', email = 'git@jdknight.me'},
+]
+requires-python = '>=3.9'
+readme = 'README.md'
+license = {text = 'BSD-2-Clause'}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'Environment :: Web Environment',
+    'Framework :: Sphinx',
+    'Framework :: Sphinx :: Extension',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Topic :: Documentation',
+    'Topic :: Documentation :: Sphinx',
+    'Topic :: Utilities',
+]
+dependencies = [
+    'requests>=2.25.0',
+    'sphinx>=7.3',
+]
+dynamic = [
+    'version',
+]
+
+[project.urls]
+Documentation = 'https://sphinxcontrib-confluencebuilder.readthedocs.io'
+Download = 'https://pypi.python.org/pypi/sphinxcontrib-confluencebuilder'
+Source = 'https://github.com/sphinx-contrib/confluencebuilder'
+
+[project.scripts]
+sphinx-build-confluence = 'sphinxcontrib.confluencebuilder.__main__:main'
+
+[tool.flit.module]
+name = 'sphinxcontrib.confluencebuilder'
+
+[tool.flit.sdist]
+include = [
+    'AUTHORS',
+    'LICENSE',
+    'LICENSE-3RD-PARTY',
+    'MANIFEST.in',
+]

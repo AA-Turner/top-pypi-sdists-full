@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools", "wheel", "packaging"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linode-cli"
+authors = [{ name = "Akamai Technologies Inc.", email = "developers@linode.com" }]
+description = "The official command-line interface for interacting with the Linode API."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+classifiers = []
+dependencies = [
+    "openapi3",
+    "requests",
+    "PyYAML",
+    "packaging",
+    "rich",
+    "urllib3<3",
+    "linode-metadata>=0.3.0"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+obj = ["boto3>=1.36.0"]
+dev = [
+    "pylint>=2.17.4",
+    "pytest>=7.3.1",
+    "black>=23.1.0",
+    "isort>=5.12.0",
+    "autoflake>=2.0.1",
+    "pytest-mock>=3.10.0",
+    "requests-mock==1.12.1",
+    "boto3-stubs[s3]",
+    "build>=0.10.0",
+    "twine>=4.0.2",
+    "pytest-rerunfailures"
+]
+
+[project.scripts]
+linode-cli = "linodecli:main"
+linode = "linodecli:main"
+lin = "linodecli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "linodecli.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["linodecli*"]
+
+[tool.isort]
+profile = "black"
+line_length = 80
+
+[tool.black]
+line-length = 80
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+
+[tool.autoflake]
+expand-star-imports = true
+ignore-init-module-imports = true
+ignore-pass-after-docstring = true
+in-place = true
+recursive = true
+remove-all-unused-imports = true
+remove-duplicate-keys = true

@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: ais-dom
+Version: 2023.11.0
+Summary: Open-source home automation platform running on Python 3.
+Author-email: The Home Assistant Authors <hello@home-assistant.io>
+License: Apache-2.0
+Project-URL: Homepage, https://www.home-assistant.io/
+Project-URL: Source Code, https://github.com/home-assistant/core
+Project-URL: Bug Reports, https://github.com/home-assistant/core/issues
+Project-URL: Docs: Dev, https://developers.home-assistant.io/
+Project-URL: Discord, https://www.home-assistant.io/join-chat/
+Project-URL: Forum, https://community.home-assistant.io/
+Keywords: home,automation
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.11.0
+Description-Content-Type: text/x-rst
+License-File: LICENSE.md
+
+AI-Speaker
+=================================================================================
+
+Open source home automation that puts local control and privacy first.
+
+Based on  https://home-assistant.io

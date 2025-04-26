@@ -1,0 +1,79 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs",
+  "hatchling",
+]
+
+[project]
+name = "flake8-implicit-str-concat"
+description = "Flake8 plugin to encourage correct string literal concatenation"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [ { name = "Dylan Turner", email = "58230987+keisheiled@users.noreply.github.com" } ]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Framework :: Flake8",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "more-itertools>=8.0.2; python_version<='3.9'",
+]
+
+urls.Homepage = "https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat"
+
+entry-points."flake8.extension".ISC = "flake8_implicit_str_concat:Checker"
+
+[tool.hatch]
+version.source = "vcs"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.ruff]
+fix = true
+
+lint.select = [
+  "C4",     # flake8-comprehensions
+  "E",      # pycodestyle errors
+  "EM",     # flake8-errmsg
+  "F",      # pyflakes errors
+  "I",      # isort
+  "ICN",    # flake8-import-conventions
+  "ISC",    # flake8-implicit-str-concat
+  "LOG",    # flake8-logging
+  "PGH",    # pygrep-hooks
+  "PYI",    # flake8-pyi
+  "RUF022", # unsorted-dunder-all
+  "RUF100", # unused noqa (yesqa)
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warnings
+  "YTT",    # flake8-2020
+]
+lint.ignore = [
+  "E203",  # Whitespace before ':'
+  "E221",  # Multiple spaces before operator
+  "E226",  # Missing whitespace around arithmetic operator
+  "E241",  # Multiple spaces after ','
+  "UP038", # Makes code slower and more verbose
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+
+[tool.mypy]
+pretty = true
+strict = true
+show_error_codes = true

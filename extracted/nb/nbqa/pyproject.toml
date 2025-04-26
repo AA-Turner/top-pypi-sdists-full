@@ -1,0 +1,34 @@
+[tool.interrogate]
+fail-under = 100
+ignore-init-method = true
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.run]
+source = ["nbqa"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: nocover",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "raise AssertionError",
+]
+ignore_errors = true
+omit = [
+  "tests/*",
+]
+
+[tool.pylint.messages_control]
+disable = [
+  "C0103", # snake case for methods (necessary for subclassing ast stuff)
+  "C0301", # line too long (checked by flake8 already)
+  "R0801", # Unfortunately I do need some duplication, e.g. with imports
+  "R0903", # Too few public methods
+  "W1510", # I need to run subprocess.run without check because it's OK if it fails
+  "E0401", # Unable to import '_pytest.capture' (this is just for typing anyway)
+  "E0611", # No name 'TypedDict' in module 'typing'
+]

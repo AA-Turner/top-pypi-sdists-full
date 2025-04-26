@@ -1,0 +1,145 @@
+Metadata-Version: 2.1
+Name: flake8-no-implicit-concat
+Version: 0.3.7
+Summary: Flake8 plugin that forbids implicit str/bytes literal concatenations
+Home-page: https://github.com/10sr/flake8-no-implicit-concat
+Author: 10sr
+Author-email: 8.slashes@gmail.com
+License: MIT
+Project-URL: Bug Tracker, https://github.com/10sr/flake8-no-implicit-concat/issues
+Project-URL: Changelog, https://github.com/10sr/flake8-no-implicit-concat/blob/master/CHANGELOG.md
+Keywords: flake8
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Environment :: Console
+Classifier: Framework :: Flake8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: flake8
+Requires-Dist: more-itertools; python_version < "3.10"
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: hacking>=4; extra == "dev"
+Requires-Dist: flake8-black; extra == "dev"
+Requires-Dist: flake8-isort; extra == "dev"
+Requires-Dist: pep8-naming; extra == "dev"
+Requires-Dist: flake8-broken-line; extra == "dev"
+Requires-Dist: flake8-builtins; extra == "dev"
+Requires-Dist: flake8-2020; extra == "dev"
+Requires-Dist: flake8-docstrings; extra == "dev"
+Requires-Dist: flake8-rst-docstrings; extra == "dev"
+Requires-Dist: darglint; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: codecov; extra == "dev"
+
+[![PyPI version](https://badge.fury.io/py/flake8-no-implicit-concat.svg)](https://badge.fury.io/py/flake8-no-implicit-concat)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-no-implicit-concat)
+[![Downloads](https://pepy.tech/badge/flake8-no-implicit-concat/month)](https://pepy.tech/project/flake8-no-implicit-concat)
+[![build](https://github.com/10sr/flake8-no-implicit-concat/actions/workflows/build.yaml/badge.svg)](https://github.com/10sr/flake8-no-implicit-concat/actions/workflows/build.yaml)
+[![Codecov](https://codecov.io/gh/10sr/flake8-no-implicit-concat/branch/master/graph/badge.svg)](https://codecov.io/gh/10sr/flake8-no-implicit-concat)
+
+
+
+flake8-no-implicit-concat
+=========================
+
+[Flake8][] plugin that forbids implicit str/bytes literal concatenations.
+
+    # Not Allowed
+    print('foo' 'bar', 'baz')
+    a = ["aaa",
+         "bbb"
+         "ccc"]
+    b = b'abc' b'def'
+
+    # OK
+    print('foobar', 'baz')
+    a = ["aaa",
+         "bbb"
+         + "ccc"]
+    b = b'abcdef'
+ 
+
+Installation
+------------
+
+Install via pip:
+
+    pip install flake8-no-implicit-concat
+
+
+Violation Codes
+---------------
+
+The plugin uses the prefix `NIC`, short for No Implicit Concatenation.
+
+| Code   | Description                                                |
+| ------ | ---------------------------------------------------------- |
+| NIC001 | Implicitly concatenated str literals on one line           |
+| NIC002 | Implicitly concatenated str literals over multiple lines   |
+| NIC101 | Implicitly concatenated bytes literals on one line         |
+| NIC102 | Implicitly concatenated bytes literals over multiple lines |
+
+
+Other Plugins & Linters
+-----------------------
+
+- [**flake8-implicit-str-concat**][flake8-implicit-str-concat]
+  Flake8 plugin to encourage correct string literal concatenation.
+  This plugin is different from `flake8-no-implicit-concat`
+  because this plugin prefers implicit concatenations over explicit `+`
+  operators when concatenating literals over multiple lines.
+- [**wemake-python-styleguide**][wemake-python-styleguide]
+  Set of strict flake8 rules with several plugins as dependencies.
+  It implements `WPS326 Found implicit string concatenation`, which also
+  checks implicit string concatenations, as one of the many rules it defines.
+- [**pylint**][pylint] 
+  This linter has `implicit-str-concat` rule.
+  By default it only looks for occurrences of implicit concatenations on the
+  same line, but it has `--check-str-concat-over-line-jumps=y` option
+  to enable checking of concatenations over multiple lines.
+
+
+Development
+-----------
+
+Use tools like Pipenv:
+
+    pipenv run python -m pip install -e .[dev]
+    pipenv run make check
+
+
+License
+-------
+
+This software is released under MIT license. See `LICENSE` for details.
+
+The code was derived from [flake8-implicit-str-concat][], which is developed by
+Dylan Turner and also released under MIT license.
+
+
+
+[Flake8]: https://flake8.pycqa.org/en/latest/
+[flake8-implicit-str-concat]: https://github.com/keisheiled/flake8-implicit-str-concat
+[wemake-python-styleguide]: https://github.com/wemake-services/wemake-python-styleguide
+[pylint]: https://github.com/PyCQA/pylint

@@ -1,0 +1,31 @@
+[build-system]
+build-backend = "cmeel"
+requires = ["cmeel-boost ~= 1.87.0", "cmeel-eigen >= 3.4.0.2", "cmeel[build]", "scipy"]
+
+[project]
+dependencies = ["cmeel-boost ~= 1.87.0"]
+description = "Bindings between Numpy and Eigen using Boost.Python"
+license = "BSD-2-Clause"
+name = "eigenpy"
+requires-python = ">= 3.8"
+version = "3.10.3"
+
+[project.urls]
+changelog = "https://github.com/stack-of-tasks/eigenpy/blob/master/CHANGELOG.md"
+homepage = "https://github.com/cmake-wheel/eigenpy"
+upstream = "https://github.com/stack-of-tasks/eigenpy"
+
+[tool.cmeel]
+run-tests = false
+
+[tool.ruff]
+extend-exclude = ["cmake"]
+
+[tool.ruff.lint]
+extend-select = ["I", "NPY", "RUF", "UP", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eigenpy"]
+
+[tool.tomlsort]
+all = true

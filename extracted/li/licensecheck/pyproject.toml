@@ -1,0 +1,108 @@
+[project]
+name = "licensecheck"
+version = "2025.1.0"
+description = "Output the licenses used by dependencies and check if these are compatible with the project license"
+authors = [{ name = "FredHappyface" }]
+requires-python = ">=3.9"
+readme = "README.md"
+license = "mit"
+classifiers = [
+	"Environment :: Console",
+	"Environment :: MacOS X",
+	"Environment :: Win32 (MS Windows)",
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"Intended Audience :: Education",
+	"Natural Language :: English",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: Implementation :: CPython",
+	"Topic :: Security",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+	"Topic :: Utilities",
+]
+dependencies = [
+    "appdirs>=1.4.4",
+    "fhconfparser>=2024.1",
+    "license-expression>=30.4.1",
+    "loguru>=0.7.3",
+    "markdown>=3.7",
+    "packaging>=24.2",
+    "requests>=2.32.3",
+    "requests-cache>=1.2.1",
+    "requirements-parser>=0.11.0",
+    "rich>=13.9.4",
+    "tomli>=2.2.1",
+    "uv>=0.6.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/FHPythonUtils/LicenseCheck"
+Repository = "https://github.com/FHPythonUtils/LicenseCheck"
+Documentation = "https://github.com/FHPythonUtils/LicenseCheck/blob/master/README.md"
+
+[project.scripts]
+licensecheck = "licensecheck:cli"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.12",
+    "handsdown>=2.1.0",
+    "pyright>=1.1.396",
+    "pytest>=8.3.5",
+    "pytest-loguru>=0.4.0",
+    "ruff>=0.11.0",
+    "safety>=3.3.1",
+]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+	"COM812",  # enforce trailing comma
+	"D2",  # pydocstyle formatting
+	"ISC001",
+	"N",  # pep8 naming
+	"PLR09",  # pylint refactor too many
+	"TCH",  # type check blocks
+	"W191"  # ignore this to allow tabs
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs,tools}/*" = ["D", "S101", "E402", "ERA001"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all" # Disallow all relative imports.
+
+[tool.ruff.format]
+indent-style = "tab"
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+[tool.licensecheck]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+env_list =
+	py311
+	py310
+	py39
+	py38
+
+[testenv]
+deps = pytest
+commands = pytest tests
+"""
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

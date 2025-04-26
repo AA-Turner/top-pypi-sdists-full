@@ -1,0 +1,87 @@
+[project]
+name = "cdp-sdk"
+version = "1.2.1"
+description = "CDP SDK"
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "cryptography>=42.0.0",
+    "pydantic==2.10.3",
+    "PyJWT>=2.10.1",
+    "python-dateutil==2.9.0.post0",
+    "urllib3==2.2.3",
+    "aiohttp==3.11.16",
+    "aiohttp-retry==2.9.1",
+    "web3==7.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=4.1.0",
+    "python-dotenv>=1.0.0",
+    "sphinx>=8.1.3",
+    "myst-parser>=4.0.1",
+    "sphinx-autodoc-typehints>=3.0.1",
+    "sphinxcontrib-napoleon>=0.7",
+    "sphinx-autobuild>=2024.10.3",
+    "pyyaml>=6.0",
+    "ruff>=0.7.1,<0.8",
+    "solana>=0.30.2",
+    "towncrier>=24.8.0,<25"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    "cdp/openapi_client"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "D", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["D213", "D203", "D100", "D104", "D107", "E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["cdp"]
+combine-as-imports = true
+
+[tool.hatch.build.targets.sdist]
+include = ["cdp"]
+exclude = ["cdp/examples"]
+
+[tool.hatch.build.targets.wheel]
+include = ["cdp"]
+exclude = ["cdp/examples"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+addopts = "--cov=cdp --cov-report=html"
+markers = [
+  "e2e: e2e tests, requiring env, deselect with '-m \"not e2e\"'",
+]
+
+[tool.towncrier]
+package = "cdp"
+filename = "CHANGELOG.md"
+directory = "changelog.d/"
+title_format = "## [{version}] - {project_date}"
+issue_format = "[#{issue}](https://github.com/coinbase/cdp-sdk/pull/{issue})"
+
+[project.scripts]
+test = "pytest:main"
+

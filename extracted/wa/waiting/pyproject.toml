@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=0.25.1", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "waiting"
+description = "Utility for waiting for stuff to happen"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = { text = "BSD 3-Clause License" }
+
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = []
+dynamic = ["version"]
+
+authors = [{ name = "Rotem Yaari", email = "vmalloc@gmail.com" }]
+
+[project.urls]
+"Homepage" = "https://github.com/getslash/waiting"
+
+[project.optional-dependencies]
+testing = ["pyforge", "pytest"]
+
+[tool.hatch.version]
+source = "vcs"

@@ -1,0 +1,117 @@
+Metadata-Version: 2.4
+Name: ensureconda
+Version: 1.4.7
+Summary: Lightweight bootstrapper for a conda executable
+Project-URL: Homepage, https://github.com/conda-incubator/ensureconda
+Author-email: Marius van Niekerk <marius.v.niekerk@gmail.com>
+License-Expression: MIT
+License-File: LICENSE-MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Requires-Dist: appdirs
+Requires-Dist: click>=5.1
+Requires-Dist: filelock
+Requires-Dist: packaging
+Requires-Dist: requests>=2
+Provides-Extra: dev
+Requires-Dist: black; extra == 'dev'
+Requires-Dist: build; extra == 'dev'
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: docker; extra == 'dev'
+Requires-Dist: flake8; extra == 'dev'
+Requires-Dist: isort; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pip; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: types-click; extra == 'dev'
+Requires-Dist: types-filelock; extra == 'dev'
+Requires-Dist: types-requests; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# ensureconda
+
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/conda-incubator/ensureconda/test.yml?branch=main)](https://github.com/conda-incubator/ensureconda/actions?query=workflow%3A%22Python+package%22)
+[![Licence: MIT](https://img.shields.io/github/license/conda-incubator/ensureconda)](https://github.com/conda-incubator/ensureconda/blob/master/LICENSE-MIT)
+[![PyPI](https://img.shields.io/pypi/v/ensureconda)](https://pypi.org/project/ensureconda)
+[![code-style Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://https://github.com/psf/black)
+
+## Installation
+
+### Python-based
+
+ensureconda is distributed on [PyPI](https://pypi.org) as a universal
+wheel and is available on Linux, macOS and Windows and supports
+Python 3.8+ and PyPy.
+
+```bash
+$ pip install ensureconda
+```
+
+### Go based
+
+Additionally ensureconda is also available as a statically linked fully stand-alone
+golang binary.  This is a full reimplementation with the same cli as the python version
+
+These can be downloaded from [releases](https://github.com/conda-incubator/ensureconda/releases/latest)
+
+Alternatively if you have go installed you can install from githubg using
+
+```shell
+$ go install github.com/conda-incubator/ensureconda@latest
+$ ensureconda --help
+```
+
+## Usage
+
+Ensureconda is a cli tool that will
+
+1. Find a preexisting conda/mamba executable
+2. Install one if nothing was found and installation is allowed.
+3. Return the path of the executable found/installed on stdout
+
+```
+ensureconda --help
+Usage: ensureconda [OPTIONS]
+
+  Ensures that a conda/mamba is installed.
+
+Options:
+  --mamba / --no-mamba            search for mamba
+  --micromamba / --no-micromamba  search for micromamba, install if not
+                                  present
+
+  --conda / --no-conda            search for conda
+  --conda-exe / --no-conda-exe    search for conda.exe / conda-standalone,
+                                  install if not present
+
+  --no-install                    don't install conda/mamba if no version can
+                                  be discovered
+
+  --min-conda-version VERSIONNUMBER
+                                  minimum version of conda to accept (defaults
+                                  to 4.8.2)
+
+  --min-mamba-version VERSIONNUMBER
+                                  minimum version of mamba/micromamba to
+                                  accept (defaults to 0.7.3)
+
+  --help                          Show this message and exit.
+```
+
+
+## License
+
+ensureconda is distributed under the terms of the
+[MIT License](https://choosealicense.com/licenses/mit).

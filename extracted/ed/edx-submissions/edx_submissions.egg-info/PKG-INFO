@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: edx-submissions
+Version: 3.10.0
+Summary: An API for creating submissions and scores.
+Home-page: http://github.com/openedx/edx-submissions.git
+Author: edX
+License: AGPL
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE.txt
+Requires-Dist: Django
+Requires-Dist: django-model-utils
+Requires-Dist: djangorestframework
+Requires-Dist: edx-django-release-util
+Requires-Dist: jsonfield
+Requires-Dist: pytz
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+An API for creating and scoring submissions for the Open edX platform

@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: dohq-artifactory
+Version: 1.0.1
+Summary: A Python interface to Artifactory
+Home-page: https://devopshq.github.io/artifactory/
+Download-URL: https://github.com/devopshq/artifactory
+Author: Alexey Burov
+Author-email: aburov@ptsecurity.com
+License: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Filesystems
+License-File: LICENSE
+Requires-Dist: requests>=2.30.0
+Requires-Dist: python-dateutil
+Requires-Dist: PyJWT~=2.0
+Provides-Extra: tests
+Requires-Dist: pytest>=7.0.0; extra == "tests"
+Requires-Dist: responses>=0.23.1; extra == "tests"
+Requires-Dist: mock; extra == "tests"
+Requires-Dist: flake8; extra == "tests"
+
+See full documentation here: https://devopshq.github.io/artifactory/

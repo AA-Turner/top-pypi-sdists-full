@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: conjure-python-client
+Version: 3.0.0
+Summary: Conjure Python Library
+Home-page: https://github.com/palantir/conjure-python-client
+Author: Palantir Technologies, Inc.
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: requests

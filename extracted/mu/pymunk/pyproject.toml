@@ -1,0 +1,90 @@
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools<74; platform_system=='Windows' and implementation_name=='pypy'",
+    "wheel",
+    "cffi >= 1.17.1; platform_system != 'Emscripten'",
+    "cffi > 1.14.0; platform_system == 'Emscripten'",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymunk"
+version = "6.11.1" # remember to change me for new versions!
+# Require cffi >1.14.0 since that (and older) has problem with returing structs from functions.
+# Require cffi >= 1.17.1 since older cant work with latest setuptools version
+dependencies = [
+    "cffi >= 1.17.1; platform_system != 'Emscripten'",
+    "cffi > 1.14.0; platform_system == 'Emscripten'",
+]
+authors = [{ name = "Victor Blomqvist", email = "vb@viblo.se" }]
+readme = "README.rst"
+description = "Pymunk is a easy-to-use pythonic 2D physics library"
+keywords = ["pygame", "2d", "physics", "rigid body"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: pygame",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = ["pyglet", "pygame", "sphinx", "aafigure", "wheel", "matplotlib", "numpy"]
+[project.urls]
+Homepage = "https://www.pymunk.org"
+Documentation = "https://www.pymunk.org"
+Repository = "https://github.com/viblo/pymunk.git"
+Issues = "https://github.com/viblo/viblo/issues"
+Changelog = "https://github.com/viblo/pymunk/blob/master/CHANGELOG.rst"
+
+[tool.setuptools.package-data]
+"pymunk.examples" = ["*.png", "*.wav"]
+
+[tool.setuptools.exclude-package-data]
+
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+
+[tool.mypy]
+disallow_untyped_defs = true
+strict_equality = true
+warn_unused_configs = true
+disallow_any_generics = true
+warn_redundant_casts = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+check_untyped_defs = true
+warn_unused_ignores = true
+
+# Because many values are returned directly from CFFI/Chipmunk (and are therefore Any)
+warn_return_any = false
+
+# Because decorators are mostly from CFFI used for callbacks (and therefor untyped)
+disallow_untyped_decorators = false
+
+exclude = [
+    '^pymunk/examples/.*$', # exclude examples from type checking
+]
+
+
+[[tool.mypy.overrides]]
+module = "pymunk.util"
+# This is not typed
+disallow_untyped_defs = false
+check_untyped_defs = false

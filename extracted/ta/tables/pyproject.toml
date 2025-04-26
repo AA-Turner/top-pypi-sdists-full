@@ -1,0 +1,207 @@
+[build-system]
+# Build Python requirements, keep Cython in sync with
+# "Prerequisites" in User's Guide,
+# build jobs in `.github/workflows/*.yml`.
+requires = [
+    "setuptools >= 61.0.0",
+    "wheel",
+    # NOTE: it is still possible to build PyTables with numpy 1.x
+    # Please refer to https://github.com/PyTables/PyTables/issues/1200
+    # If you change this to build with `numpy` 1, please update `numpy` in `dependencies` as well
+    # "numpy >= 1.20.0,<2",
+    "numpy >= 2",
+    "packaging",
+    "py-cpuinfo",
+    "Cython >= 3.0.11",
+    # Included here for seamless wheel builds.
+    # Packagers can choose to replace it by externally provided
+    # c-blosc2 library and headers
+    "blosc2 >= 2.3.0",
+]
+build-backend = "setuptools.build_meta"
+# build-backend = "mesonpy"  # and replace ``setuptools`` above
+
+
+[project]
+name = "tables"
+dynamic = [ "version" ]
+description = "Hierarchical datasets for Python"
+# Keep Python versions in sync with
+# `classifiers` below,
+# `min_python_version` in `setup.py`.
+requires-python = ">=3.11"
+license = { text = "BSD 3-Clause License" }
+keywords = [ "hdf5" ]
+authors = [
+    { name = "Francesc Alted" },
+    { name = "Ivan Vilata" },
+    { name = "Antonio Valentino" },
+    { name = "Anthony Scopatz" },
+    { name = "et al." },
+    { email = "pytables@pytables.org" },
+]
+maintainers = [
+    { name = "PyTables maintainers", email = "pytables@pytables.org" },
+]
+# Keep Python versions in sync with
+# `requires_python` above,
+# "Prerequisites" in User's Guide,
+# `jobs.build.strategy.matrix.python` in `.github/workflows/ci.yml`,
+# `jobs.build_wheels.env.CIBW_SKIP` in `.github/workflows/wheels.yml`.
+# `jobs.build_wheels_windows.env.CIBW_BUILD` in `.github/workflows/wheels.yml`.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+# Runtime Python requirements, keep in sync with
+# "Prerequisites" in User's Guide,
+# ``requirements.txt``,
+# `jobs.build.steps` in `.github/workflows/ubuntu.yml`.
+dependencies = [
+    "numpy >= 1.20.0",
+    "numexpr >= 2.6.2",
+    "packaging",
+    "py-cpuinfo",
+    "blosc2 >= 2.3.0",
+    "typing-extensions >= 4.4.0",
+]
+
+
+[project.readme]
+text = """
+PyTables is a package for managing hierarchical datasets and
+designed to efficiently cope with extremely large amounts of
+data. PyTables is built on top of the HDF5 library and the
+NumPy package and features an object-oriented interface
+that, combined with C-code generated from Cython sources,
+makes of it a fast, yet extremely easy to use tool for
+interactively save and retrieve large amounts of data.
+"""
+content-type = "text/x-rst"
+
+
+[project.urls]
+homepage = "http://www.pytables.org"
+documentation = "http://www.pytables.org"
+repository = "https://github.com/PyTables/PyTables"
+changelog = "http://www.pytables.org/release_notes.html"
+tracker = "https://github.com/PyTables/PyTables/issues"
+
+
+[project.scripts]
+ptdump = "tables.scripts.ptdump:main"
+ptrepack = "tables.scripts.ptrepack:main"
+pt2to3 = "tables.scripts.pt2to3:main"
+pttree = "tables.scripts.pttree:main"
+
+
+[tool.setuptools]
+platforms = [ "any" ]
+zip-safe = false
+# include-package-data = true
+license-files = [ "LICENSE.txt" ]
+
+
+[tool.setuptools.dynamic]
+version = { attr = "tables._version.__version__" }
+
+
+[tool.setuptools.packages.find]
+exclude = [ "bench" ]
+namespaces = false
+
+
+[tool.setuptools.package-data]
+tables = [ "*.dll", "*.so*", "*.dylib" ]
+"tables.tests" = [ "*.h5", "*.mat" ]
+"tables.nodes.tests" = [ "*.dat", "*.xbm", "*.h5" ]
+
+[tool.cibuildwheel]
+skip = "*-musllinux_* cp310*"
+build = "cp*"
+build-verbosity = 1
+test-command = [
+    "python -c \"import tables; keys = 'zlib bzip2 blosc blosc2'.split(); missing = [key for key in keys if tables.which_lib_version(key) is None]; assert missing == [], missing\"",
+    "python -m tables.tests.test_all",
+]
+test-skip = "*_aarch64"
+# Keep in sync with ``build-system.requires`` above
+before-build = "python -m pip install -q --require-hashes -r .github/workflows/requirements/build-requirements.txt -r requirements.txt"
+
+[tool.cibuildwheel.linux]
+before-all = [
+    "cp -r `pwd`/hdf5_build /tmp/hdf5",
+    "rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux",
+    "yum -y install epel-release",
+    "yum -y update",
+    "yum install -y zlib-devel bzip2-devel",
+]
+
+[tool.cibuildwheel.linux.environment]
+HDF5_DIR = "/tmp/hdf5"
+DISABLE_AVX2 = "true"
+CFLAGS = "-g0"
+LD_LIBRARY_PATH = "/tmp/hdf5/lib:${LD_LIBRARY_PATH}"
+PKG_CONFIG_PATH = "/tmp/hdf5/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+[tool.cibuildwheel.macos]
+before-all = [
+    "cp -r `pwd`/hdf5_build /tmp/hdf5",
+]
+repair-wheel-command = [
+    "DYLD_LIBRARY_PATH=/tmp/hdf5/lib delocate-listdeps {wheel}",
+    "DYLD_LIBRARY_PATH=/tmp/hdf5/lib delocate-wheel --require-archs {delocate_archs} -w {dest_dir} {wheel}",
+]
+
+[tool.cibuildwheel.macos.environment]
+CC = "/usr/bin/clang"
+CXX = "/usr/bin/clang"
+LZO_DIR = "/tmp/hdf5"
+BZIP2_DIR = "/tmp/hdf5"
+HDF5_DIR = "/tmp/hdf5"
+DISABLE_AVX2 = "true"
+CFLAGS = "-g0"
+LD_LIBRARY_PATH = "/tmp/hdf5/lib:${LD_LIBRARY_PATH}"
+PKG_CONFIG_PATH = "/tmp/hdf5/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+[tool.cibuildwheel.windows]
+before-build = [
+    "python -m pip install -q --require-hashes -r requirements.txt",
+    "python -m pip install delvewheel",
+]
+# We check for "libblosc2.dll" so don't let delvewheel mangle it
+repair-wheel-command = "delvewheel repair --no-mangle libblosc2.dll -v -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.windows.environment]
+DISABLE_AVX2 = "TRUE"
+
+[tool.black]
+line-length = 79
+# target-version = ['py311']
+extend-exclude = "c-blosc/*"
+
+
+[tool.isort]
+profile = "black"
+length_sort = true
+no_inline_sort = true
+include_trailing_comma = true
+use_parentheses = true
+line_length = 79
+# skip_glob = ["packagename/parse/*"]
+
+[tool.pydocstyle]
+add-ignore = ["D105", "D107"]

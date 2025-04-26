@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: pulp-cli-deb
+Version: 0.3.2
+Summary: Command line interface to talk to pulpcore's REST API. (Deb plugin commands)
+Author-email: Pulp Team <pulp-list@redhat.com>
+License: GPLv2+
+Project-URL: repository, https://github.com/pulp/pulp-cli-deb
+Project-URL: changelog, https://github.com/pulp/pulp-cli-deb/blob/main/CHANGES.md
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: System :: Software Distribution
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown

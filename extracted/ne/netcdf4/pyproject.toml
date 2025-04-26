@@ -1,0 +1,101 @@
+[build-system]
+requires = [
+    "Cython>=0.29",
+    "oldest-supported-numpy ; python_version < '3.9'",
+    "numpy>=2.0.0rc1 ; python_version >= '3.9'",
+    "setuptools>=61", "setuptools_scm[toml]>=3.4"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netCDF4"
+description = "Provides an object-oriented python interface to the netCDF version 4 library"
+authors = [
+  {name = "Jeff Whitaker", email = "jeffrey.s.whitaker@noaa.gov"},
+]
+requires-python = ">=3.8"
+keywords = [
+    "numpy", "netcdf", "data", "science", "network", "oceanography",
+    "meteorology", "climate",
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Archiving :: Compression",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "cftime",
+    "certifi",
+    "numpy",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tests = [
+  "Cython",
+  "packaging",
+  "pytest",
+]
+
+[project.readme]
+text = """\
+netCDF version 4 has many features not found in earlier versions of the library,
+such as hierarchical groups, zlib compression, multiple unlimited dimensions,
+and new data types.  It is implemented on top of HDF5.  This module implements
+most of the new features, and can read and write netCDF files compatible with
+older versions of the library.  The API is modelled after Scientific.IO.NetCDF,
+and should be familiar to users of that module.
+"""
+content-type = "text/x-rst"
+
+[project.scripts]
+nc3tonc4 = "netCDF4.utils:nc3tonc4"
+nc4tonc3 = "netCDF4.utils:nc4tonc3"
+ncinfo = "netCDF4.utils:ncinfo"
+
+[project.urls]
+Documentation = "https://unidata.github.io/netcdf4-python/"
+Repository = "https://github.com/Unidata/netcdf4-python"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"netCDF4.plugins" = ["lib__nc*"]
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+pythonpath = ["test"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+]
+
+[tool.mypy]
+files = ["src/netCDF4"]
+exclude = "utils.py"
+check_untyped_defs = true
+allow_redefinition = true
+# next 2 lines workarounds for mypy dealing with type_guards.py
+mypy_path = "test"
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+  "cftime.*",
+  "cython.*",
+  "filter_availability",
+  "matplotlib.*"
+]

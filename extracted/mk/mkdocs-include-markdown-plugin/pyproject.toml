@@ -1,0 +1,212 @@
+[project]
+name = "mkdocs-include-markdown-plugin"
+version = "7.1.5"
+description = "Mkdocs Markdown includer plugin."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: Apache Software License",
+  "Intended Audience :: Developers",
+  "Topic :: Documentation",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Text Processing",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+keywords = ["markdown", "mkdocs", "includer", "plugin"]
+dependencies = [
+  "mkdocs>=1.4",
+  "wcmatch"
+]
+
+[[project.authors]]
+name = "Joe Rickerby"
+
+[[project.authors]]
+name = "Álvaro Mondéjar Rubio"
+email = "mondejar1994@gmail.com"
+
+[[project.maintainers]]
+name = "Álvaro Mondéjar Rubio"
+email = "mondejar1994@gmail.com"
+
+[project.urls]
+Source = "https://github.com/mondeja/mkdocs-include-markdown-plugin"
+Documentation = "https://github.com/mondeja/mkdocs-include-markdown-plugin#documentation"
+"Bug tracker" = "https://github.com/mondeja/mkdocs-include-markdown-plugin/issues"
+Changelog = "https://github.com/mondeja/mkdocs-include-markdown-plugin/releases"
+
+[project.entry-points."mkdocs.plugins"]
+include-markdown = "mkdocs_include_markdown_plugin.plugin:IncludeMarkdownPlugin"
+
+[project.optional-dependencies]
+cache = ["platformdirs"]
+
+[tool.hatch.build]
+include = ["/src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mkdocs_include_markdown_plugin"]
+
+[tool.hatch.envs.default]
+python = "3.10"
+dependencies = ["mondeja-bump"]
+
+[tool.hatch.envs.style]
+python = "3.10"
+detached = true
+dependencies = ["pre-commit"]
+
+[tool.hatch.envs.style.scripts]
+lint = "pre-commit run -a"
+
+[tool.hatch.envs.tests]
+matrix-name-format = "{variable}-{value}"
+dependencies = ["pytest~=7.0", "coverage~=6.4", "covdefaults"]
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["py39", "py310", "py311", "py312", "py313"]
+mkdocs = ["1.4.0", "1.4.3", "1.5.0", "1.5.3", "1.6.0"]
+cache = ["yes", "no"]
+
+[tool.hatch.envs.tests.overrides]
+matrix.mkdocs.dependencies = [
+  { value = "mkdocs==1.4.0", if = ["1.4.0"] },
+  { value = "mkdocs==1.4.3", if = ["1.4.3"] },
+  { value = "mkdocs==1.5.0", if = ["1.5.0"] },
+  { value = "mkdocs==1.5.3", if = ["1.5.3"] },
+  { value = "mkdocs==1.6.0", if = ["1.6.0"] },
+]
+matrix.cache.dependencies = [{ value = "platformdirs", if = ["yes"] }]
+
+[tool.hatch.envs.tests.scripts]
+all = "coverage run -m pytest"
+unit = "coverage run -m pytest tests/test_unit"
+integration = "pytest tests/test_integration --override-ini addopts=-svv"
+cov = [
+  "hatch run +py=py310 tests:all",
+  "coverage html",
+  "python -c 'import webbrowser as w;w.open(\"http://127.0.0.1:8088\")'",
+  "python -m http.server 8088 -b localhost -d htmlcov",
+]
+
+[tool.bump]
+targets = [{ file = "pyproject.toml" }]
+
+[tool.project-config]
+cache = "2 days"
+style = [
+  "gh://mondeja/project-config-styles@v5.5/base/pre-commit/md2po2md.json5",
+  "gh://mondeja/project-config-styles@v5.5/python/base.json5",
+  "gh://mondeja/project-config-styles@v5.5/python/mypy.json5",
+]
+
+[tool.coverage.run]
+source = ["src"]
+plugins = ["covdefaults"]
+parallel = true
+data_file = ".coverage/.coverage"
+
+[tool.coverage.report]
+exclude_lines = ["def __repr__\\(", "@(abc\\.)?abstractmethod"]
+fail_under = 1
+
+[tool.ruff]
+line-length = 80
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+  "W",
+  "B",
+  "E",
+  "I",
+  "F",
+  "A",
+  "D",
+  "G",
+  "Q",
+  "PL",
+  "UP",
+  "PT",
+  "C4",
+  "EXE",
+  "ISC",
+  "T20",
+  "INP",
+  "ARG",
+  "SIM",
+  "RET",
+  "FBT",
+  "ERA",
+  "T10",
+  "COM",
+  "SLOT",
+]
+ignore = ["G004"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+parametrize-values-type = "tuple"
+parametrize-values-row-type = "tuple"
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+combine-as-imports = true
+force-wrap-aliases = true
+known-first-party = ["mkdocs_include_markdown_plugin", "testing_helpers"]
+known-local-folder = ["tests"]
+required-imports = ["from __future__ import annotations"]
+extra-standard-library = [
+  "zoneinfo",
+  "graphlib",
+  "tomllib",
+  "wsgiref.types"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "I002",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D107",
+  "D205",
+  "D415",
+  "INP001",
+  "PLR0913",
+  "PLR2004",
+]
+"setup.py" = ["D205", "INP001", "I002"]
+"src/mkdocs_include_markdown_plugin/plugin.py" = [
+  "D100",
+  "D101",
+  "D102",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+allow_untyped_calls = true
+allow_any_generics = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

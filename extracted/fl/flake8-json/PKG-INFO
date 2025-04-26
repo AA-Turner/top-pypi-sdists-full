@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: flake8_json
+Version: 24.4.0
+Summary: JSON Formatting Reporter plugin for Flake8
+Home-page: https://github.com/pycqa/flake8-json
+Author: Ian Stapleton Cordasco
+Author-email: graffatcolmingov@gmail.com
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: Flake8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+
+Flake8-JSON
+===========
+
+This is a plugin for Flake8 that will format the output as JSON. The output of
+the default JSON formatter is not pretty-printed. If you'd like the output to
+be pretty-printed, use json-pretty instead.
+
+CodeClimate support is also offered through this plugin as of v20.12.0
+
+
+Installation
+------------
+
+.. code-block:: bash
+
+    pip install flake8-json
+
+
+Usage
+-----
+
+.. code-block:: bash
+
+    flake8 --format=json ...
+
+.. code-block:: bash
+
+    flake8 --format=json-pretty ...
+
+.. code-block:: bash
+
+    flake8 --format=codeclimate ...
+
+
+Competitors
+-----------
+
+None that I could find on PyPI
+
+
+Maintenance Policy
+------------------
+
+This project is seeking maintainers. Please open an issue if you're interested
+and ensure that you've read the PyCQA's `Code of Conduct`_.
+
+
+.. _Code of Conduct:
+    http://meta.pycqa.org/en/latest/code-of-conduct.html

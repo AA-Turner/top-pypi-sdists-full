@@ -1,0 +1,296 @@
+Metadata-Version: 2.1
+Name: Red-DiscordBot
+Version: 3.5.18
+Summary: A highly customisable Discord bot
+Author: Cog Creators
+Project-URL: Homepage, https://github.com/Cog-Creators/Red-DiscordBot
+Project-URL: Discord Server, https://discord.gg/red
+Project-URL: Documentation, https://docs.discord.red
+Project-URL: Donate on Patreon, https://www.patreon.com/Red_Devs
+Project-URL: Issue Tracker, https://github.com/Cog-Creators/Red-DiscordBot/issues
+Project-URL: Source Code, https://github.com/Cog-Creators/Red-DiscordBot
+Project-URL: Changelog, https://docs.discord.red/en/stable/changelog.html
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Communications :: Chat
+Requires-Python: >=3.8.1,<3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: redbot/vendored/discord-ext-menus.LICENSE
+Requires-Dist: aiohttp==3.9.5
+Requires-Dist: aiohttp-json-rpc==0.13.3
+Requires-Dist: aiosignal==1.3.1
+Requires-Dist: apsw==3.46.1.0
+Requires-Dist: attrs==25.3.0
+Requires-Dist: babel==2.17.0
+Requires-Dist: brotli==1.1.0
+Requires-Dist: click==8.1.8
+Requires-Dist: discord-py==2.5.2
+Requires-Dist: frozenlist==1.5.0
+Requires-Dist: idna==3.10
+Requires-Dist: markdown==3.7
+Requires-Dist: markdown-it-py==3.0.0
+Requires-Dist: mdurl==0.1.2
+Requires-Dist: multidict==6.1.0
+Requires-Dist: orjson==3.10.15
+Requires-Dist: packaging==24.2
+Requires-Dist: platformdirs==4.3.6
+Requires-Dist: propcache==0.2.0
+Requires-Dist: psutil==7.0.0
+Requires-Dist: pygments==2.19.1
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: rapidfuzz==3.9.7
+Requires-Dist: red-commons==1.0.0
+Requires-Dist: red-lavalink==0.11.0
+Requires-Dist: rich==13.9.4
+Requires-Dist: schema==0.7.7
+Requires-Dist: six==1.17.0
+Requires-Dist: typing-extensions==4.13.0
+Requires-Dist: yarl==1.15.2
+Requires-Dist: zstandard==0.23.0
+Requires-Dist: async-timeout==4.0.3; python_version != "3.11"
+Requires-Dist: colorama==0.4.6; sys_platform == "win32"
+Requires-Dist: distro==1.9.0; sys_platform == "linux" and sys_platform == "linux"
+Requires-Dist: importlib-metadata==8.5.0; python_version != "3.10" and python_version != "3.11"
+Requires-Dist: pytz==2025.2; python_version == "3.8"
+Requires-Dist: uvloop==0.21.0; (sys_platform != "win32" and platform_python_implementation == "CPython") and sys_platform != "win32"
+Requires-Dist: zipp==3.20.2; python_version != "3.10" and python_version != "3.11"
+Provides-Extra: test
+Requires-Dist: astroid==3.2.4; extra == "test"
+Requires-Dist: dill==0.3.9; extra == "test"
+Requires-Dist: iniconfig==2.1.0; extra == "test"
+Requires-Dist: isort==5.13.2; extra == "test"
+Requires-Dist: mccabe==0.7.0; extra == "test"
+Requires-Dist: pluggy==1.5.0; extra == "test"
+Requires-Dist: pylint==3.2.7; extra == "test"
+Requires-Dist: pytest==7.4.4; extra == "test"
+Requires-Dist: pytest-asyncio==0.21.2; extra == "test"
+Requires-Dist: pytest-mock==3.14.0; extra == "test"
+Requires-Dist: tomlkit==0.13.2; extra == "test"
+Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "test"
+Requires-Dist: tomli==2.2.1; python_version != "3.11" and extra == "test"
+Provides-Extra: postgres
+Requires-Dist: asyncpg==0.30.0; extra == "postgres"
+Provides-Extra: style
+Requires-Dist: black==23.12.1; extra == "style"
+Requires-Dist: mypy-extensions==1.0.0; extra == "style"
+Requires-Dist: pathspec==0.12.1; extra == "style"
+Requires-Dist: tomli==2.2.1; extra == "style"
+Provides-Extra: doc
+Requires-Dist: alabaster==0.7.13; extra == "doc"
+Requires-Dist: certifi==2025.1.31; extra == "doc"
+Requires-Dist: charset-normalizer==3.4.1; extra == "doc"
+Requires-Dist: docutils==0.20.1; extra == "doc"
+Requires-Dist: imagesize==1.4.1; extra == "doc"
+Requires-Dist: importlib-metadata==8.5.0; extra == "doc"
+Requires-Dist: jinja2==3.1.6; extra == "doc"
+Requires-Dist: markupsafe==2.1.5; extra == "doc"
+Requires-Dist: pytz==2025.2; extra == "doc"
+Requires-Dist: requests==2.32.3; extra == "doc"
+Requires-Dist: snowballstemmer==2.2.0; extra == "doc"
+Requires-Dist: sphinx==7.1.2; extra == "doc"
+Requires-Dist: sphinx-prompt==1.7.0; extra == "doc"
+Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "doc"
+Requires-Dist: sphinxcontrib-applehelp==1.0.4; extra == "doc"
+Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "doc"
+Requires-Dist: sphinxcontrib-htmlhelp==2.0.1; extra == "doc"
+Requires-Dist: sphinxcontrib-jquery==4.1; extra == "doc"
+Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "doc"
+Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "doc"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "doc"
+Requires-Dist: sphinxcontrib-trio==1.1.2; extra == "doc"
+Requires-Dist: urllib3==2.2.3; extra == "doc"
+Requires-Dist: zipp==3.20.2; extra == "doc"
+Provides-Extra: dev
+Requires-Dist: sphinx-prompt==1.7.0; extra == "dev"
+Requires-Dist: astroid==3.2.4; extra == "dev"
+Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "dev"
+Requires-Dist: docutils==0.20.1; extra == "dev"
+Requires-Dist: zipp==3.20.2; extra == "dev"
+Requires-Dist: alabaster==0.7.13; extra == "dev"
+Requires-Dist: sphinxcontrib-jquery==4.1; extra == "dev"
+Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "dev"
+Requires-Dist: charset-normalizer==3.4.1; extra == "dev"
+Requires-Dist: pytest-asyncio==0.21.2; extra == "dev"
+Requires-Dist: isort==5.13.2; extra == "dev"
+Requires-Dist: pytest-mock==3.14.0; extra == "dev"
+Requires-Dist: sphinxcontrib-applehelp==1.0.4; extra == "dev"
+Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "dev"
+Requires-Dist: tomli==2.2.1; python_version != "3.11" and extra == "dev"
+Requires-Dist: mccabe==0.7.0; extra == "dev"
+Requires-Dist: markupsafe==2.1.5; extra == "dev"
+Requires-Dist: imagesize==1.4.1; extra == "dev"
+Requires-Dist: pathspec==0.12.1; extra == "dev"
+Requires-Dist: sphinx==7.1.2; extra == "dev"
+Requires-Dist: mypy-extensions==1.0.0; extra == "dev"
+Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "dev"
+Requires-Dist: tomli==2.2.1; extra == "dev"
+Requires-Dist: importlib-metadata==8.5.0; extra == "dev"
+Requires-Dist: certifi==2025.1.31; extra == "dev"
+Requires-Dist: pylint==3.2.7; extra == "dev"
+Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "dev"
+Requires-Dist: urllib3==2.2.3; extra == "dev"
+Requires-Dist: tomlkit==0.13.2; extra == "dev"
+Requires-Dist: pytest==7.4.4; extra == "dev"
+Requires-Dist: iniconfig==2.1.0; extra == "dev"
+Requires-Dist: black==23.12.1; extra == "dev"
+Requires-Dist: asyncpg==0.30.0; extra == "dev"
+Requires-Dist: pytz==2025.2; extra == "dev"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "dev"
+Requires-Dist: sphinxcontrib-trio==1.1.2; extra == "dev"
+Requires-Dist: dill==0.3.9; extra == "dev"
+Requires-Dist: pluggy==1.5.0; extra == "dev"
+Requires-Dist: requests==2.32.3; extra == "dev"
+Requires-Dist: jinja2==3.1.6; extra == "dev"
+Requires-Dist: snowballstemmer==2.2.0; extra == "dev"
+Requires-Dist: sphinxcontrib-htmlhelp==2.0.1; extra == "dev"
+Provides-Extra: all
+Requires-Dist: asyncpg==0.30.0; extra == "all"
+
+<h1 align="center">
+  <br>
+  <a href="https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop"><img src="https://imgur.com/pY1WUFX.png" alt="Red - Discord Bot"></a>
+  <br>
+  Red Discord Bot
+  <br>
+</h1>
+
+<h4 align="center">Music, Moderation, Trivia, Stream Alerts and Fully Modular.</h4>
+
+<p align="center">
+  <a href="https://discord.gg/red">
+    <img src="https://discordapp.com/api/guilds/133049272517001216/widget.png?style=shield" alt="Discord Server">
+  </a>
+  <a href="https://pypi.org/project/Red-DiscordBot/">
+     <img alt="PyPI" src="https://img.shields.io/pypi/v/Red-Discordbot">
+  </a>
+  <a href="https://www.python.org/downloads/">
+    <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/Red-Discordbot">
+  </a>
+  <a href="https://github.com/Rapptz/discord.py/">
+     <img src="https://img.shields.io/badge/discord-py-blue.svg" alt="discord.py">
+  </a>
+  <a href="https://www.patreon.com/Red_Devs">
+    <img src="https://img.shields.io/badge/Support-Red!-red.svg" alt="Support Red on Patreon!">
+  </a>
+</p>
+<p align="center">
+  <a href="https://github.com/Cog-Creators/Red-DiscordBot/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/Cog-Creators/Red-Discordbot/tests.yml?label=tests" alt="GitHub Actions">
+  </a>
+  <a href="http://docs.discord.red/en/stable/?badge=stable">
+    <img src="https://readthedocs.org/projects/red-discordbot/badge/?version=stable" alt="Red on readthedocs.org">
+  </a>
+  <a href="https://github.com/psf/black">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code Style: Black">
+  </a>
+  <a href="http://makeapullrequest.com">
+    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
+  </a>
+  <a href="https://crowdin.com/project/red-discordbot">
+    <img src="https://d322cqt584bo4o.cloudfront.net/red-discordbot/localized.svg" alt="Localized with Crowdin">
+  </a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a>
+  •
+  <a href="#installation">Installation</a>
+  •
+  <a href="http://docs.discord.red/en/stable/index.html">Documentation</a>
+  •
+  <a href="#plugins">Plugins</a>
+  •
+  <a href="#join-the-community">Community</a>
+  •
+  <a href="#license">License</a>
+</p>
+
+# Overview
+
+Red is a fully modular bot – meaning all features and commands can be enabled/disabled to your
+liking, making it completely customizable. This is a *self-hosted bot* – meaning you will need
+to host and maintain your own instance. You can turn Red into an admin bot, music bot, trivia bot,
+new best friend or all of these together!  
+
+[Installation](#installation) is easy, and you do **NOT** need to know anything about coding! Aside
+from installing and updating, every part of the bot can be controlled from within Discord.
+
+**The default set of modules includes and is not limited to:**
+
+- Moderation features (kick/ban/softban/hackban, mod-log, filter, chat cleanup)
+- Trivia (lists are included and can be easily added)
+- Music features (YouTube, SoundCloud, local files, playlists, queues)
+- Stream alerts (Twitch, Youtube, Picarto)
+- Bank (slot machine, user credits)
+- Custom commands
+- Imgur/gif search
+- Admin automation (self-role assignment, cross-server announcements, mod-mail reports)
+- Customisable command permissions
+
+**Additionally, other [plugins](#plugins) (cogs) can be easily found and added from our growing
+community of cog repositories.**
+
+# Installation
+
+**The following platforms are officially supported:** 
+
+- [Windows](https://docs.discord.red/en/stable/install_guides/windows.html)
+- [MacOS](https://docs.discord.red/en/stable/install_guides/mac.html)
+- [Most major linux distributions](https://docs.discord.red/en/stable/install_guides/index.html)
+
+If after reading the guide you are still experiencing issues, feel free to join the
+[Official Discord Server](https://discord.gg/red) and ask in the **#support** channel for help.
+
+# Plugins
+
+Red is fully modular, allowing you to load and unload plugins of your choice, and install 3rd party
+plugins directly from Discord! A few examples are:
+
+- Cleverbot integration (talk to Red and she talks back)
+- Ban sync
+- Welcome messages
+- Casino
+- Reaction roles
+- Slow Mode
+- AniList
+- And much, much more!
+
+Feel free to take a [peek](https://index.discord.red) at a list of
+available 3rd party cogs!
+
+# Join the community!
+
+**Red** is in continuous development, and it’s supported by an active community which produces new
+content (cogs/plugins) for everyone to enjoy. New features are constantly added. If you can’t
+[find](https://index.discord.red) the cog you’re looking for,
+consult our [guide](https://docs.discord.red/en/stable/guide_cog_creation.html) on
+building your own cogs!
+
+Join us on our [Official Discord Server](https://discord.gg/red)!
+
+# License
+
+Released under the [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html) license.
+
+Red is named after the main character of "Transistor", a video game by
+[Super Giant Games](https://www.supergiantgames.com/games/transistor/).
+
+Artwork created by [Sinlaire](https://sinlaire.deviantart.com/) on Deviant Art for the Red Discord
+Bot Project.
+
+This project vendors [discord.ext.menus](https://github.com/Rapptz/discord-ext-menus) package made by Danny Y. (Rapptz) which is distributed under MIT License.
+A copy of this license can be found in the [discord-ext-menus.LICENSE](redbot/vendored/discord-ext-menus.LICENSE) file in the [redbot/vendored](redbot/vendored) folder of this repository.

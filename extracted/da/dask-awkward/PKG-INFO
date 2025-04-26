@@ -1,0 +1,95 @@
+Metadata-Version: 2.4
+Name: dask-awkward
+Version: 2025.3.0
+Summary: Awkward Array meets Dask
+Project-URL: Homepage, https://github.com/dask-contrib/dask-awkward
+Project-URL: Bug Tracker, https://github.com/dask-contrib/dask-awkward/issues
+Author-email: Doug Davis <ddavis@ddavis.io>, Martin Durant <mdurant@anaconda.com>
+Maintainer-email: Doug Davis <ddavis@ddavis.io>, Martin Durant <mdurant@anaconda.com>
+License: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Software Development
+Requires-Python: >=3.9
+Requires-Dist: awkward>=2.5.1
+Requires-Dist: cachetools
+Requires-Dist: dask>=2023.04.0
+Requires-Dist: typing-extensions>=4.8.0
+Provides-Extra: complete
+Requires-Dist: pyarrow; extra == 'complete'
+Provides-Extra: docs
+Requires-Dist: pyarrow; extra == 'docs'
+Requires-Dist: sphinx-book-theme; extra == 'docs'
+Requires-Dist: sphinx-codeautolink; extra == 'docs'
+Requires-Dist: sphinx-design; extra == 'docs'
+Provides-Extra: io
+Requires-Dist: pyarrow; extra == 'io'
+Provides-Extra: test
+Requires-Dist: aiohttp; (python_version < '3.12') and extra == 'test'
+Requires-Dist: dask-histogram; extra == 'test'
+Requires-Dist: dask[dataframe]; extra == 'test'
+Requires-Dist: distributed; extra == 'test'
+Requires-Dist: hist; extra == 'test'
+Requires-Dist: pandas; extra == 'test'
+Requires-Dist: pyarrow; extra == 'test'
+Requires-Dist: pytest-cov>=3.0.0; extra == 'test'
+Requires-Dist: pytest>=6.0; extra == 'test'
+Requires-Dist: requests; extra == 'test'
+Requires-Dist: uproot>=5.1.0; extra == 'test'
+Description-Content-Type: text/markdown
+
+dask-awkward
+============
+
+> Connecting [awkward-array](https://awkward-array.org) and
+[Dask](https://dask.org/).
+
+[![Tests](https://github.com/dask-contrib/dask-awkward/actions/workflows/pypi-tests.yml/badge.svg)](https://github.com/dask-contrib/dask-awkward/actions/workflows/pypi-tests.yml)
+[![Tests](https://github.com/dask-contrib/dask-awkward/actions/workflows/conda-tests.yml/badge.svg)](https://github.com/dask-contrib/dask-awkward/actions/workflows/conda-tests.yml)
+[![Documentation Status](https://readthedocs.org/projects/dask-awkward/badge/?version=latest)](https://dask-awkward.readthedocs.io/en/latest/?badge=latest)
+[![Coverage](https://codecov.io/gh/dask-contrib/dask-awkward/branch/main/graph/badge.svg)](https://codecov.io/gh/dask-contrib/dask-awkward/branch/main)
+[![PyPI](https://img.shields.io/pypi/v/dask-awkward?color=blue)](https://pypi.org/project/dask-awkward)
+[![Conda Forge](https://img.shields.io/conda/vn/conda-forge/dask-awkward.svg?colorB=486b87&style=flat)](https://anaconda.org/conda-forge/dask-awkward)
+
+Installing
+----------
+
+Releases are available from PyPI and conda-forge.
+
+PyPI:
+
+```
+pip install dask-awkward
+```
+
+conda-forge:
+
+```
+conda install dask-awkward -c conda-forge
+```
+
+Documentation
+-------------
+
+Documentation is hosted at
+[https://dask-awkward.readthedocs.io/](https://dask-awkward.readthedocs.io/).
+
+Acknowledgements
+----------------
+
+Support for this work was provided by NSF grant [OAC-2103945](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2103945).

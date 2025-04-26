@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "project"
+version = "0.0.999"
+description = "Some special character like Ø, and Ř in UTF-8 encoding."
+authors = []
+
+[tool.poetry.dependencies]
+python = "^3.5"
+dependency-classic = {path = "../dependency-classic"}
+dependency-dynamic = {path = "../dependency-dynamic"}
+dependency-static = {path = "../dependency-static"}
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
+tag-dir = "alt/tags"
+
+[tool.poetry-dynamic-versioning.substitution]
+folders = [
+    { path = "docs", files = ["*.txt"], patterns = ["(<).*(>)"] }
+]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

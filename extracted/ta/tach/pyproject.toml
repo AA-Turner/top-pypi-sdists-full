@@ -1,0 +1,125 @@
+[project]
+name = "tach"
+version = "0.29.0"
+authors = [
+    { name = "Caelean Barnes", email = "caeleanb@gmail.com" },
+    { name = "Evan Doyle", email = "evanmdoyle@gmail.com" },
+]
+description = "A Python tool to maintain a modular package architecture."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "pyyaml~=6.0",
+    "tomli>=1.2.2",
+    "tomli-w~=1.0",
+    "rich~=13.0",
+    "prompt-toolkit~=3.0",
+    "GitPython~=3.1",
+    "networkx>=2.6,<4.0",
+    "pydot>=2,<4",
+    "stdlib-list>=0.10.0; python_version < '3.10'",
+    "importlib_metadata>=6.0; python_version == '3.7'",
+]
+keywords = [
+    'python',
+    'module',
+    'package',
+    'guard',
+    'enforcement',
+    'boundary',
+    'enforcer',
+    'domain',
+    'architecture',
+]
+
+
+[project.optional-dependencies]
+dev = [
+    # Core deps (pinned)
+    "rich==13.8.1",
+    "prompt-toolkit==3.0.47",
+    # Setup
+    "pip==24.0",
+    # Code Quality
+    "pyright==1.1.389",
+    "ruff==0.11.5",
+    # Build/Release
+    "setuptools==69.5.1; python_version > '3.7'",
+    "twine==5.1.1; python_version > '3.7'",
+    "build==1.2.1; python_version > '3.7'",
+    # Tests
+    "pytest==8.2.2; python_version > '3.7'",
+    "pytest-mock==3.14.0; python_version > '3.7'",
+    "coverage==7.6.0; python_version > '3.7'",
+    # Rust
+    "maturin==1.7.1",
+
+    # python version 3.7 pinned dependencies
+    "setuptools==47.1.0; python_version == '3.7'",
+    "twine==4.0.2; python_version == '3.7'",
+    "build==1.1.1; python_version == '3.7'",
+    "pytest==7.4.4; python_version == '3.7'",
+    "pytest-mock==3.11.1; python_version == '3.7'",
+    "coverage==7.2.7; python_version == '3.7'",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/gauge-sh/tach"
+Issues = "https://github.com/gauge-sh/tach/issues"
+
+[tool.ruff]
+src = ["python"]
+exclude = ["python/tests/example"]
+target-version = "py38"
+lint.extend-select = ["I", "TCH", "UP"]
+lint.ignore = ["UP006", "UP007"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-decorators = ["dataclasses.dataclass"]
+exempt-modules = ["typing", "typing_extensions"]
+
+[tool.pyright]
+include = ["python/tach"]
+exclude = ["**/__pycache__", ".venv"]
+strict = ["python/tach"]
+executionEnvironments = [{ root = "python" }]
+pythonVersion = "3.8"
+
+
+[tool.pytest.ini_options]
+norecursedirs = "python/tests/example"
+
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+module-name = "tach.extension"
+features = ["pyo3/extension-module"]
+
+[project.scripts]
+tach = "tach.start:start"

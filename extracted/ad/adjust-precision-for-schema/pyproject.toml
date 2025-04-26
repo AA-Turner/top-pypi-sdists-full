@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "adjust-precision-for-schema"
+version = "0.3.4"
+description = "Intended for use in singer-io targets to overcome the precision differences among certain data source systems, Python, and target systems"
+authors = ["Datateer <dev@datateer.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+jsonschema = ">=2.6.0"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.0"
+pytest-watch = "^4.2.0"
+black = { version = "*", allow-prereleases = true }
+flake8 = "^4.0.1"
+flake8-bugbear = "^22.1.11"
+pre-commit = "^2.17.0"
+coverage = "^6.3.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.semantic_release]
+version_variable = [
+    # "dr_sven/__init__.py:__version__",
+    "pyproject.toml:version"
+]
+branch = "main"
+upload_to_pypi = true
+upload_to_release = true
+build_command = "pip install poetry && poetry build"
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*"]
+
+[tool.coverage.report]
+fail_under = 95

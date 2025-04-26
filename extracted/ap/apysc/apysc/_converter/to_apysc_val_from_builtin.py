@@ -1,0 +1,120 @@
+"""Each interface to get an apysc value from a Python built-in one.
+"""
+
+from typing import Union
+
+from apysc._html.debug_mode import add_debug_info_setting
+from apysc._type.boolean import Boolean
+from apysc._type.int import Int
+from apysc._type.number import Number
+from apysc._type.string import String
+
+
+@add_debug_info_setting(module_name=__name__)
+def get_copied_int_from_builtin_val(
+    *, integer: Union[int, Int], variable_name_suffix: str = ""
+) -> Int:
+    """
+    Get a copied Int value from a Python built-in int.
+
+    Parameters
+    ----------
+    integer : int or Int
+        Target integer value.
+    variable_name_suffix : str, default ""
+        A JavaScript variable name suffix string.
+        This setting is sometimes useful for JavaScript debugging.
+
+    Returns
+    -------
+    copied : Int
+        Copied Int value.
+    """
+    if isinstance(integer, int):
+        copied: Int = Int(integer, variable_name_suffix=variable_name_suffix)
+    else:
+        copied = integer.copy()
+    return copied
+
+
+@add_debug_info_setting(module_name=__name__)
+def get_copied_number_from_builtin_val(
+    *, float_or_num: Union[float, Number], variable_name_suffix: str = ""
+) -> Number:
+    """
+    Get a copied number value from a Python built-in float.
+
+    Parameters
+    ----------
+    float_or_num : float or Number
+        Target float (or Number) value.
+    variable_name_suffix : str, default ""
+        A JavaScript variable name suffix string.
+        This setting is sometimes useful for JavaScript debugging.
+
+    Returns
+    -------
+    copied : Number
+        Copied Number value.
+    """
+    if isinstance(float_or_num, (int, float)):
+        copied: Number = Number(float_or_num, variable_name_suffix=variable_name_suffix)
+    else:
+        copied = float_or_num.copy()
+    return copied
+
+
+@add_debug_info_setting(module_name=__name__)
+def get_copied_string_from_builtin_val(
+    *, string: Union[str, String], variable_name_suffix: str = ""
+) -> String:
+    """
+    Get a copied String value from a Python built-in str.
+
+    Parameters
+    ----------
+    string : str or String
+        Target string value.
+    variable_name_suffix : str, default ""
+        A JavaScript variable name suffix string.
+        This setting is sometimes useful for JavaScript debugging.
+
+    Returns
+    -------
+    copied : String
+        Copied String value.
+    """
+
+    if isinstance(string, str):
+        copied: String = String(string, variable_name_suffix=variable_name_suffix)
+    else:
+        copied = string.copy()
+    return copied
+
+
+@add_debug_info_setting(module_name=__name__)
+def get_copied_boolean_from_builtin_val(
+    *, bool_val: Union[bool, Boolean], variable_name_suffix: str = ""
+) -> Boolean:
+    """
+    Get a copied Boolean value from a Python built-in bool.
+
+    Parameters
+    ----------
+    bool_val : bool or Boolean
+        Target bool value.
+    variable_name_suffix : str, default ""
+        A JavaScript variable name suffix string.
+        This setting is sometimes useful for JavaScript debugging.
+
+    Returns
+    -------
+    copied : Boolean
+        Copied Boolean value.
+    """
+
+    if isinstance(bool_val, bool):
+        copied: Boolean = Boolean(bool_val, variable_name_suffix=variable_name_suffix)
+    else:
+        copied = bool_val.copy()
+    return copied

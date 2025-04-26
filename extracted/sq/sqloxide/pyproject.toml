@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "sqloxide"
+version = "0.1.54rc2"
+repository = "https://github.com/wseaton/sqloxide"
+license = "MIT"
+description = "Python bindings for sqlparser-rs"
+authors = ["Will Eaton <me@wseaton.com>"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Rust",
+    "Topic :: Database",
+    "License :: OSI Approved :: MIT License",
+]
+
+[build-system]
+requires = ["maturin>=0.13,<0.14"]
+build-backend = "maturin"
+
+[project]
+name = "sqloxide"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Rust",
+]

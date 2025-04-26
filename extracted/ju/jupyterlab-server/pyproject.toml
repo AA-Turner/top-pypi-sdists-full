@@ -1,0 +1,257 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
+[build-system]
+requires = ["hatchling>=1.7"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyterlab_server"
+dynamic = ["version"]
+license = { file = "LICENSE" }
+description = "A set of server components for JupyterLab and JupyterLab like applications."
+keywords = ["jupyter", "jupyterlab"]
+classifiers = [
+  "Framework :: Jupyter",
+  "Framework :: Jupyter :: JupyterLab",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed"]
+requires-python = ">=3.8"
+dependencies = [
+  "babel>=2.10",
+  "importlib_metadata>=4.8.3;python_version<\"3.10\"",
+  "jinja2>=3.0.3",
+  "json5>=0.9.0",
+  "jsonschema>=4.18.0",
+  "jupyter_server>=1.21,<3",
+  "packaging>=21.3",
+  "requests>=2.31",
+]
+
+[[project.authors]]
+name = "Jupyter Development Team"
+email = "jupyter@googlegroups.com"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://jupyterlab-server.readthedocs.io"
+Documentation = "https://jupyterlab-server.readthedocs.io"
+Funding = "https://numfocus.org/donate-to-jupyter"
+Source = "https://github.com/jupyterlab/jupyterlab_server"
+Tracker = "https://github.com/jupyterlab/jupyterlab_server/issues"
+
+[project.optional-dependencies]
+docs = [
+  "autodoc-traits",
+  "pydata_sphinx_theme",
+  "sphinx",
+  "sphinx-copybutton",
+  "sphinxcontrib-openapi>0.8",
+  "myst-parser",
+  "mistune<4",
+  "jinja2<3.2.0"
+]
+openapi = [
+  "openapi_core~=0.18.0",
+  "ruamel.yaml",
+]
+test = [
+  "hatch",
+  "ipykernel",
+  "pytest-jupyter[server]>=0.6.2",
+  "openapi_core~=0.18.0",
+  "openapi-spec-validator>=0.6.0,<0.8.0",
+  "sphinxcontrib_spelling",
+  "requests_mock",
+  "ruamel.yaml",
+  "pytest>=7.0,<8",
+  "pytest-console-scripts",
+  "pytest-cov",
+  "pytest-timeout",
+  "strict-rfc3339",
+  "werkzeug",
+]
+
+[tool.hatch.version]
+path = "jupyterlab_server/_version.py"
+validate-bump = false
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test"]
+dependencies = ["coverage", "pytest-cov"]
+[tool.hatch.envs.cov.scripts]
+test = "python -m pytest -vv --cov jupyterlab_server --cov-branch --cov-report term-missing:skip-covered {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["pre-commit"]
+[tool.hatch.envs.lint.scripts]
+build = [
+  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-format"
+]
+
+[tool.hatch.envs.typing]
+dependencies = [ "pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-ra", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
+]
+testpaths = [
+    "tests/"
+]
+timeout = 300
+# Restore this setting to debug failures
+# timeout_method = "thread"
+filterwarnings = [
+  "error",
+  "ignore:ServerApp.preferred_dir config is deprecated:FutureWarning",
+  # From openapi_schema_validator
+  "module:write property is deprecated:DeprecationWarning",
+  "module:read property is deprecated:DeprecationWarning",
+  # From tornado.netutil.bind_sockets
+  "module:unclosed <socket.socket:ResourceWarning",
+  # From jupyter_client
+  "module:datetime.datetime.utc:DeprecationWarning",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\bProtocol\\):",
+"@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+files = "jupyterlab_server"
+python_version = "3.8"
+strict = true
+disallow_any_generics = false
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+no_implicit_reexport = false
+pretty = true
+show_error_context = true
+warn_return_any = false
+warn_unreachable = true
+exclude = "tests/translations/*"
+
+[[tool.mypy.overrides]]
+module = [
+    "ruamel"
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  #"PTH",         # flake8-use-pathlib
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+  "S",           # flake8-bandit
+]
+ignore = [
+  "PLR",    # Design related pylint codes
+  "C901",   # `async_setup_kernel` is too complex (12)
+  "SIM105", # Use `contextlib.suppress(...)`
+  "RUF012",   # Mutable class attributes should be annotated with
+  "S101",   # Use of `assert` detected
+  "C408"    # Unnecessary `dict` call (rewrite as a literal)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# ARG001 Unused function argument
+# PT012 `pytest.raises()` block should contain a single simple statement
+# F841 Local variable `list_data` is assigned to but never used
+# PGH003 Use specific rule codes when ignoring type issues
+"tests/*" = ["ARG001", "PT012", "F841", "EM","PGH003", "PTH"]
+# T201 `print` found
+"jupyterlab_server/licenses_app.py" = ["T201"]
+# T201 `print` found
+"jupyterlab_server/process.py" = ["T201"]
+# F401 `foo` imported but unused
+"jupyterlab_server/server.py" = ["F401"]
+# T201 `print` found
+"jupyterlab_server/workspaces_app.py" = ["B028", "T201"]
+# Invalid module name
+"tests/translations/jupyterlab-language-pack-es_CO/jupyterlab_language_pack_es_CO/__init__.py" = ["N999"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["tests", "docs"]
+
+[tool.coverage.run]
+relative_files = true
+source = ["jupyterlab_server"]
+
+[tool.repo-review]
+ignore = ["GH102"]

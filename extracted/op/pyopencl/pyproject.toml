@@ -1,0 +1,244 @@
+[build-system]
+build-backend = "scikit_build_core.build"
+requires = [
+    "scikit-build-core >=0.9.3",
+    "nanobind >=1.9.2",
+    # https://numpy.org/doc/stable/dev/depending_on_numpy.html#build-time-dependency
+    # Just depending on numpy will automatically expose the oldest supported ABI.
+    # - Retrieved 2024-06-24, AK
+    "numpy",
+]
+
+[project]
+name = "pyopencl"
+version = "2025.1"
+description = "Python wrapper for OpenCL"
+readme = "README.rst"
+authors = [
+    { name = "Andreas Kloeckner", email = "inform@tiker.net" },
+]
+requires-python = "~=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: C++",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "importlib-resources; python_version<'3.9'",
+    "numpy",
+    "platformdirs>=2.2",
+    "pytools>=2024.1.5",
+]
+
+[project.optional-dependencies]
+oclgrind = [
+    "oclgrind-binary-distribution>=18.3",
+]
+pocl = [
+    "pocl-binary-distribution>=1.2",
+]
+test = [
+    "ruff",
+    "mako",
+    "mypy",
+    "pylint",
+    "pytest>=7",
+]
+
+[project.urls]
+Documentation = "https://documen.tician.de/pyopencl"
+Homepage = "https://mathema.tician.de/software/pyopencl"
+Repository = "https://github.com/inducer/pyopencl"
+
+[tool.scikit-build]
+sdist.exclude = [
+    ".mypy_cache",
+    ".ci",
+    ".github",
+    ".conda-ci-build-configure.sh",
+    "doc/upload-docs.sh",
+    ".editorconfig",
+    "TODOs",
+    "run-*.sh",
+]
+
+[tool.inducer-ci-support]
+disable-editable-pip-install = true
+
+[tool.ruff.lint]
+preview = true
+extend-select = [
+    "B",    # flake8-bugbear
+    "C",    # flake8-comprehensions
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "G",    # flake8-logging-format
+    "I",    # flake8-isort
+    "N",    # pep8-naming
+    "NPY",  # numpy
+    "Q",    # flake8-quotes
+    "RUF",  # ruff
+    "UP",   # pyupgrade
+    "W",    # pycodestyle
+]
+extend-ignore = [
+    "E226", # missing whitespace around arithmetic operator
+    "E241", # multiple spaces after comma
+    "E402", # module level import not at the top of file
+    "C90",  # McCabe complexity
+    "UP031", # use f-strings instead of %
+    "UP032", # use f-strings instead of .format
+]
+exclude = [
+    "examples/gl_interop_demo.py",
+    "examples/gl_particle_animation.py",
+    "pyopencl/compyte/**/*.py",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/pi-monte-carlo.py" = ["N", "B", "F841"]
+"examples/black-hole-accretion.py" = ["N", "E501", "B"]
+"examples/n-body.py" = ["N", "E501"]
+"pyopencl/__init__.py" = ["I001"]
+"contrib/fortran-to-opencl/translate.py" = ["N802", "N815", "B"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+docstring-quotes = "double"
+multiline-quotes = "double"
+
+[tool.ruff.lint.isort]
+known-first-party = ["pytools", "pymbolic", "cgen"]
+known-local-folder = ["pyopencl"]
+lines-after-imports = 2
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "bitonic: tests involving bitonic sort"
+]
+
+[tool.mypy]
+warn_unused_ignores = true
+exclude = ["pyopencl/compyte"]
+
+[[tool.mypy.overrides]]
+module = [
+    "IPython.*",
+    "OpenGL.*",
+    "mako.*",
+    "matplotlib.*",
+    "pyfmmlib.*",
+    "pyopencl._cl.*",
+    "pytest.*",
+    "scipy.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pyopencl.compyte.*"]
+follow_imports = "skip"
+
+[tool.cibuildwheel]
+test-command = "pytest {project}/test"
+test-extras = [
+    "test",
+]
+environment-pass = [
+    "CL_INC_DIR",
+    "CL_LIB_DIR",
+]
+test-skip = [
+    "*-macosx_*:arm64",
+    "*-macosx_arm64",
+]
+
+[tool.cibuildwheel.linux]
+skip = [
+    "pp*",
+    "cp36-*",
+    "cp37-*",
+    "*_i686",
+]
+test-command = ""
+before-all = [
+    "yum install -y git openssl-devel ruby",
+    "bash {package}/scripts/build-ocl.sh",
+]
+before-build = [
+    "pip install numpy -Csetup-args=-Dallow-noblas=true",
+]
+repair-wheel-command = "auditwheel repair -w {dest_dir} --lib-sdir=/.libs {wheel}"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = [
+    "apk add ruby git openssl-dev libtool",
+    "bash {package}/scripts/build-ocl.sh",
+]
+repair-wheel-command = "auditwheel repair -w {dest_dir} --lib-sdir=/.libs {wheel}"
+
+[tool.cibuildwheel.macos]
+skip = [
+    "pp*",
+    "cp36-*",
+    "cp37-*",
+]
+before-all = "bash {package}/scripts/build-ocl-macos.sh"
+test-command = "pytest {project}/test/test_array.py" # same limitation as conda-forge
+archs = "x86_64 arm64"
+
+# https://github.com/conda-forge/pyopencl-feedstock/blob/6f3c5de59b18c9518abba3cb94f6ae92964553f8/recipe/meta.yaml#L62-L63
+
+[tool.cibuildwheel.macos.environment]
+# Needed for full C++17 support
+MACOSX_DEPLOYMENT_TARGET = "10.14"
+
+[tool.cibuildwheel.windows]
+skip = [
+    "*-win32",
+    "pp*",
+    "cp36-*",
+    "cp37-*",
+]
+test-command = ""
+before-all = "bash {package}/scripts/build-ocl-windows.sh"
+
+[tool.typos.default]
+extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker:\\s*disable-line$"
+]
+
+[tool.typos.default.extend-words]
+# for ND Range
+ND = "ND"
+nd = "nd"
+
+# level-of-detail
+LOD = "LOD"
+
+# short for 'series'
+ "ser" = "ser"
+
+# like the numpy function
+ "arange" = "arange"
+
+[tool.typos.files]
+extend-exclude = [
+# No thanks, hex IDs in JSON should not be spellchecked.
+"examples/*.ipynb",
+# Copied from upstream
+"pyopencl/cl/pyopencl-random123/*",
+# This one has comments in French
+"examples/black-hole-accretion.py"
+]

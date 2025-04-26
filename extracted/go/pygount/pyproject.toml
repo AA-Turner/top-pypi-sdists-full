@@ -1,0 +1,199 @@
+[project]
+name = "pygount"
+version = "2.0.0"
+description = "count source lines of code (SLOC) using pygments"
+authors = [{ name = "Thomas Aglassinger", email = "roskakori@users.sourceforge.net" }]
+requires-python = ">=3.9, <4"
+readme = "README.md"
+license = "BSD-3-Clause"
+keywords = [
+    "code analysis",
+    "count",
+    "SLOC",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+]
+dependencies = [
+    "pygments>=2,<3",
+    "chardet>=5,<6",
+    "rich>=9, <14",
+    "gitpython~=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/roskakori/pygount"
+Repository = "https://github.com/roskakori/pygount.git"
+Documentation = "https://pygount.readthedocs.io"
+"Issue Tracker" = "https://github.com/roskakori/pygount/issues"
+Changes = "https://pygount.readthedocs.io/en/latest/changes.html"
+
+[project.scripts]
+pygount = "pygount.command:main"
+
+[tool.pytest.ini_options]
+minversion = "7.2"
+addopts = [
+    "-rA"
+]
+testpaths = [
+    "tests",
+]
+
+[dependency-groups]
+dev = [
+    "coveralls>=4,<5",
+    "coverage>=7,<8",
+    "pytest>=8,<9",
+    "pytest-cov>=5,<6",
+    "pre-commit~=4.1",
+    "pur>=7,<8",
+    "ruff~=0.11",
+]
+docs = ["Sphinx>=7,<8"]
+
+[tool.uv]
+default-groups = [
+    "dev",
+    "docs",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["pygount"]
+
+[tool.hatch.build.targets.wheel]
+include = ["pygount"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+exclude = [
+    ".eggs",
+    ".git",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "htmlcov",
+]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = [
+    # Missing trailing comma → May cause conflicts when used with the formatter.
+    "COM812",
+    # Too many branches
+    "PLR0912",
+    # Too many arguments in function definition
+    "PLR0913",
+    # Too many statements
+    "PLR0915",
+    # Magic value used in comparison
+    "PLR2004",
+    # TODO#89 Enable checks for usage of pathlib.
+    "PTH100",
+    "PTH103",
+    "PTH107",
+    "PTH109",
+    "PTH110",
+    "PTH112",
+    "PTH114",
+    "PTH118",
+    "PTH119",
+    "PTH120",
+    "PTH122",
+    "PTH123",
+    "PTH202",
+    "PTH207",
+    "PTH208",
+    # Unneccesarry assign → We regularly use `result = ...; return result` to examine the result in the debugger.
+    "RET504",
+    # TODO#506 Enable RUF012 check for mutable class attributes.
+    # Mutable class attributes should be annotated with `typing.ClassVar`
+    "RUF012",
+    # Avoid specifying long messages outside the exception class
+    "TRY003",
+    # Abstract `raise` to an inner function
+    "TRY301",
+]
+select = [
+    # flake8-builtins
+    "A",
+    # flake8-bugbear
+    "B",
+    # flake8-commas
+    "COM",
+    # flake8-comprehensions
+    "C4",
+    # flake8-django
+    "DJ",
+    # flake8-datetimez
+    "DTZ",
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # isort
+    "I",
+    # flake8-no-pep420
+    "INP",
+    #  flake8-gettext
+    "INT",
+    # flake8-logging
+    "LOG",
+    # perflint
+    "PERF",
+    # pygrep-hooks
+    "PGH",
+    # flake8-pie
+    "PIE",
+    # pylint
+    "PL",
+    # flake8-use-pathlib
+    "PTH",
+    # refactor
+    "R",
+    # flake8-raise
+    "RSE",
+    # flake8-return
+    "RET",
+    # ruff specific rules
+    "RUF",
+    # flake8-self
+    "SLF",
+    # flake8-simplify
+    "SIM",
+    # tryceratops
+    "TRY",
+    # flake8-debugger
+    "T10",
+    # flake8-print
+    "T20",
+    # pyupgrade
+    "UP",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pygount", "scripts", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = ["INP001"]

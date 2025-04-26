@@ -1,0 +1,357 @@
+Metadata-Version: 2.1
+Name: sqlalchemy_mate
+Version: 2.0.0.3
+Summary: A library extend sqlalchemy module, makes CRUD easier.
+Home-page: https://github.com/MacHu-GWU/sqlalchemy_mate-project
+Download-URL: https://pypi.python.org/pypi/sqlalchemy_mate/2.0.0.3#downloads
+Author: Sanhe Hu
+Author-email: husanhe@gmail.com
+Maintainer: Unknown
+License: MIT
+Platform: Windows
+Platform: MacOS
+Platform: Unix
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.8
+License-File: LICENSE.txt
+License-File: AUTHORS.rst
+Requires-Dist: sqlalchemy<3.0.0,>=2.0.0
+Requires-Dist: prettytable<4.0.0,>=3.0.0
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pg8000; extra == "tests"
+Requires-Dist: attrs; extra == "tests"
+Requires-Dist: superjson; extra == "tests"
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == "tests"
+Requires-Dist: moto<5.0.0,>=4.1.12; extra == "tests"
+Requires-Dist: boto_session_manager<2.0.0,>=1.7.2; extra == "tests"
+Requires-Dist: s3pathlib<3.0.0,>=2.1.2; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: Sphinx==5.3.0; extra == "docs"
+Requires-Dist: sphinx-jinja==2.0.2; extra == "docs"
+Requires-Dist: sphinx-copybutton==0.5.1; extra == "docs"
+Requires-Dist: sphinx-design==0.5.0; extra == "docs"
+Requires-Dist: furo==2023.03.27; extra == "docs"
+Requires-Dist: nbsphinx==0.8.12; extra == "docs"
+Requires-Dist: rstobj==1.2.1; extra == "docs"
+Requires-Dist: pygments==2.15.1; extra == "docs"
+Requires-Dist: ipython==8.10.0; extra == "docs"
+Requires-Dist: docfly==2.0.3; extra == "docs"
+
+.. image:: https://readthedocs.org/projects/sqlalchemy_mate/badge/?version=latest
+    :target: https://sqlalchemy-mate.readthedocs.io/latest/index.html
+    :alt: Documentation Status
+
+.. image:: https://github.com/MacHu-GWU/sqlalchemy_mate-project/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project/actions?query=workflow:CI
+
+.. image:: https://codecov.io/gh/MacHu-GWU/sqlalchemy_mate-project/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/MacHu-GWU/sqlalchemy_mate-project
+
+.. image:: https://img.shields.io/pypi/v/sqlalchemy_mate.svg
+    :target: https://pypi.python.org/pypi/sqlalchemy_mate
+
+.. image:: https://img.shields.io/pypi/l/sqlalchemy_mate.svg
+    :target: https://pypi.python.org/pypi/sqlalchemy_mate
+
+.. image:: https://img.shields.io/pypi/pyversions/sqlalchemy_mate.svg
+    :target: https://pypi.python.org/pypi/sqlalchemy_mate
+
+.. image:: https://img.shields.io/badge/Release_History!--None.svg?style=social
+    :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project/blob/master/release-history.rst
+
+.. image:: https://img.shields.io/badge/STAR_Me_on_GitHub!--None.svg?style=social
+    :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project
+
+------
+
+.. image:: https://img.shields.io/badge/Link-Document-blue.svg
+      :target: https://sqlalchemy-mate.readthedocs.io/latest/index.html
+
+.. image:: https://img.shields.io/badge/Link-API-blue.svg
+      :target: https://sqlalchemy-mate.readthedocs.io/latest/py-modindex.html
+
+.. image:: https://img.shields.io/badge/Link-Source_Code-blue.svg
+      :target: https://sqlalchemy-mate.readthedocs.io/latest/py-modindex.html
+
+.. image:: https://img.shields.io/badge/Link-Install-blue.svg
+      :target: `install`_
+
+.. image:: https://img.shields.io/badge/Link-GitHub-blue.svg
+      :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project
+
+.. image:: https://img.shields.io/badge/Link-Submit_Issue-blue.svg
+      :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project/issues
+
+.. image:: https://img.shields.io/badge/Link-Request_Feature-blue.svg
+      :target: https://github.com/MacHu-GWU/sqlalchemy_mate-project/issues
+
+.. image:: https://img.shields.io/badge/Link-Download-blue.svg
+      :target: https://pypi.org/pypi/sqlalchemy_mate#files
+
+
+Welcome to ``sqlalchemy_mate`` Documentation
+==============================================================================
+A sweet syntax sugar library simplify your in writing ``sqlalchemy`` code.
+
+📔 `Full document is HERE <https://sqlalchemy-mate.readthedocs.io/latest/index.html>`_
+
+.. image:: https://sqlalchemy-mate.readthedocs.io/latest/_static/sqlalchemy_mate-logo.png
+    :target: https://sqlalchemy-mate.readthedocs.io/latest/index.html
+
+
+Features
+------------------------------------------------------------------------------
+.. contents::
+    :class: this-will-duplicate-information-and-it-is-still-useful-here
+    :depth: 1
+    :local:
+
+
+Read Database Credential Safely
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. contents::
+    :class: this-will-duplicate-information-and-it-is-still-useful-here
+    :depth: 1
+    :local:
+
+Put your database connection credential in your source code is always a **BAD IDEA**.
+
+``sqlalchemy_mate`` provides several options to allow loading credential easily.
+
+If you want to read db secret from other source, such as Bash Scripts that having lots of ``export DB_PASSWORD="xxx"``, AWS Secret Manager, AWS Key Management System (KMS), please take a look at my another project `pysecret <https://pypi.org/project/pysecret/>`_.
+
+
+From json file
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You can put your credential in a json file somewhere in your $HOME directory, and let sqlalchemy_mate smartly load from it.
+
+You need to specify two things:
+
+1. path to json file.
+2. field path to the data. If your connect info is nested deeply in the json, you can use the dot notation json path to point to it.
+
+content of json:
+
+.. code-block:: python
+
+    {
+        "credentials": {
+            "db1": {
+                "host": "example.com",
+                "port": 1234,
+                "database": "test",
+                "username": "admin",
+                "password": "admin",
+            },
+            "db2": {
+                ...
+            }
+        }
+    }
+
+code:
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import EngineCreator
+
+    ec = EngineCreator.from_json(
+        json_file="path-to-json-file",
+        json_path="credentials.db1", # dot notation json path
+    )
+    engine = ec.create_postgresql_pg8000()
+
+**Default data fields** are ``host``, ``port``, ``database``, ``username``, ``password``.
+
+If your json schema is different, you need to add the ``key_mapping`` to **specify the field name mapping**:
+
+.. code-block:: python
+
+    ec = EngineCreator.from_json(
+        json_file="...",
+        json_path="...",
+        key_mapping={
+            "host": "your-host-field",
+            "port": "your-port-field",
+            "database": "your-database-field",
+            "username": "your-username-field",
+            "password": "your-password-field",
+        }
+    )
+
+
+From ``$HOME/.db.json``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You can put lots of database connection info in a ``.db.json`` file in your ``$HOME`` directory.
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import EngineCreator
+
+    ec = EngineCreator.from_home_db_json(identifier="db1")
+    engine = ec.create_postgresql_psycopg2()
+
+``$HOME/.db.json`` **assumes flat json schema**, but you can use dot notation json path for ``identifier`` to adapt any json schema:
+
+.. code-block:: python
+
+    {
+        "identifier1": {
+            "host": "example.com",
+            "port": 1234,
+            "database": "test",
+            "username": "admin",
+            "password": "admin",
+        },
+        "identifier2": {
+            ...
+        }
+    }
+
+
+From json file on AWS S3
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This is similar to ``from_json``, but the json file is stored on AWS S3.
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import EngineCreator
+    ec = EngineCreator.from_s3_json(
+        bucket_name="my-bucket", key="db.json",
+        json_path="identifier1",
+        aws_profile="my-profile",
+    )
+    engine = ec.create_redshift()
+
+
+From Environment Variable
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You can put your credentials in Environment Variable. For example:
+
+.. code-block:: bash
+
+    export DB_DEV_HOST="..."
+    export DB_DEV_PORT="..."
+    export DB_DEV_DATABASE="..."
+    export DB_DEV_USERNAME="..."
+    export DB_DEV_PASSWORD="..."
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import EngineCreator
+    # read from DB_DEV_USERNAME, DB_DEV_PASSWORD, ...
+    ec = EngineCreator.from_env(prefix="DB_DEV")
+    engine = ec.create_redshift()
+
+If you want to read database credential safely from cloud, for example, AWS EC2, AWS Lambda, you can use AWS KMS to decrypt your credentials
+
+.. code-block:: python
+
+    # leave aws_profile=None if you are on cloud
+    ec = EngineCreator.from_env(prefix="DB_DEV", kms_decrypt=True, aws_profile="xxx")
+    engine = ec.create_redshift()
+
+
+Smart Insert
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In bulk insert, if there are some rows having primary_key conflict, the classic solution is:
+
+.. code-block:: python
+
+    with engine.connect() as conn:
+        for row in data:
+            try:
+                conn.execute(table.insert(), row)
+                conn.commit()
+            except sqlalchemy.exc.IntegrityError:
+                conn.rollback()
+
+It is like one-by-one insert, which is super slow.
+
+``sqlalchemy_mate`` uses ``smart_insert`` strategy to try with smaller bulk insert, which has higher probabily to work. As a result, total number of commits are greatly reduced.
+
+With sql expression:
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import inserting
+    engine = create_engine(...)
+    t_users = Table(
+        "users", metadata,
+        Column("id", Integer),
+        ...
+    )
+    # lots of data
+    data = [{"id": 1, "name": "Alice}, {"id": 2, "name": "Bob"}, ...]
+    # the magic function
+    inserting.smart_insert(engine, t_users, data)
+
+
+With ORM:
+
+.. code-block:: python
+
+    from sqlalchemy_mate.api import ExtendedBase
+    Base = declarative_base()
+    class User(Base, ExtendedBase): # inherit from ExtendedBase
+        ...
+    # lots of users
+    data = [User(id=1, name="Alice"), User(id=2, name="Bob"), ...]
+    # the magic method
+    User.smart_insert(engine_or_session, data) # That's it
+
+
+Smart Update / Upsert
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Automatically update value by primary key.
+
+.. code-block:: python
+
+    # in SQL expression
+    from sqlalchemy_mate.api import updating
+
+    data = [{"id": 1, "name": "Alice}, {"id": 2, "name": "Bob"}, ...]
+    updating.update_all(engine, table, data)
+    updating.upsert_all(engine, table, data)
+
+    # in ORM
+    data = [User(id=1, name="Alice"), User(id=2, name="Bob"), ...]
+    User.update_all(engine_or_session, user_list)
+    User.upsert_all(engine_or_session, user_list)
+
+
+.. _install:
+
+Install
+------------------------------------------------------------------------------
+``sqlalchemy_mate`` is released on PyPI, so all you need is:
+
+.. code-block:: console
+
+    $ pip install sqlalchemy_mate
+
+To upgrade to latest version:
+
+.. code-block:: console
+
+    $ pip install --upgrade sqlalchemy_mate

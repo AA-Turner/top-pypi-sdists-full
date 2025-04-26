@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "pytest-sugar"
+version = "1.0.0"
+description = "Pytest plugin that adds a progress bar and other visual enhancements"
+authors = ["Teemu <orkkiolento@gmail.com>", "Janne Vanhala <janne.vanhala@gmail.com>"]
+license = "BSD 3-Clause"
+readme = "README.md"
+keywords = ["testing", "pytest", "plugin"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+]
+
+[tool.poetry.urls]
+Homepage = "https://github.com/Teemu/pytest-sugar"
+"Issue Tracker" = "https://github.com/Teemu/pytest-sugar/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+pytest = ">=6.2.0"
+termcolor = ">=2.1.0"
+packaging = ">=21.3"
+
+[tool.poetry.dev-dependencies]
+black = "^24.0"
+flake8 = "^7.0"
+isort = "^5.13"
+
+[tool.autopub]
+project-name = "pytest-sugar"
+git-username = "botpub"
+git-email = "52496925+botpub@users.noreply.github.com"
+append-github-contributor = true
+changelog-file = "CHANGES.rst"
+changelog-header = "---------"
+version-header = "^"
+version-strings = ["pytest_sugar.py"]
+tag-prefix = "v"
+build-system = "setuptools"
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel"]

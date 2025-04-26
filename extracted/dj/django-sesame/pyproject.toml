@@ -1,0 +1,63 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source = ["sesame", "tests"]
+
+[tool.poetry]
+name = "django-sesame"
+version = "3.2.2"
+description = """\
+    Frictionless authentication with "Magic Links" \
+    for your Django project."""
+license = "BSD-3-Clause"
+authors = ["Aymeric Augustin <aymeric.augustin@m4x.org>"]
+readme = "README.rst"
+repository = "https://github.com/aaugustin/django-sesame"
+documentation = "https://django-sesame.readthedocs.io/"
+keywords = ["authentication", "token-based-authentication"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+]
+packages = [
+    { include = "sesame", from = "src" },
+]
+
+[tool.poetry.dependencies]
+django = ">=3.2"
+python = ">=3.8"
+ua-parser = { version = ">=0.15", optional = true }
+
+[tool.poetry.dev-dependencies]
+black = "*"
+coverage = "*"
+furo = "*"
+sphinx = "*"
+sphinx-autobuild = "*"
+sphinx-copybutton = "*"
+sphinxcontrib-spelling = { version = "*", optional = true }
+ruff = "*"
+toml = "*"
+
+[tool.poetry.extras]
+ua = ["ua-parser"]
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "W",  # pycodestyle
+    "I",  # isort
+]
+src = ["src"]

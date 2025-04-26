@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: nbdev-scipy
+Version: 0.0.1805
+Summary: nbdev docs lookup for scipy
+Home-page: https://github.com/fastai/nbdev-index/tree/master/
+Author: Jeremy Howard
+Author-email: info@fast.ai
+License: Apache Software License 2.0
+Keywords: nbdev fastai python
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pip
+Requires-Dist: packaging
+Provides-Extra: dev
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# nbdev-index
+
+nbdev docs lookup for the python standard library, scipy, pandas, numpy, django, pytorch, sphinx, and APL.

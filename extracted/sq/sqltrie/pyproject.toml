@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools>=48", "setuptools_scm[toml]>=6.3.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "sqltrie"
+description = "SQL-based prefix tree inspired by pygtrie and python-diskcache"
+readme = "README.rst"
+license = {text = "Apache-2.0"}
+authors = [{ name = "Ruslan Kuprieiev", email = "ruslan@iterative.ai" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 1 - Planning",
+]
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = [
+    "attrs>=22.2.0",
+    # NOTE: orjson doesn't support pypy, see
+    # https://github.com/ijl/orjson/issues/90
+    "orjson; implementation_name=='cpython'",
+    "pygtrie",
+]
+
+[project.urls]
+Issues = "https://github.com/efiop/sqltrie/issues"
+Source = "https://github.com/efiop/sqltrie"
+
+[project.optional-dependencies]
+tests = [
+    "pytest==7.2.0",
+    "pytest-sugar==0.9.5",
+    "pytest-cov==3.0.0",
+    "pytest-mock==3.8.2",
+    "mypy==0.971",
+    "pytest-benchmark",
+    "pyinstaller",
+]
+dev = [
+    "sqltrie[tests]",
+]
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "sqltrie.__pyinstaller:get_hook_dirs"
+tests = "sqltrie.__pyinstaller:get_PyInstaller_tests"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["sqltrie", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "raise AssertionError",
+    "@overload",
+]
+
+[tool.mypy]
+# Error output
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+pretty = true
+ignore_missing_imports = true
+check_untyped_defs = false
+# Warnings
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+[tool.codespell]
+ignore-words-list = "datas"
+skip = "CODE_OF_CONDUCT.rst"
+
+[tool.sqlfluff.core]
+dialect = "sqlite"
+exclude_rules = "L031"
+
+[tool.sqlfluff.rules]
+tab_space_size = 4
+max_line_length = 80
+indent_unit = "space"
+allow_scalar = true
+single_table_references = "consistent"
+unquoted_identifiers_policy = "all"
+
+[tool.sqlfluff.rules.L010]
+capitalisation_policy = "upper"
+
+[tool.sqlfluff.rules.L029]
+# these are not reserved in sqlite,
+# see https://www.sqlite.org/lang_keywords.html
+ignore_words = ["name", "value", "depth"]
+
+[tool.sqlfluff.rules.L063]
+# Data Types
+extended_capitalisation_policy = "upper"

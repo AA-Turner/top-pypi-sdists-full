@@ -1,0 +1,92 @@
+Metadata-Version: 2.4
+Name: pytest-test-groups
+Version: 1.2.0
+Summary: A Pytest plugin for running a subset of your tests by splitting them in to equally sized groups.
+Author-email: Mark Adams <mark@markadams.me>
+Maintainer-email: Mark Adams <mark@markadams.me>
+License: The MIT License (MIT)
+        
+        Copyright (c) 2016 Mark Adams
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Documentation, https://github.com/mark-adams/pytest-test-groups
+Project-URL: Repository, https://github.com/mark-adams/pytest-test-groups
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Testing
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: pytest>=7.0.0
+Dynamic: license-file
+
+.. image:: https://img.shields.io/pypi/v/pytest-test-groups.svg
+    :target: https://pypi.org/project/pytest-test-groups/
+
+.. image:: https://img.shields.io/pypi/pyversions/pytest-test-groups.svg
+    :target: https://pypi.org/project/pytest-test-groups/
+
+.. image:: https://github.com/mark-adams/pytest-test-groups/actions/workflows/python-tests.yml/badge.svg
+    :target: https://github.com/mark-adams/pytest-test-groups/actions?query=workflow%3Apython-tests
+    
+Welcome to pytest-test-groups!
+==============================
+
+pytest-test-groups allows you to split your test runs into groups of a specific
+size to make it easier to split up your test runs.
+
+
+Usage
+---------------------
+
+::
+
+    # Install pytest-test-groups
+    pip install pytest-test-groups
+
+    # Split the tests into 10 groups and run the second group
+    py.test --test-group-count 10 --test-group=2
+    
+    # Assign tests pseudo-randomly into 10 groups, and run the second group
+    py.test --test-group-count 10 --test-group=2 --test-group-random-seed=12345
+
+    # Split the tests by files instead of items into 3 groups and run the second group.
+    # The groups might not be in the same size as each group contains full test files
+    py.test --test-group-count 10 --test-group=2 --test-group-by filename
+
+
+Why would I use this?
+------------------------------------------------------------------
+
+Sometimes you may have some long running test jobs that take a
+while to complete. This can be a major headache when trying to
+run tests quickly. pytest-test-groups allows you to easily say
+"split my tests into groups of 10 tests and run the second group".
+This is primarily useful in the context of CI builds.

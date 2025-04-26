@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsd"
+version = "0.1.558"
+description = "Core engine powering Zinley Studio - an AI-powered development environment"
+readme = "README.md"
+requires-python = ">=3.6"
+license = { text = "MIT" }
+authors = [
+  { name = "Zinley", email = "dev@zinley.com" }
+]
+# Copy the entries from your requirements.txt into the dependencies array below
+dependencies = [
+    "aiohttp==3.11.0",
+    "pbxproj==4.2.1",
+    "portkey_ai==1.9.9",
+    "pycparser==2.22",
+    "requests==2.32.3",
+    "urllib3==2.2.3",
+    "json-repair==0.30.2",
+    "setuptools==75.2.0",
+    "gitdb==4.0.11",
+    "gitpython==3.1.43",
+    "grep-ast==0.8.1",
+    "tqdm==4.66.5",
+    "tree-sitter==0.24.0",
+    "tree-sitter-c-sharp==0.23.1",
+    "tree-sitter-embedded-template==0.23.2",
+    "tree-sitter-language-pack==0.7.1",
+    "tree-sitter-yaml==0.7.0",
+    "typing-extensions==4.12.2",
+    "diskcache==5.6.3",
+    "firecrawl-py==1.3.1",
+    "pypdf2==3.0.1",
+    "python-docx==1.1.2",
+    "chardet==5.2.0",
+    "openpyxl==3.1.5",
+    "et-xmlfile==1.1.0",
+    "boto3==1.35.44",
+    "backoff==2.2.1",
+    "aiofiles==24.1.0",
+    "certifi==2024.8.30",
+    "rapidfuzz==3.10.1",
+    "psutil==6.1.0",
+    "docx==0.2.4",
+    "prompt_toolkit==3.0.48",
+    "networkx==3.4.2",
+    "numpy==2.1.3",
+    "scipy==1.14.1",
+    "tiktoken==0.8.0",
+    "flake8==7.1.1",
+    "httpx==0.27.1",
+    "rich==13.9.4"
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = { find = { include = ["fsd", "fsd.*"] } }
+
+[tool.setuptools.package-data]
+"fsd" = ["queries/*"]

@@ -1,0 +1,107 @@
+[project]
+authors = [
+  { name = "Josh Dimarsky", email = "24758845+yehoshuadimarsky@users.noreply.github.com" }
+]
+classifiers = [
+  "Topic :: Database",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: SQL",
+]
+description = "High-level wrapper around BCP for high performance data transfers between pandas and SQL Server. No knowledge of BCP required!!"
+keywords = ["bcp", "mssql", "pandas"]
+license = {text = "MIT License"}
+maintainers = [
+  { name = "Oliver Borchert", email = "me@borchero.com"}
+]
+name = "bcpandas"
+readme = "README.md"
+urls = { repository = "https://github.com/yehoshuadimarsky/bcpandas" }
+dynamic = ["version"]
+dependencies = [
+  # per https://github.com/apache/airflow/pull/40272 and https://github.com/numpy/numpy/issues/26710
+  "pandas[sql-other] >=2.2; python_version >='3.12'",
+  "pandas[sql-other] >=2.1.2, <2.2; python_version >='3.9' and python_version <='3.11'",
+  "pyodbc >=5.2; python_version >='3.13'",
+  "pyodbc >=5; python_version <='3.12'",
+  "sqlalchemy >=1.4; python_version <='3.12'",
+  "sqlalchemy >=2.0.31; python_version >='3.13'",
+]
+requires-python = ">=3.9,<=3.13"
+
+[tool.setuptools.dynamic]
+version = {attr = "bcpandas.__version__"}
+
+[tool.setuptools]
+# https://github.com/astral-sh/uv/issues/9513#issuecomment-2519527822
+license-files = []
+
+[dependency-groups]
+dev = [
+  "pre-commit >=3",
+  "mypy >=1",
+  "ruff >=0.6",
+  "types-setuptools",
+]
+test = [
+  "codetiming >=1",
+  "docker >=6",
+  "hypothesis >=6.110",
+  "ipython >=8.10.0",
+  "matplotlib >=3.9.2",
+  "pytest >=7; python_version >='3.9' and python_version <='3.12'",
+  "pytest >=8; python_version >='3.13'",
+  "pytest-cov >=4",
+  "requests >=2",
+]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+
+[project.entry-points."pandas.sql.engine"]
+bcpandas = "bcpandas.main:to_sql"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+exclude = ["build"]
+line-length = 99
+
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = ["E501"]
+select = [
+  "E",
+  "F",
+  "W",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.mypy]
+ignore_missing_imports = true
+pretty = true
+python_version = "3.9"
+show_error_codes = true
+
+[tool.pytest.ini_options]
+addopts = "--showlocals --tb=short --strict-markers -v --cov=bcpandas --cov-report html --hypothesis-show-statistics"
+
+[tool.coverage.run]
+omit = ["bcpandas/tests/*", "benchmarks/**"]

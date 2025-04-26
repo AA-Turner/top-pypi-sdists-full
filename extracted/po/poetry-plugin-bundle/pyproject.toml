@@ -1,0 +1,113 @@
+[project]
+name = "poetry-plugin-bundle"
+version = "1.7.0"
+description = "Poetry plugin to bundle projects into various formats"
+authors = [{ name = "Sébastien Eustace", email = "sebastien@eustace.io" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.9,<4.0"
+dependencies = ["poetry>=2.1.0,<3.0.0"]
+dynamic = ["classifiers"]
+
+[project.entry-points."poetry.application.plugin"]
+export = "poetry_plugin_bundle.plugin:BundleApplicationPlugin"
+
+[tool.poetry]
+packages = [
+    { include = "poetry_plugin_bundle", from = "src" }
+]
+include = [
+    { path = "tests", format = "sdist" }
+]
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = ">=2.6"
+# add setuptools for PyCharm
+# see https://youtrack.jetbrains.com/issue/PY-48909
+# and https://github.com/JetBrains/intellij-community/commit/3f37786ec0bf5066e4527690d1068b5a00680ea3
+setuptools = { version = ">=60", python = "<3.10" }
+
+[tool.poetry.group.test.dependencies]
+coverage = ">=7.2.0"
+pytest = ">=7.1.2"
+pytest-mock = ">=3.6.1"
+
+[tool.poetry.group.typing.dependencies]
+mypy = ">=1.1.1"
+
+# only used in github actions
+[tool.poetry.group.github-actions]
+optional = true
+[tool.poetry.group.github-actions.dependencies]
+pytest-github-actions-annotate-failures = "^0.1.7"
+
+
+[tool.ruff]
+fix = true
+line-length = 88
+src = ["src"]
+target-version = "py38"
+
+[tool.ruff.lint]
+extend-select = [
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "ERA", # flake8-eradicate/eradicate
+    "I",   # isort
+    "N",   # pep8-naming
+    "PIE", # flake8-pie
+    "PGH", # pygrep
+    "RUF", # ruff checks
+    "SIM", # flake8-simplify
+    "T20", # flake8-print
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "UP",  # pyupgrade
+]
+extend-safe-fixes = [
+    "TCH", # move import from and to TYPE_CHECKING blocks
+]
+unfixable = [
+    "ERA", # do not autoremove commented out code
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+lines-between-types = 1
+lines-after-imports = 2
+known-first-party = ["poetry_plugin_bundle"]
+required-imports = ["from __future__ import annotations"]
+
+
+[tool.mypy]
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+explicit_package_bases = true
+files = ["src", "tests"]
+mypy_path = "src"
+namespace_packages = true
+show_error_codes = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+  'cleo.*',
+]
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"

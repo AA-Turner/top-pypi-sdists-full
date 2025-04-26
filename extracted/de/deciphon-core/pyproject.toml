@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "deciphon-core"
+version = "1.0.17"
+description = "Python wrapper around the Deciphon C library"
+authors = ["Danilo Horta <horta@ebi.ac.uk>"]
+license = "MIT"
+readme = "README.md"
+include = [
+  { path = "deciphon_core/*.so", format = "wheel" },
+  { path = "deciphon_core/*.pyd", format = "wheel" },
+  { path = "deciphon_core/lib/lib*", format = "wheel" },
+  { path = "build_ext.py", format = "sdist" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+cffi = "^1.17"
+pydantic = "^2.9"
+deciphon-schema = ">=0.2.0"
+
+[tool.poetry.build]
+script = "build_ext.py"
+generate-setup-file = false
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+h3daemon = ">=2.0.4"
+gitpython = ">=3.1.43"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[build-system]
+requires = [
+  "poetry-core",
+  "cffi",
+  "GitPython",
+  "setuptools;python_version>='3.12'",
+]
+build-backend = "poetry.core.masonry.api"
+
+[tool.cibuildwheel]
+skip = ["*i686"]
+
+[tool.cibuildwheel.linux]
+archs = ["auto", "aarch64"]

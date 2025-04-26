@@ -1,0 +1,62 @@
+[build-system]
+requires = ['flit_core >=3.2,<4']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'tinyhtml5'
+description = 'HTML parser based on the WHATWG HTML specification'
+keywords = ['html', 'parser']
+authors = [{name = 'James Graham', email = 'james@hoppipolla.co.uk'}]
+maintainers = [{name = 'CourtBouillon', email = 'contact@courtbouillon.org'}]
+requires-python = '>=3.9'
+readme = {file = 'README.rst', content-type = 'text/x-rst'}
+license = {file = 'LICENSE'}
+dependencies = [
+  'webencodings >=0.5.1',
+]
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3 :: Only',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'Programming Language :: Python :: 3.13',
+  'Programming Language :: Python :: Implementation :: CPython',
+  'Programming Language :: Python :: Implementation :: PyPy',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+  'Topic :: Text Processing :: Markup :: HTML'
+]
+dynamic = ['version']
+
+[project.urls]
+Homepage = 'https://github.com/CourtBouillon/tinyhtml5'
+Documentation = 'https://doc.courtbouillon.org/tinyhtml5/'
+Code = 'https://github.com/CourtBouillon/tinyhtml5'
+Issues = 'https://github.com/CourtBouillon/tinyhtml5/issues'
+Changelog = 'https://github.com/CourtBouillon/tinyhtml5/releases'
+Donation = 'https://opencollective.com/courtbouillon'
+
+[project.optional-dependencies]
+doc = ['sphinx', 'sphinx_rtd_theme']
+test = ['pytest', 'ruff']
+
+[tool.flit.sdist]
+exclude = ['.*']
+
+[tool.coverage.run]
+branch = true
+include = ['tests/*', 'tinyhtml5/*']
+
+[tool.coverage.report]
+exclude_lines = ['pragma: no cover', 'def __repr__', 'raise NotImplementedError']
+omit = ['.*']
+
+[tool.ruff.lint]
+select = ['E', 'W', 'F', 'I', 'N', 'RUF']
+ignore = ['RUF001', 'RUF002', 'RUF003']

@@ -1,0 +1,76 @@
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+# :see: https://greenbone.github.io/autohooks/installation.html
+[tool.autohooks]
+mode = "poetry"
+pre-commit = [
+    "autohooks.plugins.black",
+    "autohooks.plugins.ruff",
+    "autohooks.plugins.mypy",
+    "autohooks.plugins.pytest"
+]
+
+[tool.mypy]
+strict = true
+
+# :see: https://python-poetry.org/docs/pyproject/
+[tool.poetry]
+name = "phx-class-registry"
+version = "5.1.1"
+authors = ["Phoenix Zerin <phx@phx.nz>"]
+license = "MIT"
+readme = "README.rst"
+documentation = "https://class-registry.readthedocs.io/"
+repository = "https://github.com/todofixthis/class-registry"
+
+description = "Factory+Registry pattern for Python classes"
+keywords = [
+    "design pattern",
+    "factory pattern",
+    "registry pattern",
+    "service registry",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+include = [
+    { path = "LICENCE.txt", format = "sdist" },
+    { path = "docs", format = "sdist" },
+    { path = "test", format = "sdist" },
+]
+exclude = ["docs/_build"]
+packages = [{ include = "class_registry", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+autohooks = "^24.2.0"
+autohooks-plugin-black = "^23.10.0"
+autohooks-plugin-mypy = "^23.10.0"
+autohooks-plugin-pytest = "^23.10.0"
+autohooks-plugin-ruff = "^24.1.0"
+mypy = "^1.10.0"
+pytest = "^8.1.0"
+sphinx = "^8.1.3"
+sphinx_rtd_theme = "^3.0.1"
+tox = "^4.21.2"
+
+# Used by GitHub Actions.
+[tool.poetry.group.ci.dependencies]
+mypy = "^1.9.0"
+pytest = "^8.1.0"
+sphinx = "^8.1.3"
+sphinx_rtd_theme = "^3.0.1"
+
+[tool.poetry.urls]
+Changelog = "https://github.com/todofixthis/class-registry/releases"
+Issues = "https://github.com/todofixthis/class-registry/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: springserve
+Version: 0.8.12
+Summary: API Library for console.springserve.com
+Home-page: http://www.springserve.com
+Maintainer: dave@springserve.com
+Maintainer-email: 
+License: Apache 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Requires-Dist: requests>=2.0.0
+Requires-Dist: requests_oauthlib>=0.4.0
+Requires-Dist: link>=0.3.1
+Requires-Dist: xmltodict
+Requires-Dist: six
+Requires-Dist: requests-toolbelt
+Provides-Extra: reporting
+Requires-Dist: pandas; extra == "reporting"
+
+Springserve is a video adserver, and this library allows you
+to interface with its api to do read/write and reporting requests 

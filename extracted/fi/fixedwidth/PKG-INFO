@@ -1,0 +1,79 @@
+Metadata-Version: 2.1
+Name: FixedWidth
+Version: 1.3
+Summary: Two-way fixed-width <--> Python dict converter.
+Home-page: https://github.com/ShawnMilo/fixedwidth
+Author: Shawn Milochik
+Author-email: shawn@milochik.com
+License: BSD
+Description: Easy two-way conversion between Python dictionaries and fixed-width files.
+        The FixedWidth class has been used in production without modification for 
+        several years.
+        
+        This module has also proven useful for "debugging" a fixed-width spec --
+        an invalid configuration reports an error that may not be obvious from
+        reading the spec document.
+        
+        Requires a 'config' dictonary. See unit tests for full example.
+        
+        Small example
+        
+            SAMPLE_CONFIG = {
+        
+                'first_name': {
+                    'required': True,
+                    'type': 'string',
+                    'start_pos': 1,
+                    'end_pos': 10,
+                    'alignment': 'left',
+                    'padding': ' '
+                },
+        
+                'last_name': {
+                    'required': True,
+                    'type': 'string',
+                    'start_pos': 11,
+                    'end_pos': 30,
+                    'alignment': 'left',
+                    'padding': ' '
+                },
+        
+                'date': {
+                    'required': True,
+                    'type': 'date',
+                    'start_pos': 31,
+                    'end_pos': 38,
+                    'alignment': 'left',
+                    'format': '%Y%m%d',
+                    'padding': ' '
+                },
+        
+                'decimal': {
+                    'required': True,
+                    'type': 'decimal',
+                    'precision': 2,
+                    'rounding': decimal.ROUND_UP,
+                    'start_pos': 38,
+                    'end_pos': 42,
+                    'alignment': 'left',
+                    'padding': ' '
+                },
+        
+            }
+        
+        Notes:
+        
+        * A field must have a start_pos and either an end_pos or a length. If both an end_pos and a length are provided, they must not conflict.
+        
+        * A field may not have a default value if it is required.
+        
+        * Supported types are string, integer, and decimal.
+        
+        * Alignment and padding are required.
+        
+        
+        License: BSD
+        
+Keywords: fixed width
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

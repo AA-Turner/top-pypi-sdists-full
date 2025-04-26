@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: pypg
+Version: 0.0.5
+Summary: PyPG: A library for PPG (PhotoPlethysmoGram) processing
+Home-page: https://github.com/hpi-dhc/pypg
+Author: Ariane Sasso
+Author-email: ariane.sasso@gmail.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+![PyPG Logo](/imgs/logo/PyPG-logo-128.png)
+
+## A library for PPG (**P**hoto**P**lethysmo**G**ram) processing
+
+Logo by [Pedro Brondi](https://www.behance.net/pedrobrondi)
+

@@ -1,0 +1,162 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "union"
+dynamic = ["version"]
+authors = [{ name = "unionai", email = "info@union.ai" }]
+description = "Adds Union specific functionality to Flytekit"
+license = { file = "LICENSE" }
+readme = { file = "README_PYPI.md", content-type = "text/markdown" }
+requires-python = ">=3.9"
+dependencies = [
+    "googleapis-common-protos>=1.57",
+    # Skipping those versions to account for the unwanted output coming from grpcio and grpcio-status.
+    # Issue being tracked in https://github.com/flyteorg/flyte/issues/6082.
+    "grpcio!=1.68.0,!=1.68.1",
+    "grpcio-status!=1.68.0,!=1.68.1",
+    "keyring",
+    "importlib-metadata",
+    "fsspec>=2023.3.0",
+    "aiofiles>=23.2.1",
+    "click",
+    "rich",
+    "rich_click",
+    "flytekit>=v1.15.4",
+    "flyteidl>=v1.15.1",
+    "sentry-sdk>=2.0.0",
+    "mashumaro",
+    # Actors are only required for linux and execution
+    "unionai-actor>=0.1.9; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "pyyaml",
+    "typing_extensions",
+    # Temporary fix for segfault issue on windows
+    "protobuf<5.28.0; platform_system == 'Windows'",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+byoc = ["unionmeta-byoc"]
+vllm = [
+    "vllm>=0.8.2",
+    "torch==2.6",
+    "aiofiles==24.1.0",
+    # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
+    "obstore==0.3.0",
+    "pydantic==2.11.2",
+    "union-runtime==0.1.14",
+]
+sglang = [
+    "sglang[all]>=0.4.5",
+    "datamodel-code-generator==0.28.5",
+    "torch==2.5.1",
+    "aiofiles==24.1.0",
+    # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
+    "obstore==0.3.0",
+    "pydantic==2.11.2",
+    "union-runtime==0.1.14",
+]
+
+[tool.uv.sources]
+flashinfer-python = { index = "flashinfer" }
+
+[[tool.uv.index]]
+name = "flashinfer"
+url = "https://flashinfer.ai/whl/cu124/torch2.5"
+
+[tool.uv]
+conflicts = [[{ extra = "vllm" }, { extra = "sglang" }]]
+
+[project.urls]
+Homepage = "https://www.union.ai/"
+
+[project.scripts]
+union = "union.cli._main:main"
+union-model-loader-vllm = "union._model_loader.shim.vllm:main"
+union-model-loader-sglang = "union._model_loader.shim.sglang:main"
+
+[project.entry-points."fsspec.specs"]
+unionmeta = "union.filesystems:AsyncUnionMetaFS"
+union = "union.filesystems:AsyncUnionFS"
+
+[project.entry-points."flytekit.configuration.plugin"]
+union = "union.configuration:UnionAIPlugin"
+
+[project.entry-points."flytekit.plugins"]
+union_image = "union.ucimage"
+union_artifacts = "union.artifacts"
+union_actor = "union.actor"
+
+[project.entry-points."keyring.backends"]
+union_keyring_file = "union._keyring.file"
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["licenses/*.txt", "LICENSE"]
+
+[tool.setuptools.packages.find]
+include = ["union*"]
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+norecursedirs = ["fsspec"]
+log_cli = true
+log_cli_level = 20
+markers = []
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+
+[tool.ruff]
+line-length = 120
+extend-exclude = [
+    "union/internal",
+    "flytekit",
+    "union-runtime/union_runtime/_internal",
+]
+
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "PLW",
+    "YTT",
+    "ASYNC",
+    "C4",
+    "T10",
+    "EXE",
+    "ISC",
+    "LOG",
+    "PIE",
+    "Q",
+    "RSE",
+    "FLY",
+    "PGH",
+    "PLC",
+    "PLE",
+    "PLW",
+    "FURB",
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]

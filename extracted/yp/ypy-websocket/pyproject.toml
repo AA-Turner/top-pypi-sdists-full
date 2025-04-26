@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ypy-websocket"
+dynamic = ["version"]
+description = "WebSocket connector for Ypy"
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [
+    { name = "David Brochart", email = "david.brochart@gmail.com" },
+]
+keywords = [
+    "websocket",
+    "yjs",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "anyio >=3.6.2,<5",
+    "aiosqlite >=0.18.0,<1",
+    "y-py >=0.6.0,<0.7.0",
+    "typing_extensions; python_version < '3.8'",
+]
+
+[project.optional-dependencies]
+test = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-asyncio",
+    "websockets >=10.0",
+    "uvicorn",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings-python",
+]
+django = [
+    "channels",
+]
+
+[project.urls]
+Homepage = "https://github.com/y-crdt/ypy-websocket"
+Source = "https://github.com/y-crdt/ypy-websocket"
+Issues = "https://github.com/y-crdt/ypy-websocket/issues"
+Pypi = "https://pypi.org/project/ypy-websocket"
+
+[tool.hatch.version]
+path = "ypy_websocket/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/ypy_websocket",
+    "/tests",
+]
+
+[tool.flake8]
+ignore = "E501, W503, E402"
+exclude = [
+    ".github",
+]
+enable-extensions = "G"
+extend-ignore = [
+    "G001", "G002", "G004", "G200", "G201", "G202",
+    # black adds spaces around ':'
+    "E203",
+]

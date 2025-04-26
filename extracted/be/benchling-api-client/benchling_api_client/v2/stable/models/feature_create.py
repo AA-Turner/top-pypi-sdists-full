@@ -1,0 +1,229 @@
+from typing import Any, cast, Dict, Optional, Type, TypeVar, Union
+
+import attr
+
+from ..extensions import NotPresentError
+from ..models.feature_create_match_type import FeatureCreateMatchType
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="FeatureCreate")
+
+
+@attr.s(auto_attribs=True, repr=False)
+class FeatureCreate:
+    """ Inputs for a new feature """
+
+    _match_type: FeatureCreateMatchType
+    _color: Union[Unset, str] = UNSET
+    _feature_library_id: Union[Unset, str] = UNSET
+    _feature_type: Union[Unset, None, str] = UNSET
+    _name: Union[Unset, str] = UNSET
+    _pattern: Union[Unset, str] = UNSET
+
+    def __repr__(self):
+        fields = []
+        fields.append("match_type={}".format(repr(self._match_type)))
+        fields.append("color={}".format(repr(self._color)))
+        fields.append("feature_library_id={}".format(repr(self._feature_library_id)))
+        fields.append("feature_type={}".format(repr(self._feature_type)))
+        fields.append("name={}".format(repr(self._name)))
+        fields.append("pattern={}".format(repr(self._pattern)))
+        return "FeatureCreate({})".format(", ".join(fields))
+
+    def to_dict(self) -> Dict[str, Any]:
+        match_type = self._match_type.value
+
+        color = self._color
+        feature_library_id = self._feature_library_id
+        feature_type = self._feature_type
+        name = self._name
+        pattern = self._pattern
+
+        field_dict: Dict[str, Any] = {}
+        # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
+        if match_type is not UNSET:
+            field_dict["matchType"] = match_type
+        if color is not UNSET:
+            field_dict["color"] = color
+        if feature_library_id is not UNSET:
+            field_dict["featureLibraryId"] = feature_library_id
+        if feature_type is not UNSET:
+            field_dict["featureType"] = feature_type
+        if name is not UNSET:
+            field_dict["name"] = name
+        if pattern is not UNSET:
+            field_dict["pattern"] = pattern
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any], strict: bool = False) -> T:
+        d = src_dict.copy()
+
+        def get_match_type() -> FeatureCreateMatchType:
+            _match_type = d.pop("matchType")
+            try:
+                match_type = FeatureCreateMatchType(_match_type)
+            except ValueError:
+                match_type = FeatureCreateMatchType.of_unknown(_match_type)
+
+            return match_type
+
+        try:
+            match_type = get_match_type()
+        except KeyError:
+            if strict:
+                raise
+            match_type = cast(FeatureCreateMatchType, UNSET)
+
+        def get_color() -> Union[Unset, str]:
+            color = d.pop("color")
+            return color
+
+        try:
+            color = get_color()
+        except KeyError:
+            if strict:
+                raise
+            color = cast(Union[Unset, str], UNSET)
+
+        def get_feature_library_id() -> Union[Unset, str]:
+            feature_library_id = d.pop("featureLibraryId")
+            return feature_library_id
+
+        try:
+            feature_library_id = get_feature_library_id()
+        except KeyError:
+            if strict:
+                raise
+            feature_library_id = cast(Union[Unset, str], UNSET)
+
+        def get_feature_type() -> Union[Unset, None, str]:
+            feature_type = d.pop("featureType")
+            return feature_type
+
+        try:
+            feature_type = get_feature_type()
+        except KeyError:
+            if strict:
+                raise
+            feature_type = cast(Union[Unset, None, str], UNSET)
+
+        def get_name() -> Union[Unset, str]:
+            name = d.pop("name")
+            return name
+
+        try:
+            name = get_name()
+        except KeyError:
+            if strict:
+                raise
+            name = cast(Union[Unset, str], UNSET)
+
+        def get_pattern() -> Union[Unset, str]:
+            pattern = d.pop("pattern")
+            return pattern
+
+        try:
+            pattern = get_pattern()
+        except KeyError:
+            if strict:
+                raise
+            pattern = cast(Union[Unset, str], UNSET)
+
+        feature_create = cls(
+            match_type=match_type,
+            color=color,
+            feature_library_id=feature_library_id,
+            feature_type=feature_type,
+            name=name,
+            pattern=pattern,
+        )
+
+        return feature_create
+
+    @property
+    def match_type(self) -> FeatureCreateMatchType:
+        """ The match type of the feature. Used to determine how auto-annotate matches are made. """
+        if isinstance(self._match_type, Unset):
+            raise NotPresentError(self, "match_type")
+        return self._match_type
+
+    @match_type.setter
+    def match_type(self, value: FeatureCreateMatchType) -> None:
+        self._match_type = value
+
+    @property
+    def color(self) -> str:
+        """ The color of the annotations generated by the feature. Must be a valid hex string """
+        if isinstance(self._color, Unset):
+            raise NotPresentError(self, "color")
+        return self._color
+
+    @color.setter
+    def color(self, value: str) -> None:
+        self._color = value
+
+    @color.deleter
+    def color(self) -> None:
+        self._color = UNSET
+
+    @property
+    def feature_library_id(self) -> str:
+        """ The id of the feature library the feature belongs to """
+        if isinstance(self._feature_library_id, Unset):
+            raise NotPresentError(self, "feature_library_id")
+        return self._feature_library_id
+
+    @feature_library_id.setter
+    def feature_library_id(self, value: str) -> None:
+        self._feature_library_id = value
+
+    @feature_library_id.deleter
+    def feature_library_id(self) -> None:
+        self._feature_library_id = UNSET
+
+    @property
+    def feature_type(self) -> Optional[str]:
+        """The type of feature, like gene, promoter, etc. Note: This is an arbitrary string, not an enum"""
+        if isinstance(self._feature_type, Unset):
+            raise NotPresentError(self, "feature_type")
+        return self._feature_type
+
+    @feature_type.setter
+    def feature_type(self, value: Optional[str]) -> None:
+        self._feature_type = value
+
+    @feature_type.deleter
+    def feature_type(self) -> None:
+        self._feature_type = UNSET
+
+    @property
+    def name(self) -> str:
+        """ The name of the feature """
+        if isinstance(self._name, Unset):
+            raise NotPresentError(self, "name")
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        self._name = UNSET
+
+    @property
+    def pattern(self) -> str:
+        """ The pattern used for matching during auto-annotation. """
+        if isinstance(self._pattern, Unset):
+            raise NotPresentError(self, "pattern")
+        return self._pattern
+
+    @pattern.setter
+    def pattern(self, value: str) -> None:
+        self._pattern = value
+
+    @pattern.deleter
+    def pattern(self) -> None:
+        self._pattern = UNSET

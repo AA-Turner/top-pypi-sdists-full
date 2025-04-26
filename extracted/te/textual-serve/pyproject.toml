@@ -1,0 +1,39 @@
+[project]
+name = "textual-serve"
+version = "1.1.2"
+description = "Turn your Textual TUIs in to web applications"
+authors = [
+    { name = "Will McGugan", email = "will@textualize.io" }
+]
+dependencies = [
+    "aiohttp>=3.9.5",
+    "aiohttp-jinja2>=1.6",
+    "jinja2>=3.1.4",
+    "rich",
+    "textual>=0.66.0",
+]
+readme = "README.md"
+requires-python = ">= 3.9"
+license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/Textualize/textual-serve"
+
+
+[build-system]
+requires = ["hatchling>=1.26.1"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "httpx",
+    # required to run the dictionary example
+    "textual-dev>=1.5.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/textual_serve"]

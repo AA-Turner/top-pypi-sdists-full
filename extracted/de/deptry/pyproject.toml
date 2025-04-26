@@ -1,0 +1,207 @@
+[project]
+name = "deptry"
+version = "0.23.0"
+description = "A command line utility to check for unused, missing and transitive dependencies in a Python project."
+authors = [{ name = "Florian Maas", email = "fpgmaas@gmail.com" }]
+maintainers = [{ name = "Mathieu Kniewallner", email = "mathieu.kniewallner@gmail.com" }]
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "click>=8.0.0,<9",
+    "colorama>=0.4.6; sys_platform == 'win32'",
+    "packaging>=23.2",
+    "requirements-parser>=0.11.0,<1",
+    "tomli>=2.0.1; python_version < '3.11'",
+]
+
+[dependency-groups]
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.5.50",
+]
+test = [
+    "pdm==2.22.2",
+    "poetry==2.0.1",
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "pytest-xdist[psutil]==3.6.1",
+]
+typing = [
+    "mypy[faster-cache]==1.14.1; implementation_name == 'cpython'",
+    # orjson does not compile on PyPy.
+    "mypy==1.14.1; implementation_name != 'cpython'",
+    "types-colorama==0.4.15.20240311; sys_platform == 'win32'",
+]
+
+[project.urls]
+homepage = "https://deptry.com"
+repository = "https://github.com/fpgmaas/deptry"
+documentation = "https://deptry.com"
+changelog = "https://github.com/fpgmaas/deptry/blob/main/CHANGELOG.md"
+
+[project.scripts]
+deptry = "deptry.cli:deptry"
+
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "deptry.rust"
+
+[tool.coverage.report]
+skip_empty = true
+# Subset of rules from https://pypi.org/project/covdefaults/
+exclude_lines = [
+    # a more strict default pragma
+    "# pragma: no cover\\b",
+
+    # allow defensive code
+    "^\\s*raise AssertionError\\b",
+    "^\\s*raise NotImplementedError\\b",
+    "^\\s*return NotImplemented\\b",
+    "^\\s*raise$",
+
+    # typing-related code
+    "^\\s*if (False|TYPE_CHECKING):",
+    ": \\.\\.\\.(\\s*#.*)?$",
+    "^ +\\.\\.\\.$",
+    "-> ['\"]?NoReturn['\"]?:",
+
+    # non-runnable code
+    "if __name__ == ['\"]__main__['\"]:$",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["python/deptry"]
+
+[tool.mypy]
+mypy_path = "python"
+files = ["python/deptry", "scripts", "tests"]
+explicit_package_bases = true
+exclude = ["tests/fixtures"]
+disallow_any_unimported = true
+enable_error_code = [
+    "deprecated",
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+strict = true
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["xdist.*"]
+ignore_missing_imports = true
+
+[tool.deptry]
+extend_exclude = [
+    "docs",
+    "tests",
+    "scripts",
+]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["tomllib"]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+filterwarnings = ["error"]
+norecursedirs = ["fixtures*"]
+
+[tool.ruff]
+line-length = 120
+fix = true
+extend-exclude = ["tests/fixtures/*"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-blind-except
+    "BLE",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-logging-format
+    "G",
+    # flake8-no-pep420
+    "INP",
+    # flake8-print
+    "T20",
+    # flake8-pytest-style
+    "PT",
+    # flake8-simplify
+    "SIM",
+    # flake8-type-checking
+    "TC",
+    # flake8-use-pathlib
+    "PTH",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pep8-naming
+    "N",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # line-too-long (https://docs.astral.sh/ruff/rules/line-too-long/)
+    "E501",
+]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["deptry"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S603"]
+# https://github.com/astral-sh/ruff/issues/15399
+# Since modules are not in the root directory, this shouldn't be problematic.
+"python/deptry/reporters/json.py" = ["A005"]
+"tests/functional/types.py" = ["A005"]

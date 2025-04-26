@@ -1,0 +1,66 @@
+Metadata-Version: 2.2
+Name: mkdocs-meta-manager
+Version: 1.1.0
+Summary: MkDocs plugin for managing meta tags across folders and files.
+Home-page: https://github.com/timmeinerzhagen/mkdocs-meta-manager
+Author: Tim Jonas Meinerzhagen
+Author-email: tim@meinerzhagen.me
+License: MIT
+Keywords: mkdocs meta manager
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Documentation
+Classifier: Topic :: Text Processing
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
+Requires-Dist: mkdocs>=1.0
+Requires-Dist: jinja2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# mkdocs-meta-manager
+
+MkDocs plugin for managing meta tags across folders and files
+
+## Setup
+
+1. Install the plugin:
+    ```bash
+    pip install mkdocs-meta-manager
+    ```
+2. Add the plugin to your `mkdocs.yml`
+    ```bash
+    plugins:
+        - search
+        - meta-manager
+    ```
+
+## Usage
+
+Add meta files with the name `.meta.yml` (can be configured) in your docs file structure.
+
+All markdown files in the same folder and in subfolders automatically get all tags that are defined in the given meta file.
+
+## Options
+
+`meta_filename`
+Change the default name of the meta file. (default=`.meta.yml`)
+
+`merge_entries`
+Merge all specified entries of meta files and pages for a page that affects them according to the hirearchie (default=`[]`)

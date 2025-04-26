@@ -1,0 +1,127 @@
+[tool.black]
+line-length = 120
+target_version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs          # exclude a few common directories in the
+    | \.git           # root of the project
+    | \.pytest_cache
+    | \.mypy_cache
+    | \.venv
+    | venv
+    | _build
+    | build
+    | dist
+    | pynguin.egg-info
+  )/
+)
+'''
+
+[tool.isort]
+py_version = 310
+profile = "black"
+combine_as_imports = true
+lines_between_types = 1
+lines_after_imports = 2
+src_paths = [ "ai21_tokenizer", "tests"]
+
+[tool.coverage.run]
+
+branch = true
+source = ["ai21_tokenizer", "tests"]
+omit = ["tests/fixtures/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "def __str__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "if typing.TYPE_CHECKING:"
+]
+
+[tool.coverage.html]
+directory = "cov_html"
+
+[tool.coverage.xml]
+directory = "coverage.xml"
+
+[tool.commitizen]
+name = "cz_customize"
+
+[tool.commitizen.customize]
+schema_pattern = "(build|ci|docs|feat|fix|perf|refactor|style|test|chore|revert|bump):(\\s.*)"
+
+[tool.poetry]
+name = "ai21-tokenizer"
+version = "0.12.0"
+description = ""
+authors = ["AI21 Labs"]
+readme = "README.md"
+packages = [
+    { include = "ai21_tokenizer" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+sentencepiece = ">=0.2.0,<1.0.0"
+tokenizers = ">=0.15.0,<1.0.0"
+anyio = "^4.4.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+invoke = "*"
+isort = "*"
+mypy = "*"
+safety = "*"
+ruff = "*"
+python-semantic-release = "^8.3.0"
+
+[tool.semantic_release]
+version_toml = [
+    "pyproject.toml:tool.poetry.version"
+]
+version_variables = [
+    "ai21_tokenizer/version.py:VERSION"
+]
+match = "(main)"
+upload_to_release = true
+build_command = "pip install poetry && poetry build"
+version_source = "tag"
+commit_version_number = true
+major_on_zero = false # to be removed once we feel comfortable enough to increase major version
+commit_message = "chore(release): v{version} [skip ci]"
+
+[tool.semantic_release.branches.main]
+match = "(main)"
+
+[tool.semantic_release.changelog.environment]
+newline_sequence = "\n"
+
+
+
+[tool.poetry.group.test.dependencies]
+coverage = "^7.1.0"
+pytest = "7.4.4"
+pytest-cov = "4.0.0"
+pytest-mock = "3.11.1"
+pytest-asyncio = "^0.23.7"
+pytest-lazy-fixture = "^0.6.3"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[tool.ruff]
+line-length = 120
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = [
+  "poetry-core",
+]

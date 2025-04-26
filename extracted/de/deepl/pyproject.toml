@@ -1,0 +1,65 @@
+[tool.black]
+line-length = 79
+
+[tool.poetry]
+name = "deepl"
+version = "1.21.1"
+description = "Python library for the DeepL API."
+authors = ["DeepL SE <python-api@deepl.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/DeepLcom/deepl-python"
+documentation = "https://www.deepl.com/docs-api/"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    # Note: although poetry automatically creates the Python version trove
+    # classifiers, the 3.6 one will be missing because we specify >=3.6.2
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/DeepLcom/deepl-python/issues"
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*", "tests/*"]
+
+[tool.coverage.report]
+fail_under = 70
+
+[tool.poetry.dependencies]
+python = ">=3.6.2,<4"
+requests = "^2"
+keyring = {version = "^23.4.1", python = ">=3.6,<4", optional = true}
+
+[tool.poetry.dev-dependencies]
+black = "^21.4b2"
+pydantic = "^1.8.1"
+flake8 = "^3.9.2"
+mypy = [
+    {version = "^0.991", python = ">=3.7,<4"},
+    {version = "^0.812", python = "<3.7"},
+]
+# pytest v7.2.0 addresses a vulnerability but unfortunately only supports Python 3.7+
+pytest = [
+    {version = "^7.2.0", python = ">=3.7,<4"},
+    {version = "^6.2.3", python = "<3.7"},
+]
+coverage = [
+    {extras = ["toml"], version = "^6.5.0", python = ">=3.7,<4"},
+    {extras = ["toml"], version = "^5.5.0", python = "<3.7"},
+]
+
+[tool.poetry.extras]
+keyring = ["keyring"]
+
+[tool.poetry.scripts]
+deepl = "deepl.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

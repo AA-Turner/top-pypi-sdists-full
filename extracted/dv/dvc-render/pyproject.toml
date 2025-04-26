@@ -1,0 +1,177 @@
+[build-system]
+requires = ["setuptools>=48", "setuptools_scm[toml]>=6.3.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dvc-render"
+description = "Dvc Render"
+readme = "README.rst"
+license = {text = "Apache-2.0"}
+authors = [{name = "Iterative", email = "support@dvc.org"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Development Status :: 4 - Beta"
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = []
+
+[project.urls]
+Issues = "https://github.com/iterative/dvc-render/issues"
+Source = "https://github.com/iterative/dvc-render"
+
+[project.optional-dependencies]
+table = [
+  "tabulate>=0.8.7",
+  "flatten_dict<1,>=0.4.1"
+]
+markdown = [
+  "dvc-render[table]",
+  "matplotlib"
+]
+docs = [
+  "mkdocs>=1.5.2,<2",
+  "mkdocs-gen-files>=0.5.0,<1",
+  "mkdocs-material>=9.3.1,<10",
+  "mkdocs-section-index>=0.3.6,<1",
+  "mkdocstrings-python>=1.6.3,<2"
+]
+tests = [
+  "dvc-render[table,markdown]",
+  "pytest>=7,<9",
+  "pytest-cov>=4.1.0",
+  "pytest-sugar",
+  "pytest-mock"
+]
+dev = [
+  "dvc-render[tests,docs]",
+  "mypy==1.9.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["dvc_render", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+  "if typing.TYPE_CHECKING:",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "raise AssertionError",
+  "@overload"
+]
+
+[tool.mypy]
+# Error output
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+pretty = true
+check_untyped_defs = false
+# Warnings
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = [
+  "matplotlib.*",
+  "tabulate"
+]
+ignore_missing_imports = true
+
+[tool.codespell]
+ignore-words-list = "fpr"
+
+[tool.ruff]
+output-format = "full"
+show-fixes = true
+
+[tool.ruff.lint]
+ignore = [
+  "S101",  # assert
+  "PLR2004",  # magic-value-comparison
+  "PLW2901",  # redefined-loop-name
+  "ISC001",  # single-line-implicit-string-concatenation
+  "SIM105",  # suppressible-exception
+  "SIM108",  # if-else-block-instead-of-if-exp
+  "D203",  # one blank line before class
+  "D213",  # multi-line-summary-second-line
+  "RUF012",  # mutable class attributes
+  "PT007"  # value types in pytest.mark.parametrize
+]
+select = [
+  "F",
+  "E",
+  "W",
+  "C90",
+  "I",
+  "N",
+  "UP",
+  "YTT",
+  "ASYNC",
+  "S",
+  "BLE",
+  "B",
+  "A",
+  "C4",
+  "T10",
+  "EXE",
+  "ISC",
+  "ICN",
+  "G",
+  "INP",
+  "PIE",
+  "T20",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TCH",
+  "ARG",
+  "PGH",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "TRY",
+  "FLY",
+  "PERF101",
+  "RUF"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"noxfile.py" = ["D", "PTH"]
+"tests/**" = ["S", "ARG001", "ARG002", "ANN"]
+"docs/**" = ["INP"]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["{{ cookiecutter.package_name }}"]

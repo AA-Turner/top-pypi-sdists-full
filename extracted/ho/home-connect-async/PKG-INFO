@@ -1,0 +1,54 @@
+Metadata-Version: 2.2
+Name: home-connect-async
+Version: 0.8.2
+Summary: Async SDK for BSH Home Connect API
+Home-page: https://github.com/ekutner/home-connect-async
+Author: Eran Kutner
+Author-email: eran@kutner.org
+License: MIT
+Keywords: HomeConnect,Home Connect,BSH,Async,SDK
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Description-Content-Type: text/markdown; charset=UTF-8
+Requires-Dist: aiohttp
+Requires-Dist: aiohttp-sse-client>=0.2.1
+Requires-Dist: dataclasses-json>=0.5.6
+Requires-Dist: oauth2-client>=1.2.1
+Requires-Dist: charset_normalizer
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
+
+
+# Description
+This is a high-level async Python SDK for BSH Home Connect API. The API allows monitoring and controlling home appliances manufactured by BSH under brnad names such as Bosch, Siemens, Gaggenau and Neff.  
+
+# Functionality
+The SDK connects to the Home Connect API and retrieves all the data associated with the logged-in account, which is made available under the SDK's data model. Afterwards, the SDK maintains an up-to-date state by subscribing to receive real time updates from the API.
+
+# Getting Access
+This API provides access to home appliances enabled by Home Connect
+(https://home-connect.com). Through the API programs can be started and
+stopped, or home appliances configured and monitored. For instance, you can
+start a cotton program on a washer and get a notification when the cycle is
+complete.
+
+To get started with this web client, visit https://developer.home-connect.com
+and register an account. An application with a client ID for this API client
+will be automatically generated for you.
+
+# Legal Notice
+This SDK is was not created by BSH and is not affiliated with it in any way.
+
+# License
+This SDK is licensed under the MIT license.

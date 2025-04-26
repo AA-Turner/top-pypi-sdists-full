@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=62.6"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dask-expr"
+description = "High Level Expressions for Dask "
+maintainers = [{name = "Matthew Rocklin", email = "mrocklin@gmail.com"}]
+license = {text = "BSD"}
+keywords = ["dask pandas"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Distributed Computing",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+version = "2.0.0"
+dependencies = [
+    "dask >= 2025.1.0",
+]
+
+dynamic = []
+
+[project.urls]
+"Source code" = "https://github.com/dask-contrib/dask-expr/"
+
+[tool.setuptools.packages.find]
+exclude = ["*tests*"]
+namespaces = false
+
+[tool.coverage.run]
+omit = [
+    "*/test_*.py",
+]
+source = ["dask_expr"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+ignore_errors = true
+
+
+[tool.pytest.ini_options]
+addopts = "-v -rsxfE --durations=10 --color=yes"
+filterwarnings = [
+    'ignore:Passing a BlockManager to DataFrame is deprecated and will raise in a future version. Use public APIs instead:DeprecationWarning',  # https://github.com/apache/arrow/issues/35081
+    'ignore:The previous implementation of stack is deprecated and will be removed in a future version of pandas\.:FutureWarning',
+    'error:\nA value is trying to be set on a copy of a slice from a DataFrame',
+]
+xfail_strict = true

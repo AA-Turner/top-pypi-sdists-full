@@ -1,0 +1,68 @@
+[tool.poetry]
+name = "astral"
+version = "3.2"
+description = "Calculations for the position of the sun and moon."
+keywords = ["sun", "moon", "sunrise", "sunset", "dawn", "dusk"]
+authors = ["Simon Kennedy <sffjunkie+code@gmail.com>"]
+license = "Apache-2.0"
+readme = "ReadMe.md"
+documentation = "https://sffjunkie.github.io/astral"
+repository = "https://github.com/sffjunkie/astral"
+
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+packages = [{ include = "astral", from = "src" }]
+
+include = ["src/doc", "src/test"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+"backports.zoneinfo" = { version = "*", markers = "python_version < '3.9'" }
+tzdata = { version = "*", markers = "sys_platform == 'win32'" }
+
+[tool.poetry.dev-dependencies]
+freezegun = "*"
+pytest = "*"
+tox = "*"
+pylint = "^2.4.4"
+flake8 = "*"
+
+[tool.poetry.group.docs.dependencies]
+sphinx-book-theme = "^0.3.3"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^2.20.0"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+junit_family = "xunit2"
+cache_dir = "~/.cache/pytest"
+norecursedirs = [
+    "__pycache__",
+    ".cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".eggs",
+    ".git",
+    ".settings",
+    ".venv",
+    ".vscode",
+    "dist",
+    "build",
+]
+
+
+[tool.mypy]
+cache_dir = "~/.cache/mypy"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

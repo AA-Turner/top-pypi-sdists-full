@@ -1,0 +1,108 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+
+[project]
+name = "behave-django"
+dynamic = ["version"]
+description = "Behave BDD integration for Django"
+readme = "README.rst"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Mitchel Cabuloy", email = "mixxorz@gmail.com"},
+  {name = "Peter Bittner", email = "django@bittner.it"},
+]
+maintainers = [
+  {name = "Peter Bittner", email = "django@bittner.it"},
+  {name = "Javier Buzzi", email = "buzzi.javier@gmail.com"},
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: Plugins",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "Framework :: Django :: 5.1",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Topic :: Software Development :: Testing",
+]
+keywords = [
+  "bdd",
+  "behave",
+  "django",
+  "testing",
+]
+requires-python = ">=3.8"
+dependencies = [
+  "behave[toml]>=1.2.7.dev6",
+  "django>=4.2",
+  "beautifulsoup4",
+]
+
+[project.urls]
+Source = "https://github.com/behave/behave-django"
+Documentation = "https://behave-django.readthedocs.io/"
+
+[tool.behave]
+junit = true
+junit_directory = "tests"
+paths = [
+  "tests/acceptance",
+  "tests/test_app",
+]
+show_skipped = false
+
+[tool.coverage.run]
+source = ["behave_django"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.pytest.ini_options]
+addopts = "--color=yes --junitxml=tests/unittests-report.xml --verbose"
+testpaths = [
+    "tests/unit",
+]
+
+[tool.ruff]
+extend-exclude = ["docs/conf.py"]
+
+[tool.ruff.format]
+quote-style = "single"
+exclude = ["tests/test_app/migrations/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["ALL"]
+extend-ignore = ["ANN", "COM812", "D", "FIX", "Q000", "RUF012", "TD"]
+
+[tool.ruff.lint.per-file-ignores]
+"behave_django/decorators.py" = ["B010"]
+"behave_django/environment.py" = ["SLF001"]
+"behave_django/management/commands/behave.py" = ["ARG002", "N811", "PLW2901"]
+"behave_django/pageobject.py" = ["B023"]
+"behave_django/testcase.py" = ["FBT002", "N802"]
+"tests/acceptance/steps/live_test_server.py" = ["S310"]
+"tests/test_app/*.py" = ["ERA001"]
+"tests/test_app/models.py" = ["DJ008"]
+"tests/test_project/settings.py" = ["S105"]
+"tests/unit/util.py" = ["S603"]
+"tests/**/*.py" = ["ARG001", "ARG002", "INP001", "PT009", "S101"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"

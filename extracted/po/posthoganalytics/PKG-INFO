@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: posthoganalytics
+Version: 4.0.0
+Summary: Integrate PostHog into any python application.
+Home-page: https://github.com/posthog/posthog-python
+Author: Posthog
+Author-email: hey@posthog.com
+Maintainer: PostHog
+Maintainer-email: hey@posthog.com
+License: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+License-File: LICENSE
+Requires-Dist: requests<3.0,>=2.7
+Requires-Dist: six>=1.5
+Requires-Dist: monotonic>=1.5
+Requires-Dist: backoff>=1.10.0
+Requires-Dist: python-dateutil>2.1
+Requires-Dist: distro>=1.5.0
+Provides-Extra: sentry
+Requires-Dist: sentry-sdk; extra == "sentry"
+Requires-Dist: django; extra == "sentry"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+
+PostHog is developer-friendly, self-hosted product analytics. posthog-python is the python package.

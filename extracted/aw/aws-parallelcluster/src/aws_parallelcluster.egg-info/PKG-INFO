@@ -1,0 +1,70 @@
+Metadata-Version: 2.4
+Name: aws-parallelcluster
+Version: 3.13.0
+Summary: AWS ParallelCluster is an AWS supported Open Source cluster management tool to deploy and manage HPC clusters in the AWS cloud.
+Home-page: https://github.com/aws/aws-parallelcluster
+Author: Amazon Web Services
+License: Apache License 2.0
+Project-URL: Changelog, https://github.com/aws/aws-parallelcluster/blob/develop/CHANGELOG.md
+Project-URL: Issue Tracker, https://github.com/aws/aws-parallelcluster/issues
+Project-URL: Documentation, https://docs.aws.amazon.com/parallelcluster/
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.9
+Requires-Dist: setuptools
+Requires-Dist: boto3>=1.16.14
+Requires-Dist: tabulate<=0.8.10,>=0.8.8
+Requires-Dist: PyYAML!=5.4,>=5.3.1
+Requires-Dist: jinja2~=3.0
+Requires-Dist: marshmallow~=3.10
+Requires-Dist: aws-cdk.core~=1.164
+Requires-Dist: aws-cdk.aws-batch~=1.164
+Requires-Dist: aws_cdk.aws-cloudwatch~=1.164
+Requires-Dist: aws-cdk.aws-codebuild~=1.164
+Requires-Dist: aws-cdk.aws-dynamodb~=1.164
+Requires-Dist: aws-cdk.aws-ec2~=1.164
+Requires-Dist: aws-cdk.aws-efs~=1.164
+Requires-Dist: aws-cdk.aws-events~=1.164
+Requires-Dist: aws-cdk.aws-fsx~=1.164
+Requires-Dist: aws-cdk.aws-imagebuilder~=1.164
+Requires-Dist: aws-cdk.aws-iam~=1.164
+Requires-Dist: aws_cdk.aws-lambda~=1.164
+Requires-Dist: aws-cdk.aws-logs~=1.164
+Requires-Dist: aws-cdk.aws-route53~=1.164
+Requires-Dist: aws-cdk.aws-ssm~=1.164
+Requires-Dist: aws-cdk.aws-sqs~=1.164
+Requires-Dist: aws-cdk.aws-cloudformation~=1.164
+Requires-Dist: werkzeug~=2.0
+Requires-Dist: connexion~=2.13.0
+Requires-Dist: flask<2.3,>=2.2.5
+Requires-Dist: jmespath~=0.10
+Requires-Dist: jsii==1.85.0
+Provides-Extra: awslambda
+Requires-Dist: aws-lambda-powertools~=1.14; extra == "awslambda"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+AWS ParallelCluster is an AWS supported Open Source cluster management tool that makes it easy for you to deploy and
+manage High Performance Computing (HPC) clusters in the AWS cloud.
+Built on the Open Source CfnCluster project, AWS ParallelCluster enables you to quickly build an HPC compute environment in AWS.
+It automatically sets up the required compute resources and a shared filesystem and offers a variety of batch schedulers such as AWS Batch and Slurm.
+AWS ParallelCluster facilitates both quick start proof of concepts (POCs) and production deployments.
+You can build higher level workflows, such as a Genomics portal that automates the entire DNA sequencing workflow, on top of AWS ParallelCluster.
+
+Documentation can be found at https://docs.aws.amazon.com/parallelcluster/

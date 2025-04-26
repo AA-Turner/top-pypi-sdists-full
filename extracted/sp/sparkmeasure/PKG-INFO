@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: sparkmeasure
+Version: 0.24.0
+Summary: Python API for sparkMeasure, a tool for performance troubleshooting of Apache Spark workloads.
+Home-page: https://github.com/lucacanali/sparkMeasure
+Author: Luca Canali
+Author-email: luca.canali@cern.ch
+License: Apache License, Version 2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 4 - Beta
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+SparkMeasure is a tool for performance troubleshooting of Apache Spark workloads.  
+It simplifies the collection and analysis of Spark performance metrics. The bulk of sparkMeasure is written in Scala.
+This package contains the Python API for sparkMeasure.
+Use it from Python programs, PySpark, Jupyter notebooks, or in general as a tool to instrument and collect runtime metrics for your Spark jobs.  
+**[Link to sparkMeasure GitHub page and documentation](https://github.com/lucacanali/sparkMeasure)**

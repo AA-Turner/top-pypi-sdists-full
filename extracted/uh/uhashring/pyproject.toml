@@ -1,0 +1,98 @@
+[build-system]
+requires = ["hatchling>=1.26.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "uhashring"
+dynamic = ["version"]
+description = "Full featured consistent hashing python library compatible with ketama."
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.8"
+authors = [
+    { name = "Ultrabug", email = "ultrabug@ultrabug.net" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Download = "https://github.com/ultrabug/uhashring/tags"
+Homepage = "https://github.com/ultrabug/uhashring"
+
+[tool.hatch.version]
+path = "uhashring/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/uhashring",
+    "LICENSE"
+]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    "hatch run test:test",
+    "hatch run style:check",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "python-memcached",
+]
+
+[tool.hatch.envs.test.scripts]
+test = [
+    "pytest -xs",
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["py39", "py310", "py311", "py312", "py313", "pypy3"]
+type = ["default"]
+
+[tool.hatch.envs.style]
+detached = true
+dependencies = [
+    "black",
+    "isort",
+    "flake8",
+]
+
+[tool.hatch.envs.style.scripts]
+lint = [
+    "flake8 uhashring",
+]
+check = [
+    "isort --check-only --diff uhashring",
+    "black -q --check --diff uhashring",
+    "lint",
+]
+format = [
+    "isort -q uhashring",
+    "black -q uhashring",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+skip-string-normalization = true
+
+[tool.isort]
+profile = "black"
+line_length = 100
+

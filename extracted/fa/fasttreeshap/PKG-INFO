@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: fasttreeshap
+Version: 0.1.6
+Summary: A fast implementation of TreeSHAP algorithm.
+Home-page: http://github.com/linkedin/fasttreeshap
+Author: Jilei Yang
+Author-email: jlyang0712@gmail.com
+License: BSD 2-CLAUSE
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Description-Content-Type: text/markdown
+Provides-Extra: plots
+Provides-Extra: others
+Provides-Extra: docs
+Provides-Extra: test
+Provides-Extra: all
+License-File: LICENSE
+License-File: NOTICE
+
+FastTreeSHAP package implements two new algorithms FastTreeSHAP v1 and FastTreeSHAP v2, to improve the computational efficiency of TreeSHAP for large datasets. In practice FastTreeSHAP v1 is 1.5x faster than TreeSHAP while keeping the memory cost unchanged, and FastTreeSHAP v2 is 2.5x faster than TreeSHAP at the cost of a slightly higher memory usage.

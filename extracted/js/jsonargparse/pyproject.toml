@@ -1,0 +1,242 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "jsonargparse"
+dynamic = ["version"]
+description = "Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables."
+authors = [
+    {name = "Mauricio Villegas", email = "mauricio@omnius.com"},
+]
+readme = "README.rst"
+license = {file = "LICENSE.rst"}
+requires-python = ">=3.8"
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+
+dependencies = [
+    "PyYAML>=3.13",
+]
+
+[project.optional-dependencies]
+all = [
+    "jsonargparse[signatures]",
+    "jsonargparse[jsonschema]",
+    "jsonargparse[jsonnet]",
+    "jsonargparse[toml]",
+    "jsonargparse[urls]",
+    "jsonargparse[fsspec]",
+    "jsonargparse[ruyaml]",
+    "jsonargparse[omegaconf]",
+    "jsonargparse[typing-extensions]",
+    "jsonargparse[reconplogger]",
+]
+signatures = [
+    "jsonargparse[typing-extensions]",
+    "docstring-parser>=0.15",
+    "typeshed-client>=2.1.0",
+]
+jsonschema = [
+    "jsonschema>=3.2.0",
+]
+jsonnet = [
+    "jsonnet>=0.13.0; os_name == 'posix' and python_version < '3.13'",
+    "jsonnet-binary>=0.17.0; os_name != 'posix' and python_version < '3.13'",
+    "jsonnet-sdist==2024.6.23; python_version == '3.13'",
+]
+toml = [
+    "toml>=0.10.2",
+]
+urls = [
+    "requests>=2.18.4",
+]
+fsspec = [
+    "fsspec>=0.8.4",
+]
+shtab = [
+    "shtab>=1.7.1",
+]
+argcomplete = [
+    "argcomplete>=3.5.1",
+]
+ruyaml = [
+    "ruyaml>=0.20.0",
+]
+omegaconf = [
+    "omegaconf>=2.1.1",
+]
+typing-extensions = [
+    "typing-extensions>=3.10.0.0; python_version < '3.10'",
+]
+reconplogger = [
+    "reconplogger>=4.4.0",
+]
+test = [
+    "jsonargparse[test-no-urls]",
+    "jsonargparse[shtab]",
+    "jsonargparse[argcomplete]",
+    "types-PyYAML>=6.0.11",
+    "types-requests>=2.28.9",
+    "responses>=0.12.0",
+    "pydantic>=2.3.0",
+    "attrs>=22.2.0",
+]
+test-no-urls = [
+    "pytest>=6.2.5",
+    "pytest-subtests>=0.8.0",
+]
+coverage = [
+    "jsonargparse[test-no-urls]",
+    "pytest-cov>=4.0.0",
+]
+dev = [
+    "jsonargparse[test]",
+    "jsonargparse[coverage]",
+    "jsonargparse[doc]",
+    "pre-commit>=2.19.0",
+    "tox>=3.25.0",
+    "build>=0.10.0",
+]
+doc = [
+    "Sphinx>=1.7.9,<8.0.0",
+    "sphinx-rtd-theme>=1.2.2",
+    "autodocsumm>=0.1.10",
+    "sphinx-autodoc-typehints>=1.19.5",
+]
+maintainer = [
+    "bump2version>=0.5.11",
+    "twine>=4.0.2",
+]
+
+[project.urls]
+Documentation-stable = "https://jsonargparse.readthedocs.io/en/stable/"
+Documentation-latest = "https://jsonargparse.readthedocs.io/en/latest/"
+Changes = "https://jsonargparse.readthedocs.io/en/stable/changelog.html"
+GitHub = "https://github.com/omni-us/jsonargparse"
+PyPI = "https://pypi.org/project/jsonargparse"
+SonarCloud = "https://sonarcloud.io/dashboard?id=omni-us_jsonargparse"
+Codecov = "https://codecov.io/gh/omni-us/jsonargparse"
+
+
+[tool.setuptools]
+platforms = ["Any"]
+packages = ["jsonargparse", "jsonargparse_tests"]
+
+[tool.setuptools.dynamic]
+version = {attr = "jsonargparse.__version__"}
+
+[tool.setuptools.package-data]
+jsonargparse = ["py.typed"]
+
+
+[tool.pytest.ini_options]
+addopts = "-s"
+testpaths = ["jsonargparse_tests"]
+
+
+[tool.coverage.run]
+relative_files = true
+source = ["jsonargparse"]
+
+
+[tool.mypy]
+allow_redefinition = true
+warn_unused_ignores = true
+disable_error_code = "annotation-unchecked"
+
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # https://pypi.org/project/pycodestyle
+    "F",  # https://pypi.org/project/pyflakes
+    "I",  # https://pypi.org/project/isort
+]
+ignore = [
+    "E731",  # Do not convert lambda assigns to a def
+    "E721",  # Allow comparing types with type()
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+
+[tool.black]
+line-length = 120
+
+
+[tool.typos.default.extend-identifiers]
+Villegas = "Villegas"
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{38,39,310,311,312,313}-{all,no}-extras,omegaconf,pydantic-v1,without-pyyaml
+skip_missing_interpreters = true
+
+[testenv]
+extras =
+    all-extras: test,coverage,all
+    no-extras: coverage
+changedir = jsonargparse_tests
+commands = python -m pytest {posargs}
+usedevelop = true
+
+[testenv:omegaconf]
+extras = test,coverage,all
+setenv =
+    JSONARGPARSE_OMEGACONF_FULL_TEST = true
+
+[testenv:pydantic-v1]
+extras = coverage
+commands =
+    # Test with pydantic<2
+    python -c "\
+        from pathlib import Path; \
+        from shutil import copy; \
+        copy('conftest.py', Path(r'{envtmpdir}', 'conftest.py')); \
+        copy('test_dataclass_like.py', Path(r'{envtmpdir}', 'test_dataclass_like.py'))\
+    "
+    pip install "pydantic<2"
+    python -m pytest {posargs} {envtmpdir}/test_dataclass_like.py
+
+    # Test with pydantic>=2 importing from pydantic.v1
+    python -c "\
+        import re, pathlib; \
+        path = pathlib.Path(r'{envtmpdir}', 'test_dataclass_like.py'); \
+        content = path.read_text(); \
+        content = re.sub(r'import pydantic', 'import pydantic.v1 as pydantic', content); \
+        content = re.sub(r'test_pydantic_types', '_test_pydantic_types', content); \
+        content = re.sub(r'^annotated = [^\\n]*', 'annotated = False', content, flags=re.MULTILINE); \
+        path.write_text(content)\
+    "
+    pip install "pydantic>=2"
+    python -m pytest {posargs} {envtmpdir}/test_dataclass_like.py
+
+[testenv:without-pyyaml]
+extras = test,coverage,all
+commands =
+    pip uninstall -y argcomplete omegaconf pyyaml reconplogger responses ruyaml types-PyYAML
+    python -m pytest {posargs}
+"""

@@ -1,0 +1,94 @@
+[project]
+name = "home-assistant-bluetooth"
+version = "1.13.1"
+license = "Apache-2.0"
+description = "Home Assistant Bluetooth Models and Helpers"
+authors = [{ name = "J. Nick Koston", email = "nick@home-assistant.io" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+"Repository" = "https://github.com/home-assistant-libs/home-assistant-bluetooth"
+"Bug Tracker" = "https://github.com/home-assistant-libs/home-assistant-bluetooth/issues"
+"Changelog" = "https://github.com/home-assistant-libs/home-assistant-bluetooth/blob/main/CHANGELOG.md"
+
+[tool.poetry]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+packages = [
+    { include = "home_assistant_bluetooth", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+habluetooth = ">=3.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+setuptools = "^65.5.1"
+wheel = "^0.38.4"
+bleak = ">=0.19.2"
+pytest-cov = "^4.0.0"
+
+[tool.poetry.group.test_build.dependencies]
+twine = "^6.1.0"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = [
+    "src/home_assistant_bluetooth/__init__.py:__version__",
+]
+build_command = "pip install poetry && poetry build"
+
+[tool.pytest.ini_options]
+addopts = "-v -Wdefault --cov=home_assistant_bluetooth --cov-report=term-missing:skip-covered"
+pythonpath = ["src"]
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = [
+    "chore*",
+    "ci*",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["home_assistant_bluetooth", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+exclude = [
+    'setup.py',
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[build-system]
+requires = ['setuptools>=65.4.1', "poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

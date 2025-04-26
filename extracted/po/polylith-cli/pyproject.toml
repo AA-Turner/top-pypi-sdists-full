@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "polylith-cli"
+version = "1.26.0"
+description = "Python tooling support for the Polylith Architecture"
+authors = ['David Vujic']
+homepage = "https://davidvujic.github.io/python-polylith-docs/"
+repository = "https://github.com/davidvujic/python-polylith"
+license = "MIT"
+readme = "README.md"
+
+packages = [
+    {include = "polylith_cli"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+tomlkit = "0.*"
+rich = "13.*"
+typer = "0.*"
+pyyaml = "*"
+
+[tool.poetry.scripts]
+poly = "polylith_cli.polylith.cli.core:app"
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

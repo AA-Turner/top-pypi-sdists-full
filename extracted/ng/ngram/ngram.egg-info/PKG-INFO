@@ -1,0 +1,90 @@
+Metadata-Version: 2.1
+Name: ngram
+Version: 4.0.3
+Summary: A `set` subclass providing fuzzy search based on N-grams.
+Home-page: https://github.com/gpoulter/python-ngram
+Author: Graham Poulter, Michel Albert
+Maintainer: Graham Poulter
+License: LGPL3
+Download-URL: http://pypi.python.org/pypi/ngram
+Project-URL: Documentation, https://python-ngram.readthedocs.io/en/latest/
+Keywords: ngram set string text similarity
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Natural Language :: English
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.0
+Description-Content-Type: text/x-rst
+License-File: COPYING
+License-File: COPYING.LESSER
+
+The NGram class extends the Python 'set' class with efficient
+fuzzy search for members by means of an N-gram similarity measure.
+It also has static methods to compare a pair of strings.
+
+The N-grams are character based not word-based, and the class does not
+implement a language model, merely searching for members by string similarity.
+
+See the `documentation`_, which includes a tutorial and release notes.
+
+Use the `GitHub issue tracker`_ to report issues.
+
+Installation
+============
+
+To install python-ngram from `PyPI`_::
+
+   pip install ngram
+
+How does it work?
+=================
+
+The set stores arbitrary items, but for non-string items a `key` function
+(such as `str`) must be specified to provide a string represenation.  The key
+function can also be used to normalise string items (e.g. lower-casing) prior
+to N-gram indexing.
+
+To index a string it pads the string with a specified dummy character, then
+splits it into overlapping substrings of N (default N=3) characters in length
+and associates each N-gram to the items that use it.
+
+To find items similar to a query string, it splits the query into N-grams,
+collects all items sharing at least one N-gram with the query,
+and ranks the items by score based on the ratio of shared to unshared
+N-grams between strings.
+
+History
+=======
+
+In 2007, Michel Albert (exhuma) wrote the python-ngram module based on Perl's
+`String::Trigram`_ module by Tarek Ahmed, and committed the code for 2.0.0b2 to
+a now-disused `Sourceforge`_ subversion repo.
+
+Since late 2008, Graham Poulter has maintained python-ngram, initially refactoring
+it to build on the `set` class, and also adding features, documentation, tests,
+performance improvements and Python 3 support.
+
+Development
+===========
+
+Development takes place on `Github`_.  On checking out the repo run `tox` to build
+the Sphinx documentation and run tests.  Run `pip install -e .` to install the module 
+in editable mode, inside a virtualenv.
+
+.. _documentation: https://python-ngram.readthedocs.io/en/latest/
+.. _GitHub: http://github.com/gpoulter/python-ngram
+.. _GitHub issue tracker: https://github.com/gpoulter/python-ngram/issues
+.. _PyPI: http://pypi.python.org/pypi/ngram
+.. _String::Trigram: http://search.cpan.org/dist/String-Trigram/
+.. _Sourceforge: https://sourceforge.net/projects/python-ngram/
+
+

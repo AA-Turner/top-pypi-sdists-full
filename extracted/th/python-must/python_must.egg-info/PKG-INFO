@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: python-must
+Version: 3.29.99
+Summary: Specify python version must in your requirements.txt
+Home-page: https://github.com/jin0g/python-must
+Author: jin0g
+Author-email: akira@jinguji.me
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: ==3.29.99
+Description-Content-Type: text/markdown
+
+# Python-Must
+
+Specify python version must in your requirements.txt
+
+## Usage
+
+requirements.txt
+```bash
+python-must == 3.8.2
+or
+python-must >= 3.10
+```
+
+

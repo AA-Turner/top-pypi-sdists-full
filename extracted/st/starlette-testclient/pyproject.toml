@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = 'hatchling.build'
+
+[project]
+name = "starlette-testclient"
+version = "0.4.1"
+description = "A backport of Starlette TestClient using requests! ⏪️"
+readme = "README.md"
+authors = [{ name = "Marcelo Trylesinski", email = "marcelotryle@email.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: BSD License",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+license = "BSD-3-Clause"
+requires-python = ">=3.7"
+dependencies = [
+    "starlette >= 0.20.1",
+    "requests",
+]
+optional-dependencies = {}
+
+[project.urls]
+Homepage = "https://github.com/Kludex/starlette-testclient"
+Source = "https://github.com/Kludex/starlette-testclient"
+Twitter = "https://twitter.com/marcelotryle"
+Funding = 'https://github.com/sponsors/Kludex'
+
+[tool.mypy]
+disallow_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = false
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[tool.flake8]
+statistics = true
+max-line-length = 88
+ignore = ["E203", "E501", "W503"]
+per-file-ignores = ["__init__.py:F401"]
+
+[tool.black]
+target-version = ["py37"]
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+filterwarnings = [
+    "error",
+    "ignore: You seem to already have a custom sys.excepthook handler installed. I'll skip installing Trio's custom handler, but this means MultiErrors will not show full tracebacks.:RuntimeWarning",
+]
+
+[tool.coverage.run]
+source_pkgs = ["starlette_testclient", "tests"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

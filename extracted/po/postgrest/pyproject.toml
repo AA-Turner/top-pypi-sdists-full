@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "postgrest"
+version = "1.0.1" # {x-release-please-version}
+description = "PostgREST client for Python. This library provides an ORM interface to PostgREST."
+authors = ["Lương Quang Mạnh <luongquangmanh85@gmail.com>", "Joel Lee <joel@joellee.org>", "Anand", "Oliver Rice", "Andrew Smith <a.smith@silentworks.co.uk>"]
+homepage = "https://github.com/supabase/postgrest-py"
+repository = "https://github.com/supabase/postgrest-py"
+documentation = "https://postgrest-py.rtfd.io"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+packages = [
+    { include = "postgrest" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+httpx = {version = ">=0.26,<0.29", extras = ["http2"]}
+deprecation = "^2.1.0"
+pydantic = ">=1.9,<3.0"
+strenum = {version = "^0.4.9", python = "<3.11"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.5"
+flake8 = "^7.1.2"
+black = "^25.1"
+isort = "^6.0.1"
+pre-commit = "^4.2.0"
+pytest-cov = "^6.0.0"
+pytest-depends = "^1.0.1"
+pytest-asyncio = "^0.25.3"
+unasync-cli = { git = "https://github.com/supabase-community/unasync-cli.git", branch = "main" }
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^7.1.2"
+furo = ">=2023.9.10,<2025.0.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

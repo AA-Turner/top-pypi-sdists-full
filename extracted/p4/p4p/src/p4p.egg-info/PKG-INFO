@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: p4p
+Version: 4.2.0
+Summary: Python interface to PVAccess protocol client
+Home-page: https://epics-base.github.io/p4p
+Author: Michael Davidsaver
+Author-email: mdavidsaver@gmail.com
+License: BSD
+Keywords: epics scada
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=2.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: epicscorelibs<7.0.7.99.2,>=7.0.7.99.1.1
+Requires-Dist: pvxslibs<1.4.0a1,>=1.3.2
+Requires-Dist: nose2>=0.8.0
+Requires-Dist: ply
+Requires-Dist: numpy>=1.7
+Requires-Dist: numpy<3
+Provides-Extra: qt
+Requires-Dist: qtpy; extra == "qt"
+
+PVAccess for Python
+===================
+
+Python bindings for the PVAccess network client and server.
+
+    python -m virtualenv p4ptest
+    . p4ptest/bin/activate
+    python -m pip install -U pip
+    python -m pip install p4p
+    python -m nose2 p4p
+
+See documentation
+
+https://epics-base.github.io/p4p/
+
+Source
+
+https://github.com/epics-base/p4p/
+
+CI results
+
+![Github Actions](https://github.com/epics-base/p4p/workflows/P4P/badge.svg)

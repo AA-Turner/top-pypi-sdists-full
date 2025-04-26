@@ -1,0 +1,94 @@
+[build-system]
+requires = [
+    "setuptools==75.7.0",
+    "setuptools_scm==8.1.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "rubicon-objc"
+description = "A bridge between an Objective C runtime environment and Python."
+readme = "README.rst"
+requires-python = ">= 3.9"
+license.text = "New BSD"
+authors = [
+    {name="Russell Keith-Magee", email="russell@keith-magee.com"},
+]
+maintainers = [
+    {name="BeeWare Team", email="team@beeware.org"},
+]
+keywords = [
+    "macOS",
+    "iOS",
+    "Objective C",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Objective C",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+]
+
+[project.urls]
+Homepage = "https://beeware.org/rubicon"
+Funding = "https://beeware.org/contributing/membership/"
+Documentation = "https://rubicon-objc.readthedocs.io/en/latest/"
+Tracker = "https://github.com/beeware/rubicon-objc/issues"
+Source = "https://github.com/beeware/rubicon-objc"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit == 4.0.1",
+    "pytest == 8.3.4",
+    "setuptools_scm == 8.1.0",
+    "tox == 4.23.2",
+]
+# Docs are always built on a specific Python version; see RTD and tox config files,
+# and the docs contribution guide.
+docs = [
+    "furo == 2024.8.6",
+    "pyenchant == 3.2.2",
+    "sphinx == 8.1.3",
+    "sphinx_tabs == 3.4.7",
+    "sphinx-autobuild == 2024.10.3",
+    "sphinx-copybutton == 0.5.2",
+    "sphinxcontrib-spelling == 8.0.1",
+]
+
+[tool.codespell]
+skip = ".git,*.pdf,*.svg"
+# the way to make case sensitive skips of words etc
+ignore-regex = "\bNd\b"
+ignore-words-list = "re-use,assertIn"
+
+[tool.isort]
+profile = "black"
+split_on_trailing_comma = true
+combine_as_imports = true
+
+[tool.setuptools_scm]
+# To enable SCM versioning, we need an empty tool configuration for setuptools_scm
+
+[tool.towncrier]
+directory = "changes"
+package = "rubicon.objc"
+filename = "docs/background/releases.rst"
+title_format = "{version} ({project_date})"
+template = "changes/template.rst"
+type = [
+    { directory = "feature", name = "Features", showcontent = true },
+    { directory = "bugfix", name = "Bugfixes", showcontent = true },
+    { directory = "removal", name = "Backward Incompatible Changes", showcontent = true },
+    { directory = "doc", name = "Documentation", showcontent = true },
+    { directory = "misc", name = "Misc", showcontent = false },
+]

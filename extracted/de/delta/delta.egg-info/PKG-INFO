@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: delta
+Version: 0.4.2
+Summary: Human friendly context aware duration parsing library
+Home-page: https://github.com/rlgomes/delta
+Author: Rodney Gomes
+Author-email: rodneygomes@gmail.com
+License: MIT
+Description: https://github.com/rlgomes/delta
+Keywords: date,durations,timedelta
+Platform: UNKNOWN

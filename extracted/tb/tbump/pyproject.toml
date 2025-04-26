@@ -1,0 +1,50 @@
+[tool.isort]
+profile = "black"
+
+[tool.poetry]
+name = "tbump"
+version = "6.11.0"
+description = "Bump software releases"
+readme = "README.rst"
+authors = ["Dimitri Merejkowsky <dimitri@dmerej.info>"]
+license = "BSD-3-Clause"
+repository = "https://github.com/dmerejkowsky/tbump"
+
+[tool.poetry.urls]
+Changelog = "https://github.com/dmerejkowsky/tbump/blob/main/Changelog.rst"
+Issues = "https://github.com/dmerejkowsky/tbump/issues"
+
+[tool.poetry.dependencies]
+# Note: keep this in sync with .github/workflows/tests.yml
+python = "^3.7"
+
+docopt = "^0.6.2"
+cli-ui = ">=0.10.3"
+schema = "^0.7.1"
+tomlkit = "^0.11"
+
+[tool.poetry.dev-dependencies]
+# Task runner
+invoke = "^2.1.2"
+
+# Tests
+coverage = ">= 6.0b1"
+pytest = "^6.2.1"
+pytest-cov = "^2.10"
+pytest-mock = "^2.0.0"
+
+# Linters
+black = "^22.3"
+flake8 = "3.9.2"
+flake8-bugbear = "^21.4.3"
+flake8-comprehensions = "^3.4.0"
+pep8-naming = "^0.11.1"
+isort = "^5.7.0"
+mypy = "0.960"
+
+[tool.poetry.scripts]
+tbump = "tbump.cli:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

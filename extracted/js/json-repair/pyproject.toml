@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "json_repair"
+version = "0.42.0"
+license = {file = "LICENSE"}
+authors = [
+  { name="Stefano Baccianella", email="4247706+mangiucugna@users.noreply.github.com" },
+]
+description = "A package to repair broken json strings"
+keywords = ["JSON", "REPAIR", "LLM", "PARSER"]
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+[project.urls]
+"Homepage" = "https://github.com/mangiucugna/json_repair/"
+"Bug Tracker" = "https://github.com/mangiucugna/json_repair/issues"
+"Live demo" = "https://mangiucugna.github.io/json_repair/"
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+[tool.setuptools.package-data]
+"pkgname" = ["py.typed"]
+[tool.setuptools.packages.find]
+where = ["src"]
+[project.scripts]
+json_repair = "json_repair.__main__:cli"
+[tool.ruff.lint]
+# Read more here https://docs.astral.sh/ruff/rules/
+# By default, Ruff enables Flake8's E and F rules
+# Pyflakes - F, pycodestyle - E, W
+# flake8-builtins - A
+# Pylint - PLC, PLE, PLW
+# isort - I
+select = ['E', 'F', 'W', 'A', 'PLC', 'PLE', 'PLW', 'I']
+ignore = ["E501"]
+[tool.ruff.lint.per-file-ignores]
+# Explicit re-exports is fine in __init__.py, still a code smell elsewhere.
+"__init__.py" = ["PLC0414"]

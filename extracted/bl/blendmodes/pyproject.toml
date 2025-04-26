@@ -1,0 +1,93 @@
+[project]
+name = "blendmodes"
+version = "2025"
+description = "Use this module to apply a number of blending modes to a background and foreground image"
+authors = [{ name = "FredHappyface" }]
+requires-python = ">=3.9"
+readme = "README.md"
+license = "mit"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"Intended Audience :: Education",
+	"Natural Language :: English",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: Implementation :: CPython",
+	"Topic :: Multimedia :: Graphics",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+	"Topic :: Utilities",
+]
+dependencies = [
+	"aenum>=3.1.15",
+	"numpy>=2.0.2",
+	"pillow>=10.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/FHPythonUtils/BlendModes"
+Repository = "https://github.com/FHPythonUtils/BlendModes"
+Documentation = "https://github.com/FHPythonUtils/BlendModes/blob/master/README.md"
+
+[dependency-groups]
+dev = [
+	"coverage>=7.6.12",
+	"handsdown>=2.1.0",
+	"imgcompare>=2.0.1",
+	"pyright>=1.1.394",
+	"pytest>=8.3.4",
+	"ruff>=0.9.7",
+	"safety>=3.3.0",
+]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+	"COM812",  # enforce trailing comma
+	"D2",  # pydocstyle formatting
+	"ISC001",
+	"N",  # pep8 naming
+	"PLR09",  # pylint refactor too many
+	"TCH",  # type check blocks
+	"W191"  # ignore this to allow tabs
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs,tools}/*" = ["D", "S101", "E402", "S311"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all" # Disallow all relative imports.
+
+[tool.ruff.format]
+indent-style = "tab"
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+env_list =
+	py311
+	py310
+	py39
+	py38
+
+[testenv]
+deps =
+	imgcompare
+	pytest
+commands = pytest tests
+"""
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

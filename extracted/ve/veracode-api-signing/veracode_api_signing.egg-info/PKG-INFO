@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: veracode-api-signing
+Version: 25.1.0
+Summary: Easily sign any request destined for the Veracode API Gateway
+Home-page: https://help.veracode.com/r/t_install_api_authen
+Author: Veracode
+License: MIT
+Keywords: veracode-api-signing
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: requests>=2.27.1
+Requires-Dist: docopt==0.6.2
+Requires-Dist: httpie>=3.2.4
+Requires-Dist: urllib3<2
+
+Please visit https://help.veracode.com/r/t_install_api_authen.

@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "hatch-fancy-pypi-readme"
+version = "24.1.0"
+description = "Fancy PyPI READMEs with Hatch"
+requires-python = ">=3.7"
+keywords = ["hatch", "pypi", "readme", "documentation"]
+authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
+license = "MIT"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Hatch",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Build Tools",
+
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "hatchling",
+  "tomli; python_version<'3.11'",
+  "typing-extensions; python_version<'3.8'",
+]
+
+[project.entry-points.hatch]
+fancy-pypi-readme = "hatch_fancy_pypi_readme.hooks"
+
+[project.scripts]
+hatch-fancy-pypi-readme = "hatch_fancy_pypi_readme.__main__:main"
+
+[project.optional-dependencies]
+tests = ["pytest", "build", "wheel"]
+dev = ["hatch-fancy-pypi-readme[tests]", "mypy"]
+
+[project.urls]
+Documentation = "https://github.com/hynek/hatch-fancy-pypi-readme#readme"
+Changelog = "https://github.com/hynek/hatch-fancy-pypi-readme/blob/main/CHANGELOG.md"
+"Source Code" = "https://github.com/hynek/hatch-fancy-pypi-readme"
+Funding = "https://github.com/sponsors/hynek"
+
+[project.readme]
+content-type = "text/markdown"
+text = """# Your ✨Fancy✨ Project Deserves a ✨Fancy✨ PyPI Readme!
+
+*hatch-fancy-pypi-readme* is an MIT-licensed metadata plugin for [Hatch](https://hatch.pypa.io/) by [Hynek Schlawack](https://hynek.me/).
+
+Its purpose is to help you to have fancy PyPI readmes – unlike *this* one you’re looking at right now.
+
+Please check out the [documentation](https://github.com/hynek/hatch-fancy-pypi-readme#readme) to see what *hatch-fancy-pypi-readme* can do for you and your projects!
+"""
+
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+testpaths = "tests"
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+filterwarnings = ["once::Warning"]
+
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["hatch_fancy_pypi_readme"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/py*/**/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+omit = ["src/hatch_fancy_pypi_readme/hooks.py"]
+exclude_lines = [
+  # a more strict default pragma
+  "\\# pragma: no cover\\b",
+
+  # allow defensive code
+  "^\\s*raise AssertionError\\b",
+  "^\\s*raise NotImplementedError\\b",
+  "^\\s*return NotImplemented\\b",
+  "^\\s*raise$",
+
+  # typing-related code
+  "^if (False|TYPE_CHECKING):",
+  ": \\.\\.\\.(\\s*#.*)?$",
+  "^ +\\.\\.\\.$",
+  "-> ['\"]?NoReturn['\"]?:",
+]
+partial_branches = [
+  "pragma: no branch",
+  # _cli._fail never returns, creating uncovered branches as far as coverage.py
+  # is concerned. See
+  # https://github.com/nedbat/coveragepy/issues/1433#issuecomment-1211465570
+  "^\\s*_fail\\(",
+]
+
+
+[tool.black]
+line-length = 79
+
+
+[tool.mypy]
+strict = true
+follow_imports = "normal"
+enable_error_code = ["ignore-without-code"]
+show_error_codes = true
+warn_no_return = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+
+[tool.ruff]
+src = ["src", "tests"]
+select = ["ALL"]
+
+ignore = [
+  "ANN",      # Mypy is better at this.
+  "C901",     # Leave complexity to me.
+  "COM",      # Leave commas to Black.
+  "D",        # We have different ideas about docstrings.
+  "E501",     # leave line-length enforcement to Black
+  "PLR0912",  # Leave complexity to me.
+  "TRY301",   # Raise in try blocks can totally make sense.
+]
+
+[tool.ruff.per-file-ignores]
+"src/hatch_fancy_pypi_readme/_cli.py" = ["T201"]  # need print in CLI
+"tests/*" = [
+  "PLC1901", # empty strings are falsey, but are less specific in tests
+  "PT005",   # we use always underscores and explicit names
+  "S101",    # assert
+  "SIM300",  # Yoda rocks in tests
+]
+
+[tool.ruff.isort]
+lines-between-types = 1
+lines-after-imports = 2

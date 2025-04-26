@@ -1,0 +1,59 @@
+[project]
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+license = "MIT"
+description = "Probably the fastest Python package to convert longitude/latitude to timezone name"
+name = "tzfpy"
+requires-python = ">=3.9"
+maintainers = [{ name = "ringsaturn", email = "ringsaturn.me@gmail.com" }]
+keywords = [
+  "tzf",
+  "timezone",
+  "timezone-name",
+  "timezone-lookup",
+  "gps",
+  "gps-coordinates",
+  "gps-location",
+  "longitude",
+  "latitude",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+pytz = ["pytz>=2025.2"]
+tzdata = ["tzdata>=2025.2"]
+
+[project.urls]
+Documentation = "https://github.com/ringsaturn/tzfpy"
+Issues = "https://github.com/ringsaturn/tzfpy/issues"
+"Source Code" = "https://github.com/ringsaturn/tzfpy"
+
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1,<2"]
+
+[dependency-groups]
+dev = [
+  "ruff==0.8.1",
+  "citiespy>=0.6.6",
+  "maturin==1.8.3",
+  "pytest>=8.3.3",
+  "pytest-benchmark>=5.1.0",
+  "pytest-cov>=6.0.0",
+  "pytest-pretty>=1.2.0",
+  "pytz>=2025.2",
+  "tzdata>=2025.2",
+  "pytest-codspeed>=3.0.0",
+]
+
+[tool.maturin]
+# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["pyo3/extension-module", "pyo3/generate-import-lib"]

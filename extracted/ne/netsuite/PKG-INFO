@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: netsuite
+Version: 0.12.0
+Summary: Make async requests to NetSuite SuiteTalk SOAP/REST Web Services and Restlets
+Home-page: https://jacobsvante.github.io/netsuite/
+License: MIT
+Author: Jacob Magnusson
+Author-email: m@jacobian.se
+Requires-Python: >=3.8
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.7
+Provides-Extra: all
+Provides-Extra: cli
+Provides-Extra: odbc
+Provides-Extra: orjson
+Provides-Extra: soap-api
+Requires-Dist: authlib (>=1,<3)
+Requires-Dist: httpx (>=0.25,<0.28)
+Requires-Dist: ipython (>=8,<9) ; (python_version >= "3.8" and python_version < "4.0") and (extra == "cli" or extra == "all")
+Requires-Dist: oauthlib (>=3,<4)
+Requires-Dist: orjson (>=3,<4) ; extra == "orjson" or extra == "all"
+Requires-Dist: pydantic (>=2.4.2,<3.0.0)
+Requires-Dist: pyodbc (>=5.0.1,<6.0.0) ; extra == "odbc"
+Requires-Dist: zeep[async] (>=4,<5) ; extra == "soap-api" or extra == "all"
+Project-URL: Documentation, https://jacobsvante.github.io/netsuite/
+Project-URL: Repository, https://github.com/jacobsvante/netsuite
+Description-Content-Type: text/markdown
+
+# netsuite
+
+[![Continuous Integration Status](https://github.com/jacobsvante/netsuite/actions/workflows/ci.yml/badge.svg)](https://github.com/jacobsvante/netsuite/actions/workflows/ci.yml)
+[![Continuous Delivery Status](https://github.com/jacobsvante/netsuite/actions/workflows/cd.yml/badge.svg)](https://github.com/jacobsvante/netsuite/actions/workflows/cd.yml)
+[![Code Coverage](https://img.shields.io/codecov/c/github/jacobsvante/netsuite?color=%2334D058)](https://codecov.io/gh/jacobsvante/netsuite)
+[![PyPI version](https://img.shields.io/pypi/v/netsuite.svg)](https://pypi.python.org/pypi/netsuite/)
+[![License](https://img.shields.io/pypi/l/netsuite.svg)](https://pypi.python.org/pypi/netsuite/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/netsuite.svg)](https://pypi.org/project/netsuite/)
+[![PyPI status (alpha/beta/stable)](https://img.shields.io/pypi/status/netsuite.svg)](https://pypi.python.org/pypi/netsuite/)
+[![Slack Status](https://netsuite-slackin.fly.dev/badge.svg)](https://netsuite-slackin.fly.dev)
+
+Make async requests to NetSuite SuiteTalk SOAP, REST Web Services, and Restlets. [Detailed documentation available here.](https://jacobsvante.github.io/netsuite/)
+
+# Help & Support
+
+Join the [Slack channel](https://netsuite-slackin.fly.dev) for help with NetSuite issues. Please do not post usage questions as issues in GitHub.
+
+There are some additional helpful resources for NetSuite development [listed here](https://dashboard.suitesync.io/docs/resources#netsuite).
+
+## Installation
+
+With default features (REST API + Restlet support):
+
+    pip install netsuite
+
+With Web Services SOAP API support:
+
+    pip install netsuite[soap_api]
+
+With CLI support:
+
+    pip install netsuite[cli]
+
+With `orjson` package (faster JSON handling):
+
+    pip install netsuite[orjson]
+
+With all features:
+
+    pip install netsuite[all]
+
+## Documentation
+
+Is found here: https://jacobsvante.github.io/netsuite/
+

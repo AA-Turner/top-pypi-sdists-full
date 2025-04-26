@@ -1,0 +1,258 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "xhtml2pdf"
+authors = [
+    {name = "Dirk Holtwick", email = "dirk.holtwick@gmail.com"},
+]
+maintainers = [
+  {name = "Luis Zarate", email = "luisza14@gmail.com"},
+  {name = "Timo Brembeck", email = "opensource@timo.brembeck.email"}
+]
+description = "PDF generator using HTML and CSS"
+keywords = ["PDF", "HTML", "HTML", "XML", "CSS"]
+readme = "README.rst"
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Other Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Multimedia",
+    "Topic :: Office/Business",
+    "Topic :: Printing",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Filters",
+    "Topic :: Text Processing :: Fonts",
+    "Topic :: Text Processing :: General",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Text Processing :: Markup :: XML",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "arabic-reshaper>=3.0.0",
+    "html5lib>=1.1",
+    "Pillow>=8.1.1",
+    "pyHanko>=0.12.1",
+    "pyhanko-certvalidator>=0.19.5",
+    "pypdf>=3.1.0",
+    "python-bidi>=0.5.0",
+    "reportlab>=4.0.4,<5",
+    "svglib>=1.2.1"
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/xhtml2pdf/xhtml2pdf"
+"Bug tracker" = "https://github.com/xhtml2pdf/xhtml2pdf/issues"
+Documentation = "https://xhtml2pdf.readthedocs.io/"
+Changelog = "https://xhtml2pdf.readthedocs.io/en/latest/release-notes.html"
+
+[project.optional-dependencies]
+pycairo = [
+    "reportlab[pycairo]>=4.0.4,<5",
+]
+renderpm = [
+    "reportlab[renderpm]>=4.0.4,<5",
+]
+test = [
+    "tomli>=2.0.1; python_version<'3.11'",
+    "tox",
+    "coverage>=5.3"
+]
+docs = [
+    "sphinx>=6",
+    "sphinx-rtd-theme>=0.5.0",
+    #"sphinxcontrib-pdfembed@git+https://github.com/SuperKogito/sphinxcontrib-pdfembed",
+    "sphinx_reredirects>=0.1.3"
+]
+release = ["build", "twine"]
+
+[project.scripts]
+pisa = "xhtml2pdf.pisa:command"
+xhtml2pdf = "xhtml2pdf.pisa:command"
+
+[tool.setuptools.dynamic]
+version = {attr = "xhtml2pdf.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["xhtml2pdf*"]
+
+
+[tool.tox]
+legacy_tox_ini = """
+    [tox]
+    envlist = py{3.8,3.9,3.10,3.11,3.12}
+
+    [testenv]
+    deps = coverage[toml]
+    commands =
+        python3 -c 'import sys;print(sys.version_info)'
+        python3 -c "from reportlab import Version; print('%s %s' % ('Reportlab Version', Version))"
+        coverage run -m unittest discover tests
+        coverage run -a testrender/testrender.py  --nofail --only-errors
+"""
+
+
+[tool.coverage.run]
+branch = true
+source = ["xhtml2pdf"]
+omit = ["/usr/share/*"]
+
+[tool.coverage.report]
+precision = 2
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
+
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.black]
+skip-magic-trailing-comma = true
+preview = true
+
+[tool.ruff]
+preview = true
+select = [
+    "A",        # flake8-builtins
+    "ARG",      # flake8-unused-arguments
+    "ASYNC",    # flake8-async
+    "B",        # flake8-bugbear
+    "C4",       # flake8-comprehensions
+    "COM",      # flake8-commas
+    "D",        # pydocstyle
+    "DJ",       # flake8-django
+    "DTZ",      # flake8-datetimez
+    "E",        # pycodestyle
+    "EM",       # flake8-errmsg
+    "EXE",      # flake8-executable
+    "F",        # Pyflakes
+    "FA",       # flake8-future-annotations
+    "FBT",      # flake8-boolean-trap
+    "FLY",      # flynt
+    "FURB",     # refurb
+    "G",        # flake8-logging-format
+    "I",        # isort
+    "ICN",      # flake8-import-conventions
+    "INT",      # flake8-gettext
+    "ISC",      # flake8-implicit-str-concat
+    "LOG",      # flake8-logging
+    "N",        # pep8-naming
+    "PERF",     # Perflint
+    "PGH",      # pygrep-hooks
+    "PIE",      # flake8-pie
+    "PL",       # Pylint
+    "PYI",      # flake8-pyi
+    "Q",        # flake8-quotes
+    "RET",      # flake8-return
+    "RSE",      # flake8-raise
+    "RUF",      # Ruff-specific rules
+    "SIM",      # flake8-simplify
+    "SLF",      # flake8-self
+    "SLOT",     # flake8-slots
+    "T10",      # flake8-debugger
+    "TCH",      # flake8-type-checking
+    "TID",      # flake8-tidy-imports
+    "TRY",      # tryceratops
+    "UP",       # pyupgrade
+    "W",        # pycodestyle
+    "YTT",      # flake8-2020
+    # "ANN",    # flake8-annotations
+    # "BLE",    # flake8-blind-except
+    # "CPY",    # flake8-copyright
+    # "ERA",    # eradicate
+    # "FIX",    # flake8-fixme
+    # "INP",    # flake8-no-pep420
+    # "PT",     # flake8-pytest-style
+    # "PTH",    # flake8-use-pathlib
+    # "T20",    # flake8-print
+    # "TD",     # flake8-todos
+]
+ignore = [
+    "ARG002",   # Unused method argument
+    "B020",     # Loop control variable overrides iterable it iterates
+    "COM812",   # Trailing comma missing
+    "D1",       # Missing docstrings
+    "D203",     # 1 blank line required before class docstring
+    "D205",     # blank link after summary
+    "D212",     # Multi-line docstring summary should start at the first line
+    "D400",     # First line should end with a period
+    "D401",     # First line of docstring should be in imperative mood
+    "D404",     # First word of the docstring should not be "This"
+    "D415",     # First line should end with a period, question mark, or exclamation point
+    "E203",     # Whitespace before punctuation
+    "E501",     # Line length
+    "N801",     # Class name should use CapWords convention
+    "N802",     # Function name should be lowercase
+    "N803",     # Argument name should be lowercase
+    "N806",     # Variable lowercase
+    "N815",     # Variable in class scope should not be mixedCase
+    "N816",     # Variable in global scope should not be mixedCase
+    "PLR0904",  # Too many public methods
+    "PLR0911",  # Too many return statements
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments to function call
+    "PLR0915",  # Too many statements
+    "PLR2004",  # Magic value used in comparison
+    "PLW2901",  # `for` loop variable overwritten by assignment target
+    "SLF001",   # Private member accessed
+]
+
+
+[tool.mypy]
+disable_error_code = [
+    "method-assign",
+]
+
+
+[tool.typos.files]
+# These files have a mix of languages
+extend-exclude = [
+    "manual_test/",
+    "testrender/data/source",
+    "tests/samples/utf8.html",
+    "xhtml2pdf/reportlab_paragraph.py",
+]
+
+[tool.typos.default.extend-identifiers]
+Hink = "Hink"
+myu20 = "myu20"
+opf = "opf"
+PNGs = "PNGs"
+
+[tool.typos.default.extend-words]
+splitted = "splitted"

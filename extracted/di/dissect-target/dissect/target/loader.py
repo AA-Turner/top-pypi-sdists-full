@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+import logging
+import urllib
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterator, Optional, Union
+
+from dissect.target.helpers.lazy import import_lazy
+from dissect.target.helpers.loaderutil import extract_path_info
+
+if TYPE_CHECKING:
+    from dissect.target import Target
+
+__all__ = [
+    "open",
+    "Loader",
+    "RawLoader",
+    "register",
+]
+
+log = logging.getLogger(__name__)
+
+LOADERS: list[Loader] = []
+LOADERS_BY_SCHEME: dict[str, Loader] = {}
+MODULE_PATH = "dissect.target.loaders"
+
+DirLoader: Loader = import_lazy("dissect.target.loaders.dir").DirLoader
+"""A lazy loaded :class:`dissect.target.loaders.dir.DirLoader`."""
+
+RawLoader: Loader = import_lazy("dissect.target.loaders.raw").RawLoader
+"""A lazy loaded :class:`dissect.target.loaders.raw.RawLoader`."""
+
+
+class Loader:
+    """A base class for loading a specific path and coupling it to a :class:`Target <dissect.target.target.Target>`.
+
+    Implementors of this class are responsible for mapping any type of source data
+    to a :class:`Target <dissect.target.target.Target>`.
+    Whether that's to map all VMDK files from a VMX or mapping the contents of a zip file to a virtual filesystem,
+    if it's something that can be translated to a "disk", "volume" or "filesystem", you can write a loader that
+    maps it into a target.
+
+    You can do anything you want to manipulate the :class:`Target <dissect.target.target.Target>` object
+    in your ``map`` function, but generally you do one of the following:
+
+    * open a :class:`Container <dissect.target.container.Container>` and add it to ``target.disks``.
+    * open a :class:`Volume <dissect.target.volume.Volume>` and add it to ``target.volumes``.
+    * open a :class:`VirtualFilesystem <dissect.target.filesystem.VirtualFilesystem>`,\
+    add your files into it and add it to ``target.filesystems``.
+
+    You don't need to manually parse volumes or filesystems in your loader, just add the highest level object you have
+    (e.g. a :class:`Container <dissect.target.container.Container>` of a VMDK file) to the target.
+    However, sometimes you need to get creative.
+    Take a look at the :class:`ITunesLoader <dissect.target.loaders.itunes.ITunesLoader>` and
+    :class:`TarLoader <dissect.target.loaders.tar.TarLoader>` for some creative examples.
+
+    Args:
+        path: The target path to load.
+    """
+
+    def __init__(self, path: Path, **kwargs):
+        self.path = path
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}('{self.path}')"
+
+    @staticmethod
+    def detect(path: Path) -> bool:
+        """Detects wether this ``Loader`` class can load this specific ``path``.
+
+        Args:
+            path: The target path to check.
+
+        Returns:
+            ``True`` if the ``path`` can be loaded by a ``Loader`` instance. ``False`` otherwise.
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def find_all(path: Path, **kwargs) -> Iterator[Path]:
+        """Finds all targets to load from ``path``.
+
+        This can be used to open multiple targets from a target path that doesn't necessarily map to files on a disk.
+        For example, a wildcard in a hostname a loader that opens targets from an API or Unix socket,
+        such as the Carbon Black loader.
+
+        Args:
+            path: The location to a target to try and open multiple paths from.
+
+        Returns:
+            All the target paths found from the source path.
+        """
+        yield path
+
+    def map(self, target: Target) -> None:
+        """Maps the loaded path into a ``Target``.
+
+        Args:
+            target: The target that we're mapping into.
+        """
+        raise NotImplementedError()
+
+
+def register(module_name: str, class_name: str, internal: bool = True) -> None:
+    """Registers a ``Loader`` class inside ``LOADERS``.
+
+    This function registers a loader using ``modname`` relative to the ``MODULE_PATH``.
+    It lazily imports the module, and retrieves the specific class from it.
+
+    Args:
+        module: The module where to find the loader.
+        class_name: The class to load.
+        internal: Whether it is an internal module or not.
+    """
+    if internal:
+        module = ".".join([MODULE_PATH, module_name])
+    else:
+        module = module_name
+
+    loader = getattr(import_lazy(module), class_name)
+    LOADERS.append(loader)
+    LOADERS_BY_SCHEME[module_name] = loader
+
+
+def find_loader(
+    item: Path, parsed_path: Optional[urllib.parse.ParseResult] = None, fallbacks: list[Loader] = [DirLoader]
+) -> Optional[Loader]:
+    """Finds a :class:`Loader` class for the specific ``item``.
+
+    This searches for a specific :class:`Loader` classs that is able to load a target pointed to by ``item``.
+    Once it detects a suitable :class:`Loader` it immediately returns said :class:`Loader` class.
+    It does this for all items inside the ``LOADER`` variable.
+
+    The :class:`DirLoader <dissect.target.loaders.dir.DirLoader>` is used as the last entry
+    due to how the detection methods function.
+
+    Args:
+        item: The target path to load.
+        fallbacks: Fallback loaders to try.
+
+    Returns:
+        A :class:`Loader` class for the specific target if one exists.
+    """
+    if parsed_path:
+        if loader := LOADERS_BY_SCHEME.get(parsed_path.scheme):
+            return loader
+
+    for loader in LOADERS + fallbacks:
+        try:
+            if loader.detect(item):
+                return loader
+        except ImportError as exception:
+            log.info("Failed to import %s", loader)
+            log.debug("", exc_info=exception)
+
+
+def open(item: Union[str, Path], *args, **kwargs) -> Loader:
+    """Opens a :class:`Loader` for a specific ``item``.
+
+    This instantiates a :class:`Loader` for a specific ``item``.
+    The :class:`DirLoader <dissect.target.loaders.dir.DirLoader>` is used as the last entry
+    due to how the detection methods function.
+
+    Args:
+        item: The target path to load.
+
+    Returns:
+        A :class:`Loader` class for the specific target if one exists.
+    """
+    item, parsed_path = extract_path_info(item)
+
+    if loader := find_loader(item, parsed_path=parsed_path):
+        kwargs["parsed_path"] = parsed_path
+        return loader(item, *args, **kwargs)
+
+
+register("local", "LocalLoader")
+register("remote", "RemoteLoader")
+register("mqtt", "MQTTLoader")
+register("asdf", "AsdfLoader")
+register("tar", "TarLoader")
+register("vmx", "VmxLoader")
+register("vmwarevm", "VmwarevmLoader")
+register("hyperv", "HyperVLoader")
+register("pvs", "PvsLoader")
+register("pvm", "PvmLoader")
+register("utm", "UtmLoader")
+register("ovf", "OvfLoader")
+register("ova", "OvaLoader")
+register("vbox", "VBoxLoader")
+register("vb", "VBLoader")
+register("xva", "XvaLoader")
+register("vma", "VmaLoader")
+register("kape", "KapeLoader")
+register("tanium", "TaniumLoader")
+register("itunes", "ITunesLoader")
+register("ab", "AndroidBackupLoader")
+register("target", "TargetLoader")
+register("log", "LogLoader")
+# Disabling ResLoader because of DIS-536
+# register("res", "ResLoader")
+register("overlay", "Overlay2Loader")
+register("phobos", "PhobosLoader")
+register("velociraptor", "VelociraptorLoader")
+register("smb", "SmbLoader")
+register("cb", "CbLoader")
+register("cyber", "CyberLoader")
+register("proxmox", "ProxmoxLoader")
+register("multiraw", "MultiRawLoader")  # Should be last

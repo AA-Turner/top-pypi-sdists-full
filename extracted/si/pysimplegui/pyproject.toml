@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "PySimpleGUI"
+version = "5.0.8.3"
+authors = [
+    {name = "PySimpleSoft Inc."},
+]
+description = "PySimpleGUI is now located on a private PyPI server.  Please add to your pip command: --extra-index-url https://PySimpleGUI.net/install\nFull command (use pythong3 for Mac/Linux):\npython -m pip install --upgrade --extra-index-url https://PySimpleGUI.net/install PySimpleGUI"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.6"
+keywords = ["GUI", "UI", "tkinter", "Qt", "WxPython", "Remi", "wrapper", "simple", "easy", "beginner", "novice", "student", "graphics"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Framework :: PySimpleGUI",
+    "Framework :: PySimpleGUI :: 5",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+]
+
+[project.urls]
+Homepage = "https://www.PySimpleGUI.com"
+
+[tool.setuptools]
+packages = ["PySimpleGUI"]
+
+[project.scripts]
+post_install = "PySimpleGUI:main"

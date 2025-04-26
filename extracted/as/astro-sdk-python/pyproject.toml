@@ -1,0 +1,180 @@
+[build-system]
+requires = ["flit_core ~=3.2"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "astro-sdk-python"
+dynamic = ["version"]
+description = """
+Astro SDK allows rapid and clean development of {Extract, Load, Transform} workflows using Python and SQL, powered by Apache Airflow.
+"""
+
+authors = [
+    { name = "Astronomer", email = "humans@astronomer.io" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+
+requires-python = ">=3.8"
+dependencies = [
+    "apache-airflow>=2.7",
+    "attrs>=20.3.0",
+    "pandas<2.2.0", # Versions 2.2.0 seems to be breaking our tests, so pin it to this version temporarily.
+    "pyarrow",
+    "python-frontmatter",
+    "smart-open<7.0.0",
+    "SQLAlchemy>=1.3.18",
+    "Flask-Session<0.6.0" # This release breaking our tests, let's pin it as a temporary workaround
+]
+
+keywords = ["airflow", "provider", "astronomer", "sql", "decorator", "task flow", "elt", "etl", "dag"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Database",
+    "Framework :: Apache Airflow",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest>=6.0",
+    "pytest-split",
+    "pytest-dotenv",
+    "requests-mock",
+    "pytest-cov",
+    "pytest-describe",
+    "types-requests",
+    "mypy",
+    "sqlalchemy-stubs", # Change when sqlalchemy is upgraded https://docs.sqlalchemy.org/en/14/orm/extensions/mypy.html
+]
+google = [
+    "protobuf",
+    "apache-airflow-providers-google>=10.15.0",
+    "sqlalchemy-bigquery>=1.3.0",
+    "smart-open[gcs]>=5.2.1,<7.0.0",
+    "google-cloud-bigquery<3.21.0"
+]
+snowflake = [
+    "apache-airflow-providers-snowflake>=5.3.0",
+    "snowflake-sqlalchemy>=1.2.0",
+    "snowflake-connector-python[pandas]"
+]
+postgres = [
+    "apache-airflow-providers-postgres",
+]
+amazon = [
+    "apache-airflow-providers-amazon>=8.18.0",
+    "s3fs",
+    "smart-open[s3]>=5.2.1,<7.0.0",
+]
+azure = [
+    "apache-airflow-providers-microsoft-azure>=9.0.0",
+    "azure-storage-blob",
+    "smart-open[azure]>=5.2.1,<7.0.0",
+]
+sftp = [
+    "apache-airflow-providers-sftp>=4.9.0",
+    "smart-open[ssh]>=5.2.1",
+]
+ftp = [
+    "apache-airflow-providers-ftp>=3.0.0",
+    "smart-open>=5.2.1,<7.0.0",
+]
+openlineage = [
+    "apache-airflow-providers-openlineage>=1.4.0",
+]
+
+databricks = [
+    "databricks-cli",
+    "apache-airflow-providers-databricks",
+]
+
+mssql = [
+    "apache-airflow-providers-microsoft-mssql>=3.2",
+]
+
+mysql = [
+    "apache-airflow-providers-mysql",
+]
+
+duckdb = [
+    "airflow-provider-duckdb>=0.0.2",
+]
+
+all = [
+    "apache-airflow-providers-amazon>=8.18.0",
+    "apache-airflow-providers-google>=10.15.0",
+    "apache-airflow-providers-ftp",
+    "apache-airflow-providers-postgres",
+    "apache-airflow-providers-snowflake>=5.3.0",
+    "apache-airflow-providers-sftp>=4.9.0",
+    "smart-open[all]>=5.2.1",
+    "snowflake-connector-python[pandas]",
+    "snowflake-sqlalchemy>=1.2.0",
+    "sqlalchemy-bigquery>=1.3.0",
+    "databricks-cli",
+    "apache-airflow-providers-databricks",
+    "s3fs",
+    "protobuf",
+    "apache-airflow-providers-openlineage>=1.4.0",
+    "apache-airflow-providers-microsoft-azure>=9.0.0",
+    "azure-storage-blob",
+    "apache-airflow-providers-microsoft-mssql>=3.2",
+    "airflow-provider-duckdb>=0.0.2",
+    "apache-airflow-providers-mysql",
+    "google-cloud-bigquery<3.21.0"
+]
+doc = [
+    "myst-parser>=0.17",
+    "sphinx>=4.4.0",
+    "sphinx-autoapi",
+    "sphinx-rtd-theme"
+]
+
+[project.urls]
+Home = "https://astronomer.io/"
+Source = "https://github.com/astronomer/astro-sdk/tree/main/python-sdk"
+Documentation = "https://astro-sdk-python.rtfd.io/"
+
+[project.entry-points.apache_airflow_provider]
+provider_info = "astro.__init__:get_provider_info"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--durations=30 --durations-min=1.0"
+env_files = [".env"]
+testpaths = ["tests", "tests_integration"]
+markers = [
+    "integration"
+]
+
+
+[tool.flit.module]
+name = "astro"  # Or "astro.sql" if you just want this directory, not the entire 'astro'.
+
+[tool.mypy]
+color_output = true
+#disallow_any_generics = true
+#disallow_incomplete_defs = true
+#disallow_untyped_defs = true
+files = ["src/astro"]
+follow_imports = "skip"
+no_implicit_optional = true
+pretty = true
+strict_equality = true
+show_error_codes = true
+show_error_context = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 110
+target-version = ['py37', 'py38', 'py39', 'py310']

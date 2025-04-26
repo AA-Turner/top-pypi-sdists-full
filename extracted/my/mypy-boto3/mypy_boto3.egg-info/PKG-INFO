@@ -1,0 +1,163 @@
+Metadata-Version: 2.4
+Name: mypy-boto3
+Version: 1.38.0
+Summary: Type annotations for boto3 1.38.0 module generated with mypy-boto3-builder 8.10.1
+Home-page: https://github.com/youtype/mypy_boto3_builder
+Author: Vlad Emelianov
+Author-email: vlad.emelianov.nz@gmail.com
+License: MIT License
+Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/
+Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
+Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
+Keywords: boto3 type-annotations boto3-stubs mypy mypy-stubs typeshed autocomplete auto-generated
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Typing :: Stubs Only
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boto3
+Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<a id="mypy-boto3"></a>
+
+# mypy-boto3
+
+[![PyPI - mypy-boto3](https://img.shields.io/pypi/v/mypy-boto3.svg?color=blue)](https://pypi.org/project/mypy-boto3/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mypy-boto3.svg?color=blue)](https://pypi.org/project/mypy-boto3/)
+[![Docs](https://img.shields.io/readthedocs/boto3-stubs.svg?color=blue)](https://youtype.github.io/boto3_stubs_docs/)
+[!\[PyPI - Downloads\](https://static.pepy.tech/badge/mypy-boto3](https://pypistats.org/packages/mypy-boto3)
+
+![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
+
+Dynamic
+[boto3 1.38.0](https://boto3.amazonaws.com/v1/documentation/api/1.38.0/index.html)
+
+Generated with
+[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
+
+More information can be found on
+[types-boto3](https://pypi.org/project/types-boto3/) page.
+
+See how it helps to find and fix potential bugs:
+
+![types-boto3 demo](https://github.com/youtype/mypy_boto3_builder/raw/main/demo.gif)
+
+- [mypy-boto3](#mypy-boto3)
+  - [How to install](#how-to-install)
+  - [Usage](#usage)
+    - [Latest changes](#latest-changes)
+  - [Versioning](#versioning)
+  - [Support and contributing](#support-and-contributing)
+
+<a id="how-to-install"></a>
+
+## How to install
+
+```bash
+# Install this package
+python -m pip install types-boto3
+
+# Install type annotations for boto3 services you use
+python -m pip install 'types-boto3[s3,ec2]'
+
+# Lite version does not provide session.client/resource overloads
+# it is more RAM-friendly, but requires explicit type annotations
+python -m pip install 'types-boto3-lite[s3,ec2]'
+```
+
+<a id="usage"></a>
+
+## Usage
+
+Provides `ServiceName` and `ResourceServiceName` literals:
+
+```python
+from typing import overload
+
+import boto3
+from botocore.client import BaseClient
+from types_boto3.literals import ServiceName
+from types_boto3_ec2.client import EC2Client
+from types_boto3_ec2.literals import EC2ServiceName
+from types_boto3_s3.client import S3Client
+from types_boto3_s3.literals import S3ServiceName
+
+
+@overload
+def get_client(service_name: EC2ServiceName) -> EC2Client: ...
+
+
+@overload
+def get_client(service_name: S3ServiceName) -> S3Client: ...
+
+
+@overload
+def get_client(service_name: ServiceName) -> BaseClient: ...
+
+
+def get_client(service_name: ServiceName) -> BaseClient:
+    return boto3.client(service_name)
+
+
+# type: S3Client, fully type annotated
+# All methods and attributes are auto-completed and type checked
+s3_client = get_client("s3")
+
+# type: EC2Client, fully type annotated
+# All methods and attributes are auto-completed and type checked
+ec2_client = get_client("ec2")
+
+# type: BaseClient, only basic type annotations
+# Dynamodb-specific methods and attributes are not auto-completed and not type checked
+dynamodb_client = get_client("dynamodb")
+```
+
+<a id="latest-changes"></a>
+
+### Latest changes
+
+Full changelog can be found in
+[Releases](https://github.com/youtype/mypy_boto3_builder/releases).
+
+<a id="versioning"></a>
+
+## Versioning
+
+`mypy-boto3` version is the same as related `boto3` version and follows
+[Python Packaging version specifiers](https://packaging.python.org/en/latest/specifications/version-specifiers/).
+
+<a id="support-and-contributing"></a>
+
+## Support and contributing
+
+Please reports any bugs or request new features in
+[mypy_boto3_builder](https://github.com/youtype/mypy_boto3_builder/issues/)
+repository.

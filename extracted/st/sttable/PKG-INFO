@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: sttable
+Version: 0.0.1
+Summary: Parser of string representation tables
+Home-page: https://github.com/aBulgakoff/sttable
+Author: aBulgakoff
+Author-email: a.p.bulgakoff@gmail.com
+License: MIT
+Description: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Welcome to sttable's documentation!
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
+        
+        Parser of string representation tables, input example::
+        
+              header_1st_col   | header_2nd_col   |\n
+              row_1_of_1st_col | row_1_of_2nd_col |\n
+              row_2_of_1st_col | row_2_of_2nd_col |
+        
+        
+        Parsed information can be accessed by rows::
+        
+            [{'header_1st_col': 'row_1_of_1st_col', 'header_2nd_col': 'row_1_of_2nd_col'},
+             {'header_1st_col': 'row_2_of_1st_col', 'header_2nd_col': 'row_2_of_2nd_col'}]
+        
+        As well as by columns::
+        
+            {'header_1st_col': ['row_1_of_1st_col', 'row_2_of_1st_col'],
+              header_2nd_col': ['row_1_of_2nd_col', 'row_2_of_2nd_col']}
+        
+        Fields::
+        
+            ['header_1st_col', 'header_2nd_col', 'header_3rd_col']
+        
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst

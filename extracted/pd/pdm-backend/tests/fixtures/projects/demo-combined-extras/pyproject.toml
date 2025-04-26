@@ -1,0 +1,18 @@
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+authors = [{name = "frostming", email = "mianghong@gmail.com"}]
+description = ""
+license = "MIT"
+name = "demo-package-extra"
+requires-python = ">=3.5"
+version = "0.1.0"
+
+dependencies = ["urllib3"]
+
+[project.optional-dependencies]
+be = ["idna"]
+te = ["chardet"]
+all = ["idna", "chardet"]

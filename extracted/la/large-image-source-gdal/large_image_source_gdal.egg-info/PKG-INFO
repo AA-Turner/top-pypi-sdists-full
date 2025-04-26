@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: large-image-source-gdal
+Version: 1.32.1
+Summary: A GDAL tilesource for large_image.
+Home-page: https://github.com/girder/large_image
+Author: Kitware, Inc.
+Author-email: kitware@kitware.com
+License: Apache-2.0
+Keywords: large_image,tile source
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: large-image>=1.32.1
+Requires-Dist: gdal
+Requires-Dist: packaging
+Requires-Dist: pyproj>=3.5.0
+Provides-Extra: girder
+Requires-Dist: girder-large-image>=1.32.1; extra == "girder"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+A GDAL tilesource for large_image.
+
+See the large-image package for more details.

@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: databricks-mosaic
+Version: 0.4.3
+Summary: Mosaic: geospatial analytics in python, on Spark
+Home-page: https://github.com/databrickslabs/mosaic
+Author: Databricks
+License: Databricks License
+Classifier: License :: Other/Proprietary License
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: <3.11,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: geopandas<0.14.4,>=0.14
+Requires-Dist: h3<4.0,>=3.7
+Requires-Dist: ipython<8.11,>=7.4.2
+Requires-Dist: keplergl==0.3.2
+Requires-Dist: numpy<2.0,>=1.21.5
+Provides-Extra: dev
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: build; extra == "dev"

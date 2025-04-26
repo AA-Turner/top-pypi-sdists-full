@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: trickkiste
+Version: 0.2.2
+Summary: Random useful stuff
+Home-page: https://projects.om-office.de/frans/trickkiste.git
+Author: Frans Fürst
+Author-email: frans.fuerst+gitlab@protonmail.com
+Requires-Python: >=3.10.4,<4
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
+Project-URL: Repository, https://projects.om-office.de/frans/trickkiste.git
+Description-Content-Type: text/markdown
+
+# trickkiste
+
+## suppress
+- formerly known as `quieten` or `quietverbose`
+
+
+apparat/dev/quietverbose
+biograph/dev/quietverbose
+checkmk-pip/dev/quietverbose
+einefreude/dev/quietverbose
+machinery-killme/--force/quietverbose
+magicwall.io/dev/quietverbose
+magicwall.io/.venv/lib/python3.10/site-packages/cmk_dev/listen_std.py
+medit/dev/quietverbose
+minimon/dev/quietverbose
+minimon.temp/dev/quietverbose
+pocketrockit/dev/quietverbose
+pyqtdeploy-fromscratch/pyqt5tools/dev/quieten
+qrm/dev/quietverbose
+silmaril/dev/quietverbose
+smdr/dev/quietverbose
+synthi/dev/quieten
+trickkiste/dev/quietverbose
+trickkiste/trickkiste/std_suppress.py
+ttrace/dev/quietverbose
+wth/dev/quietverbose
+
+

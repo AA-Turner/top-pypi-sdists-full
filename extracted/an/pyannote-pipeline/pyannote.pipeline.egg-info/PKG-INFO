@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: pyannote.pipeline
+Version: 3.0.1
+Summary: Tunable pipelines.
+Home-page: http://pyannote.github.io/
+Author: Hervé Bredin
+Author-email: bredin+pyannote@limsi.fr
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE

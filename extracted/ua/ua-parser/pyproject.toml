@@ -1,0 +1,130 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm", "PyYaml"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ua-parser"
+description = "Python port of Browserscope's user agent parser"
+version = "1.0.1"
+readme = "README.rst"
+requires-python = ">=3.9"
+dependencies = ["ua-parser-builtins"]
+
+license = {text = "Apache 2.0"}
+
+authors = [
+   { name = "Stephen Lamm", email = "slamm@google.com"},
+   { name = "PBS", email = "no-reply@pbs.org" },
+   { name = "Selwin Ong",  email = "selwin.ong@gmail.com" },
+   { name = "Matt Robenolt", email = "matt@ydekproductions.com" },
+   { name = "Lindsey Simon", email = "lsimon@commoner.com" },
+]
+maintainers = [
+    { name = "masklinn", email = "uap@masklinn.net" }
+]
+
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "Operating System :: OS Independent",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        # no graalpy classifier yet (pypa/trove-classifiers#188)
+        # "Programming Language :: Python :: Implementation :: GraalPy",
+]
+
+[project.urls]
+documentation = "https://uap-python.readthedocs.io"
+repository = "https://github.com/ua-parser/uap-python"
+issues = "https://github.com/ua-parser/uap-python/issues"
+
+[project.optional-dependencies]
+yaml = ["PyYaml"]
+re2 = ["google-re2"]
+regex = ["ua-parser-rs"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ua_parser" = ["py.typed"]
+
+[tool.ruff]
+exclude = [
+    "src/ua_parser/generate_builtins.py",
+]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "RET", "RUF", "PT"]
+ignore = [
+    "RET505",  # elif after return
+    "E501",  # line too long, formatter should take care of the fixable ones
+    "E721",  # I'll compare types with `is` if I want
+]
+
+[tool.ruff.lint.isort]
+classes = ["OS"]
+known-first-party = ["ua_parser"]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.9"
+files = "src,tests"
+
+# can't use strict because it's only global
+
+# these two are global
+warn_unused_configs = true
+warn_redundant_casts = true
+
+# these can be overridden (maybe?)
+strict_equality = true
+# strict_concatenate = true
+check_untyped_defs = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_reexport = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = "ua_parser.user_agent_parser"
+
+#check_untyped_defs = false
+disallow_untyped_calls = false
+#disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+       "test_core",
+       "test_caches",
+       "test_parsers_basics",
+       "test_fa_simplifier",
+]
+
+#check_untyped_defs = false
+#disallow_untyped_calls = false
+#disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "test_legacy"
+
+#check_untyped_defs = false
+disallow_untyped_calls = false
+#disallow_incomplete_defs = false
+disallow_untyped_defs = false

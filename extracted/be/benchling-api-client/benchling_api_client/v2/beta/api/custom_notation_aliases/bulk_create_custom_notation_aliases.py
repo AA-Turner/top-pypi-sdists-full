@@ -1,0 +1,143 @@
+from typing import Any, Dict, Optional, Union
+
+import httpx
+
+from ...client import Client
+from ...models.bad_request_error import BadRequestError
+from ...models.bulk_create_custom_notation_aliases_response_200 import (
+    BulkCreateCustomNotationAliasesResponse_200,
+)
+from ...models.custom_notation_alias_bulk_create import CustomNotationAliasBulkCreate
+from ...models.forbidden_error import ForbiddenError
+from ...models.not_found_error import NotFoundError
+from ...types import Response
+
+
+def _get_kwargs(
+    *,
+    client: Client,
+    json_body: CustomNotationAliasBulkCreate,
+) -> Dict[str, Any]:
+    url = "{}/custom-notation-aliases:bulk-create".format(client.base_url)
+
+    headers: Dict[str, Any] = client.httpx_client.headers
+    headers.update(client.get_headers())
+
+    cookies: Dict[str, Any] = client.httpx_client.cookies
+    cookies.update(client.get_cookies())
+
+    json_json_body = json_body.to_dict()
+
+    return {
+        "url": url,
+        "headers": headers,
+        "cookies": cookies,
+        "timeout": client.get_timeout(),
+        "json": json_json_body,
+    }
+
+
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    if response.status_code == 200:
+        response_200 = BulkCreateCustomNotationAliasesResponse_200.from_dict(response.json(), strict=False)
+
+        return response_200
+    if response.status_code == 400:
+        response_400 = BadRequestError.from_dict(response.json(), strict=False)
+
+        return response_400
+    if response.status_code == 403:
+        response_403 = ForbiddenError.from_dict(response.json(), strict=False)
+
+        return response_403
+    if response.status_code == 404:
+        response_404 = NotFoundError.from_dict(response.json(), strict=False)
+
+        return response_404
+    return None
+
+
+def _build_response(
+    *, response: httpx.Response
+) -> Response[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    return Response(
+        status_code=response.status_code,
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(response=response),
+    )
+
+
+def sync_detailed(
+    *,
+    client: Client,
+    json_body: CustomNotationAliasBulkCreate,
+) -> Response[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    kwargs = _get_kwargs(
+        client=client,
+        json_body=json_body,
+    )
+
+    response = client.httpx_client.post(
+        **kwargs,
+    )
+
+    return _build_response(response=response)
+
+
+def sync(
+    *,
+    client: Client,
+    json_body: CustomNotationAliasBulkCreate,
+) -> Optional[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    """ Bulk create aliases for a custom notation """
+
+    return sync_detailed(
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    *,
+    client: Client,
+    json_body: CustomNotationAliasBulkCreate,
+) -> Response[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    kwargs = _get_kwargs(
+        client=client,
+        json_body=json_body,
+    )
+
+    async with httpx.AsyncClient() as _client:
+        response = await _client.post(**kwargs)
+
+    return _build_response(response=response)
+
+
+async def asyncio(
+    *,
+    client: Client,
+    json_body: CustomNotationAliasBulkCreate,
+) -> Optional[
+    Union[BulkCreateCustomNotationAliasesResponse_200, BadRequestError, ForbiddenError, NotFoundError]
+]:
+    """ Bulk create aliases for a custom notation """
+
+    return (
+        await asyncio_detailed(
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed

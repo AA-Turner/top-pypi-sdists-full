@@ -1,0 +1,526 @@
+Metadata-Version: 2.4
+Name: chalkpy
+Version: 2.78.4
+Summary: Python SDK for Chalk
+Author: Chalk AI, Inc.
+Project-URL: Homepage, https://chalk.ai
+Project-URL: Documentation, https://docs.chalk.ai
+Project-URL: Changelog, https://docs.chalk.ai/docs/changelog
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python
+Classifier: Typing :: Typed
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.13,>3.8
+Description-Content-Type: text/markdown
+Requires-Dist: aiotools
+Requires-Dist: attrs>=21.3.0
+Requires-Dist: cattrs<25,>=22.1.0
+Requires-Dist: cloudpickle==2.2.1
+Requires-Dist: dataclasses_json>=0.5.7
+Requires-Dist: datadog
+Requires-Dist: ddtrace<3,>=2.6.4
+Requires-Dist: executing<3,>=1.2.0
+Requires-Dist: grpcio<2,>=1.59.2
+Requires-Dist: ipywidgets>=8.0.6
+Requires-Dist: isodate<0.8,>=0.6.1
+Requires-Dist: numpy<2
+Requires-Dist: orjson
+Requires-Dist: pandas<2.3,>=1.5.1
+Requires-Dist: protobuf<6,>=4.25
+Requires-Dist: pyarrow<19,>=17.0.0
+Requires-Dist: pydantic<3,>=1.0.0
+Requires-Dist: pyopenssl>=23.2.0
+Requires-Dist: python-dateutil<3,>=2.8.0
+Requires-Dist: pyyaml<7,>=6.0
+Requires-Dist: requests<2.33.0,>=2.31
+Requires-Dist: rich>=13.3.5
+Requires-Dist: tenacity
+Requires-Dist: tqdm
+Provides-Extra: base
+Provides-Extra: dev
+Requires-Dist: boto3-stubs[s3]; extra == "dev"
+Requires-Dist: grpc-stubs; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pendulum; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: pytest-env; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: python-dotenv; extra == "dev"
+Requires-Dist: sqlalchemy2-stubs; extra == "dev"
+Requires-Dist: sqlglot; extra == "dev"
+Requires-Dist: types-protobuf<6; extra == "dev"
+Requires-Dist: types-psycopg2; extra == "dev"
+Requires-Dist: types-pymysql; extra == "dev"
+Requires-Dist: types-pyyaml; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Provides-Extra: runtime
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "runtime"
+Requires-Dist: fsspec; extra == "runtime"
+Requires-Dist: gcsfs; extra == "runtime"
+Requires-Dist: google-auth; extra == "runtime"
+Requires-Dist: google-cloud-storage; extra == "runtime"
+Requires-Dist: s3fs; extra == "runtime"
+Requires-Dist: python-json-logger; extra == "runtime"
+Requires-Dist: sqlglot>=19.0.0; extra == "runtime"
+Requires-Dist: polars[timezone]<0.20.32; extra == "runtime"
+Provides-Extra: openai
+Requires-Dist: openai<1.53,>=1.3.2; extra == "openai"
+Requires-Dist: httpx<0.28.0; extra == "openai"
+Requires-Dist: tiktoken<0.9,>=0.5.1; extra == "openai"
+Provides-Extra: cohere
+Requires-Dist: cohere==5.11.4; extra == "cohere"
+Provides-Extra: vertexai
+Requires-Dist: google-cloud-aiplatform<1.76.0; extra == "vertexai"
+Provides-Extra: sql
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sql"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "sql"
+Requires-Dist: fsspec; extra == "sql"
+Requires-Dist: gcsfs; extra == "sql"
+Requires-Dist: google-auth; extra == "sql"
+Requires-Dist: google-cloud-storage; extra == "sql"
+Requires-Dist: polars[timezone]<0.20.32; extra == "sql"
+Requires-Dist: python-json-logger; extra == "sql"
+Requires-Dist: s3fs; extra == "sql"
+Requires-Dist: sqlglot>=19.0.0; extra == "sql"
+Provides-Extra: athena
+Requires-Dist: PyAthena>=3.0.0; extra == "athena"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "athena"
+Requires-Dist: fsspec; extra == "athena"
+Requires-Dist: gcsfs; extra == "athena"
+Requires-Dist: google-auth; extra == "athena"
+Requires-Dist: google-cloud-storage; extra == "athena"
+Requires-Dist: polars[timezone]<0.20.32; extra == "athena"
+Requires-Dist: python-json-logger; extra == "athena"
+Requires-Dist: s3fs; extra == "athena"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "athena"
+Requires-Dist: sqlglot>=19.0.0; extra == "athena"
+Provides-Extra: bigquery
+Requires-Dist: sqlalchemy-bigquery<1.12,>=1.5.0; extra == "bigquery"
+Requires-Dist: google-cloud-bigquery<4,>=3.25.0; extra == "bigquery"
+Requires-Dist: google-cloud-bigquery-storage<2.28,>=2.22.0; extra == "bigquery"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "bigquery"
+Requires-Dist: fsspec; extra == "bigquery"
+Requires-Dist: gcsfs; extra == "bigquery"
+Requires-Dist: google-auth; extra == "bigquery"
+Requires-Dist: google-cloud-storage; extra == "bigquery"
+Requires-Dist: polars[timezone]<0.20.32; extra == "bigquery"
+Requires-Dist: python-json-logger; extra == "bigquery"
+Requires-Dist: s3fs; extra == "bigquery"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "bigquery"
+Requires-Dist: sqlglot>=19.0.0; extra == "bigquery"
+Provides-Extra: spanner
+Requires-Dist: sqlalchemy-spanner; extra == "spanner"
+Requires-Dist: google-auth; extra == "spanner"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "spanner"
+Requires-Dist: fsspec; extra == "spanner"
+Requires-Dist: gcsfs; extra == "spanner"
+Requires-Dist: google-auth; extra == "spanner"
+Requires-Dist: google-cloud-storage; extra == "spanner"
+Requires-Dist: polars[timezone]<0.20.32; extra == "spanner"
+Requires-Dist: python-json-logger; extra == "spanner"
+Requires-Dist: s3fs; extra == "spanner"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "spanner"
+Requires-Dist: sqlglot>=19.0.0; extra == "spanner"
+Provides-Extra: postgresql
+Requires-Dist: psycopg2<3,>=2.9.4; extra == "postgresql"
+Requires-Dist: psycopg[binary]<3.3,>=3.1.9; extra == "postgresql"
+Requires-Dist: packaging; extra == "postgresql"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "postgresql"
+Requires-Dist: fsspec; extra == "postgresql"
+Requires-Dist: gcsfs; extra == "postgresql"
+Requires-Dist: google-auth; extra == "postgresql"
+Requires-Dist: google-cloud-storage; extra == "postgresql"
+Requires-Dist: polars[timezone]<0.20.32; extra == "postgresql"
+Requires-Dist: python-json-logger; extra == "postgresql"
+Requires-Dist: s3fs; extra == "postgresql"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "postgresql"
+Requires-Dist: sqlglot>=19.0.0; extra == "postgresql"
+Provides-Extra: snowflake
+Requires-Dist: cryptography<42.0.0; extra == "snowflake"
+Requires-Dist: snowflake-connector-python<4,>=3.12.4; extra == "snowflake"
+Requires-Dist: snowflake-sqlalchemy<1.7,>=1.5.0; extra == "snowflake"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "snowflake"
+Requires-Dist: fsspec; extra == "snowflake"
+Requires-Dist: gcsfs; extra == "snowflake"
+Requires-Dist: google-auth; extra == "snowflake"
+Requires-Dist: google-cloud-storage; extra == "snowflake"
+Requires-Dist: polars[timezone]<0.20.32; extra == "snowflake"
+Requires-Dist: python-json-logger; extra == "snowflake"
+Requires-Dist: s3fs; extra == "snowflake"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "snowflake"
+Requires-Dist: sqlglot>=19.0.0; extra == "snowflake"
+Provides-Extra: sqlite
+Requires-Dist: aiosqlite<0.21,>=0.19.0; extra == "sqlite"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "sqlite"
+Requires-Dist: fsspec; extra == "sqlite"
+Requires-Dist: gcsfs; extra == "sqlite"
+Requires-Dist: google-auth; extra == "sqlite"
+Requires-Dist: google-cloud-storage; extra == "sqlite"
+Requires-Dist: polars[timezone]<0.20.32; extra == "sqlite"
+Requires-Dist: python-json-logger; extra == "sqlite"
+Requires-Dist: s3fs; extra == "sqlite"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sqlite"
+Requires-Dist: sqlglot>=19.0.0; extra == "sqlite"
+Provides-Extra: redshift
+Requires-Dist: sqlalchemy-redshift<0.9,>=0.8.11; extra == "redshift"
+Requires-Dist: redshift_connector<2.2,>=2.0.909; extra == "redshift"
+Requires-Dist: boto3; extra == "redshift"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "redshift"
+Requires-Dist: fsspec; extra == "redshift"
+Requires-Dist: gcsfs; extra == "redshift"
+Requires-Dist: google-auth; extra == "redshift"
+Requires-Dist: google-cloud-storage; extra == "redshift"
+Requires-Dist: packaging; extra == "redshift"
+Requires-Dist: polars[timezone]<0.20.32; extra == "redshift"
+Requires-Dist: psycopg2<3,>=2.9.4; extra == "redshift"
+Requires-Dist: psycopg[binary]<3.3,>=3.1.9; extra == "redshift"
+Requires-Dist: python-json-logger; extra == "redshift"
+Requires-Dist: s3fs; extra == "redshift"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "redshift"
+Requires-Dist: sqlglot>=19.0.0; extra == "redshift"
+Provides-Extra: mysql
+Requires-Dist: pymysql<2,>=1.0.2; extra == "mysql"
+Requires-Dist: aiomysql<0.3,>=0.1.1; extra == "mysql"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "mysql"
+Requires-Dist: fsspec; extra == "mysql"
+Requires-Dist: gcsfs; extra == "mysql"
+Requires-Dist: google-auth; extra == "mysql"
+Requires-Dist: google-cloud-storage; extra == "mysql"
+Requires-Dist: polars[timezone]<0.20.32; extra == "mysql"
+Requires-Dist: python-json-logger; extra == "mysql"
+Requires-Dist: s3fs; extra == "mysql"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "mysql"
+Requires-Dist: sqlglot>=19.0.0; extra == "mysql"
+Provides-Extra: trino
+Requires-Dist: trino[sqlalchemy]; extra == "trino"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "trino"
+Requires-Dist: fsspec; extra == "trino"
+Requires-Dist: gcsfs; extra == "trino"
+Requires-Dist: google-auth; extra == "trino"
+Requires-Dist: google-cloud-storage; extra == "trino"
+Requires-Dist: polars[timezone]<0.20.32; extra == "trino"
+Requires-Dist: python-json-logger; extra == "trino"
+Requires-Dist: s3fs; extra == "trino"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "trino"
+Requires-Dist: sqlglot>=19.0.0; extra == "trino"
+Provides-Extra: databricks
+Requires-Dist: databricks-sql-connector<3.5,>=2.5.2; extra == "databricks"
+Requires-Dist: databricks-sdk<1.0.0,>=0.29.0; extra == "databricks"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "databricks"
+Requires-Dist: fsspec; extra == "databricks"
+Requires-Dist: gcsfs; extra == "databricks"
+Requires-Dist: google-auth; extra == "databricks"
+Requires-Dist: google-cloud-storage; extra == "databricks"
+Requires-Dist: polars[timezone]<0.20.32; extra == "databricks"
+Requires-Dist: python-json-logger; extra == "databricks"
+Requires-Dist: s3fs; extra == "databricks"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "databricks"
+Requires-Dist: sqlglot>=19.0.0; extra == "databricks"
+Provides-Extra: dynamodb
+Requires-Dist: boto3; extra == "dynamodb"
+Requires-Dist: pydynamodb<0.8,>=0.6; extra == "dynamodb"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "dynamodb"
+Requires-Dist: fsspec; extra == "dynamodb"
+Requires-Dist: gcsfs; extra == "dynamodb"
+Requires-Dist: google-auth; extra == "dynamodb"
+Requires-Dist: google-cloud-storage; extra == "dynamodb"
+Requires-Dist: polars[timezone]<0.20.32; extra == "dynamodb"
+Requires-Dist: python-json-logger; extra == "dynamodb"
+Requires-Dist: s3fs; extra == "dynamodb"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "dynamodb"
+Requires-Dist: sqlglot>=19.0.0; extra == "dynamodb"
+Provides-Extra: all
+Requires-Dist: PyAthena>=3.0.0; extra == "all"
+Requires-Dist: aiomysql<0.3,>=0.1.1; extra == "all"
+Requires-Dist: aiosqlite<0.21,>=0.19.0; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: cohere==5.11.4; extra == "all"
+Requires-Dist: cryptography<42.0.0; extra == "all"
+Requires-Dist: databricks-sdk<1.0.0,>=0.29.0; extra == "all"
+Requires-Dist: databricks-sql-connector<3.5,>=2.5.2; extra == "all"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "all"
+Requires-Dist: fsspec; extra == "all"
+Requires-Dist: gcsfs; extra == "all"
+Requires-Dist: google-auth; extra == "all"
+Requires-Dist: google-cloud-aiplatform<1.76.0; extra == "all"
+Requires-Dist: google-cloud-bigquery-storage<2.28,>=2.22.0; extra == "all"
+Requires-Dist: google-cloud-bigquery<4,>=3.25.0; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: httpx<0.28.0; extra == "all"
+Requires-Dist: openai<1.53,>=1.3.2; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: polars[timezone]<0.20.32; extra == "all"
+Requires-Dist: psycopg2<3,>=2.9.4; extra == "all"
+Requires-Dist: psycopg[binary]<3.3,>=3.1.9; extra == "all"
+Requires-Dist: pydynamodb<0.8,>=0.6; extra == "all"
+Requires-Dist: pymysql<2,>=1.0.2; extra == "all"
+Requires-Dist: python-json-logger; extra == "all"
+Requires-Dist: redshift_connector<2.2,>=2.0.909; extra == "all"
+Requires-Dist: s3fs; extra == "all"
+Requires-Dist: snowflake-connector-python<4,>=3.12.4; extra == "all"
+Requires-Dist: snowflake-sqlalchemy<1.7,>=1.5.0; extra == "all"
+Requires-Dist: sqlalchemy-bigquery<1.12,>=1.5.0; extra == "all"
+Requires-Dist: sqlalchemy-redshift<0.9,>=0.8.11; extra == "all"
+Requires-Dist: sqlalchemy-spanner; extra == "all"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "all"
+Requires-Dist: sqlglot>=19.0.0; extra == "all"
+Requires-Dist: tiktoken<0.9,>=0.5.1; extra == "all"
+Requires-Dist: trino[sqlalchemy]; extra == "all"
+Provides-Extra: polars
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "polars"
+Requires-Dist: fsspec; extra == "polars"
+Requires-Dist: gcsfs; extra == "polars"
+Requires-Dist: google-auth; extra == "polars"
+Requires-Dist: google-cloud-storage; extra == "polars"
+Requires-Dist: polars[timezone]<0.20.32; extra == "polars"
+Requires-Dist: python-json-logger; extra == "polars"
+Requires-Dist: s3fs; extra == "polars"
+Requires-Dist: sqlglot>=19.0.0; extra == "polars"
+
+# Chalk
+
+Chalk enables innovative machine learning teams to focus on building
+the unique products and models that make their business stand out.
+Behind the scenes Chalk seamlessly handles data infrastructure with
+a best-in-class developer experience. Here’s how it works –
+
+---
+
+## Develop
+
+Chalk makes it simple to develop feature pipelines for machine
+learning. Define Python functions using the libraries and tools you're
+familiar with instead of specialized DSLs. Chalk then orchestrates
+your functions into pipelines that execute in parallel on a Rust-based
+engine and coordinates the infrastructure required to compute
+features.
+
+### Features
+
+To get started, [define your features](/docs/features) with
+[Pydantic](https://pydantic-docs.helpmanual.io/)-inspired Python classes.
+You can define schemas, specify relationships, and add metadata
+to help your team share and re-use work.
+
+```py
+@features
+class User:
+    id: int
+    full_name: str
+    nickname: Optional[str]
+    email: Optional[str]
+    birthday: date
+    credit_score: float
+    datawarehouse_feature: float
+
+    transactions: DataFrame[Transaction] = has_many(lambda: Transaction.user_id == User.id)
+```
+
+### Resolvers
+
+Next, tell Chalk how to compute your features.
+Chalk ingests data from your existing data stores,
+and lets you use Python to compute features with
+[feature resolvers](/docs/resolver-overview).
+Feature resolvers are declared with the decorators `@online` and
+`@offline`, and can depend on the outputs of other feature resolvers.
+
+Resolvers make it easy to rapidly integrate a wide variety of data
+sources, join them together, and use them in your model.
+
+#### SQL
+
+```python
+pg = PostgreSQLSource()
+
+@online
+def get_user(uid: User.id) -> Features[User.full_name, User.email]:
+    return pg.query_string(
+        "select email, full_name from users where id=:id",
+        args=dict(id=uid)
+    ).one()
+```
+
+#### REST
+
+```python
+import requests
+
+@online
+def get_socure_score(uid: User.id) -> Features[User.socure_score]:
+    return (
+        requests.get("https://api.socure.com", json={
+            id: uid
+        }).json()['socure_score']
+    )
+```
+
+---
+
+## Execute
+
+Once you've defined your features and resolvers, Chalk orchestrates
+them into flexible pipelines that make training and executing models easy.
+
+Chalk has built-in support for feature engineering workflows --
+no need to manage Airflow or orchestrate complicated streaming flows.
+You can execute resolver pipelines with declarative caching,
+ingest batch data on a schedule, and easily make slow sources
+available online for low-latency serving.
+
+### Caching
+
+Many data sources (like vendor APIs) are too slow for online use cases
+and/or charge a high dollar cost-per-call. Chalk lets you optimize latency
+and cost by defining declarative caching policies which are well-integrated
+throughout the system. You no longer have to manage Redis, Memcached, DynamodDB,
+or spend time tuning cache-warming pipelines.
+
+Add a caching policy with one line of code in your feature definition:
+
+```python
+@features
+class ExternalBankAccount:
+-   balance: int
++   balance: int = feature(max_staleness="**1d**")
+```
+
+Optionally warm feature caches by executing resolvers on a schedule:
+
+```py
+@online(cron="**1d**")
+def fn(id: User.id) -> User.credit_score:
+  return redshift.query(...).all()
+```
+
+Or override staleness tolerances at query time when you need fresher
+data for your models:
+
+```py
+chalk.query(
+    ...,
+    outputs=[User.fraud_score],
+    max_staleness={User.fraud_score: "1m"}
+)
+```
+
+### Batch ETL ingestion
+
+Chalk also makes it simple to generate training sets from data warehouse
+sources -- join data from services like S3, Redshift, BQ, Snowflake
+(or other custom sources) with historical features computed online.
+Specify a cron schedule on an `@offline` resolver and Chalk automatically ingests
+data with support for incremental reads:
+
+```py
+@offline(cron="**1h**")
+def fn() -> Feature[User.id, User.datawarehouse_feature]:
+  return redshift.query(...).incremental()
+```
+
+Chalk makes this data available for point-in-time-correct dataset
+generation for data science use-cases. Every pipeline has built-in
+monitoring and alerting to ensure data quality and timeliness.
+
+### Reverse ETL
+
+When your model needs to use features that are canonically stored in
+a high-latency data source (like a data warehouse), Chalk's Reverse
+ETL support makes it simple to bring those features online and serve
+them quickly.
+
+Add a single line of code to an `offline` resolver, and Chalk constructs
+a managed reverse ETL pipeline for that data source:
+
+```py
+@offline(offline_to_online_etl="5m")
+```
+
+Now data from slow offline data sources is automatically available for
+low-latency online serving.
+
+---
+
+## Deploy + query
+
+Once you've defined your pipelines, you can rapidly deploy them to
+production with Chalk's CLI:
+
+```bash
+chalk apply
+```
+
+This creates a deployment of your project, which is served at a unique
+preview URL. You can promote this deployment to production, or
+perform QA workflows on your preview environment to make sure that
+your Chalk deployment performs as expected.
+
+Once you promote your deployment to production, Chalk makes features
+available for low-latency [online inference](/docs/query-basics) and
+[offline training](/docs/query-offline). Significantly, Chalk uses
+the exact same source code to serve temporally-consistent training
+sets to data scientists and live feature values to models. This re-use
+ensures that feature values from online and offline contexts match and
+dramatically cuts development time.
+
+### Online inference
+
+Chalk's online store & feature computation engine make it easy to query
+features with ultra low-latency, so you can use your feature pipelines
+to serve online inference use-cases.
+
+Integrating Chalk with your production application takes minutes via
+Chalk's simple REST API:
+
+```python
+result = ChalkClient().query(
+    input={
+        User.name: "Katherine Johnson"
+    },
+    output=[User.fico_score],
+    staleness={User.fico_score: "10m"},
+)
+result.get_feature_value(User.fico_score)
+```
+
+Features computed to serve online requests are also replicated to Chalk's
+offline store for historical performance tracking and training set generation.
+
+### Offline training
+
+Data scientists can use Chalk's Jupyter integration to create datasets
+and train models. Datasets are stored and tracked so that they can be
+re-used by other modelers, and so that model provenance is tracked for
+audit and reproducibility.
+
+```python
+X = ChalkClient.offline_query(
+    input=labels[[User.uid, timestamp]],
+    output=[
+        User.returned_transactions_last_60,
+        User.user_account_name_match_score,
+        User.socure_score,
+        User.identity.has_verified_phone,
+        User.identity.is_voip_phone,
+        User.identity.account_age_days,
+        User.identity.email_age,
+    ],
+)
+```
+
+Chalk datasets are always "temporally consistent."
+This means that you can provide labels with different past timestamps and
+get historical features that represent what your application would have
+retrieved online at those past times. Temporal consistency ensures that
+your model training doesn't mix "future" and "past" data.

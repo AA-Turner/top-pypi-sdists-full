@@ -1,0 +1,25 @@
+from typing import TYPE_CHECKING
+
+from ..util.serde.checkpoint import ModelCheckpointType
+
+HF_MODEL_CONFIG = "config.json"
+HF_MODEL_CHECKPOINT = "pytorch_model.bin"
+HF_MODEL_CHECKPOINT_SAFETENSORS = "model.safetensors"
+HF_MODEL_SHARDED_CHECKPOINT_INDEX = "pytorch_model.bin.index.json"
+HF_MODEL_SHARDED_CHECKPOINT_INDEX_SAFETENSORS = "model.safetensors.index.json"
+HF_MODEL_SHARDED_CHECKPOINT_INDEX_WEIGHTS_KEY = "weight_map"
+HF_TOKENIZER_CONFIG = "tokenizer_config.json"
+SPECIAL_TOKENS_MAP = "special_tokens_map.json"
+TOKENIZER_JSON = "tokenizer.json"
+
+
+PRIMARY_CHECKPOINT_FILENAMES = {
+    ModelCheckpointType.PYTORCH_STATE_DICT: HF_MODEL_CHECKPOINT,
+    ModelCheckpointType.SAFE_TENSORS: HF_MODEL_CHECKPOINT_SAFETENSORS,
+}
+SHARDED_CHECKPOINT_INDEX_FILENAMES = {
+    ModelCheckpointType.PYTORCH_STATE_DICT: HF_MODEL_SHARDED_CHECKPOINT_INDEX,
+    ModelCheckpointType.SAFE_TENSORS: HF_MODEL_SHARDED_CHECKPOINT_INDEX_SAFETENSORS,
+}
+# Same for both checkpoint types.
+SHARDED_CHECKPOINT_INDEX_WEIGHTS_KEY = HF_MODEL_SHARDED_CHECKPOINT_INDEX_WEIGHTS_KEY

@@ -1,0 +1,131 @@
+[build-system]
+requires = ["setuptools >=77", "setuptools-scm >=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qbittorrent-api"
+license = "MIT"
+requires-python = ">=3.9"
+description = "Python client for qBittorrent v4.1+ Web API."
+authors = [{name = "Russell Martin"}]
+maintainers = [{name = "Russell Martin"}]
+keywords = ["python", "qbittorrent", "api", "client", "torrent", "torrents", "webui", "web"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Utilities",
+    "Topic :: Communications :: File Sharing",
+]
+dynamic = ["readme", "version"]
+dependencies = [
+    "packaging",
+    "requests >=2.16.0",
+    "urllib3 >=1.24.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build ==1.2.2.post1",
+    "coverage[toml] ==7.8.0",
+    "mypy ==1.15.0",
+    "pre-commit ==4.2.0",
+    "pytest ==8.3.5",
+    "tox ==4.25.0",
+    "twine ==6.1.0",
+    "types-requests ==2.32.0.20250328",
+]
+
+docs = [
+    # building docs requires Python >3.10
+    "furo ==2024.8.6",
+    "sphinx ==8.2.1",
+    "sphinx-autobuild ==2024.10.3",
+    "sphinx-copybutton ==0.5.2",
+    "sphinxcontrib-spelling ==8.0.1",
+    "sphinx-autodoc-typehints ==3.1.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/rmartin16/qbittorrent-api"
+"Documentation" = "https://qbittorrent-api.readthedocs.io/"
+"API Reference" = "https://qbittorrent-api.readthedocs.io/en/latest/api.html"
+"Source" = "https://github.com/rmartin16/qbittorrent-api"
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md", "CHANGELOG.md", "LICENSE"], content-type = "text/markdown"}
+
+[tool.setuptools_scm]
+# section must be present to trigger its use
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["C40", "C9", "E", "F", "PLE", "S", "W", "YTT", "I", "UP", "SIM"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["C408", "S101", "S108", "S110", "S106", "S105", "C901"]
+
+[tool.pytest.ini_options]
+addopts = """
+  --doctest-modules
+  -v
+"""
+filterwarnings = ["error"]
+markers = [
+    "skipif_before_api_version(api_version): skips test for current api version",
+    "skipif_after_api_version(api_version): skips test for current api version",
+]
+norecursedirs = "dist build .tox scripts"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+parallel = true
+branch = true
+relative_files = true
+source_pkgs = ["qbittorrentapi"]
+omit = ["**/_attrdict.py"]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    "**/site-packages",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
+precision = 1
+exclude_lines = [
+    # search categories was deprecated
+    "class SearchCategoriesList",
+    "def search_categories",
+    # defaults to exclude
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+skip_empty = true

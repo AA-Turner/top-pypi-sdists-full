@@ -1,0 +1,331 @@
+[project]
+name = "basedpyright"
+description = "static type checking for Python (but based)"
+dynamic = []
+authors = [
+    { name = "detachhead", email = "detachhead@users.noreply.github.com" },
+]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "nodejs-wheel-binaries>=20.13.1",
+]
+version = "1.29.1"
+
+[project.urls]
+repository = "https://github.com/detachhead/basedpyright"
+
+[project.scripts]
+basedpyright = "basedpyright.pyright:main"
+basedpyright-langserver = "basedpyright.langserver:main"
+
+[dependency-groups]
+dev = [
+    "pylint>=3.0.0a7",
+    "ruff>=0.2.2",
+    "nodejs-wheel>=20.13.1",
+    "pdm-backend>=2.3.0",
+    "typing_extensions>=4.12.2",
+    "pytest>=8.2.2",
+    "pytest-github-actions-annotate-failures>=0.2.0",
+    "mkdocs-material>=9.5.37",
+    "mkdocs-awesome-pages-plugin>=2.9.2",
+    "mike>=2.1.3",
+    "mkdocs-macros-plugin>=1.2.0",
+]
+docstubs = [
+    "docify>=1.0.0",
+]
+lochelper = [
+    "rich>=13.0",
+    "textual>=0.70.0",
+]
+
+[build-system]
+build-backend = "pdm.backend"
+requires = [
+    "pdm-backend>=2.3.0",
+    "nodejs-wheel>=20.13.1",
+    "typing_extensions>=4.12.2",
+    "docify>=1.0.0",
+]
+
+[tool.pyprojectx]
+lock-python-version = "3.8"
+main = [
+    "uv",
+]
+
+[tool.uv]
+default-groups = [
+    "dev",
+    "docstubs",
+    "lochelper",
+]
+no-build-package = [
+    "libcst",
+]
+
+[tool.pdm.version]
+source = "call"
+getter = "build.py3_8.version:get"
+
+[tool.pdm.build]
+excludes = [
+    "tests/",
+    "pdm_build.py",
+]
+source-includes = [
+    "build",
+    "docstubs",
+    "packages/pyright",
+    "packages/pyright-internal",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+]
+
+[tool.pylint.MASTER]
+fail-on = "I"
+bad-names = [
+    "foo",
+    "bar",
+    "baz",
+    "retval",
+]
+load-plugins = [
+    "pylint.extensions.bad_builtin",
+    "pylint.extensions.broad_try_caluse",
+    "pylint.extensions.check_elif",
+    "pylint.extensions.code_style",
+    "pylint.extensions.comparetozero",
+    "pylint.extensions.comparison_placement",
+    "pylint.extensions.confusing_elif",
+    "pylint.extensions.consider_refactoring_into_while_condition",
+    "pylint.extensions.consider_ternary_expression",
+    "pylint.extensions.dict_init_mutate",
+    "pylint.extensions.docparams",
+    "pylint.extensions.docstyle",
+    "pylint.extensions.dunder",
+    "pylint.extensions.empty_comment",
+    "pylint.extensions.emptystring",
+    "pylint.extensions.eq_without_hash",
+    "pylint.extensions.for_any_all",
+    "pylint.extensions.magic_value",
+    "pylint.extensions.no_self_use",
+    "pylint.extensions.overlapping_exceptions",
+    "pylint.extensions.private_import",
+    "pylint.extensions.redefined_loop_name",
+    "pylint.extensions.redefined_variable_type",
+    "pylint.extensions.set_membership",
+    "pylint.extensions.typing",
+    "pylint.extensions.while_used",
+]
+
+[tool.pylint."MESSAGE CONTROL"]
+disable = [
+    "R",
+    "C",
+    "E",
+    "F",
+    "W",
+    "I",
+]
+enable = [
+    "useless-suppression",
+    "access-member-before-definition",
+    "assignment-from-none",
+    "dict-iter-missing-items",
+    "invalid-bool-returned",
+    "invalid-getnewargs-ex-returned",
+    "invalid-getnewargs-returned",
+    "invalid-length-hint-returned",
+    "invalid-slice-index",
+    "invalid-slice-step",
+    "invalid-slots",
+    "invalid-slots-object",
+    "invalid-unicode-codec",
+    "logging-format-truncated",
+    "logging-unsupported-format",
+    "method-hidden",
+    "modified-iterating-dict",
+    "potential-index-error",
+    "relative-beyond-top-level",
+    "abstract-method",
+    "arguments-out-of-order",
+    "attribute-defined-outside-init",
+    "confusing-with-statement",
+    "deprecated-decorator",
+    "deprecated-module",
+    "differing-param-doc",
+    "global-variable-undefined",
+    "missing-param-doc",
+    "modified-iterating-list",
+    "multiple-constructor-doc",
+    "non-parent-init-called",
+    "overlapping-except",
+    "preferred-module",
+    "raising-format-tuple",
+    "redefined-outer-name",
+    "redundant-returns-doc",
+    "redundant-yields-doc",
+    "useless-param-doc",
+    "useless-parent-delegation",
+    "useless-type-doc",
+    "using-constant-test",
+    "bad-file-encoding",
+    "dict-init-mutate",
+    "use-implicit-booleaness-not-comparison",
+    "chained-comparison",
+    "confusing-consecutive-elif",
+    "consider-using-augmented-assign",
+    "consider-using-join",
+    "consider-using-max-builtin",
+    "consider-using-min-builtin",
+    "consider-using-namedtuple-or-dataclass",
+    "consider-using-tuple",
+    "simplifiable-condition",
+    "simplify-boolean-expression",
+]
+
+[tool.pylint.REPORTS]
+reports = "no"
+output-format = "colorized"
+score = "no"
+
+[tool.pylint.FORMAT]
+max-line-length = 200
+
+[tool.basedpyright]
+pythonVersion = "3.8"
+include = [
+    "basedpyright",
+    "build",
+    "pdm_build.py",
+    "tests",
+]
+ignore = [
+    "pw",
+    "basedpyright/dist",
+    "packages",
+    "docstubs",
+]
+exclude = [
+    "pw",
+    "basedpyright/dist",
+    "packages",
+    "docstubs",
+]
+reportImplicitStringConcatenation = false
+reportIncompatibleUnannotatedOverride = "error"
+reportUnannotatedClassAttribute = "none"
+executionEnvironments = [
+    { root = "build/py3_13", pythonVersion = "3.13" },
+    { root = "tests", pythonVersion = "3.13" },
+]
+
+[tool.ruff]
+target-version = "py38"
+respect-gitignore = true
+line-length = 100
+preview = true
+unsafe-fixes = true
+extend-exclude = [
+    "pw",
+    "packages/pyright-internal/typeshed-fallback",
+    "docstubs",
+    "packages/pyright-internal/src/tests/samples",
+    "build/py3_13/generateUnicodeTables.py",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "ALL",
+]
+ignore = [
+    "ANN",
+    "PLE0605",
+    "RUF013",
+    "RUF016",
+    "D418",
+    "ISC001",
+    "COM812",
+    "PLC0414",
+    "UP035",
+    "UP006",
+    "UP007",
+    "EM",
+    "FIX",
+    "PLR0913",
+    "PLR0912",
+    "PLR0915",
+    "PLR2004",
+    "PLR1722",
+    "PLW2901",
+    "PLR0911",
+    "PLW0603",
+    "PLC0105",
+    "TRY002",
+    "TRY003",
+    "D10",
+    "D203",
+    "D205",
+    "D212",
+    "D400",
+    "D401",
+    "D403",
+    "D404",
+    "D405",
+    "D406",
+    "D415",
+    "PT013",
+    "TD002",
+    "CPY001",
+    "C901",
+    "DOC402",
+    "DOC201",
+    "TC006",
+]
+
+[tool.ruff.lint.pycodestyle]
+ignore-overlong-task-comments = true
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyi" = [
+    "A001",
+    "A002",
+    "N",
+]
+"{tests,build}/**/*.py" = [
+    "S",
+    "T201",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+required-imports = [
+    "from __future__ import annotations",
+]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+xfail_strict = true
+addopts = [
+    "--strict-markers",
+]
+markers = [
+    "needs_all_docstubs",
+]

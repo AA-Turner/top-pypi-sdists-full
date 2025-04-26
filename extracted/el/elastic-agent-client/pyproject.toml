@@ -1,0 +1,93 @@
+[project]
+name = "elastic_agent_client"
+description = "A python implementation of an Elastic Agent Client"
+url = "https://github.com/elastic/python-elastic-agent-client"
+readme = "README.md"
+authors = [
+    { name = "Search Extract and Transform Team", email = "enterprise-search-ingestion-team@elastic.co" }
+]
+license = {text = "Elastic V2"}
+
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.12",
+    "License :: Other/Proprietary License"
+]
+dynamic = ["version"]
+
+requires-python = ">=3.10"
+
+#######################
+# !!!! IMPORTANT !!!! #
+#######################
+# If you add a dependancy here you will need to add it below
+# to the [tools.pip-licenses].packages definition.
+dependencies = [
+    "grpcio>=1.65, <1.69",
+    "grpcio-tools>=1.65, <1.69",
+    "protobuf>=5.28, <5.29",
+    "types-protobuf>=5.28, <5.29",
+    "uvloop>=0.20, <1",
+    "ecs-logging>=2"
+]
+
+
+[build-system]
+requires = [
+  "hatchling",
+  "hatch-build-scripts"
+]
+build-backend = "hatchling.build"
+
+[tool.pip-licenses]
+partial-match = true
+allow-only = "MIT;BSD;Apache"
+format = "plain-vertical"
+with-license-file = true
+no-license-path = true
+#### Make sure this list matches dependencies above
+packages=[
+    "grpcio",
+    "grpcio-tools",
+    "protobuf",
+    "types-protobuf",
+    "uvloop",
+    "ecs-logging"
+]
+
+[tool.coverage.run]
+source = ['elastic_agent_client']
+omit = [
+#### Omit generated code
+    "*/generated/*",
+    "*/examples/*",
+    "*/tests/*",
+    ]
+
+[tool.coverage.report]
+fail_under=90
+format="text"
+precision=2
+show_missing=true
+
+[tool.hatch.build]
+dev-mode-dirs = ["."]
+directory="dist"
+
+[tool.hatch.version]
+path = "elastic_agent_client/version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "elastic_agent_client"
+]
+exclude = [
+  "elastic_agent_client/examples"
+]
+
+[tool.hatch.build.targets.sdist.force-include]
+"NOTICE.txt" = "NOTICE.txt"

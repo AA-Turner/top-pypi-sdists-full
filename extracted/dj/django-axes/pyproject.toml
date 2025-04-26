@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=30.3.0", "wheel", "setuptools_scm"]
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+addopts = "--cov axes --cov-append --cov-branch --cov-report term-missing --cov-report=xml"
+DJANGO_SETTINGS_MODULE = "tests.settings"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist =
+    py{39,310,311,312}-dj42
+    py{310,311,312}-dj50
+    py{310,311,312,313}-dj51
+    py311-djmain
+    py311-djqa
+
+[gh-actions]
+python =
+    3.9: py39
+    3.10: py310
+    3.11: py311
+    3.12: py312
+    3.13: py313
+
+[gh-actions:env]
+DJANGO =
+    4.2: dj42
+    5.0: dj50
+    5.1: dj51
+    main: djmain
+    qa: djqa
+
+# Normal test environment runs pytest which orchestrates other tools
+[testenv]
+deps =
+    -r requirements-test.txt
+    dj42: django>=4.1,<4.2
+    dj50: django>=5.0,<5.1
+    dj51: django>=5.1,<5.2
+    djmain: https://github.com/django/django/archive/main.tar.gz
+usedevelop = true
+commands = pytest
+setenv =
+    PYTHONDONTWRITEBYTECODE=1
+# Django development version is allowed to fail the test matrix
+ignore_outcome =
+    djmain: True
+ignore_errors =
+    djmain: True
+
+# QA runs type checks, linting, and code formatting checks
+[testenv:py313-djqa]
+deps = -r requirements-qa.txt
+commands =
+    mypy axes
+    prospector
+    black -t py39 --check --diff axes
+"""

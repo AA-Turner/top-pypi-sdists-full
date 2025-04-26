@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mwaa_dr"
+dynamic = ["version"]
+dependencies = [
+  "smart-open>=7.0.4"
+]
+requires-python = ">=3.7"
+description = "DR Solution for Amazon Managed Workflows for Apache Airflow (MWAA)"
+readme = "PYPIDOC.md"
+license = {file = "LICENSE.md"}
+keywords = ["MWAA", "airflow", "disaster", "recovery", "DR"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python"
+]
+
+[project.urls]
+Homepage = "https://github.com/aws-samples/mwaa-disaster-recovery"
+Documentation = "https://github.com/aws-samples/mwaa-disaster-recovery/blob/main/PYPIDOC.md"
+Repository = "https://github.com/aws-samples/mwaa-disaster-recovery.git"
+"Bug Tracker" = "https://github.com/aws-samples/mwaa-disaster-recovery/issues"
+Changelog = "https://github.com/aws-samples/mwaa-disaster-recovery/blob/main/CHANGELOG.md"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".",
+  "lib",
+  "assets/dags",
+  "lib/functions"
+]
+testpaths = [
+  "tests"
+]
+
+[tool.coverage.run]
+omit = [
+  "tests/*",
+  "temp.py",
+  "app.py",
+  "backup_metadata.py",
+  "cleanup_metadata.py",
+  "restore_metadata.py",
+]
+source = [
+  "assets/dags",
+  ".",
+]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+ignore_errors = true
+exclude_also = [
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.setuptools.packages.find]
+where = ["assets/dags/"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}

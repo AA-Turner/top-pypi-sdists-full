@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "snmpsim-lextudio"
+version = "1.1.1"
+description = "SNMP Simulator is a tool that acts as multitude of SNMP Agents built into real physical devices, from SNMP Manager's point of view. Simulator builds and uses a database of physical devices' SNMP footprints to respond like their original counterparts do."
+authors = ["Ilya Etingof <etingof@gmail.com>", "LeXtudio Inc. <support@lextudio.com>"]
+license = "BSD-2-Clause"
+repository = "https://github.com/lextudio/snmpsim"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Communications",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking :: Monitoring"
+]
+readme = "README.md"
+
+packages = [
+    { include = "snmpsim" },
+]
+include = ["docs"]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pysnmp-lextudio = "^6.1.0"
+
+[tool.poetry.group.dev.dependencies]
+codecov = "^2.1.12"
+pytest = "^7.2.0"
+pytest-asyncio = "^0.21.1"
+pytest-codecov = "^0.4.0"
+Sphinx = "^7.0.0"
+sphinx-copybutton = "^0.5.2"
+sphinx-sitemap-lextudio = "^2.5.2"
+furo = "^2023.1.1"
+black = "23.1.0"
+pre-commit = "2.21.0"
+doc8 = "^1.1.1"
+sphinx-notfound-page = "^1.0.0"
+
+[tool.poetry_bumpversion.file."snmpsim/__init__.py"]
+
+[tool.poetry_bumpversion.file."docs/source/conf.py"]
+search = "release = \"{current_version}\""
+replace = "release = \"{new_version}\""
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+snmpsim-manage-records = "snmpsim.commands.rec2rec:main"
+snmpsim-record-mibs = "snmpsim.commands.mib2rec:main"
+snmpsim-record-traffic = "snmpsim.commands.pcap2rec:main"
+snmpsim-record-commands = "snmpsim.commands.cmd2rec:main"
+snmpsim-command-responder = "snmpsim.commands.responder:main"
+snmpsim-command-responder-lite = "snmpsim.commands.responder_lite:main"

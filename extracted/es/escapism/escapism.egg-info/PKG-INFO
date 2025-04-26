@@ -1,0 +1,19 @@
+Metadata-Version: 1.1
+Name: escapism
+Version: 1.0.1
+Summary: Simple, generic API for escaping strings.
+Home-page: https://github.com/minrk/escapism
+Author: Min RK
+Author-email: benjaminrk@gmail.com
+License: MIT
+Description: There is no reason to install this package on its own.
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6

@@ -1,0 +1,22 @@
+[project]
+name = "proglog"
+version = "0.1.11"
+license = "MIT"
+authors = [{ name = "Zulko" }]
+description = "Log and progress bar manager for console, notebooks, web..."
+readme = "pypi-readme.rst"
+keywords = ["logger", "log", "progress", "bar"]
+dependencies = ["tqdm"]
+
+[project.urls]
+Homepage = "https://github.com/Edinburgh-Genome-Foundry/proglog"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["docs"]

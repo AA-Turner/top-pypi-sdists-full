@@ -1,0 +1,90 @@
+Metadata-Version: 2.3
+Name: collate-data-diff
+Version: 0.11.5
+Summary: Command-line tool and Python library to efficiently diff rows across two different databases.
+License: MIT
+Author: Collate
+Author-email: info@getcollate.io
+Requires-Python: >=3.8.0,<4.0
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Typing :: Typed
+Provides-Extra: all-dbs
+Provides-Extra: clickhouse
+Provides-Extra: duckdb
+Provides-Extra: mssql
+Provides-Extra: mysql
+Provides-Extra: oracle
+Provides-Extra: postgresql
+Provides-Extra: preql
+Provides-Extra: presto
+Provides-Extra: redshift
+Provides-Extra: snowflake
+Provides-Extra: trino
+Provides-Extra: vertica
+Requires-Dist: attrs (>=23.1.0)
+Requires-Dist: click (>=8.1)
+Requires-Dist: clickhouse-driver ; extra == "clickhouse" or extra == "all-dbs"
+Requires-Dist: cryptography ; extra == "snowflake" or extra == "all-dbs"
+Requires-Dist: dbt-core (>=1.0.0,<2.0.0)
+Requires-Dist: dsnparse (<0.2.0)
+Requires-Dist: duckdb ; extra == "duckdb" or extra == "all-dbs"
+Requires-Dist: keyring
+Requires-Dist: mashumaro[msgpack] (>=2.9,<3.11.0)
+Requires-Dist: mysql-connector-python (>=8.0.29) ; (python_version < "3.9") and (extra == "mysql" or extra == "all-dbs")
+Requires-Dist: mysql-connector-python (>=9.1) ; (python_version >= "3.9") and (extra == "mysql" or extra == "all-dbs")
+Requires-Dist: oracledb ; extra == "oracle" or extra == "all-dbs"
+Requires-Dist: preql (>=0.2.19) ; extra == "preql" or extra == "all-dbs"
+Requires-Dist: presto-python-client ; extra == "presto" or extra == "all-dbs"
+Requires-Dist: psycopg2 ; extra == "postgresql" or extra == "redshift" or extra == "all-dbs"
+Requires-Dist: pydantic (>=1.10.12)
+Requires-Dist: pyodbc (>=4.0.39) ; extra == "mssql" or extra == "all-dbs"
+Requires-Dist: rich
+Requires-Dist: snowflake-connector-python (>=3.13.1,<4.0.0) ; extra == "snowflake" or extra == "all-dbs"
+Requires-Dist: tabulate (>=0.9.0)
+Requires-Dist: toml (>=0.10.2)
+Requires-Dist: trino (>=0.314.0) ; extra == "trino" or extra == "all-dbs"
+Requires-Dist: typing-extensions (>=4.0.1)
+Requires-Dist: urllib3 (<2)
+Requires-Dist: vertica-python ; extra == "vertica" or extra == "all-dbs"
+Project-URL: Repository, https://github.com/datafold/data-diff
+Description-Content-Type: text/markdown
+
+Forked from the archived repository [datafold/data-diff](https://github.com/datafold/data-diff)
+---
+
+# data-diff: Compare datasets fast, within or across SQL databases
+
+## Publishing
+
+To publish a new version of the package, follow these steps:
+
+1. Bump the version number in the [`pyproject.toml`](https://github.com/open-metadata/collate-data-diff/blob/main/pyproject.toml#L3) file.
+2. Trigger the [publish action](https://github.com/open-metadata/collate-data-diff/actions/workflows/publish.yml).
+
+To publish to Test PyPI, set the "test" input to "true" when triggering the action.
+
+To publish a dev release, set the "dev" input to "true" when triggering the action.
+
+## Contributors
+
+<a href="https://github.com/datafold/data-diff/graphs/contributors">
+  <img src="https://contributors-img.web.app/image?repo=datafold/data-diff" />
+</a>
+
+## License
+
+This project is licensed under the terms of the [MIT License](https://github.com/datafold/data-diff/blob/master/LICENSE).
+

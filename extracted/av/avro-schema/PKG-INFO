@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: avro-schema
+Version: 0.3.3
+Summary: 
+Home-page: https://github.com/sam-mosleh/avro-schema
+License: BSD-3-Clause
+Keywords: Apache Avro,Avro Schema,Json Schema
+Author: Sam
+Author-email: sam.mosleh@ut.ac.ir
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
+
+# avro-schema
+Avro schema utilities
+

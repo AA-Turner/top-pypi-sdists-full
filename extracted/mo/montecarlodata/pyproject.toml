@@ -1,0 +1,44 @@
+[tool.pyright]
+disableBytesTypePromotions = true
+enableTypeIgnoreComments = true
+exclude = [
+  "**/__pycache__",
+  "**/.*",
+  "tests/**",
+  "venv/",
+]
+reportMissingParameterType = false
+reportMissingTypeArgument = false
+reportUnnecessaryTypeIgnoreComment = "error"
+typeCheckingMode = "basic"
+venv = "venv"
+venvPath = "."
+
+[tool.ruff]
+exclude = [
+  "__pycache__",
+  "/.eggs",
+  "/.git",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/montecarlodata.egg-info",
+  "/venv",
+]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "W", "Q", "I"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 100
+max-line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+"montecarlodata/queries/*" = ["E501"]
+"tests/**/*" = ["E501"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:The 'default' argument to fields is deprecated.", # marshmallow use in dataclasses_json
+]

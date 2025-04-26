@@ -1,0 +1,83 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools",
+]
+
+[project]
+name = "treepoem"
+version = "3.27.1"
+description = "Barcode rendering for Python supporting QRcode, Aztec, PDF417, I25, Code128, Code39 and many more types."
+readme = "README.rst"
+keywords = [
+  "barcode bwipp postscript ghostscript qr qrcode aztec azteccode pdf417 interleaved2of5 i25 code128 code39",
+]
+maintainers = [
+  { name = "Adam Johnson", email = "me@adamj.eu" },
+]
+authors = [
+  { name = "Christian Muirhead", email = "xtian@babbageclunk.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pillow",
+]
+urls.Changelog = "https://github.com/adamchainz/treepoem/blob/main/CHANGELOG.rst"
+urls.Funding = "https://adamj.eu/books/"
+urls.Repository = "https://github.com/adamchainz/treepoem"
+scripts.treepoem = "treepoem.__main__:main"
+
+[dependency-groups]
+test = [
+  "pillow",
+  "pytest",
+  "pytest-randomly",
+]
+
+[tool.isort]
+add_imports = [
+  "from __future__ import annotations",
+]
+force_single_line = true
+profile = "black"
+
+[tool.pyproject-fmt]
+max_supported_python = "3.13"
+
+[tool.pytest.ini_options]
+addopts = """\
+    --strict-config
+    --strict-markers
+    """
+xfail_strict = true
+
+[tool.mypy]
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+]
+mypy_path = "src/"
+namespace_packages = false
+strict = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[tool.rstcheck]
+report_level = "ERROR"

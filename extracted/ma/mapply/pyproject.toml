@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mapply"
+description = "Sensible multi-core apply function for Pandas"
+readme = "README.md"
+urls = {Repository = "https://github.com/ddelange/mapply", Documentation = "https://mapply.readthedocs.io"}
+authors = [{name = "ddelange", email = "ddelange@delange.dev"}]
+requires-python = ">=3.9" # sync with classifiers below, and tool.ruff and tool.mypy
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Utilities"
+]
+dynamic = ["version", "dependencies"] # , "optional-dependencies"
+
+[tool.coverage.run]
+branch = true
+omit = ["site-packages"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_no_return = false
+disallow_untyped_defs = false
+allow_redefinition = true
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-yield-types = false
+
+[tool.pytest.ini_options]
+addopts = "-s --strict-markers -vv --cache-clear --doctest-modules --cov=mapply --cov-report=term --cov-report=html --cov-branch --no-cov-on-fail --ignore=docs"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D107", # we have pydoclint with class docstring
+  "E501", # we have black
+  "ANN", # we have mypy
+  "TRY003", # there is EM102
+  "D203", # there is D211
+  "D213", # there is D212
+  "FIX002", # there is TD002,TD003
+  "TCH003", # clutters
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/tests/**/*.py" = [
+  "S101", # assert is fine in tests
+  "D100", # tests is not a package
+  "D104", # tests modules don't need docstrings
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tests"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements/prod.txt"]}
+
+[tool.setuptools_scm]

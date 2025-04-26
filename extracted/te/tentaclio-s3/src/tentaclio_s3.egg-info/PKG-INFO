@@ -1,0 +1,39 @@
+Metadata-Version: 2.1
+Name: tentaclio-s3
+Version: 0.0.3
+Summary: A python project containing all the dependencies for schema s3 for tentaclio.
+Author: Octopus Energy
+Author-email: nerds@octopus.energy
+License: Proprietary
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+
+# tentaclio-s3
+
+A package containing all the dependencies for the s3 tentaclio schema .
+
+## Quick Start
+
+This project comes with a `Makefile` which is ready to do basic common tasks
+
+```
+$ make help
+install                       Initalise the virtual env installing deps
+clean                         Remove all the unwanted clutter
+lock                          Lock dependencies
+update                        Update dependencies (whole tree)
+sync                          Install dependencies as per the lock file
+lint                          Lint files with flake and mypy
+format                        Run black and isort
+test                          Run unit tests
+circleci                      Validate circleci configuration (needs circleci cli)
+```

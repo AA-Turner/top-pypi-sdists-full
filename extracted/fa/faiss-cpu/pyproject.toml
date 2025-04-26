@@ -1,0 +1,61 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "numpy>=2.0,<3",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faiss-cpu"
+version = "1.10.0"
+authors = [
+    { name = "Kota Yamaguchi", email = "yamaguchi_kota@cyberagent.co.jp" },
+]
+description = "A library for efficient similarity search and clustering of dense vectors."
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["faiss", "similarity search", "clustering", "machine learning"]
+license = { text = "MIT License" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["numpy>=1.25.0,<3.0", "packaging"]
+
+[project.urls]
+Repository = "https://github.com/kyamagu/faiss-wheels"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    # Failing tests for numerical issues.
+    "--deselect=faiss/tests/test_local_search_quantizer.py::TestProductLocalSearchQuantizer::test_lut",
+    "--deselect=faiss/tests/test_local_search_quantizer.py::TestComponents::test_update_codebooks_with_double",
+    "--deselect=faiss/tests/test_contrib.py::TestPreassigned::test_float",
+    "--deselect=faiss/tests/test_contrib.py::TestClustering::test_ivf_train_2level",
+]
+testpaths = ["faiss/tests"]
+python_files = "test_*.py"  # torch_test_*.py will break the other tests
+
+[tool.cibuildwheel]
+skip = "pp* cp38-* *-musllinux*"
+test-skip = "*-win_amd64"
+
+test-requires = ["pytest", "scipy"]
+test-command = "pytest {project}/faiss/tests"
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -v -w {dest_dir} {wheel}"

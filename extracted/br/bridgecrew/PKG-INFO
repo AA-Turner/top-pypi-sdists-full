@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: bridgecrew
+Version: 3.2.408
+Summary: Infrastructure as code static analysis
+Home-page: https://github.com/bridgecrewio/bridgecrew
+Author: bridgecrew
+Author-email: meet@bridgecrew.io
+License: Apache License 2.0
+Description: # DEPRECATED: This project is no longer supported and will be archived end of 2023. Please use [checkov](https://github.com/bridgecrewio/checkov) instead.
+        
+        # Bridgecrew Python Package
+        [![build status](https://github.com/bridgecrewio/bridgecrew-py/workflows/release/badge.svg)](https://github.com/bridgecrewio/bridgecrew-py/actions?query=workflow%3Arelease)
+        [![PyPI](https://img.shields.io/pypi/v/bridgecrew)](https://pypi.org/project/checkov/)
+        
+        Wraps checkov with a bridgecrew cli (does exactly the same)
+        
+Platform: UNKNOWN
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Build Tools
+Description-Content-Type: text/markdown

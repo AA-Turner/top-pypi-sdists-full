@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools", "setuptools-rust"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "html-py-ever"
+version = "0.1.0"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Repository = "https://github.com/PyO3/setuptools-rust/blob/main/examples/html-py-ever"
+
+[tool.setuptools.packages]
+# Pure Python packages/modules
+find = { where = ["python"] }
+
+
+[[tool.setuptools-rust.ext-modules]]
+# Rust extension module to be nested into Python package
+target = "html_py_ever.html_py_ever"
+# ^-- The last part of the name (e.g. "html_py_ever") has to match lib.name in Cargo.toml,
+#     but you can add a prefix to nest it inside of a Python package.
+# See reference for RustExtension in https://setuptools-rust.readthedocs.io/en/latest/reference.html

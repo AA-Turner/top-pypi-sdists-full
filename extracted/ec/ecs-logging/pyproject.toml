@@ -1,0 +1,43 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+dist-name = "ecs-logging"
+module = "ecs_logging"
+description-file = "README.md"
+author = "Seth Michael Larson"
+author-email = "seth.larson@elastic.co"
+home-page = "https://github.com/elastic/ecs-logging-python"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Logging",
+  "License :: OSI Approved :: Apache Software License"
+]
+requires = []
+requires-python = ">=3.6"
+
+[tool.flit.metadata.requires-extra]
+develop = [
+    "pytest",
+    "pytest-cov",
+    "mock",
+    "structlog",
+    "elastic-apm",
+]
+
+[tool.flit.metadata.urls]
+"Source" = "https://github.com/elastic/ecs-logging-python"
+"Download" = "https://github.com/elastic/ecs-logging-python/releases"
+"Documentation" = "https://github.com/elastic/ecs-logging-python"
+"Issue Tracker" = "https://github.com/elastic/ecs-logging-python/issues"
+"Changelog" = "https://github.com/elastic/ecs-logging-python/blob/main/CHANGELOG.md"

@@ -1,0 +1,64 @@
+Metadata-Version: 2.1
+Name: mkdocs-link-marker
+Version: 0.1.3
+Summary: MkDocs plugin for marking external or mail links in your documentation.
+Home-page: https://github.com/timmeinerzhagen/mkdocs-link-marker
+Author: Tim Jonas Meinerzhagen
+Author-email: tim@meinerzhagen.me
+License: MIT
+Keywords: mkdocs link external
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Documentation
+Classifier: Topic :: Text Processing
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
+Requires-Dist: mkdocs>=1.0
+Requires-Dist: jinja2
+
+# mkdocs-link-marker
+
+MkDocs plugin for marking external or mail links in your documentation.
+
+![comparison](https://raw.githubusercontent.com/timmeinerzhagen/mkdocs-link-marker/main/docs/comparison.png)
+## Setup
+
+1. Install the plugin:
+    ```bash
+    pip install mkdocs-link-marker
+    ```
+2. Add the plugin to your `mkdocs.yml`
+    ```bash
+    plugins:
+        - search
+        - link-marker
+    ```
+
+## Usage
+
+Run the build!
+
+## Options
+
+`enable_external_link`
+Whether to mark external links with the according icon.
+Default: True
+
+`icon_external_link`
+Change the default icon for marking external links.
+Default: ⧉
+
+`enable_mail`
+Whether to mark mail links with the according icon.
+Default: True
+
+`icon_mail`
+Change the default icon for marking mail links.
+Default: ✉

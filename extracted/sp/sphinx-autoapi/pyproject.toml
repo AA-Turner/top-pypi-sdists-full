@@ -1,0 +1,105 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "sphinx-autoapi"
+authors = [{name = "Eric Holscher", email = "eric@ericholscher.com"}]
+maintainers = [{name = "Ashley Whetter", email = "ashley@awhetter.co.uk"}]
+description = "Sphinx API documentation generator"
+license = {file = "LICENSE.rst"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Plugins",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9"
+dependencies = [
+    'astroid>=2.7;python_version<"3.12"',
+    'astroid>=3;python_version>="3.12"',
+    "Jinja2",
+    "PyYAML",
+    "sphinx>=7.4.0",
+    'stdlib_list;python_version<"3.10"',
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "http://github.com/readthedocs/sphinx-autoapi"
+Documentation = "https://sphinx-autoapi.readthedocs.io/en/latest/"
+
+[tool.flit.module]
+name = "autoapi"
+
+[tool.flit.sdist]
+include = ["tests/"]
+
+[tool.mypy]
+# Start off with these
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Getting these passing should be easy
+strict_equality = true
+
+# These shouldn't be too much additional work, but may be tricky to
+# get passing if you use a lot of untyped libraries
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+
+# This one isn't too hard to get passing, but return on investment is lower
+no_implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = "astroid.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "autoapi.documenters"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "autoapi._astroid_utils"
+
+# Strongly recommend enabling this one as soon as you can
+check_untyped_defs = true
+
+# These next few are various gradations of forcing use of type annotations
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
+# This one can be tricky to get passing if you use a lot of untyped libraries
+# Ignore until astroid is typed (https://github.com/pylint-dev/astroid/issues/2060)
+warn_return_any = false
+
+[tool.pytest.ini_options]
+markers = [
+    "network: Tests that use network access.",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.towncrier]
+directory = "docs/changes"
+filename = "CHANGELOG.rst"
+package = "autoapi"
+title_format = "v{version} ({project_date})"
+underlines = ["-", "^", "\""]

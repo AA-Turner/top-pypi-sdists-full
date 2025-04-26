@@ -1,0 +1,50 @@
+[build-system]
+requires = [
+  "setuptools >= 40.6.0",
+  "wheel",
+  "numpy >= 1.23.5",
+  "pytest",
+  "pandas >= 2.0",
+  "pyarrow >= 15.0",
+  "pyyaml >= 6.0",
+  "chardet >= 5.2",
+  "rich >= 13.3",
+  "regex >= 2.5.148",
+  "tomli_w >= 1.2.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.8"
+name = "tdda"
+authors = [
+    { name = "Nick Radcliffe", email = "njr@stochasticsolutions.com" },
+    { name = "Simon Brown" },
+]
+dynamic=["version", "scripts", "dependencies", "keywords", "license", "readme"]
+
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".", "tdda"
+]
+
+#testpaths = [
+    #"tdda/serial",
+#]
+
+norecursedirs = [
+    'constraints',
+    'deprecated',
+    'pd',
+    'gentest',
+    'rexpy',
+    'serial',
+    'referencetest',
+    'build'
+]
+
+[tool.black]
+line-length = 79
+skip-string-normalization = true
+include = '\.pyi?$'

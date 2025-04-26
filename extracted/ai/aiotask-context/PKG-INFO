@@ -1,0 +1,14 @@
+Metadata-Version: 1.1
+Name: aiotask_context
+Version: 0.6.1
+Summary: Store context information inside the asyncio.Task object
+Home-page: UNKNOWN
+Author: Manuel Miranda
+Author-email: manu.mirandad@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

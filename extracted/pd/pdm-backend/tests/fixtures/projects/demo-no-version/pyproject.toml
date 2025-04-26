@@ -1,0 +1,17 @@
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    {name = "frostming", email = "mianghong@gmail.com"},
+]
+name = "demo"
+requires-python = ">=3.5"
+license = "MIT"
+dependencies = []
+description = ""
+readme = "README.md"
+dynamic = ["version"]
+
+[project.optional-dependencies]

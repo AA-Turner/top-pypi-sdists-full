@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=62", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.black]
+skip-string-normalization = true
+target-version = ['py39']
+
+[tool.coverage.report]
+omit = [
+    "src/pytest_opentelemetry/__init__.py",
+    "src/pytest_opentelemetry/plugin.py"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = ['xdist.workermanage']
+ignore_missing_imports = true
+
+[tool.pylint.messages_control]
+disable = [
+    'attribute-defined-outside-init',
+    'fixme',
+
+    'missing-function-docstring',
+    'missing-module-docstring',
+
+    # fundamental to how pytest fixtures work
+    'redefined-outer-name',
+    'unused-argument'
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = """
+    --cov=src
+    --cov=tests
+    --cov-branch
+    --cov-report=term-missing
+    --cov-fail-under=100
+    --no-cov-on-fail
+"""

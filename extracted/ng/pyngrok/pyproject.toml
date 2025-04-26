@@ -1,0 +1,107 @@
+[project]
+name = "pyngrok"
+dynamic = ["version"]
+description = "A Python wrapper for ngrok"
+readme = "README.md"
+license = { file = "LICENSE" }
+maintainers = [{ name = "Alex Laird", email = "contact@alexlaird.com" }]
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=5.1"
+]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: BSD :: FreeBSD",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: Internet :: Proxy Servers",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "coverage[toml]",
+    "psutil",
+    "flake8",
+    "flake8-pyproject",
+    "pep8-naming"
+]
+docs = [
+    # Pinned back until sphinx_autodoc_typehints>=3.1.0
+    "Sphinx<8.2",
+    "sphinx-notfound-page",
+    # Pinned back until prolog bug is resolved: https://github.com/tox-dev/sphinx-autodoc-typehints/issues/425
+    "sphinx_autodoc_typehints==1.25.2",
+    "sphinx-substitution-extensions",
+    "mypy",
+    "types-PyYAML"
+]
+
+[project.scripts]
+ngrok = "pyngrok.ngrok:main"
+pyngrok = "pyngrok.ngrok:main"
+
+[project.urls]
+Changelog = "https://github.com/alexdlaird/pyngrok/blob/main/CHANGELOG.md"
+Documentation = "https://pyngrok.readthedocs.io"
+Sponsor = "https://github.com/sponsors/alexdlaird"
+"Source Code" = "https://github.com/alexdlaird/pyngrok"
+
+[tool.setuptools]
+package-dir = { pyngrok = "pyngrok" }
+
+[tool.setuptools.dynamic]
+version = { attr = "pyngrok.__version__" }
+
+[tool.coverage.run]
+omit = [
+    "venv/**",
+    "*/tests/**"
+]
+
+[tool.coverage.report]
+precision = 2
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.coverage.xml]
+output = "build/coverage/coverage.xml"
+
+[tool.coverage.html]
+title = "Coverage Report"
+directory = "build/coverage"
+
+[tool.flake8]
+max-line-length = 119
+statistics = true
+exclude = "docs/*,venv/*,build/*,dist/*,.egg-info/*,pyngrok-example-flask/*"

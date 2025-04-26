@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: presto-client
+Version: 0.303.0
+Summary: Presto Client is now Trino
+Home-page: https://github.com/trinodb/trino-python-client
+Author: Trino Team
+Author-email: python-client@trino.io
+License: Apache 2.0
+Description: 
+        This was a package for PrestoSQL. The package itself is no longer maintained,
+        as PrestoSQL got renamed to Trino. Read more at
+        https://trino.io/blog/2020/12/27/announcing-trino.html
+        
+        If you are using an older PrestoSQL release, you can install a previous
+        version of the package with:
+        
+            pip install presto-client==0.302.0
+        
+        The package has been superseded with a client for Trino. You can install it
+        with:
+        
+            pip install trino
+        
+        Apologies for the disruption and very short notice, resulting in no transition
+        period.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Database :: Front-Ends
+Provides-Extra: all
+Provides-Extra: tests

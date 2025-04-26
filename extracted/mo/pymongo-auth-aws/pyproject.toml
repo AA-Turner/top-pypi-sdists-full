@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>1.24","hatch-requirements-txt>=0.4.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pymongo-auth-aws"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = "MONGODB-AWS authentication support for PyMongo"
+readme = "README.rst"
+license = {file="LICENSE"}
+requires-python = ">=3.8"
+authors = [
+    { name = "Shane Harvey", email = "drivers-python-noreply@mongodb.com" },
+]
+keywords = [
+    "MONGODB-AWS",
+    "mongo",
+    "mongodb",
+    "pymongo",
+    "pymongo-auth-aws",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+]
+
+[project.urls]
+Homepage = "https://github.com/mongodb/pymongo-auth-aws"
+
+[tool.hatch.version]
+path = "pymongo_auth_aws/version.py"
+validate-bump = false
+
+[tool.hatch.metadata.hooks.requirements_txt]
+files = ["requirements.txt"]
+
+[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
+test = ["requirements-test.txt"]
+
+[tool.ruff]
+target-version = "py37"
+line-length = 100
+
+[tool.ruff.lint]
+unfixable = [
+  "RUF100", # Unused noqa
+  "T20",  # Removes print statements
+  "F401",  # Unused imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"pymongo_auth_aws/__init__.py" = ["F401"]
+"test/*.py" = ["E402"]

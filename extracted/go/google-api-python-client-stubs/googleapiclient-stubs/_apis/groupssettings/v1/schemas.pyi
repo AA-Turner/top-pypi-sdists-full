@@ -1,0 +1,70 @@
+import typing
+
+import typing_extensions
+
+_list = list
+
+@typing.type_check_only
+class Groups(typing_extensions.TypedDict, total=False):
+    allowExternalMembers: str
+    allowGoogleCommunication: str
+    allowWebPosting: str
+    archiveOnly: str
+    customFooterText: str
+    customReplyTo: str
+    customRolesEnabledForSettingsToBeMerged: str
+    defaultMessageDenyNotificationText: str
+    default_sender: str
+    description: str
+    email: str
+    enableCollaborativeInbox: str
+    favoriteRepliesOnTop: str
+    includeCustomFooter: str
+    includeInGlobalAddressList: str
+    isArchived: str
+    kind: str
+    maxMessageBytes: int
+    membersCanPostAsTheGroup: str
+    messageDisplayFont: str
+    messageModerationLevel: str
+    name: str
+    primaryLanguage: str
+    replyTo: str
+    sendMessageDenyNotification: str
+    showInGroupDirectory: str
+    spamModerationLevel: str
+    whoCanAdd: str
+    whoCanAddReferences: str
+    whoCanApproveMembers: str
+    whoCanApproveMessages: str
+    whoCanAssignTopics: str
+    whoCanAssistContent: str
+    whoCanBanUsers: str
+    whoCanContactOwner: str
+    whoCanDeleteAnyPost: str
+    whoCanDeleteTopics: str
+    whoCanDiscoverGroup: str
+    whoCanEnterFreeFormTags: str
+    whoCanHideAbuse: str
+    whoCanInvite: str
+    whoCanJoin: str
+    whoCanLeaveGroup: str
+    whoCanLockTopics: str
+    whoCanMakeTopicsSticky: str
+    whoCanMarkDuplicate: str
+    whoCanMarkFavoriteReplyOnAnyTopic: str
+    whoCanMarkFavoriteReplyOnOwnTopic: str
+    whoCanMarkNoResponseNeeded: str
+    whoCanModerateContent: str
+    whoCanModerateMembers: str
+    whoCanModifyMembers: str
+    whoCanModifyTagsAndCategories: str
+    whoCanMoveTopicsIn: str
+    whoCanMoveTopicsOut: str
+    whoCanPostAnnouncements: str
+    whoCanPostMessage: str
+    whoCanTakeTopics: str
+    whoCanUnassignTopic: str
+    whoCanUnmarkFavoriteReplyOnAnyTopic: str
+    whoCanViewGroup: str
+    whoCanViewMembership: str

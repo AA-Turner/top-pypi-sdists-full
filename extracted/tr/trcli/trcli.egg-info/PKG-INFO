@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: trcli
+Version: 1.9.8
+License-File: LICENSE.md
+Requires-Dist: click==8.0.3
+Requires-Dist: pyyaml<7.0.0,>=6.0.0
+Requires-Dist: junitparser<4.0.0,>=3.1.0
+Requires-Dist: pyserde==0.12.*
+Requires-Dist: requests<3.0.0,>=2.31.0
+Requires-Dist: tqdm<5.0.0,>=4.65.0
+Requires-Dist: humanfriendly<11.0.0,>=10.0.0
+Requires-Dist: openapi-spec-validator<1.0.0,>=0.5.0
+Requires-Dist: beartype<1.0.0,>=0.17.0
+Requires-Dist: prance
+
+The TR CLI (trcli) is a command line tool for interacting with TestRail and uploading test automation results.

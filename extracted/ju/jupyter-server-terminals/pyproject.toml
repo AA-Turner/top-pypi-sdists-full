@@ -1,0 +1,190 @@
+[build-system]
+requires = ["hatchling>=1.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyter_server_terminals"
+readme = "README.md"
+dynamic = ["version"]
+license = { file = "LICENSE" }
+description = "A Jupyter Server Extension Providing Terminals."
+keywords = ["ipython", "jupyter"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11"
+]
+requires-python = ">=3.8"
+dependencies = [
+  "pywinpty>=2.0.3;os_name=='nt'",
+  "terminado>=0.8.3",
+]
+
+[[project.authors]]
+name = "Jupyter Development Team"
+email = "jupyter@googlegroups.com"
+
+[project.urls]
+Homepage = "https://jupyter.org"
+
+[project.optional-dependencies]
+test = [
+  "jupyter_server>=2.0.0",
+  "pytest-jupyter[server]>=0.5.3",
+  "pytest>=7.0",
+  "pytest-timeout",
+]
+docs = [
+"jinja2",
+"jupyter_server",
+"mistune<4.0",  # https://github.com/jupyter/nbconvert/issues/1685"
+"myst-parser",
+"nbformat",
+"packaging",
+"tornado",
+"pydata_sphinx_theme",
+"sphinxcontrib-openapi",
+"sphinxcontrib_github_alt",
+"sphinxemoji",
+"sphinxcontrib-spelling",
+]
+
+[tool.hatch.version]
+path = "jupyter_server_terminals/_version.py"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyter-config" = "etc/jupyter/jupyter_server_config.d"
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test"]
+dependencies = ["coverage[toml]", "pytest-cov"]
+[tool.hatch.envs.cov.scripts]
+test = "python -m pytest -vv --cov jupyter_server_terminals --cov-branch --cov-report term-missing:skip-covered {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["pre-commit"]
+[tool.hatch.envs.lint.scripts]
+build = [
+    "pre-commit run --all-files ruff",
+    "pre-commit run --all-files ruff-format"
+]
+
+[tool.hatch.envs.typing]
+dependencies = [ "pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-ra", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config",
+]
+testpaths = [
+    "tests/"
+]
+timeout = 300
+# Restore this setting to debug failures
+# timeout_method = "thread"
+filterwarnings = [
+  "error",
+  # from tornado
+  "ignore:unclosed <socket.socket:ResourceWarning",
+  # From juypter core
+  "module:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning",
+  "module:datetime.datetime.utc:DeprecationWarning",
+]
+
+[tool.coverage.run]
+relative_files = true
+source = ["jupyter_server_terminals"]
+
+[tool.mypy]
+files = "jupyter_server_terminals"
+python_version = "3.8"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PTH",         # flake8-use-pathlib
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+  "S",           # flake8-bandit
+]
+ignore = [
+  "PLR",    # Design related pylint codes
+  "E501",   # Line too long (158 > 100 characters)
+  "SIM105", # Use `contextlib.suppress(...)`
+  "T201",   # `print` found
+  "S101",   # Use of `assert` detected
+]
+unfixable = [
+  # Don't touch print statements
+  "T201",
+  # Don't touch noqa lines
+  "RUF100",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# B011: Do not call assert False since python -O removes these calls
+# F841 local variable 'foo' is assigned to but never used
+# S101 Use of `assert` detected
+"tests/*" = ["B011", "F841"]
+"docs/*" = ["PTH"]
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["tests", "docs"]
+
+[tool.repo-review]
+ignore = ["GH102"]

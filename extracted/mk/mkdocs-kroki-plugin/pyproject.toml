@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkdocs-kroki-plugin"
+version = "0.9.0"
+description = "MkDocs plugin for Kroki-Diagrams"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Benjamin Bittner", email = "benjamin.bittner@avateam.com" },
+    { name = "Antonia Siegert", email = "oniboni@mailbox.org" },
+]
+keywords = [
+    "diagram",
+    "kroki",
+    "markdown",
+    "mkdocs",
+    "python",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "mkdocs>=1.5.0",
+    "requests>=2.27.0",
+    "result>=0.17.0",
+    "defusedxml>=0.7.1"
+]
+
+[project.entry-points."mkdocs.plugins"]
+kroki = "kroki.plugin:KrokiPlugin"
+
+[project.urls]
+Documentation = "https://github.com/AVATEAM-IT-SYSTEMHAUS/mkdocs-kroki-plugin#readme"
+Issues = "https://github.com/AVATEAM-IT-SYSTEMHAUS/mkdocs-kroki-plugin/issues"
+Source = "https://github.com/AVATEAM-IT-SYSTEMHAUS/mkdocs-kroki-plugin"
+
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/kroki",
+]
+[tool.hatch.build.targets.wheel]
+include = [
+    "/kroki",
+]
+
+# this enables you to run arbitrary commands inside of the hatch-managed hatch-test environment
+# e.g.
+#   REPL:
+#     hatch run test:python
+#   serve happy path test:
+#     hatch run test:mkdocs serve -f tests/data/happy_path/mkdocs.yml
+[tool.hatch.envs.test]
+template = "hatch-test"
+[tool.hatch.envs.test.env-vars]
+# start local test kroki:
+#   docker-compose up
+KROKI_SERVER_URL = "http://localhost:8080"
+
+[tool.hatch.envs.techdocs]
+template = "test"
+extra-dependencies = [
+    "mkdocs_monorepo_plugin",
+    "mkdocs-techdocs-core",
+    "nodeenv",
+]
+[tool.hatch.envs.techdocs.scripts]
+serve = [
+    "if [ ! $(command -v npm) ];then nodeenv --python-virtualenv; fi",
+    "if [ ! $(command -v techdocs-cli) ];then npm install -g @techdocs/cli; fi",
+    "cd tests/data/techdocs && techdocs-cli serve --no-docker --verbose",
+]
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+    "pytest-mock",
+    "beautifulsoup4",
+    "mkdocs-material",
+    "click",
+]
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest {env:HATCH_TEST_ARGS:} {args:tests}"
+run-cov = "coverage run -m pytest {env:HATCH_TEST_ARGS:} {args:tests} --junitxml=junit/test-results.xml"
+cov-combine = "coverage combine"
+cov-report = [
+    "coverage xml",
+    "coverage report --omit='tests/*'",
+]
+
+[tool.hatch.envs.types]
+template = "hatch-test"
+extra-dependencies = [
+  "mypy",
+  "types-PyYAML",
+  "types-beautifulsoup4",
+  "types-requests",
+  "types-babel",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:kroki tests}"
+[tool.mypy]
+disable_error_code="import-untyped"
+
+[tool.commitizen]
+version = "0.9.0"
+tag_format = "v$version"
+version_files = [
+  "pyproject.toml:version",
+  "kroki/__init__.py"
+]

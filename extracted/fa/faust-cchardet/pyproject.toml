@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "wheel", "cython", "pkgconfig"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build-frontend = "build"
+skip = ["*-win32"]
+archs = ["auto"]
+test-requires = ['pytest']
+test-command = [
+    'cd {project}',
+    'python -m pytest {project}'
+]
+
+environment = {INCLUDE_PATH="/usr/local/include/uchardet", LIBRARY_PATH="/usr/local/lib64/"}
+before-build = [
+    "git submodule sync --recursive",
+    "git submodule update --init --force --recursive --depth=1",
+]
+
+[tool.cibuildwheel.macos]
+environment = {INCLUDE_PATH="/usr/local/include/uchardet", LIBRARY_PATH="/usr/local/lib/"}
+before-build = [
+    "git submodule sync --recursive",
+    "git submodule update --init --force --recursive --depth=1",
+]
+
+[tool.cibuildwheel.windows]
+before-build = [
+    "git submodule sync --recursive",
+    "git submodule update --init --force --recursive --depth=1",
+    "make pip"
+]

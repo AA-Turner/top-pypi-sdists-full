@@ -1,0 +1,13 @@
+from typing import Any
+
+from coreschema.compat import text_types as text_types
+
+jsonschema: Any
+KEYWORD_TO_TYPE: Any
+TYPE_NAMES: Any
+CLS_MAP: Any
+
+def camelcase_to_snakecase(name: Any) -> Any: ...
+def get_typed_schemas(data: Any) -> Any: ...
+def get_composite_schemas(data: Any) -> Any: ...
+def load_jsonschema(data: Any) -> Any: ...

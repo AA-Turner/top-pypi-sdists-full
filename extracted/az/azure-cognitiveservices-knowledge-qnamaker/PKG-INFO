@@ -1,0 +1,63 @@
+Metadata-Version: 2.1
+Name: azure-cognitiveservices-knowledge-qnamaker
+Version: 0.3.1
+Summary: Microsoft Azure QnA Maker Client Library for Python
+Home-page: https://github.com/Azure/azure-sdk-for-python
+Author: Microsoft Corporation
+Author-email: azpysdkhelp@microsoft.com
+License: MIT License
+Keywords: azure,azure sdk
+Classifier: Development Status :: 7 - Inactive
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: msrest>=0.6.21
+Requires-Dist: azure-common~=1.1
+Requires-Dist: azure-mgmt-core<2.0.0,>=1.2.0
+Requires-Dist: azure-cognitiveservices-knowledge-nspkg; python_version < "3.0"
+
+# Microsoft Azure SDK for Python
+
+This package is no longer being maintained. Use the [azure-ai-language-questionanswering](https://pypi.org/project/azure-ai-language-questionanswering/) package instead.
+
+For migration instructions, see the [migration guide](https://aka.ms/azsdk/python/migrate/azure-ai-language-questionanswering).
+
+# Release History
+
+## 0.3.1 (2024-08-13)
+
+### Other Changes
+
+- This package is no longer being maintained. Use the [azure-ai-language-questionanswering](https://pypi.org/project/azure-ai-language-questionanswering/) package instead.
+
+- For migration instructions, see the [migration guide](https://aka.ms/azsdk/python/migrate/azure-ai-language-questionanswering).
+
+## 0.3.0 (2020-11-07)
+
+**Features**
+
+- `QnAMakerClient` now consolidates both authoring and runtime.
+- Support for `5.0.0.preview.1` API version
+
+## 0.2.0 (2020-03-17)
+
+**Features**
+
+- New client `QnAMakerRuntimeClient` in `azure.cognitiveservices.knowledge.qnamaker.runtime`
+
+**Breaking changes**
+
+- The `QnAMakerClient` client moved from namespace `azure.cognitiveservices.knowledge.qnamaker` to `azure.cognitiveservices.knowledge.qnamaker.authoring`
+
+## 0.1.0 (2018-12-21)
+
+* Initial Release

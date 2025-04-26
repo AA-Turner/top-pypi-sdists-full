@@ -1,0 +1,708 @@
+Metadata-Version: 2.4
+Name: connector-py
+Version: 4.53.0
+Summary: An Abstract Tool to Perform Actions on Integrations
+Author-email: teamlumos <security@lumos.com>
+License: 
+                                         Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright 2024 Lumos App, Inc.
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Documentation, https://developers.lumos.com/reference/the-lumos-connector-api
+Keywords: integrations
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: gql[httpx]
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: msgpack>=1
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: urllib3>=1.25.2
+Requires-Dist: botocore>=1.34.0
+Provides-Extra: fastapi
+Requires-Dist: fastapi-slim; extra == "fastapi"
+Requires-Dist: uvicorn; extra == "fastapi"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: pytest-httpx>=0.33; extra == "dev"
+Requires-Dist: Flask; extra == "dev"
+Requires-Dist: pyinstaller>=6.8.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: connector-py[dev,fastapi]; extra == "all"
+Dynamic: license-file
+
+# Lumos Connector SDK
+
+Plug apps back into Lumos using an integration connector built with this SDK.
+
+[![PyPI - Version](https://img.shields.io/pypi/v/connector-py.svg)](https://pypi.org/project/connector-py)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/connector-py.svg)](https://pypi.org/project/connector-py)
+
+-----
+
+## Table of Contents
+
+- [Lumos Connector SDK](#lumos-connector-sdk)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Print the spec](#print-the-spec)
+  - [Create a new connector](#create-a-new-connector)
+    - [Learning the connector's capabilities](#learning-the-connectors-capabilities)
+    - [Connector implementation](#connector-implementation)
+    - [Running unit tests](#running-unit-tests)
+    - [Typechecking with MyPy](#typechecking-with-mypy)
+    - [Error Handling](#error-handling)
+      - [Raising an exception](#raising-an-exception)
+      - [Response](#response)
+    - [OAuth Module](#oauth-module)
+      - [OAuth Flow Types](#oauth-flow-types)
+  - [Connector Configuration](#connector-configuration)
+    - [Where should I set my connector's configuration?](#where-should-i-set-my-connectors-configuration)
+    - [The connection sequence for Lumos](#the-connection-sequence-for-lumos)
+  - [Deploying a connector](#deploying-a-connector)
+    - [Deployment models](#deployment-models)
+  - [Tips](#tips)
+    - [The library I want to use is synchronous only](#the-library-i-want-to-use-is-synchronous-only)
+  - [License](#license)
+
+## Installation
+
+```console
+pip install "connector-py[dev]"
+```
+
+## Usage
+
+This package has...
+
+1. A CLI to create a custom connector with its own CLI to call commands
+2. A library to assist building custom connectors in Python
+
+To get started with the CLI, run `connector --help`
+
+### Print the spec
+
+This SDK has an OpenAPI spec that you can render and view with the [Swagger editor](https://editor.swagger.io/).
+
+```console
+connector spec
+```
+
+## Create a new connector
+
+From your shell, run
+
+```shell
+# Create a connector
+# CLI     cmd      name           folder
+connector scaffold demo-connector demo_connector
+
+# Install its dependencies in a virtual env
+cd demo_connector
+python -m venv .venv
+. .venv/bin/activate
+pip install ".[all]"
+
+# Lint and run tests
+mypy .
+pytest
+
+# Run the info capability (note the hyphens, instead of underscores)
+demo-connector info
+```
+
+### Learning the connector's capabilities
+
+Custom and on-premise Lumos connectors are called via the CLI; they're passed JSON and should print the response JSON to stdout.
+
+Run the `info` capability to learn what other capabilities the connector supports, what resource and entitlement types, its name, etc.
+
+Look at the info, using `jq` to pretty-print the response:
+
+```shell
+demo-connector info | jq .response
+# or just the capabilities
+demo-connector info | jq .response.capabilities
+```
+
+To call most capabilities, you run a command where you pass the request (JSON) as a string.
+
+```console
+<CONNECTOR COMMAND> <CAPABILITY NAME> --json '<A STRINGIFIED JSON OBJECT>'
+```
+
+The most important capability to implement is `validate_credentials`. Lumos uses this capability to ensure a user-established connection works, and has resulted in authentication credentials your connector can use to perform other actions.
+
+```py
+test-connector validate_credentials --json '{
+    "auth": {
+        "oauth": {
+            "access_token":"this will not work"
+        }
+    },
+    "request": {},
+    "settings": {
+        "account_id":"foo"
+    }
+}'
+```
+
+**This is expected to 💥 fail with a brand-new connector**. You'll need to figure out how to [configure the authentication](#connector-configuration) to the underlying app server, and how to surface that as user (auth) configuration.
+
+To learn more about all the capabilities, check out the OpenAPI spec in a Swagger editor.
+
+To see a working capability, you can use the Lumos mock connector's `validate_credentials` call, using `jq` to pretty print the JSON:
+
+```console
+mock-connector validate_credentials --json '{"auth":{"basic":{"username":"foo","password":"bar"}},"request":{},"settings":{"host":"google.com"}}' | jq .
+```
+
+```json
+{
+  "response": {
+    "valid": true,
+    "unique_tenant_id": "mock-connector-tenant-id"
+  },
+  "page": null
+}
+```
+
+### Connector implementation
+
+Connectors can implement whichever Lumos capabilities make sense for the underlying app.
+
+To see what a minimal implementation looks like, you can inspect a newly scaffolded connector, and look at the integration declaration, and the _uncommented out_ capability registrations.
+
+The integration declaration looks something like this:
+
+```python
+integration = Integration(
+    app_id="my_app",
+    version=__version__,
+    auth=BasicCredential,
+    settings_model=MyAppSettings,
+    exception_handlers=[
+        (httpx.HTTPStatusError, HTTPHandler, None),
+    ],
+    description_data=DescriptionData(
+        logo_url="https://logo.clearbit.com/foobar.com",
+        user_friendly_name="Foo Bar",
+        description="Foobar is a cloud-based platform that lets you manage foos and bars",
+        categories=[AppCategory.DEVELOPERS, AppCategory.COLLABORATION],
+    ),
+    resource_types=resource_types,
+    entitlement_types=entitlement_types,
+)
+```
+
+And capability registration looks something like this:
+
+```py
+@integration.register_capability(StandardCapabilityName.LIST_ACCOUNTS)
+async def list_accounts(request: ListAccountsRequest) -> ListAccountsResponse:
+    # do whatever is needed to get accounts, probably make an http call
+    return ListAccountsResponse(
+        response=[],
+        ...
+    )
+```
+
+### Running unit tests
+
+Scaffolded connectors come with a bunch of unit test examples - they're all skipped by default, but you can remove the skip marker to use the existing test.
+
+To run unit tests:
+
+```console
+pytest .
+```
+
+To understand the test structure:
+
+```text
+demo_connector/
+    demo_connector/
+    tests/
+        test_basic_capabilities/
+            test_list_accounts_cases.py
+            test_list_accounts.py
+            ...
+```
+
+- `test_list_accounts.py` is the actual Pytest test code. It uses all the existing test cases from
+- `test_list_accounts_cases.py`
+
+You can see the reference here
+
+```py
+@pytest_cases.parametrize_with_cases(
+    ["args", "response_body_map", "expected_response"],
+    cases=[
+        # The name of the Python module
+        "tests.test_basic_capabilities.test_list_accounts_cases",
+    ],
+)
+```
+
+### Typechecking with MyPy
+
+The generated Python code is typed, and can be typechecked with MyPy (installed as a dev dependency).
+
+```console
+mypy .
+```
+
+### Error Handling
+
+Error handling is facilitated through an exception handler decorator.
+
+An exception handler can be attached to the connector library as follows:
+
+```python
+from httpx import HTTPStatusError
+from connector.oai.errors import HTTPHandler
+
+integration = Integration(
+    ...,
+    exception_handlers=[
+        (HTTPStatusError, HTTPHandler, None),
+    ],
+    handle_errors=True,
+)
+```
+
+The decorator accepts a list of tuples of three.
+
+1. the exception type you would like to catch
+2. the handler (default or implemented on your own)
+3. a specific error code that you would like to associate with this handler.
+
+By default it is recommended to make use of the default HTTPHandler which will handle `raise_for_status()` for you and properly error code it. For more complex errors it is recommended to subclass the ExceptionHandler (in `connector/oai/errors.py`) and craft your own handler.
+
+#### Raising an exception
+
+Among this, there is a custom exception class available as well as a default list of error codes:
+
+```python
+from connector.oai.errors import ConnectorError
+from connector.generated import ErrorCode
+
+def some_method(self, args):
+    raise ConnectorError(
+        message="Received wrong data, x: y",
+        app_error_code="foobar.some_unique_string",
+        error_code=ErrorCode.BAD_REQUEST,
+    )
+```
+
+It is preferred to raise any manually raisable exception with this class. A connector can implement its own error codes list, which should be properly documented.
+
+#### Response
+
+An example response when handled this way:
+
+```json
+// BAD_REQUEST error from github connector
+{"error":{"message":"Some message","status_code":400,"error_code":"bad_request","raised_by":"HTTPStatusError","raised_in":"github.integration:validate_credentials"}, "response": null, "raw_data": null}
+```
+
+### OAuth Module
+
+The OAuth module is responsible for handling the OAuth2.0 flow for a connector.
+It is configured with `oauth_settings` in the `Integration` class.
+Not configuring this object will disable the OAuth module completely.
+
+```python
+from connector.oai.modules.oauth_module_types import (
+    OAuthSettings,
+    OAuthCapabilities,
+    OAuthRequest,
+    RequestDataType,
+)
+
+integration = Integration(
+    ...,
+    oauth_settings=OAuthSettings(
+        # Authorization & Token URLs for the particular connector
+        authorization_url="https://app.connector.com/oauth/authorize",
+        token_url="https://api.connector.com/oauth/v1/token",
+
+        # Scopes per capability (space delimited string)
+        scopes={
+            StandardCapabilityName.VALIDATE_CREDENTIALS: "test:scope another:scope",
+            ... # further capabilities as implemented in the connector
+        },
+
+        # You can modify the request type if the default is not appropriate
+        # common options for method are "POST" and "GET"
+        # available options for data are "FORMDATA", "QUERY", and "JSON" (form-data / url query params / json body)
+        # *default is POST and FORMDATA*
+        request_type=OAuthRequest(data=RequestDataType.FORMDATA),
+
+        # You can modify the authentication method if the default is not appropriate
+        # available options for auth_method are "CLIENT_SECRET_POST" and "CLIENT_SECRET_BASIC"
+        # *default is CLIENT_SECRET_POST*
+        client_auth=ClientAuthenticationMethod.CLIENT_SECRET_POST,
+
+        # You can turn off specific or all capabilities for the OAuth module
+        # This means that these will either be skipped or you have to implement them manually
+        capabilities=OAuthCapabilities(
+            refresh_access_token=False,
+        ),
+
+        # You can specify the type of OAuth flow to use
+        # Available options are "CODE_FLOW" and "CLIENT_CREDENTIALS"
+        # *default is CODE_FLOW*
+        flow_type=OAuthFlowType.CODE_FLOW,
+
+        # You can enable PKCE (Proof Key for Code Exchange)
+        # *default is False*
+        # S256 is the default hashing algorithm, and the only supported at the moment
+        pkce=True,
+    ),
+)
+```
+
+It might happen that your integration requires a dynamic authorization/token URL.
+For example when the service provider has specific URLs and uses the customers custom subdomain. (eg. `https://{subdomain}.service.com/oauth/authorize`)
+In that case you can pass a callable that takes the request args (`AuthRequest`, without the auth parameter) as an argument (only available during request).
+
+```python
+# method definitions
+def get_authorization_url(args: AuthRequest) -> str:
+    settings = get_settings(args, ConnectorSettings)
+    return f"https://{settings.subdomain}.service.com/oauth/authorize"
+
+def get_token_url(args: AuthRequest) -> str:
+    settings = get_settings(args, ConnectorSettings)
+    return f"https://{settings.subdomain}.service.com/oauth/token"
+
+# oauth settings
+integration = Integration(
+    ...,
+    oauth_settings=OAuthSettings(
+        authorization_url=get_authorization_url,
+        token_url=get_token_url,
+    ),
+)
+```
+
+#### OAuth Flow Types
+
+The OAuth module supports two flow types:
+
+- `CODE_FLOW`: The authorization code flow (default)
+- `CLIENT_CREDENTIALS`: The client credentials flow (sometimes called "2-legged OAuth" or "Machine-to-Machine OAuth")
+
+The flow type can be specified in the `OAuthSettings` object.
+
+Using the authorization code flow you have three available capabilities:
+
+- `GET_AUTHORIZATION_URL`: To get the authorization URL
+- `HANDLE_AUTHORIZATION_CALLBACK`: To handle the authorization callback
+- `REFRESH_ACCESS_TOKEN`: To refresh the access token
+
+Using the client credentials flow you have two available capabilities:
+
+- `HANDLE_CLIENT_CREDENTIALS_REQUEST`: To handle the client credentials request, uses the token URL
+- `REFRESH_ACCESS_TOKEN`: To refresh the access token
+
+These are registered by default via the module and can be overriden by the connector.
+
+If you run:
+
+```sh
+connector info
+```
+
+You will see that the OAuth capabilities are included in the available connector capabilities.
+
+## Connector Configuration
+
+A connector is used to connect to multiple tenants of the same app. Each tenant has a connection in Lumos, and the unique tenant ID is used to distinguish the different connections.
+
+Each connection has its own...
+
+- ...auth object that fits the connector's auth model.
+- ...settings object that fits the connector's settings model.
+- ...set of data (accounts, resources, entitlements) that Lumos reads and stores.
+
+![How a connector is used](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-tenant-data-model.png)
+
+A connector can be used for multiple underlying instances of the same app. For instance, you might use a `github` connector to establish connections with different Github Organizations. The nature of "what is a tenant" is dependent on the underlying app.
+
+A scaffolded connector has OAuth authentication, and a Settings type with `account_id`. You don't have to keep these - you can change the authentication model and the Settings type to whatever is appropriate for the underlying app (settings may be empty).
+
+### Where should I set my connector's configuration?
+
+A quick rule is sensitive data that would allow an attacker the ability to access the underlying app, goes into the `auth` payload. Anything else that's not sensitive, not absolutely required to connect to a tenant, or can have a sane default, is `settings`.
+
+### The connection sequence for Lumos
+
+1. Lumos sees a new connector, and queries its settings and auth models via the `info` command.
+2. Lumos uses these parts of the `info` response to render a connection form for the user.
+    - the settings (JSON schema + included documentation)
+    - auth models (string matching to the auth model)
+    - app logo, description, tags, etc.
+3. The user enters all the relevant data/auth materials to connect to an app, and/or does an OAuth consent flow to the underlying app.
+4. Lumos validates the credentials and settings via the `validate_credentials` capability.
+
+![The process of connecting a new connector](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-setup.png)
+
+At this point, the connection is considered established, and Lumos will attempt to read all data from the connector, allow user provisioning and deprovisioning, etc.
+
+## Deploying a connector
+
+Quick steps:
+
+1. Package up the connector you've built into an archive with a native executable. We use [`pyinstaller`](https://pyinstaller.org/en/stable/) for our Python connectors.
+
+    ```shell
+    # SDK     command         ...required args
+    connector compile-on-prem --connector-root-module-dir ./demo_connector/demo_connector --app-id demo
+    ```
+
+2. Run the [Lumos on-premise agent](https://developers.lumos.com/reference/on-premise-agent).
+3. On the same machine as (3), deploy the packaged-up connector from (1) in the same folder.
+4. The integration should show up in the Lumos AdminView > Integrations screen.
+
+### Deployment models
+
+Lumos calls a connector's APIs with auth and settings data to read all the accounts, entitlements, resources, and associations in the connected app.
+
+There are two ways this happens, depending on who's hosting the connector.
+
+If Lumos is hosting it, we call it directly in our backend.
+
+![Lumos hosts and calls our own connectors](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-hosting-lumos.png)
+
+If it's a custom connector, it runs as an on-premise connector on a customer's computer, and is called by the [Lumos on-prem agent](https://developers.lumos.com/reference/on-premise-agent).
+
+![Lumos hosts and calls our own connectors](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-hosting-onprem.png)
+
+## Tips
+
+### The library I want to use is synchronous only
+
+You can use a package called `asgiref`. This package converts I/O bound synchronous
+calls into asyncio non-blocking calls. First, add asgiref to your dependencies list
+in `pyproject.toml`. Then, in your async code, use `asgiref.sync_to_async` to convert
+synchronous calls to asynchronous calls.
+
+```python
+from asgiref.sync import sync_to_async
+import requests
+
+async def async_get_data():
+    response = await sync_to_async(requests.get)("url")
+```
+
+## License
+
+`connector` is distributed under the terms of the [Apache 2.0](./LICENSE.txt) license.

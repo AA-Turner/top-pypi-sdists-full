@@ -1,0 +1,146 @@
+[project]
+authors = [
+    { name = "The Music Assistant Authors", email = "music_assistant@users.noreply.github.com" },
+]
+classifiers = [
+    "Environment :: Console",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "aiohttp>=3.8.6",
+    "music_assistant_models==1.1.43",
+    "orjson>=3.9",
+]
+description = "Music Assistant Client"
+name = "music_assistant_client"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "1.2.0"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.optional-dependencies]
+test = [
+    "codespell==2.4.1",
+    "isort==6.0.1",
+    "mypy==1.15.0",
+    "pre-commit==4.2.0",
+    "pre-commit-hooks==5.0.0",
+    "tomli==2.2.1",
+    "ruff==0.11.2",
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "music_assistant_client",
+]
+platforms = [
+    "any",
+]
+zip-safe = false
+
+[tool.setuptools.package-data]
+music_assistant_client = [
+    "py.typed",
+]
+
+[tool.ruff]
+fix = true
+show-fixes = true
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN401",
+    "D203",
+    "D213",
+    "D417",
+    "EM101",
+    "EM102",
+    "FIX002",
+    "PLR2004",
+    "PD011",
+    "S101",
+    "TC001",
+    "TC003",
+    "TD002",
+    "TD003",
+    "TD004",
+    "TRY003",
+    "TRY400",
+    "COM812",
+    "N818",
+    "FBT001",
+    "FBT002",
+]
+select = [
+    "ALL",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 25
+max-returns = 15
+max-statements = 50
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "music_assistant_client",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.mypy]
+check_untyped_defs = true
+disable_error_code = [
+    "annotation-unchecked",
+    "import-not-found",
+    "import-untyped",
+]
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-self",
+    "truthy-iterable",
+]
+extra_checks = false
+follow_imports = "silent"
+local_partial_types = true
+no_implicit_optional = true
+packages = [
+    "music_assistant_client",
+]
+show_error_codes = true
+strict_equality = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+addopts = "--cov music_assistant_client"
+asyncio_mode = "auto"

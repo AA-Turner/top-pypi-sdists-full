@@ -1,0 +1,118 @@
+[build-system]
+requires = ["hatchling>=1.21.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dnspython"
+description = "DNS toolkit"
+authors = [{ name = "Bob Halley", email = "halley@dnspython.org" }]
+license = { text = "ISC" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Topic :: Internet :: Name Service (DNS)",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.1.0",
+    "coverage>=7.0",
+    "hypercorn>=0.16.0",
+    "flake8>=7",
+    "mypy>=1.8",
+    "pylint>=3",
+    "pytest>=7.4",
+    "pytest-cov>=4.1.0",
+    "quart-trio>=0.11.0",
+    "sphinx>=7.2.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "twine>=4.0.0",
+    "wheel>=0.42.0",
+]
+dnssec = ["cryptography>=43"]
+doh = ["httpcore>=1.0.0", "httpx>=0.26.0", "h2>=4.1.0"]
+doq = ["aioquic>=1.0.0"]
+idna = ["idna>=3.7"]
+trio = ["trio>=0.23"]
+wmi = ["wmi>=1.5.1"]
+
+[project.urls]
+homepage = "https://www.dnspython.org"
+repository = "https://github.com/rthalley/dnspython.git"
+documentation = "https://dnspython.readthedocs.io/en/stable/"
+issues = "https://github.com/rthalley/dnspython/issues"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/dns/*.py",
+    "/dns/**/*.py",
+    "/dns/py.typed",
+    "/examples/*.txt",
+    "/examples/*.py",
+    "/tests/*.txt",
+    "/tests/*.py",
+    "/tests/*.good",
+    "/tests/example",
+    "/tests/query",
+    "/tests/*.pickle",
+    "/tests/*.text",
+    "/tests/*.generic",
+    "/tests/tls/*.crt",
+    "/tests/tls/*.pem",
+    "/util/**",
+]
+
+[tool.hatch.build.targets.wheel]
+include = ["dns/*.py", "dns/**/*.py", "dns/py.typed"]
+
+[tool.hatch.envs.default]
+features = ["trio", "dnssec", "idna", "doh", "doq", "dev"]
+#installer = "uv"
+
+[tool.hatch.version]
+source = "code"
+path = "dns/version.py"
+expression = "version"
+
+[tool.ruff]
+lint.select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
+]
+lint.ignore = ["E501", "E741", "F401", "I001", "B904", "B011", "UP006", "UP035"]
+lint.exclude = ["tests/*"]
+
+[tool.isort]
+profile = "black"
+
+[[tool.mypy.overrides]]
+module = "pythoncom"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "wmi"
+ignore_missing_imports = true

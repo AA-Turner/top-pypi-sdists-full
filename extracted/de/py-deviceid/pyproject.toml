@@ -1,0 +1,25 @@
+[project]
+name = "py-deviceid"
+version = "0.1.1"
+authors = [{name = "Microsoft Corporation", email="vstelinstr@microsoft.com"}]
+description = "A simple library to get or create a unique device id for a device in Python."
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+classifiers = [
+  'Development Status :: 3 - Alpha',
+  'Programming Language :: Python :: 3 :: Only',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'License :: OSI Approved :: MIT License',
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Repository = "https://github.com/microsoft/py-deviceid"
+
+[build-system]
+requires = ["setuptools"]

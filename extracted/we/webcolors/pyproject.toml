@@ -1,0 +1,110 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    { name = "James Bennett" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+name = "webcolors"
+description = "A library for working with the color formats defined by HTML and CSS."
+keywords = [
+    "color",
+    "css",
+    "html",
+    "web",
+]
+readme = "README.rst"
+requires-python = ">=3.9"
+version = "24.11.1"
+
+[project.license]
+text = "BSD-3-Clause"
+
+[project.urls]
+Documentation = "https://webcolors.readthedocs.io"
+"Source Code" = "https://github.com/ubernostrum/webcolors"
+
+[dependency-groups]
+tests = [
+    "nox",
+]
+
+[tool.bandit]
+skips = [
+    "B101",
+]
+
+[tool.black]
+target-version = [
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".nox/tests_with_coverage*/**/site-packages",
+]
+
+[tool.coverage.report]
+fail_under = 100
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+    "webcolors",
+]
+
+[tool.interrogate]
+fail-under = 100
+ignore-init-method = true
+ignore-init-module = true
+
+[tool.isort]
+profile = "black"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+source-includes = [
+    ".editorconfig",
+    ".flake8",
+    ".pre-commit-config.yaml",
+    ".readthedocs.yaml",
+    "AUTHORS",
+    "CONTRIBUTING.rst",
+    "docs/",
+    "noxfile.py",
+    "pdm.lock",
+    "runtests.py",
+    "tests/",
+]
+
+[tool.pylint]
+disable = [
+    "duplicate-code",
+    "protected-access",
+]

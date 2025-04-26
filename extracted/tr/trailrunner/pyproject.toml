@@ -1,0 +1,69 @@
+[build-system]
+requires = ["flit_core >=3.7,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "trailrunner"
+readme = "README.md"
+license = {file="LICENSE"}
+dynamic = ["version", "description"]
+authors = [
+    {name="Amethyst Reese", email="amy@n7.gg"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "pathspec>=0.8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "attribution==1.6.2",
+    "black==22.3.0",
+    "click==8.1.3",
+    "coverage==6.5",
+    "flit==3.7.1",
+    "flake8==4.0.1",
+    "flake8-bugbear==23.2.13",
+    "mypy==1.1.1",
+    "rich==13.3.2",
+    "ufmt==2.0.1",
+    "usort==1.0.5",
+]
+docs = [
+    "sphinx==6.1.3",
+    "sphinx-mdinclude==0.5.3",
+]
+
+[project.urls]
+Home = "https://trailrunner.omnilib.dev"
+Github = "https://github.com/omnilib/trailrunner"
+Changelog = "https://trailrunner.omnilib.dev/en/latest/changelog.html"
+
+[tool.flit.sdist]
+exclude = [
+    ".github/",
+]
+
+[tool.attribution]
+name = "trailrunner"
+package = "trailrunner"
+version_file = true
+signed_tags = true
+
+[tool.coverage.run]
+branch = true
+include = ["trailrunner/*"]
+omit = ["trailrunner/tests/*"]
+
+[tool.coverage.report]
+fail_under = 100
+precision = 1
+show_missing = true
+skip_covered = true

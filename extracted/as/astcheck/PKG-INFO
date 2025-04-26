@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: astcheck
+Version: 0.4.0
+Summary: Check Python ASTs against templates
+Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Testing
+Project-URL: Documentation, https://astcheck.readthedocs.io/en/latest/
+Project-URL: Source, https://github.com/takluyver/astcheck
+
+astcheck
+========
+
+astcheck compares Python Abstract Syntax Trees against a template. This is
+useful for testing software that automatically generates or modifies Python code.
+
+Installation::
+
+    pip install astcheck
+
+Example use:
+
+.. code:: python
+
+    import ast, astcheck
+
+    template = ast.Module(body=[
+        ast.FunctionDef(name='double', args=ast.arguments(args=[ast.arg(arg='a')])),
+        ast.Assign(value=ast.Call(func=ast.Name(id='double')))
+    ])
+
+    sample = """
+    def double(a):
+        do_things()
+        return a*2
+    b = double(a)
+    """
+
+    astcheck.assert_ast_like(ast.parse(sample), template)
+
+Only the parts specified in the template are checked. In this example, the code
+inside the function, and the assignment target (``b``) could be anything.
+
+For more details, see `the documentation <http://astcheck.readthedocs.org/en/latest/index.html>`_.
+

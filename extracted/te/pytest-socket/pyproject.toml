@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "pytest-socket"
+version = "0.7.0"
+description = "Pytest Plugin to disable socket calls during tests"
+authors = ["Mike Fiedler <miketheman@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://pypi.org/project/pytest-socket/"
+repository = "https://github.com/miketheman/pytest-socket"
+include = [
+    { path = "LICENSE", format = "sdist" },
+    { path = "README.md", format = "sdist" },
+    { path = "tests", format = "sdist" },
+    { path = ".flake8", format = "sdist" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pytest = ">=6.2.5"
+
+[tool.poetry.dev-dependencies]
+coverage = "^7.3"
+pytest-httpbin = "^2.0.0"
+pytest-randomly = "^3.15.0"
+requests = "^2.26.0"
+starlette = "^0.36.1"
+httpx = "^0.26.0"
+# Waiting for new release. See https://github.com/psf/httpbin/issues/35
+httpbin = { git = "https://github.com/psf/httpbin.git", rev = "1f6e0498" }
+
+[tool.poetry.plugins.pytest11]
+socket = 'pytest_socket'
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/miketheman/pytest-socket/issues"
+"Change Log" = "https://github.com/miketheman/pytest-socket/blob/main/CHANGELOG.md"
+"Funding" = "https://github.com/sponsors/miketheman"
+
+[tool.coverage.report]
+include = ["*pytest_socket*", "tests*"]
+
+[tool.isort]
+known_first_party = ['pytest_socket', 'conftest', 'test_socket']
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#profilegcm
+profile = "black"
+
+[tool.vulture]
+ignore_decorators = ["@pytest.fixture"]
+ignore_names = ["pytest_*"]
+paths = ["pytest_socket.py"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

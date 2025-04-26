@@ -1,0 +1,72 @@
+[tool.poetry]
+name = "pydantic-xml"
+version = "2.16.0"
+description = "pydantic xml extension"
+authors = ["Dmitry Pershin <dapper1291@gmail.com>"]
+license = "Unlicense"
+readme = "README.rst"
+homepage = "https://github.com/dapper91/pydantic-xml"
+repository = "https://github.com/dapper91/pydantic-xml"
+documentation = "https://pydantic-xml.readthedocs.io"
+keywords = [
+    'pydantic', 'xml', 'serialization', 'deserialization', 'lxml',
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "License :: Public Domain",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: Markup :: XML",
+    'Framework :: Pydantic',
+    "Framework :: Pydantic :: 1",
+    "Framework :: Pydantic :: 2",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+lxml = {version = ">=4.9.0", optional = true}
+pydantic = ">=2.6.0, !=2.10.0b1"
+pydantic-core = ">=2.15.0"
+
+furo = {version = "^2022.12.7", optional = true}
+Sphinx = {version = "^5.3.0", optional = true}
+sphinx-copybutton = {version = "^0.5.1", optional = true}
+sphinx_design = {version = "^0.3.0", optional = true}
+toml = {version = "^0.10.2", optional = true}
+
+[tool.poetry.extras]
+lxml = ['lxml']
+docs = ['Sphinx', 'toml', 'sphinx_design', 'furo', 'sphinx-copybutton']
+
+[tool.poetry.dev-dependencies]
+lxml-stubs = ">=0.4.0"
+mypy = "^1.4.1"
+pre-commit = "~3.2.0"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+xmldiff = "2.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+allow_redefinition = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = false
+disallow_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+strict_equality = true
+warn_unused_ignores = true

@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: google-auth-stubs
+Version: 0.3.0
+Summary: Type stubs for google-auth
+Home-page: https://github.com/henribru/google-auth-stubs
+License: Apache-2.0
+Author: Henrik Bruåsdal
+Author-email: henrik.bruasdal@gmail.com
+Requires-Python: >=3.6.2,<4.0.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Dist: google-auth (>=2.7.0,<3.0.0)
+Requires-Dist: grpc-stubs (>=1.24.7,<2.0.0)
+Requires-Dist: types-requests (>=2.25.9,<3.0.0)
+Project-URL: Repository, https://github.com/henribru/google-auth-stubs
+Description-Content-Type: text/markdown
+
+# Type stubs for google-auth-stubs
+[![PyPI version](https://badge.fury.io/py/google-auth-stubs.svg)](https://badge.fury.io/py/google-auth-stubs)
+
+This package provides type stubs for the [google-auth](https://pypi.org/project/google-auth/) package.
+
+**This is in no way affiliated with Google.**
+
+The stubs were largely created automatically by [stubgen](https://mypy.readthedocs.io/en/stable/stubgen.html).
+
+## Installation
+```shell script
+$ pip install google-auth-stubs
+```
+

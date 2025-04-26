@@ -1,0 +1,72 @@
+[project]
+name = "flask-marshmallow"
+version = "1.3.0"
+description = "Flask + marshmallow for beautiful APIs"
+readme = "README.rst"
+license = { file = "LICENSE" }
+maintainers = [
+  { name = "Steven Loria", email = "sloria1@gmail.com" },
+  { name = "Stephen Rosen", email = "sirosen0@gmail.com" },
+]
+classifiers = [
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+requires-python = ">=3.9"
+dependencies = ["Flask>=2.2", "marshmallow>=3.0.0"]
+
+[project.urls]
+Issues = "https://github.com/marshmallow-code/flask-marshmallow/issues"
+Funding = "https://opencollective.com/marshmallow"
+
+[project.optional-dependencies]
+docs = [
+  "marshmallow-sqlalchemy>=0.19.0",
+  "Sphinx==8.1.3",
+  "sphinx-issues==5.0.0",
+]
+tests = ["flask-marshmallow[sqlalchemy]", "pytest"]
+dev = ["flask-marshmallow[tests]", "tox", "pre-commit>=3.5,<5.0"]
+sqlalchemy = ["flask-sqlalchemy>=3.0.0", "marshmallow-sqlalchemy>=0.29.0"]
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.sdist]
+include = ["docs/", "tests/", "CHANGELOG.rst", "CONTRIBUTING.rst", "tox.ini"]
+exclude = ["docs/_build/"]
+
+[tool.ruff]
+src = ["src"]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  "B",  # flake8-bugbear
+  "E",  # pycodestyle error
+  "F",  # pyflakes
+  "I",  # isort
+  "UP", # pyupgrade
+  "W",  # pycodestyle warning
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "error",
+  "ignore:distutils Version classes are deprecated\\. Use packaging.version instead\\.:DeprecationWarning:marshmallow",
+]

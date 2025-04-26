@@ -1,0 +1,34 @@
+[project]
+name = "streamsets"
+authors = [
+    {name = "StreamSets Inc"}
+]
+description = "A Python SDK for StreamSets"
+readme = {file = "README.txt", content-type = "text/x-rst"}
+requires-python = ">=3.4"
+classifiers=[
+    'Development Status :: 5 - Production/Stable',
+    'Programming Language :: Python :: 3.4',
+    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+dependencies = ['dpath==1.5.0', 'inflection', 'PyYAML', 'requests']
+dynamic = ["version"]
+
+[tool.setuptools]
+packages = ["streamsets.sdk"]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.dynamic]
+version = {attr = "streamsets.sdk.__version__.__version__"}
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"

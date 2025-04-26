@@ -1,0 +1,231 @@
+[build-system]
+requires = ["hatchling>=1.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyter-events"
+description = "Jupyter Event System library"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Jupyter Development Team", email = "jupyter@googlegroups.com" },
+]
+keywords = [
+    "Jupyter",
+    "JupyterLab",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "referencing",
+    "jsonschema[format-nongpl]>=4.18.0",
+    "python-json-logger>=2.0.4",
+    "pyyaml>=5.3",
+    "traitlets>=5.3",
+    "packaging",
+    # The following are necessary to address an issue where pyproject.toml normalizes extra dependencies
+    # such that 'format_nongpl' is normalized to 'format-nongpl' which prevents these two validators from
+    # from being installed when jsonschema is <= 4.9 because jsonschema uses 'format_nongpl' in those releases.
+    "rfc3339-validator",
+    "rfc3986-validator>=0.1.1",
+]
+dynamic = [
+    "version",
+]
+
+[project.license]
+file = 'LICENSE'
+
+[project.urls]
+Homepage = "http://jupyter.org"
+documentation = "https://jupyter-events.readthedocs.io/"
+repository = "https://github.com/jupyter/jupyter_events.git"
+changelog = "https://github.com/jupyter/jupyter_events/blob/main/CHANGELOG.md"
+
+[project.scripts]
+jupyter-events = "jupyter_events.cli:main"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8",
+    "jupyterlite-sphinx",
+    "myst_parser",
+    "pydata_sphinx_theme>=0.16",
+    "sphinxcontrib-spelling",
+]
+test = [
+    "pre-commit",
+    "pytest-asyncio>=0.19.0",
+    "pytest-console-scripts",
+    "pytest>=7.0",
+    # [cli]
+    "click",
+    "rich",
+]
+cli = [
+    "click",
+    "rich"
+]
+
+[tool.hatch.version]
+path = "jupyter_events/_version.py"
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test"]
+dependencies = ["coverage[toml]", "pytest-cov"]
+[tool.hatch.envs.cov.scripts]
+test = "python -m pytest -vv --cov jupyter_events --cov-branch --cov-report term-missing:skip-covered {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["pre-commit"]
+[tool.hatch.envs.lint.scripts]
+build = [
+  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-format"
+]
+
+[tool.hatch.envs.typing]
+dependencies = [ "pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-ra", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
+]
+testpaths = [
+    "tests/"
+]
+asyncio_mode = "auto"
+script_launch_mode = "subprocess"
+filterwarnings= [
+  # Fail on warnings
+  "error",
+  # Upstream warnings from python-dateutil
+  "module:datetime.datetime.utc:DeprecationWarning",
+  # Ignore importwarning on pypy for yaml
+  "module:can't resolve package from __spec__ or __package__:ImportWarning",
+  "ignore::jupyter_events.utils.JupyterEventsVersionWarning",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\bProtocol\\):",
+"@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.run]
+relative_files = true
+source = ["jupyter_events"]
+
+[tool.mypy]
+files = "jupyter_events"
+python_version = "3.9"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PTH",         # flake8-use-pathlib
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+  "S",           # flake8-bandit
+  "G001",        # .format and co in logging methods
+]
+ignore = [
+  "E501",     # E501 Line too long (158 > 100 characters)
+  "SIM105",   # SIM105 Use `contextlib.suppress(...)`
+  "PLR",      # Design related pylint codes
+  "S101",     # Use of `assert` detected
+]
+unfixable = [
+  # Don't touch print statements
+  "T201",
+  # Don't touch noqa lines
+  "RUF100",
+]
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+# B011 Do not call assert False since python -O removes these calls
+# F841 local variable 'foo' is assigned to but never used
+# C408 Unnecessary `dict` call
+# E402 Module level import not at top of file
+# T201 `print` found
+# B007 Loop control variable `i` not used within the loop body.
+# N802 Function name `assertIn` should be lowercase
+# F841 Local variable `t` is assigned to but never used
+# S101 Use of `assert` detected
+"tests/*" = ["B011", "F841", "C408", "E402", "T201", "B007", "N802", "F841", "S101", "ARG", "PGH"]
+# C901 Function is too complex
+"jupyter_events/logger.py" = ["C901"] # `emit` is too complex (12 > 10)
+"docs/demo/demo-notebook.ipynb" = ["PLE1142", "E402", "T201"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["docs", "tests"]

@@ -1,0 +1,106 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+dynamic = ["version"]
+name = "aiosmtplib"
+description = "asyncio SMTP client"
+authors = [{ name = "Cole Maclean", email = "hi@colemaclean.dev" }]
+license = { text = "MIT" }
+readme = "README.rst"
+requires-python = ">=3.9"
+keywords = ["smtp", "email", "asyncio"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: No Input/Output (Daemon)",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Communications",
+    "Topic :: Communications :: Email",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Documentation = "https://aiosmtplib.readthedocs.io/en/stable/"
+Changelog = "https://github.com/cole/aiosmtplib/blob/main/CHANGELOG.rst"
+GitHub = "https://github.com/cole/aiosmtplib"
+
+[project.optional-dependencies]
+uvloop = ["uvloop>=0.18"]
+# Docs extra is planned for removal in 4.x
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx_autodoc_typehints>=1.24.0",
+    "sphinx-copybutton>=0.5.0",
+    "furo>=2023.9.10",
+]
+
+[tool.hatch.version]
+path = "src/aiosmtplib/__init__.py"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+minversion = "6.0"
+junit_family = "xunit2"
+addopts = ["--import-mode=importlib", "--strict-markers"]
+testpaths = ["tests"]
+markers = [
+    "smtpd_options",
+    "smtpd_mocks",
+    "smtp_client_options",
+    "skip_if_uvloop",
+]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+# Enable flake8-bugbear (`B`) rules.
+select = ["E", "F", "B"]
+# Never enforce `E501` (line length violations).
+ignore = ["E501"]
+# Avoid trying to fix flake8-bugbear (`B`) violations.
+unfixable = ["B"]
+
+[tool.coverage]
+
+[tool.coverage.run]
+source = ["aiosmtplib"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pass",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/aiosmtplib",
+    "/opt/pypy/lib/pypy3.*/site-packages/aiosmtplib",
+    "/usr/local/lib/python3.*/site-packages/aiosmtplib",
+    "/root/project/.venv/lib/python3.*/site-packages/aiosmtplib",
+]
+
+[tool.pyright]
+strict = ["src/aiosmtplib"]
+# exclude all tests except pyright_usage
+exclude = [
+    "tests/test_*.py",
+    "tests/auth.py",
+    "tests/compat.py",
+    "tests/conftest.py",
+    "tests/smtpd.py",
+]

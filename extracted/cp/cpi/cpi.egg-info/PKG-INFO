@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: cpi
+Version: 2.0.6
+Summary: Quickly adjust U.S. dollars for inflation using the Consumer Price Index (CPI)
+Home-page: https://palewi.re/docs/cpi/
+Author: Ben Welsh
+Author-email: b@palewi.re
+License: MIT
+Project-URL: Documentation, https://palewi.re/docs/cpi/
+Project-URL: Maintainer, https://github.com/palewire
+Project-URL: Source, https://github.com/palewire/cpi
+Project-URL: Tracker, https://github.com/palewire/cpi/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+### Links
+
+* Docs: [palewi.re/docs/cpi/](https://palewi.re/docs/cpi/)
+* Code: [github.com/palewire/cpi](https://github.com/palewire/cpi/)
+* Issues: [github.com/palewire/cpi/issues](https://github.com/palewire/cpi/issues)
+* Packaging: [pypi.python.org/pypi/cpi](https://pypi.python.org/pypi/cpi)
+* Testing: [github.com/palewire/cpi/actions](https://github.com/palewire/cpi/actions)

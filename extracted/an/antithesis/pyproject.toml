@@ -1,0 +1,45 @@
+[project]
+name = "antithesis"
+version = "0.1.17"
+description = "Antithesis SDK for Python"
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+]
+keywords = ["antithesis", "sdk", "autonomous", "testing"]
+dependencies = [
+  "cffi>=1.16.0",
+]
+
+[project.urls]
+homepage = "https://antithesis.com/"
+documentation = "https://antithesis.com/docs/"
+source = "https://github.com/antithesishq/antithesis-sdk-python"
+issues = "https://github.com/antithesishq/antithesis-sdk-python/issues"
+
+[tool.black]
+verbose = true
+
+[tool.mypy]
+files = "src/antithesis/*.py"
+disable_error_code = "import-untyped, import-not-found"
+
+[tool.pylint.messages_control]
+# disable = "C0114,C0115,C0116"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

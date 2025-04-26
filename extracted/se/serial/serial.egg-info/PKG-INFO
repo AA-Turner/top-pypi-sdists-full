@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: serial
+Version: 0.0.97
+Summary: A framework for serializing/deserializing JSON/YAML/XML into python class instances and vice versa
+Home-page: https://bitbucket.com/davebelais/serial.git
+Author: David Belais
+Author-email: david@belais.me
+License: MIT
+Description: UNKNOWN
+Keywords: rest api serialization serialize
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

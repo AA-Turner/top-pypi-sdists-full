@@ -1,0 +1,57 @@
+[build-system]
+requires = ["flit_core>=3.7"]
+build-backend = "flit_core.buildapi"
+
+# project metadata
+[project]
+name = "sphinxcontrib-jquery"
+description = "Extension to include jQuery on newer Sphinx releases"
+readme = "README.rst"
+license.text = "BSD Zero Clause License"
+urls.Repository = "https://github.com/sphinx-contrib/jquery/"
+requires-python = ">=2.7"
+
+# Classifiers list: https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Framework :: Sphinx",
+    "Framework :: Sphinx :: Extension",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+]
+dependencies = [
+    "Sphinx>=1.8",
+]
+dynamic = ["version"]
+
+[[project.authors]]
+name = "Adam Turner"
+
+[tool.flit.module]
+name = "sphinxcontrib.jquery"
+
+[tool.flit.sdist]
+include = [
+    "AUTHORS",
+    "CHANGES.rst",
+    "LICENCE",
+    "tests/",
+]
+
+[tool.coverage.run]
+source = ["sphinxcontrib.jquery"]

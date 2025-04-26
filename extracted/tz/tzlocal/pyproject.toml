@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools >= 64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tzlocal"
+description = "tzinfo object for the local timezone"
+readme = "README.rst"
+version = "5.3.1"
+authors = [{name = "Lennart Regebro", email = "regebro@gmail.com"}]
+license = {text = "MIT"}
+keywords = ["timezone"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Operating System :: MacOS :: MacOS X",
+    "Typing :: Typed",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">= 3.9"
+dependencies = [
+    "tzdata; platform_system == 'Windows'",
+]
+
+[project.urls]
+"Source code" = "https://github.com/regebro/tzlocal"
+Changelog = "https://github.com/regebro/tzlocal/blob/master/CHANGES.txt"
+"Issue tracker" = "https://github.com/regebro/tzlocal/issues"
+
+[project.optional-dependencies]
+devenv = [
+    "pytest >= 4.3",
+    "pytest-mock >= 3.3",
+    "pytest-cov",
+    "check_manifest",
+    "zest.releaser",
+]
+
+[tool.ruff]
+line-length = 120
+select = [
+    "E", "F", "W",  # default flake-8
+    "I",            # isort
+    "ISC",          # flake8-implicit-str-concat
+    "PGH",          # pygrep-hooks
+    "RUF100",       # unused noqa (yesqa)
+    "UP",           # pyupgrade
+]
+ignore = ["UP015"]
+
+[tool.zest.releaser]
+create-wheel = true
+
+[tool.pytest.ini_options]
+testpaths = "tests"

@@ -1,0 +1,133 @@
+[tool.poetry]
+name = "netutils"
+version = "v1.13.0"
+description = "Common helper functions useful in network automation."
+authors = ["Network to Code, LLC <opensource@networktocode.com>"]
+license = "Apache-2.0"
+homepage = "https://netutils.readthedocs.io"
+repository = "https://github.com/networktocode/netutils"
+documentation = "https://netutils.readthedocs.io"
+readme = "README.md"
+keywords = ["netutils", "network utils", "network utilities", "net-utils"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+include = [
+    "LICENSE",
+    "README.md",
+    "netutils/protocols.json"
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+napalm = {version = "^4.0.0", optional = true}
+jsonschema = {version = "^4.17.3", optional = true}
+legacycrypt = {version = "0.3", optional = true}
+
+[tool.poetry.extras]
+optionals = ["jsonschema", "napalm", "legacycrypt"]
+
+[tool.poetry.group.dev.dependencies]
+bandit = "*"
+black = "*"
+coverage = "*"
+invoke = "*"
+flake8 = {version = "^7.0", python = ">=3.8.1,<4.0"}
+pylint = "^3.0.0"
+pytest = "*"
+pyyaml = "*"
+pydocstyle = "*"
+toml = "*"
+yamllint = "*"
+mypy = "*"
+mkdocs = "1.6.0"
+mkdocs-material = "9.5.32"
+mkdocs-version-annotations = "1.0.0"
+mkdocstrings = "0.25.2"
+mkdocstrings-python =  "1.10.8"
+mkdocs-python-classy = "0.1.3"
+griffe = "1.1.1"
+
+[tool.black]
+line-length = 120
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | data_files  # This is ran via black within the flatbot process, redundant and slow otherwise
+  )/
+  | sros_full_received.py  # TODO: Taking very long, should look to fix
+  | iosxr_full_received.py  # TODO: Taking very long, should look to fix
+  | settings.py     # This is where you define files that should not be stylized by black
+                     # the root of the project
+)
+'''
+
+[tool.pylint.basic]
+# No docstrings required for private methods (Pylint default), or for test_ functions, or for inner Meta classes.
+no-docstring-rgx="^(_|test_|Meta$)"
+good-names="i,ip,j,k,ex,Run,_"
+
+[tool.pylint.messages_control]
+# Line length is enforced by Black, so pylint doesn't need to check it.
+# Pylint and Black disagree about how to format multi-line arrays; Black wins.
+disable = """,
+    line-too-long,
+    consider-iterating-dictionary,
+    """
+
+[tool.pylint.miscellaneous]
+# Don't flag TODO as a failure, let us commit with things that still need to be done in the code
+notes = """,
+    FIXME,
+    XXX,
+    """
+
+[tool.pytest.ini_options]
+python_paths = "./"
+testpaths = "tests/"
+addopts = "-vv --doctest-modules -p no:warnings --ignore-glob='*mock*'"
+
+[tool.mypy]
+python_version = 3.13
+ignore_errors = false
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+check_untyped_defs = true
+disallow_any_generics = true
+ignore_missing_imports = true
+strict_optional = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+disallow_subclassing_any = true
+no_implicit_optional = true
+implicit_reexport = true
+strict_equality = true
+exclude = ["tests/", "tasks.py"]
+show_error_codes = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

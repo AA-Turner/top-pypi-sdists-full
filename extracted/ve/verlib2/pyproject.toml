@@ -1,0 +1,185 @@
+# ==================
+# Project definition
+# ==================
+
+# Derived from https://peps.python.org/pep-0621/
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=42", # At least v42 of setuptools required.
+  "versioningit",
+]
+
+[project]
+name = "verlib2"
+description = "A standalone variant of `distutils.version` and `packaging.version`, without anything else."
+readme = "README.md"
+keywords = [
+  "distutils",
+  "packaging",
+  "version",
+]
+license = { text = "Apache License 2.0" }
+maintainers = [
+  { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
+]
+authors = [ { name = "Donald Stufft", email = "donald@stufft.io" } ]
+requires-python = ">=3.6"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Typing :: Typed",
+]
+
+dynamic = [
+  "version",
+]
+
+dependencies = [
+  "importlib-metadata; python_version<'3.8'",
+]
+
+optional-dependencies.develop = [
+  "mypy<1.15",
+  "poethepoet<1",
+  "pyproject-fmt<2.6",
+  "ruff<0.10",
+  "validate-pyproject<0.24",
+]
+optional-dependencies.release = [
+  "build<2",
+  "twine<7",
+]
+optional-dependencies.test = [
+  "pretend<2",
+  "pytest<9",
+  "pytest-cov<7",
+]
+urls.Repository = "https://github.com/pyveci/verlib2"
+
+[tool.setuptools]
+packages.find = {}
+
+[tool.ruff]
+#line-length = 120
+
+lint.select = [
+  # Builtins
+  "A",
+  # Bugbear
+  "B",
+  # comprehensions
+  "C4",
+  # Pycodestyle
+  "E",
+  # eradicate
+  "ERA",
+  # Pyflakes
+  "F",
+  # isort
+  "I",
+  # pandas-vet
+  "PD",
+  # return
+  "RET",
+  # Bandit
+  "S",
+  # print
+  "T20",
+  "W",
+  # flake8-2020
+  "YTT",
+]
+
+lint.ignore = [ "RET505" ]
+lint.per-file-ignores."tests/*" = [ "S101" ] # Use of `assert` detected
+
+[tool.pytest.ini_options]
+minversion = "2.0"
+addopts = """
+  -rfEX -p pytester --strict-markers --verbosity=3
+  --cov --cov-report=term-missing --cov-report=xml
+  """
+log_level = "DEBUG"
+log_cli_level = "DEBUG"
+testpaths = [ "tests" ]
+xfail_strict = true
+markers = [
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+  "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [ "pragma: no cover", "@abc.abstractmethod", "@abc.abstractproperty" ]
+fail_under = 0
+show_missing = true
+
+[tool.mypy]
+packages = [ "verlib2" ]
+check_untyped_defs = true
+enable_error_code = [ "ignore-without-code", "redundant-expr", "truthy-bool" ]
+exclude = [
+  "verlib2/distutils/version.py",
+]
+ignore_missing_imports = true
+implicit_optional = true
+install_types = true
+non_interactive = true
+show_error_codes = true
+strict = true
+
+[tool.versioningit.vcs]
+method = "git"
+default-tag = "0.0.0"
+
+# ===================
+# Tasks configuration
+# ===================
+
+[tool.poe.tasks]
+format = [
+  { cmd = "ruff format ." },
+  # Configure Ruff not to auto-fix (remove!):
+  # Ignore unused imports (F401), unused variables (F841), `print` statements (T201), and commented-out code (ERA001).
+  { cmd = "ruff check --fix --ignore=ERA --ignore=F401 --ignore=F841 --ignore=T20 --ignore=ERA001 ." },
+  { cmd = "pyproject-fmt --keep-full-version pyproject.toml" },
+]
+
+lint = [
+  { cmd = "ruff format --check ." },
+  { cmd = "ruff check ." },
+  { cmd = "validate-pyproject pyproject.toml" },
+  { cmd = "mypy" },
+]
+test = [
+  { cmd = "pytest" },
+]
+test-fast = [
+  { cmd = "pytest -m 'not slow'" },
+]
+build = { cmd = "python -m build" }
+check = [ "lint", "test" ]
+
+release = [
+  { cmd = "python -m build" },
+  { cmd = "twine upload --skip-existing dist/*.tar.gz dist/*.whl" },
+]

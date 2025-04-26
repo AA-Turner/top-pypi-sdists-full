@@ -1,0 +1,133 @@
+Metadata-Version: 2.3
+Name: cg
+Version: 69.6.1
+Summary: Clinical Genomics command center
+Requires-Python: >=3.9,<3.13
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Provides-Extra: coveralls
+Provides-Extra: mock
+Provides-Extra: pre-commit
+Provides-Extra: pytest
+Provides-Extra: pytest-cov
+Provides-Extra: pytest-mock
+Provides-Extra: pytest-xdist
+Provides-Extra: ruff
+Requires-Dist: CacheControl
+Requires-Dist: Flask
+Requires-Dist: Flask-Admin
+Requires-Dist: Flask-CORS
+Requires-Dist: Flask-Dance
+Requires-Dist: Flask-WTF
+Requires-Dist: Jinja2
+Requires-Dist: MarkupSafe
+Requires-Dist: PyMySQL
+Requires-Dist: PyYAML
+Requires-Dist: SQLAlchemy
+Requires-Dist: WTForms (==3.0.0)
+Requires-Dist: alembic
+Requires-Dist: blinker
+Requires-Dist: cachetools
+Requires-Dist: click
+Requires-Dist: coloredlogs
+Requires-Dist: coveralls ; extra == "coveralls"
+Requires-Dist: cryptography
+Requires-Dist: email-validator (>=2.2.0)
+Requires-Dist: genologics
+Requires-Dist: google-auth
+Requires-Dist: gunicorn
+Requires-Dist: housekeeper (>=4.11.3)
+Requires-Dist: lxml
+Requires-Dist: marshmallow
+Requires-Dist: mock ; extra == "mock"
+Requires-Dist: openpyxl
+Requires-Dist: packaging
+Requires-Dist: pandas
+Requires-Dist: paramiko
+Requires-Dist: petname
+Requires-Dist: pre-commit ; extra == "pre-commit"
+Requires-Dist: psutil
+Requires-Dist: pydantic (==2.7.4)
+Requires-Dist: pydantic-settings (>=2.3.3)
+Requires-Dist: pytest ; extra == "pytest"
+Requires-Dist: pytest-cov ; extra == "pytest-cov"
+Requires-Dist: pytest-mock ; extra == "pytest-mock"
+Requires-Dist: pytest-xdist ; extra == "pytest-xdist"
+Requires-Dist: python-dateutil
+Requires-Dist: requests
+Requires-Dist: rich-click (>=1.8.4)
+Requires-Dist: ruff ; extra == "ruff"
+Requires-Dist: tabulate
+Requires-Dist: typing_extensions
+Requires-Dist: urllib3
+Requires-Dist: werkzeug
+Description-Content-Type: text/markdown
+
+# cg
+![Build Status - Github][gh-actions-badge]
+[![Coverage Status][coveralls-image]][coveralls-url]
+[![GitHub issues-closed][closed-issues-img]][closed-issues-url]
+[![Average time to resolve an issue][ismaintained-resolve-img]][ismaintained-resolve-url]
+[![Percentage of issues still open][ismaintained-open-rate-img]][ismaintained-open-rate-url]
+[![CodeFactor][codefactor-badge]][codefactor-url]
+[![Code style: black][black-image]][black-url]
+
+
+`cg` stands for _Clinical Genomics_; a clinical sequencing platform under [SciLifeLab][scilife]
+
+In this context, `cg` provides the interface between these tools to facilitate automation and other necessary cross-talk. It also exposes some APIs:
+
+- HTTP REST for powering the web portal: [clinical.scilifelab.se][portal]
+- CLI for interactions on the command line
+
+### Contributing
+
+Please check out our [guide for contributing to cg](CONTRIBUTING.md)
+
+## Installation
+
+Cg written in Python 3.9+ and is available on the [Python Package Index][pypi] (PyPI).
+
+```bash
+pip install cg
+```
+
+If you would like to install the latest development version, use [poetry](https://python-poetry.org/docs/).
+
+```bash
+git clone https://github.com/Clinical-Genomics/cg
+cd cg
+poetry install
+```
+
+For development, use `poetry install --all-extras` to install development dependencies.
+
+
+[portal]: https://clinical.scilifelab.se/
+[trailblazer]: https://github.com/Clinical-Genomics/trailblazer
+[housekeeper]: https://github.com/Clinical-Genomics/housekeeper
+[genotype]: https://github.com/Clinical-Genomics/genotype
+[scilife]: https://www.scilifelab.se/
+[pypi]: https://pypi.org/
+
+
+[black]: https://black.readthedocs.io/en/stable/
+
+<!-- badges -->
+
+[coveralls-url]: https://coveralls.io/github/Clinical-Genomics/cg
+[coveralls-image]: https://coveralls.io/repos/github/Clinical-Genomics/cg/badge.svg?branch=master
+
+[gh-actions-badge]: https://github.com/Clinical-Genomics/cg/workflows/Tests%20and%20coveralls/badge.svg
+[closed-issues-img]: https://img.shields.io/github/issues-closed/Clinical-Genomics/cg.svg
+[closed-issues-url]: https://GitHub.com/Clinical-Genomics/cg/issues?q=is%3Aissue+is%3Aclosed
+[ismaintained-resolve-img]: http://isitmaintained.com/badge/resolution/Clinical-Genomics/cg.svg
+[ismaintained-resolve-url]: http://isitmaintained.com/project/Clinical-Genomics/cg
+[ismaintained-open-rate-img]: http://isitmaintained.com/badge/open/Clinical-Genomics/cg.svg
+[ismaintained-open-rate-url]: http://isitmaintained.com/project/Clinical-Genomics/cg
+[codefactor-badge]: https://www.codefactor.io/repository/github/clinical-genomics/cg/badge
+[codefactor-url]: https://www.codefactor.io/repository/github/clinical-genomics/cg
+[black-image]: https://img.shields.io/badge/code%20style-black-000000.svg
+[black-url]: https://github.com/psf/black
+

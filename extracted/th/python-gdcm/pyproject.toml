@@ -1,0 +1,101 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools >= 61.0",
+    "wheel",
+    "ninja >= 1.10.2.3",
+    "cmake >= 3.22.1",
+]
+
+[project]
+name = "python-gdcm"
+version = "3.0.24.1"
+authors = [
+{name = "Thiago Franco de Moraes", email="totonixsame@gmail.com"},
+]
+description="Grassroots DICOM runtime libraries"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+]
+
+[project.scripts]
+gdcmanon = "_gdcm.scripts.gdcmanon:main"
+gdcmconv = "_gdcm.scripts.gdcmconv:main"
+gdcmdiff = "_gdcm.scripts.gdcmdiff:main"
+gdcmdump = "_gdcm.scripts.gdcmdump:main"
+gdcmgendir = "_gdcm.scripts.gdcmgendir:main"
+gdcmimg = "_gdcm.scripts.gdcmimg:main"
+gdcminfo = "_gdcm.scripts.gdcminfo:main"
+gdcmpap3 = "_gdcm.scripts.gdcmpap3:main"
+gdcmraw = "_gdcm.scripts.gdcmraw:main"
+gdcmscanner = "_gdcm.scripts.gdcmscanner:main"
+gdcmscu = "_gdcm.scripts.gdcmscu:main"
+gdcmtar = "_gdcm.scripts.gdcmtar:main"
+gdcmxml = "_gdcm.scripts.gdcmxml:main"
+
+[project.urls]
+Homepage="https://github.com/tfmoraes/python-gdcm/"
+issues="https://github.com/tfmoraes/python-gdcm/issues"
+
+[tool.setuptools]
+py-modules=[ "gdcm", ]
+packages=[ "_gdcm", "_gdcm.scripts" ]
+platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"]
+include-package-data = true
+
+[too.setuptools.package-data]
+_gdcm = [
+    "*.py",
+    "*.so.*",
+    "_gdcm*.so",
+    # Linux modules.
+    "*-linux-gnu.so",
+    # Unix shared libraries.
+    "lib*.so*",
+    # macOS modules.
+    "*-darwin.so",
+    # macOS shared libraries.
+    "lib*.dylib*",
+    # Windows modules.
+    "*.pyd",
+    # Windows shared libraries.
+    "*.dll",
+    # GDCM applications
+    "*.exe",
+    "gdcmanon",
+    "gdcmconv",
+    "gdcmdiff",
+    "gdcmdump",
+    "gdcmgendir",
+    "gdcmimg",
+    "gdcminfo",
+    "gdcmpap3",
+    "gdcmraw",
+    "gdcmscanner",
+    "gdcmscu",
+    "gdcmtar",
+    "gdcmxml",
+    "XML/*.xml",
+]

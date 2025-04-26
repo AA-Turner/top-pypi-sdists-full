@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: interpret
+Version: 0.6.10
+Summary: Fit interpretable models. Explain blackbox machine learning.
+Home-page: https://github.com/interpretml/interpret
+Author: The InterpretML Contributors
+Author-email: interpret@microsoft.com
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Dist: interpret-core[aplr,dash,debug,linear,notebook,plotly,sensitivity,shap]==0.6.10
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
+
+
+In the beginning machines learned in darkness, and data scientists struggled in the void to explain them.
+
+Let there be light.
+
+https://github.com/interpretml/interpret

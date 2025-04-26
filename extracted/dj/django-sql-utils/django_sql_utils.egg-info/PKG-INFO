@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: django-sql-utils
+Version: 0.7.0
+Summary: Improved API for aggregating using Subquery
+Home-page: https://github.com/martsberger/django-sql-utils
+Download-URL: https://github.com/martsberger/django-sql-utils/archive/0.6.1.tar.gz
+Author: Brad Martsberger
+Author-email: bmarts@lumere.com
+License: MIT
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 2.2
+Classifier: Framework :: Django :: 3.0
+Classifier: Framework :: Django :: 3.1
+Classifier: Framework :: Django :: 3.2
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+License-File: LICENSE

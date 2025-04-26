@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-archon"
+description = "Rule your architecture like a real developer"
+authors = [
+    { name = "Arjan Molenaar", email = "gaphor@gmail.com" },
+    { name = "Joachim Bargsten", email = "jw@bargsten.org" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Apache Software License" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: Apache Software License",
+    "Framework :: Pytest",
+    "Development Status :: 5 - Production/Stable",
+]
+dependencies = [
+    "pytest>=7.2",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/jwbargsten/pytest-archon"
+repository = "https://github.com/jwbargsten/pytest-archon"
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "flake8",
+    "black",
+    "mypy",
+    "check-manifest",
+    "check-wheel-contents",
+    "pyroma"
+]
+
+[tool.setuptools_scm]
+
+[tool.setuptools.package-data]
+"pytest_archon.assets" = ["*.txt"]
+
+[tool.black]
+line-length = 110
+
+[tool.isort]
+profile = "black"
+line_length = 110
+
+[tool.pytest.ini_options]
+pythonpath = [ "src", "tests" ]
+
+[project.entry-points.pytest11]
+arch = "pytest_archon.plugin"
+
+[tool.coverage.paths]
+source = ["src"]

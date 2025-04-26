@@ -1,0 +1,91 @@
+[build-system]
+requires = ["scikit-build-core>=0.3.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "nodejs-wheel-binaries"
+dynamic = ["version"]
+description = "unoffical Node.js package"
+authors = [
+  {name = "Jinzhe Zeng", email = "jinzhe.zeng@rutgers.edu"},
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+]
+dependencies = [
+    "typing-extensions;python_version<'3.8'",
+]
+requires-python = ">=3.7"
+readme = "README.md"
+keywords = ["nodejs"]
+
+[project.urls]
+repository = "https://github.com/njzjz/nodejs-wheel"
+
+[tool.scikit-build]
+wheel.install-dir = "nodejs_wheel"
+wheel.py-api = "py2.py3"
+wheel.packages = [
+  "nodejs_wheel",
+]
+cmake.args = [
+]
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+
+[tool.setuptools_scm]
+
+[tool.cibuildwheel]
+build = ["cp311-*"]
+skip = ["*-win32", "*-manylinux_i686"]
+build-verbosity = 1
+before-test = ["pip install --no-deps cmd/"]
+test-command = "node -h && npm --version && npx --version && python -m nodejs_wheel --version && python {project}/tests/test_api.py"
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E", # errors
+    "F", # pyflakes
+    "D", # pydocstyle
+    "UP", # pyupgrade
+    "C4", # flake8-comprehensions
+    "RUF", # ruff
+    "NPY", # numpy
+    "T20", # ban print
+    "I", # isort
+    "TCH", # flake8-type-checking
+]
+
+ignore = [
+    "E501", # line too long
+    "F841", # local variable is assigned to but never used
+    "E741", # ambiguous variable name
+    "E402", # module level import not at top of file
+    "D100", # TODO: missing docstring in public module
+    "D101", # TODO: missing docstring in public class
+    "D102", # TODO: missing docstring in public method
+    "D103", # TODO: missing docstring in public function
+    "D104", # TODO: missing docstring in public package
+    "D105", # TODO: missing docstring in magic method
+    "D205", # 1 blank line required between summary line and description
+    "D401", # TODO: first line should be in imperative mood
+    "D404", # TODO: first word of the docstring should not be This
+]
+ignore-init-module-imports = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.pyright]
+exclude = ["cmd/hatch_build.py"]

@@ -1,0 +1,108 @@
+[tool.poetry]
+name = "pytest-factoryboy"
+version = "2.7.0"
+description = "Factory Boy support for pytest."
+authors = ["Oleg Pidsadnyi <oleg.pidsadnyi@gmail.com>"]
+maintainers = ["Alessio Bogon <778703+youtux@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.rst"
+homepage = "https://pytest-factoryboy.readthedocs.io/"
+documentation = "https://pytest-factoryboy.readthedocs.io/"
+repository = "https://github.com/pytest-dev/pytest-factoryboy"
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[tool.poetry.plugins."pytest11"]
+"pytest-factoryboy" = "pytest_factoryboy.plugin"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+inflection = "*"
+factory_boy = ">=2.10.0"
+pytest = ">=6.2"
+typing_extensions = "*"
+packaging = "*"
+
+[tool.poetry.group.dev.dependencies]
+mypy = ">=1.4.1"
+tox = ">=4.0.8"
+coverage = {extras = ["toml"], version = ">=6.5.0"}
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "if typing\\.TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.coverage.run]
+branch = true
+# `parallel` will cause each tox env to put data into a different file, so that we can combine them later
+parallel = true
+source = ["pytest_factoryboy", "tests"]
+dynamic_context = "test_function"
+
+[tool.coverage.paths]
+# treat these directories as the same when combining
+# the first item is going to be the canonical dir
+source = [
+    "pytest_factoryboy",
+    ".tox/*/lib/python*/site-packages/pytest_factoryboy",
+]
+
+[tool.mypy]
+exclude = ['docs/']
+allow_redefinition = false
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_any_explicit = false
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+ignore_errors = false
+ignore_missing_imports = true
+implicit_reexport = false
+strict_optional = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unreachable = true
+warn_no_return = true
+warn_return_any = true
+pretty = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_decorators = false
+disallow_untyped_defs = false
+warn_return_any = false

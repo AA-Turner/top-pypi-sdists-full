@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: JoBase
+Version: 3.0
+Summary: Fast Python Game Library
+Home-page: https://jobase.org
+Author: Reuben Ford
+Author-email: hello@jobase.org
+License: GPL-3.0-or-later
+Project-URL: Source, https://github.com/JoBase/JoBase
+Project-URL: Documentation, https://jobase.org/reference
+Keywords: fast,beginner,extension,library,opengl,glfw,games,c,children,freetype
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# JoBase
+**Fast Python Game Library**
+
+JoBase is a fast Python game library for beginner coders.
+Please visit [jobase.org](https://jobase.org) to get started.
+Join the JoBase community on [Discord](https://discord.com/invite/DzHyvZfa5q) or contact us at <hello@jobase.org>.

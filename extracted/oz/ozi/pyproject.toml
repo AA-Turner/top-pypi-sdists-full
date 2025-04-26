@@ -1,0 +1,400 @@
+# pyproject.toml
+# Part of the OZI Project, under the Apache License v2.0 with LLVM Exceptions.
+# See LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+[build-system]
+build-backend = "ozi_build.buildapi"
+requires      = ["OZI.build[core,uv]~=1.13.0"]
+
+[tool.ozi-build.entry-points]
+console_scripts = [
+    "ozi = ozi.__main__:main",
+    "ozi-new = ozi.new.__main__:main",
+    "ozi-fix = ozi.fix.__main__:main",
+]
+
+[tool.ozi-build.metadata]
+summary = 'Package Python projects with Meson.'
+description-file = 'README.rst'
+author = 'Eden Ross Duff MSc'
+author-email = 'help@oziproject.dev'
+keywords = 'meson,packaging,wheel'
+project-urls = [
+     'Bug Tracker, https://github.com/OZI-Project/OZI/issues',
+     'Community, https://github.com/orgs/OZI-Project/discussions',
+     'Homepage, https://oziproject.dev/',
+]
+requires-python='>=3.10, <3.14'
+requires-external=['git', 'node']
+classifiers = [
+     'Development Status :: 4 - Beta',
+     'Environment :: Console',
+     'Intended Audience :: Developers',
+     'License :: OSI Approved :: Apache Software License',
+     'Natural Language :: English',
+     'Operating System :: MacOS :: MacOS X',
+     'Operating System :: POSIX :: Linux',
+     'Programming Language :: Python :: 3 :: Only',
+     'Programming Language :: Python :: 3.10',
+     'Programming Language :: Python :: 3.11',
+     'Programming Language :: Python :: 3.12',
+     'Programming Language :: Python :: 3.13',
+     'Programming Language :: Python :: Implementation :: CPython',
+     'Topic :: Software Development :: Build Tools',
+     'Topic :: Software Development :: Quality Assurance',
+     'Typing :: Typed',
+]
+
+[tool.setuptools_scm]
+fallback_version = "@VCS_TAG@"
+parentdir_prefix_version = "OZI-"
+tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
+
+[project]
+dependencies = [
+    'pathvalidate~=3.2.1',
+    'ozi-core==1.17.6',
+    'setuptools_scm[toml]',
+    'tomli>=2.0.0;python_version<"3.11"',
+]
+
+[project.optional-dependencies] # also meson test suite names
+# continuous integration
+ci   = ["tox>4", "tox-gh>1.2"]
+# tox -e fix
+fix  = ["black", "ruff>=0.1.6", "autoflake", "isort"]
+# Default meson test setup
+# dev  = ["[dist,lint,test]"]
+## Packaging Setup
+dist = ["cibuildwheel", "python-semantic-release", "sigstore", "twine"]
+## Linting and Formatting Setup
+lint = ["bandit[toml]", "black", "flake8", "flake8-quotes",
+        "flake8-pytest-style", "flake8-type-checking", "flake8-annotations",
+        "flake8-broken-line", "flake8-eradicate", "flake8-fixme", "flake8-bugbear",
+        "flake8-datetimez", "flake8-no-pep420", "flake8-comprehensions",
+        "flake8-leading-blank-lines", "flake8-tidy-imports", "flake8-pyi",
+        "Flake8-pyproject", "isort", "mypy", "pyright"]
+## Testing Setup
+test = ["coverage[toml]", "hypothesis[all]", "pytest", "pytest-asyncio", "pytest-cov", 
+        "pytest-tcpclient", "pytest-randomly", "pytest-xdist"]
+
+[tool.bandit]
+exclude_dirs = ["venv", "meson-private", "tests"]
+format = "txt"
+ignore_nosec = true
+verbose = true
+
+[tool.black]
+extend-exclude = "(\\.pyi|meson-private|venv)"
+line-length = 93
+
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
+
+[tool.coverage.report]
+exclude_lines = [
+    "^.*#\\s*(pragma|PRAGMA)[:\\s]?\\s*(no|NO)\\s*(cover|COVER)",
+    "^.*#\\s*(pragma|PRAGMA)[:\\s]?\\s*(defer|DEFER)\\s*(to|TO)\\s*[a-zA-Z0-9_]*",
+    "def __repr__",
+    "def __wrapper", # functools.wraps decorated functions
+    "(\\.\\.\\.)",
+    "@(abc\\.)?abstractmethod",
+    "class .*\\bProtocol\\):",
+    "if __name__ == .__main__.:",
+    "if (typing\\.)?TYPE_CHECKING:",
+    "(el)?if\\s?(sys\\.)?version_info\\s?(==|<=|>=|<|>)\\s?\\([234],\\s?[0-9]{1,3}\\)\\s?:",
+    ]
+fail_under = 100.0
+show_missing = true
+skip_covered = true
+skip_empty = true
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+omit = [
+     '*/vendor/*',
+]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["invoke"]
+
+[tool.ruff]
+line-length = 93
+extend-exclude = ["meson-private", "scripts", "vendor"]
+# target-version = "@PYTHON_VERSION_DIST@"
+
+[tool.ruff.lint]
+ignore = [
+    "A003",
+    "ANN401",
+    "ARG",
+    "B028",
+    "B905",
+    "D1",
+    "D101",
+    "D2",
+    "D4",
+    "EM",
+    "FBT",
+    "FLY",
+    "PERF203",
+    "PGH003",
+    "PLR",
+    "PLW",
+    "PT001",
+    "PTH",
+    "RET",
+    "RUF009",
+    "RUF012",
+    "RUF015",
+    "RUF200",
+    "SIM",
+    "T201",
+    "TCH002",
+    "TCH004",
+    "TRY003",
+    "UP",
+]
+select = ["ALL"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 6
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "single"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 102
+
+[tool.ruff.lint.flake8-copyright]
+author="Eden Ross Duff MSc"
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.flake8]
+ban-relative-imports = "parents"
+max-line-length = 93
+extend-exclude = ["meson-private", "build-env-*", "vendor", "venv", "build*", "*.pyi"]
+extend-ignore = "E203,E501,TC007,TC008"
+extend-select = "B950"
+per-file-ignores = ['ozi/scripts/*:E800']
+
+[tool.isort]
+line_length = 93
+profile = "black"
+force_single_line = true
+skip_glob = ['subprojects/*',]
+
+[tool.mypy]
+implicit_reexport = true
+strict = true
+exclude = [
+    'meson-private',
+    'tests',
+    'venv',
+]
+
+[[tool.mypy.overrides]]
+module = ["ozi.vendor.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["spdx_license_list.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mesonbuild.*"]
+ignore_missing_imports = true
+
+[tool.pylint.MASTER]
+disable = "C0301"
+expected-line-ending-format = "LF"
+max-line-length = 93
+max-nested-blocks = 4
+
+[tool.pyright]
+reportMissingTypeStubs = false
+exclude = [ 
+    'meson-private',
+    'tests',
+    'venv',
+    '*/vendor/',
+]
+
+[tool.pytest.ini_options]  #[tool.pytest] # This will be used by pytest in the future
+filterwarnings      = [
+"error",
+"ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning",
+]
+asyncio_mode = "auto"
+log_cli = true
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s (%(filename)s:%(lineno)s)"
+log_cli_level = "INFO"
+
+[tool.semantic_release]
+commit_message = "{version}\n\nAutomatically generated by python-semantic-release\n\nSigned-off-by: OZI-Project <help@oziproject.dev>"
+commit_parser = "emoji"
+major_on_zero = true
+tag_format = "{version}"
+
+[tool.semantic_release.branches."0.0"]
+match = "\\A0\\.0\\Z"
+prerelease_token = "alpha"
+prerelease = false
+
+[tool.semantic_release.branches."release/0.x"]
+match = "\\Arelease/0\\.\\d+\\Z"
+prerelease_token = "alpha"
+prerelease = false
+
+[tool.semantic_release.branches."release/1.x"]
+match = "\\Arelease/1\\.\\d+\\Z"
+prerelease_token = "alpha"
+prerelease = false
+
+[tool.semantic_release.commit_parser_options]
+major_tags = [":boom:"]
+minor_tags = [
+    ":sparkles:",
+]
+patch_tags = [
+    ":adhesive_bandage:",
+    ":alembic:",
+    ":alien:",
+    ":ambulance:",
+    ":apple:",
+    ":arrow_down:",
+    ":arrow_up:",
+    ":bento:",
+    ":bug:",
+    ":bulb:",
+    ":card_file_box:",
+    ":chart_with_upwards_trend:",
+    ":checkered_flag:",
+    ":children_crossing:",
+    ":dizzy:",
+    ":egg:",
+    ":fire:",
+    ":globe_with_meridians:",
+    ":goal_net:",
+    ":green_apple:",
+    ":green_heart:",
+    ":hammer:",
+    ":heavy_minus_sign:",
+    ":heavy_plus_sign:",
+    ":iphone:",
+    ":label:",
+    ":lipstick:",
+    ":lock:",
+    ":mag:",
+    ":necktie:",
+    ":package:",
+    ":passport_control:",
+    ":pencil2:",
+    ":penguin:",
+    ":pushpin:",
+    ":recycle:",
+    ":rewind:",
+    ":robot:",
+    ":speech_balloon:",
+    ":triangular_flag_on_post:",
+    ":wastebasket:",
+    ":wheelchair:",
+    ":wrench:",
+    ":zap:",
+]
+
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = [
+    "Merge.*",
+    ":sparkles: Merge pull request #1312.*",
+]
+
+[tool.semantic_release.remote]
+type = "github"
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["*.whl", "*.tar.gz", "sig/*"]
+upload_to_vcs_release = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+skipsdist = True
+env_list =
+     dist
+     lint
+     test
+
+[gh]
+python =
+     3.12 = dist,lint,test
+     3.11 = dist,lint,test
+     3.10 = dist,lint,test
+
+[testenv]
+allowlist_externals = 
+    rm
+    pipx
+    meson
+    python
+package = wheel
+deps =
+     uv
+commands_pre =
+     python -m uv pip install OZI.build[uv,core]~=1.13.0
+     pipx install --python=python meson
+commands =
+     meson setup {env_tmp_dir} -Ddist=disabled -Dtox-env-dir={env_dir}
+     meson compile -C {env_tmp_dir}
+     rm -rf {env_tmp_dir}/.gitignore
+commands_post =
+     {env_python} -m invoke --search-root={env_tmp_dir}/ozi checkpoint --suite={env_name} --ozi {posargs}
+
+[testenv:dist]
+description = OZI distribution checkpoint
+
+[testenv:lint]
+description = OZI format/lint checkpoint
+
+[testenv:test]
+description = OZI unit tests checkpoint
+commands =
+     meson setup {env_tmp_dir} -Dozi-blastpipe=disabled -Ddist=disabled -Dtox-env-dir={env_dir}
+     meson compile -C {env_tmp_dir}
+     rm -rf {env_tmp_dir}/.gitignore
+
+[testenv:fix]
+description = OZI project fix issues utility (black, isort, autoflake, ruff)
+deps = pipx
+skip_install = true
+commands_pre =
+commands =
+     pipx run --python {env_python} black -S .
+     pipx run --python {env_python} isort .
+     pipx run --python {env_python} autoflake -i -r .
+commands_post =
+
+[testenv:scm]
+description = OZI supply chain management (setuptools_scm)
+commands =
+     {env_python} -m setuptools_scm {posargs}
+commands_post =
+
+[testenv:invoke]
+description = OZI invoke task entrypoint, for more info use "tox -e invoke -- --list"
+no_package = true
+commands_post =
+     {env_python} -m invoke --search-root={env_tmp_dir}/ozi {posargs} --ozi
+"""

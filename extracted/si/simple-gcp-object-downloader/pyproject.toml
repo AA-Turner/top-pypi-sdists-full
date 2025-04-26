@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "simple-gcp-object-downloader"
+version = "0.1.0"
+description = ""
+authors = ["Jackie Tung <jackie@outerbounds.co>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+google-cloud-storage = ">=2.4.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+download-gcp-object = 'simple_gcp_object_downloader.download_gcp_object:main'

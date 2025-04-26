@@ -1,0 +1,85 @@
+[build-system]
+requires = [
+    "hatchling",
+    "versioningit >= 3.1.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "pg8000"
+authors = [{name = "The Contributors"}]
+description = "PostgreSQL interface library"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords= ["postgresql", "dbapi"]
+license = {text = "BSD 3-Clause License"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: OS Independent",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "scramp >= 1.4.5",
+    'python-dateutil >= 2.8.2',
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/tlocke/pg8000"
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.versioningit]
+
+[tool.versioningit.vcs]
+method = "git"
+default-tag = "0.0.0"
+
+[tool.flake8]
+application-names = ['pg8000']
+ignore = ['E203', 'W503']
+max-line-length = 88
+exclude = ['.git', '__pycache__', 'build', 'dist', 'venv', '.tox']
+application-import-names = ['pg8000']
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+envlist = py
+
+[testenv]
+passenv = PGPORT
+allowlist_externals=/usr/bin/rm
+commands =
+    black --check .
+    flake8 .
+    python -m pytest -x -v -W error test
+    rm -rf dist
+    python -m build
+    twine check dist/*
+deps =
+    build
+    pytest
+    pytest-mock
+    pytest-benchmark
+    black
+    flake8
+    flake8-alphabetize
+    Flake8-pyproject
+    pytz
+    twine
+"""

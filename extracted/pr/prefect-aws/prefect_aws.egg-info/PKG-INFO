@@ -1,0 +1,51 @@
+Metadata-Version: 2.4
+Name: prefect-aws
+Version: 0.5.10
+Summary: Prefect integrations for interacting with Amazon Web Services.
+Author-email: "Prefect Technologies, Inc." <help@prefect.io>
+License: Apache License 2.0
+Project-URL: Homepage, https://github.com/PrefectHQ/prefect/tree/main/src/integrations/prefect-aws
+Keywords: prefect
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boto3>=1.24.53
+Requires-Dist: botocore>=1.27.53
+Requires-Dist: mypy_boto3_s3>=1.24.94
+Requires-Dist: mypy_boto3_secretsmanager>=1.26.49
+Requires-Dist: prefect>=3.3.5
+Requires-Dist: pyparsing>=3.1.1
+Requires-Dist: tenacity>=8.0.0
+Dynamic: license-file
+
+# `prefect-aws`
+
+<p align="center">
+    <a href="https://pypi.python.org/pypi/prefect-aws/" alt="PyPI version">
+        <img alt="PyPI" src="https://img.shields.io/pypi/v/prefect-aws?color=26272B&labelColor=090422"></a>
+    <a href="https://pepy.tech/badge/prefect-aws/" alt="Downloads">
+        <img src="https://img.shields.io/pypi/dm/prefect-aws?color=26272B&labelColor=090422" /></a>
+</p>
+
+## Welcome
+
+`prefect-aws` makes it easy to leverage the capabilities of AWS in your flows, featuring support for ECS, S3, Secrets Manager, and Batch.
+
+### Installation
+
+To start using `prefect-aws`:
+
+```bash
+pip install prefect-aws
+```

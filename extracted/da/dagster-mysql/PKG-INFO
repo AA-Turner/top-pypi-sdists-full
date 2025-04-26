@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: dagster-mysql
+Version: 0.26.12
+Summary: A Dagster integration for MySQL
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-mysql
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9,<3.13
+License-File: LICENSE

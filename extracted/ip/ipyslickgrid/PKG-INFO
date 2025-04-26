@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: ipyslickgrid
+Version: 0.0.4
+Summary: An Interactive Grid for Sorting and Filtering DataFrames in Jupyter Notebook
+Home-page: https://github.com/8080labs/ipyslickgrid
+Author: 8080 Labs GmbH
+Author-email: info@8080labs.com
+License: Apache-2.0
+Keywords: ipython,jupyter,widgets
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: IPython
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Provides-Extra: test
+License-File: LICENSE
+
+An Interactive Grid for Sorting and Filtering DataFrames in Jupyter Notebook
+

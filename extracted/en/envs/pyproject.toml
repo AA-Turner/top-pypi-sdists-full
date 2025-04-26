@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "envs"
+version = "1.4"
+description = "Easy access of environment variables from Python with support for strings, booleans, list, tuples, and dicts."
+authors = ["Brian Jinwright <bjinwright@qwigo.com>"]
+license = "Apache-2.0"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+click = {version = "^8.0.3", extras = ["cli"]}
+Jinja2 = {version = "^3.0.3", extras = ["cli"]}
+terminaltables = {version = "^3.1.10", extras = ["cli"]}
+
+[tool.poetry.extras]
+cli = ["click", "Jinja2", "terminaltables"]
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+envs = 'envs.cli:envs'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

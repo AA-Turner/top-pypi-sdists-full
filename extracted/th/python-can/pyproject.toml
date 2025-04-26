@@ -1,0 +1,193 @@
+[build-system]
+requires = ["setuptools >= 67.7", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-can"
+dynamic = ["readme", "version"]
+description = "Controller Area Network interface module for Python"
+authors = [{ name = "python-can contributors" }]
+dependencies = [
+    "wrapt~=1.10",
+    "packaging >= 23.1",
+    "typing_extensions>=3.10.0.0",
+    "msgpack~=1.1.0; platform_system != 'Windows'",
+]
+requires-python = ">=3.8"
+license = { text = "LGPL v3" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Manufacturing",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Embedded Systems",
+    "Topic :: Software Development :: Embedded Systems :: Controller Area Network (CAN)",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking",
+    "Topic :: Utilities",
+]
+
+[project.scripts]
+can_logconvert = "can.logconvert:main"
+can_logger = "can.logger:main"
+can_player = "can.player:main"
+can_viewer = "can.viewer:main"
+
+[project.urls]
+homepage = "https://github.com/hardbyte/python-can"
+documentation = "https://python-can.readthedocs.io"
+repository = "https://github.com/hardbyte/python-can"
+changelog = "https://github.com/hardbyte/python-can/blob/develop/CHANGELOG.md"
+
+[project.optional-dependencies]
+lint = [
+    "pylint==3.2.*",
+    "ruff==0.7.0",
+    "black==24.10.*",
+    "mypy==1.12.*",
+]
+pywin32 = ["pywin32>=305"]
+seeedstudio = ["pyserial>=3.0"]
+serial = ["pyserial~=3.0"]
+neovi = ["filelock", "python-ics>=2.12"]
+canalystii = ["canalystii>=0.1.0"]
+cantact = ["cantact>=0.0.7"]
+cvector = ["python-can-cvector"]
+gs_usb = ["gs_usb>=0.2.1"]
+nixnet = ["nixnet>=0.3.2"]
+pcan = ["uptime~=3.0.1"]
+remote = ["python-can-remote"]
+sontheim = ["python-can-sontheim>=0.1.2"]
+canine = ["python-can-canine>=0.2.2"]
+zlgcan = ["zlgcan-driver-py"]
+viewer = [
+    "windows-curses; platform_system == 'Windows' and platform_python_implementation=='CPython'"
+]
+mf4 = ["asammdf>=6.0.0"]
+
+[tool.setuptools.dynamic]
+readme = { file = "README.rst" }
+[tool.setuptools.package-data]
+"*" = ["README.rst", "CONTRIBUTORS.txt", "LICENSE.txt", "CHANGELOG.md"]
+doc = ["*.*"]
+examples = ["*.py"]
+can = ["py.typed"]
+
+[tool.setuptools.packages.find]
+include = ["can*"]
+
+[tool.setuptools_scm]
+# can be empty if no extra settings are needed, presence enables setuptools_scm
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = [
+    "venv",
+    "^doc/conf.py$",
+    "^build",
+    "^test",
+    "^can/interfaces/__init__.py",
+    "^can/interfaces/etas",
+    "^can/interfaces/gs_usb",
+    "^can/interfaces/ics_neovi",
+    "^can/interfaces/iscan",
+    "^can/interfaces/ixxat",
+    "^can/interfaces/kvaser",
+    "^can/interfaces/nican",
+    "^can/interfaces/neousys",
+    "^can/interfaces/pcan",
+    "^can/interfaces/serial",
+    "^can/interfaces/slcan",
+    "^can/interfaces/socketcan",
+    "^can/interfaces/systec",
+    "^can/interfaces/udp_multicast",
+    "^can/interfaces/usb2can",
+    "^can/interfaces/virtual",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "A",  # flake8-builtins
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "F",  # pyflakes
+    "E",  # pycodestyle errors
+    "I",  # isort
+    "N",  # pep8-naming
+    "PGH",  # pygrep-hooks
+    "PL",  # pylint
+    "RUF",  # ruff-specific rules
+    "T20",  # flake8-print
+    "TCH",  # flake8-type-checking
+    "UP",  # pyupgrade
+    "W",  # pycodestyle warnings
+    "YTT",  # flake8-2020
+]
+ignore = [
+    "B026",  # star-arg-unpacking-after-keyword-arg
+    "PLR",  # pylint refactor
+]
+
+[tool.ruff.lint.per-file-ignores]
+"can/interfaces/*" = [
+    "E501",  # Line too long
+    "F403",  # undefined-local-with-import-star
+    "F405",  # undefined-local-with-import-star-usage
+    "N",  # pep8-naming
+    "PGH003",  # blanket-type-ignore
+    "RUF012",  # mutable-class-default
+]
+"can/logger.py" = ["T20"]  # flake8-print
+"can/player.py" = ["T20"]  # flake8-print
+
+[tool.ruff.lint.isort]
+known-first-party = ["can"]
+
+[tool.pylint]
+disable = [
+    "c-extension-no-member",
+    "cyclic-import",
+    "duplicate-code",
+    "fixme",
+    "invalid-name",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "no-else-raise",
+    "no-else-return",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-public-methods",
+    "too-many-statements",
+]

@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling>=0.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyter_packaging"
+version = "0.12.3"
+description = "Jupyter Packaging Utilities."
+license = { file = "LICENSE" }
+authors = [{name = "Jupyter Development Team", email = "jupyter@googlegroups.com"}]
+keywords = ["ipython", "jupyter", "packaging"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "packaging",
+    "tomlkit",
+    "setuptools>=60.2.0",
+    "wheel",
+    "deprecation",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "http://jupyter.org"
+Source = "https://github.com/jupyter/jupyter-packaging/"
+"Bug Tracker" = "https://github.com/jupyter/jupyter-packaging/issues"
+
+[project.optional-dependencies]
+test = [
+    "build",
+    "coverage",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-timeout",
+]
+
+[tool.jupyter-releaser]
+skip = ["check-links"]
+
+[tool.tbump.version]
+current = "0.12.3"
+regex = '''
+  (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)
+  ((?P<channel>a|b|rc|.dev)(?P<release>\d+))?
+'''
+
+[tool.tbump.git]
+message_template = "Bump to {new_version}"
+tag_template = "v{new_version}"
+
+[[tool.tbump.file]]
+src = "jupyter_packaging/setupbase.py"
+
+[[tool.tbump.file]]
+src = "pyproject.toml"
+
+[tool.pytest.ini_options]
+addopts= "-raXs  --durations 10 --color=yes --doctest-modules"
+testpaths = [
+    "tests/"
+]
+timeout = 300
+# Restore this setting to debug failures
+# timeout_method = "thread"
+filterwarnings= [
+  # Fail on warnings
+  "error",
+  # Ignore our own deprecation warnings.
+  "ignore:.*:deprecation.DeprecatedWarning"
+]

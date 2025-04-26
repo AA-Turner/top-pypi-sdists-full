@@ -1,0 +1,81 @@
+[build-system]
+# Must be kept in sync with `setup_requirements` in `setup.py`
+requires = [
+    "setuptools>=40.8.0",
+    "wheel",
+    "cffi>=1.4.1; python_implementation != 'PyPy'",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 79
+target-version = ["py36"]
+
+[tool.mypy]
+show_error_codes = true
+warn_redundant_casts = true
+warn_incomplete_stub = true
+
+disallow_any_unimported = true
+disallow_any_expr = true  # overridden to `false` inside `nacl.bindings`
+disallow_any_decorated = true
+disallow_any_explicit = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+
+no_implicit_optional = true
+
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true  # overridden to `false` inside `nacl.bindings`
+warn_unreachable = true
+
+no_implicit_reexport = true
+strict_equality = true
+
+files = [
+    "src/nacl",
+    "tests",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "nacl._sodium",
+]
+ignore_missing_imports = true
+
+# Within `nacl.bindings`, all of the C functions exposed via cffi in
+# nacl._sodium return `Any` as far as mypy is concerned. It's not worth it to
+# stub the C functions or cast() their uses. But this means there are more
+# `Any`s floating around. So the more restrictive any checks we'd like to use
+# should only be turned on outside of `bindings`.
+
+[[tool.mypy.overrides]]
+module = [
+    "nacl.bindings.*",
+]
+disallow_any_expr = false
+warn_return_any = false
+
+# Loosen some of the checks within the tests. Note that `tests.utils` passes with the
+# strict checks on, but it's included here in the list of modules with looser checks
+# to keep mypy's config simple(r).
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+]
+# Some library helpers types' involve `Any`, in particular `pytest.mark.parameterize`
+# and `hypothesis.strategies.sampledfrom`.
+disallow_any_expr = false
+disallow_any_decorated = false
+
+# It's not useful to annotate each test function as `-> None`.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false

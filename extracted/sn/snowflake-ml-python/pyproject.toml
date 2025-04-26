@@ -1,0 +1,49 @@
+[build-system]
+requires = [ "setuptools >= 61.0",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snowflake-ml-python"
+description = "The machine learning client library that is used for interacting with Snowflake to build machine learning solutions."
+classifiers = [ "Development Status :: 5 - Production/Stable", "Environment :: Console", "Environment :: Other Environment", "Intended Audience :: Developers", "Intended Audience :: Education", "Intended Audience :: Information Technology", "Intended Audience :: System Administrators", "License :: OSI Approved :: Apache Software License", "Operating System :: OS Independent", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Topic :: Database", "Topic :: Software Development", "Topic :: Software Development :: Libraries", "Topic :: Software Development :: Libraries :: Application Frameworks", "Topic :: Software Development :: Libraries :: Python Modules", "Topic :: Scientific/Engineering :: Information Analysis",]
+requires-python = ">=3.9, <3.13"
+dynamic = [ "version", "readme",]
+dependencies = [ "absl-py>=0.15,<2", "anyio>=3.5.0,<5", "cachetools>=3.1.1,<6", "cloudpickle>=2.0.0,<3", "cryptography", "fsspec[http]>=2024.6.1,<2026", "importlib_resources>=6.1.1, <7", "numpy>=1.23,<2", "packaging>=20.9,<25", "pandas>=1.0.0,<3", "pyarrow", "pyjwt>=2.0.0, <3", "pytimeparse>=1.1.8,<2", "pyyaml>=6.0,<7", "retrying>=1.3.3,<2", "s3fs>=2024.6.1,<2026", "scikit-learn>=1.4,<1.6", "scipy>=1.9,<2", "snowflake-connector-python[pandas]>=3.12.0,<4", "snowflake-snowpark-python>=1.17.0,<2,!=1.26.0", "snowflake.core>=1.0.2,<2", "sqlparse>=0.4,<1", "typing-extensions>=4.1.0,<5", "xgboost>=1.7.3,<3",]
+[[project.authors]]
+name = "Snowflake, Inc"
+email = "support@snowflake.com"
+
+[project.license]
+file = "LICENSE.txt"
+
+[project.urls]
+Homepage = "https://github.com/snowflakedb/snowflake-ml-python"
+Documentation = "https://docs.snowflake.com/developer-guide/snowpark-ml"
+Repository = "https://github.com/snowflakedb/snowflake-ml-python"
+Issues = "https://github.com/snowflakedb/snowflake-ml-python/issues"
+Changelog = "https://github.com/snowflakedb/snowflake-ml-python/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+all = [ "catboost>=1.2.0, <2", "keras>=2.0.0,<4", "lightgbm>=4.1.0, <5", "mlflow>=2.16.0, <3", "sentence-transformers>=2.7.0,<4", "sentencepiece>=0.1.95,<0.2.0", "shap>=0.46.0,<1", "tensorflow>=2.17.0,<3", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "torchdata>=0.4,<1", "transformers>=4.39.3,<5",]
+catboost = [ "catboost>=1.2.0, <2",]
+keras = [ "keras>=2.0.0,<4", "tensorflow>=2.17.0,<3", "torch>=2.0.1,<3",]
+lightgbm = [ "lightgbm>=4.1.0, <5",]
+mlflow = [ "mlflow>=2.16.0, <3",]
+shap = [ "shap>=0.46.0,<1",]
+tensorflow = [ "tensorflow>=2.17.0,<3",]
+torch = [ "torch>=2.0.1,<3", "torchdata>=0.4,<1",]
+transformers = [ "sentence-transformers>=2.7.0,<4", "sentencepiece>=0.1.95,<0.2.0", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "transformers>=4.39.3,<5",]
+
+[tool.setuptools.package-data]
+"*" = [ "*",]
+
+[tool.setuptools.dynamic.version]
+attr = "snowflake.ml.version.VERSION"
+
+[tool.setuptools.dynamic.readme]
+file = [ "README.md", "CHANGELOG.md",]
+content-type = "text/markdown"
+
+[tool.setuptools.packages.find]
+where = [ ".",]
+include = [ "snowflake*",]

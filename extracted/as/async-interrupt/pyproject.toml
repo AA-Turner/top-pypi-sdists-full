@@ -1,0 +1,82 @@
+[project]
+name = "async_interrupt"
+version = "1.2.2"
+license = "Apache-2.0"
+description = "Context manager to raise an exception when a future is done"
+authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+"Repository" = "https://github.com/bluetooth-devices/async_interrupt"
+"Bug Tracker" = "https://github.com/bluetooth-devices/async_interrupt/issues"
+"Changelog" = "https://github.com/bluetooth-devices/async_interrupt/blob/main/CHANGELOG.md"
+
+[tool.poetry]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+packages = [
+    { include = "async_interrupt", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7,<9"
+pytest-cov = ">=3,<7"
+pytest-asyncio = ">=0.21.1,<0.26.0"
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/async_interrupt/__init__.py:__version__"]
+build_command = "pip install poetry && poetry build"
+
+[tool.pytest.ini_options]
+addopts = "-v -Wdefault --cov=async_interrupt --cov-report=term-missing:skip-covered"
+pythonpath = ["src"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+    'if __name__ == "__main__":',
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["async_interrupt", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+exclude = [
+    'setup.py',
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

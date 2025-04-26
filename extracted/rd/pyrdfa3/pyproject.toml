@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=71.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyRdfa3"
+version = "3.6.4"
+authors = [
+  { name="Ivan Herman & prrvchr", email="prrvchr@gmail.com" },
+]
+description = "pyRdfa distiller/parser library"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: W3C License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "requests>=2.32.3",
+  "rdflib>=7.0.0",
+  "html5lib>=1.1"
+]
+
+[project.urls]
+Homepage = "https://prrvchr.github.io/pyrdfa3/"
+Issues = "https://github.com/prrvchr/pyrdfa3/issues"

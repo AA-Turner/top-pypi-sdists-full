@@ -1,0 +1,59 @@
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sqlalchemy-searchable"
+dynamic = ["version"]
+description = "Provides fulltext search capabilities for declarative SQLAlchemy models."
+readme = "README.rst"
+license = "bsd-3-clause"
+requires-python = ">=3.8"
+authors = [
+    { name = "Konsta Vesterinen", email = "konsta@fastmonkeys.com" },
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "SQLAlchemy-Utils>=0.40.0",
+    "SQLAlchemy>=1.4",
+]
+
+[project.urls]
+Code            = "https://github.com/falcony-io/sqlalchemy-searchable"
+Documentation   = "https://sqlalchemy-searchable.readthedocs.io/"
+"Issue Tracker" = "http://github.com/falcony-io/sqlalchemy-searchable/issues"
+
+[tool.hatch.version]
+path = "sqlalchemy_searchable/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/CHANGES.rst",
+    "/docs",
+    "/sqlalchemy_searchable",
+    "/tests",
+]
+exclude = [
+    "/docs/_build",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sqlalchemy_searchable", "tests"]
+order-by-type     = false

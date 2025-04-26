@@ -1,0 +1,498 @@
+Metadata-Version: 2.1
+Name: apache-superset
+Version: 4.1.2
+Summary: A modern, enterprise-ready business intelligence web application
+Download-URL: https://www.apache.org/dist/superset/4.1.2
+Author-email: Apache Software Foundation <dev@superset.apache.org>
+License:                               Apache License
+                                Version 2.0, January 2004
+                             http://www.apache.org/licenses/
+        
+        TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+        1. Definitions.
+        
+           "License" shall mean the terms and conditions for use, reproduction,
+           and distribution as defined by Sections 1 through 9 of this document.
+        
+           "Licensor" shall mean the copyright owner or entity authorized by
+           the copyright owner that is granting the License.
+        
+           "Legal Entity" shall mean the union of the acting entity and all
+           other entities that control, are controlled by, or are under common
+           control with that entity. For the purposes of this definition,
+           "control" means (i) the power, direct or indirect, to cause the
+           direction or management of such entity, whether by contract or
+           otherwise, or (ii) ownership of fifty percent (50%) or more of the
+           outstanding shares, or (iii) beneficial ownership of such entity.
+        
+           "You" (or "Your") shall mean an individual or Legal Entity
+           exercising permissions granted by this License.
+        
+           "Source" form shall mean the preferred form for making modifications,
+           including but not limited to software source code, documentation
+           source, and configuration files.
+        
+           "Object" form shall mean any form resulting from mechanical
+           transformation or translation of a Source form, including but
+           not limited to compiled object code, generated documentation,
+           and conversions to other media types.
+        
+           "Work" shall mean the work of authorship, whether in Source or
+           Object form, made available under the License, as indicated by a
+           copyright notice that is included in or attached to the work
+           (an example is provided in the Appendix below).
+        
+           "Derivative Works" shall mean any work, whether in Source or Object
+           form, that is based on (or derived from) the Work and for which the
+           editorial revisions, annotations, elaborations, or other modifications
+           represent, as a whole, an original work of authorship. For the purposes
+           of this License, Derivative Works shall not include works that remain
+           separable from, or merely link (or bind by name) to the interfaces of,
+           the Work and Derivative Works thereof.
+        
+           "Contribution" shall mean any work of authorship, including
+           the original version of the Work and any modifications or additions
+           to that Work or Derivative Works thereof, that is intentionally
+           submitted to Licensor for inclusion in the Work by the copyright owner
+           or by an individual or Legal Entity authorized to submit on behalf of
+           the copyright owner. For the purposes of this definition, "submitted"
+           means any form of electronic, verbal, or written communication sent
+           to the Licensor or its representatives, including but not limited to
+           communication on electronic mailing lists, source code control systems,
+           and issue tracking systems that are managed by, or on behalf of, the
+           Licensor for the purpose of discussing and improving the Work, but
+           excluding communication that is conspicuously marked or otherwise
+           designated in writing by the copyright owner as "Not a Contribution."
+        
+           "Contributor" shall mean Licensor and any individual or Legal Entity
+           on behalf of whom a Contribution has been received by Licensor and
+           subsequently incorporated within the Work.
+        
+        2. Grant of Copyright License. Subject to the terms and conditions of
+           this License, each Contributor hereby grants to You a perpetual,
+           worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+           copyright license to reproduce, prepare Derivative Works of,
+           publicly display, publicly perform, sublicense, and distribute the
+           Work and such Derivative Works in Source or Object form.
+        
+        3. Grant of Patent License. Subject to the terms and conditions of
+           this License, each Contributor hereby grants to You a perpetual,
+           worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+           (except as stated in this section) patent license to make, have made,
+           use, offer to sell, sell, import, and otherwise transfer the Work,
+           where such license applies only to those patent claims licensable
+           by such Contributor that are necessarily infringed by their
+           Contribution(s) alone or by combination of their Contribution(s)
+           with the Work to which such Contribution(s) was submitted. If You
+           institute patent litigation against any entity (including a
+           cross-claim or counterclaim in a lawsuit) alleging that the Work
+           or a Contribution incorporated within the Work constitutes direct
+           or contributory patent infringement, then any patent licenses
+           granted to You under this License for that Work shall terminate
+           as of the date such litigation is filed.
+        
+        4. Redistribution. You may reproduce and distribute copies of the
+           Work or Derivative Works thereof in any medium, with or without
+           modifications, and in Source or Object form, provided that You
+           meet the following conditions:
+        
+           (a) You must give any other recipients of the Work or
+               Derivative Works a copy of this License; and
+        
+           (b) You must cause any modified files to carry prominent notices
+               stating that You changed the files; and
+        
+           (c) You must retain, in the Source form of any Derivative Works
+               that You distribute, all copyright, patent, trademark, and
+               attribution notices from the Source form of the Work,
+               excluding those notices that do not pertain to any part of
+               the Derivative Works; and
+        
+           (d) If the Work includes a "NOTICE" text file as part of its
+               distribution, then any Derivative Works that You distribute must
+               include a readable copy of the attribution notices contained
+               within such NOTICE file, excluding those notices that do not
+               pertain to any part of the Derivative Works, in at least one
+               of the following places: within a NOTICE text file distributed
+               as part of the Derivative Works; within the Source form or
+               documentation, if provided along with the Derivative Works; or,
+               within a display generated by the Derivative Works, if and
+               wherever such third-party notices normally appear. The contents
+               of the NOTICE file are for informational purposes only and
+               do not modify the License. You may add Your own attribution
+               notices within Derivative Works that You distribute, alongside
+               or as an addendum to the NOTICE text from the Work, provided
+               that such additional attribution notices cannot be construed
+               as modifying the License.
+        
+           You may add Your own copyright statement to Your modifications and
+           may provide additional or different license terms and conditions
+           for use, reproduction, or distribution of Your modifications, or
+           for any such Derivative Works as a whole, provided Your use,
+           reproduction, and distribution of the Work otherwise complies with
+           the conditions stated in this License.
+        
+        5. Submission of Contributions. Unless You explicitly state otherwise,
+           any Contribution intentionally submitted for inclusion in the Work
+           by You to the Licensor shall be under the terms and conditions of
+           this License, without any additional terms or conditions.
+           Notwithstanding the above, nothing herein shall supersede or modify
+           the terms of any separate license agreement you may have executed
+           with Licensor regarding such Contributions.
+        
+        6. Trademarks. This License does not grant permission to use the trade
+           names, trademarks, service marks, or product names of the Licensor,
+           except as required for reasonable and customary use in describing the
+           origin of the Work and reproducing the content of the NOTICE file.
+        
+        7. Disclaimer of Warranty. Unless required by applicable law or
+           agreed to in writing, Licensor provides the Work (and each
+           Contributor provides its Contributions) on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+           implied, including, without limitation, any warranties or conditions
+           of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+           PARTICULAR PURPOSE. You are solely responsible for determining the
+           appropriateness of using or redistributing the Work and assume any
+           risks associated with Your exercise of permissions under this License.
+        
+        8. Limitation of Liability. In no event and under no legal theory,
+           whether in tort (including negligence), contract, or otherwise,
+           unless required by applicable law (such as deliberate and grossly
+           negligent acts) or agreed to in writing, shall any Contributor be
+           liable to You for damages, including any direct, indirect, special,
+           incidental, or consequential damages of any character arising as a
+           result of this License or out of the use or inability to use the
+           Work (including but not limited to damages for loss of goodwill,
+           work stoppage, computer failure or malfunction, or any and all
+           other commercial damages or losses), even if such Contributor
+           has been advised of the possibility of such damages.
+        
+        9. Accepting Warranty or Additional Liability. While redistributing
+           the Work or Derivative Works thereof, You may choose to offer,
+           and charge a fee for, acceptance of support, warranty, indemnity,
+           or other liability obligations and/or rights consistent with this
+           License. However, in accepting such obligations, You may act only
+           on Your own behalf and on Your sole responsibility, not on behalf
+           of any other Contributor, and only if You agree to indemnify,
+           defend, and hold each Contributor harmless for any liability
+           incurred by, or claims asserted against, such Contributor by reason
+           of your accepting any such warranty or additional liability.
+        
+        END OF TERMS AND CONDITIONS
+        
+        APPENDIX: How to apply the Apache License to your work.
+        
+           To apply the Apache License to your work, attach the following
+           boilerplate notice, with the fields enclosed by brackets "[]"
+           replaced with your own identifying information. (Don't include
+           the brackets!)  The text should be enclosed in the appropriate
+           comment syntax for the file format. We also recommend that a
+           file or class name and description of purpose be included on the
+           same "printed page" as the copyright notice for easier
+           identification within third-party archives.
+        
+        Copyright [yyyy] [name of copyright owner]
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+            http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+        
+        ============================================================================
+           APACHE SUPERSET SUBCOMPONENTS:
+        
+           The Apache Superset project contains subcomponents with separate copyright
+           notices and license terms. Your use of the source code for the these
+           subcomponents is subject to the terms and conditions of the following
+           licenses.
+        
+        ========================================================================
+        Third party SIL Open Font License v1.1 (OFL-1.1)
+        ========================================================================
+        
+        (SIL OPEN FONT LICENSE Version 1.1) The Inter font family (https://github.com/rsms/inter)
+        (SIL OPEN FONT LICENSE Version 1.1) The Fira Code font family (https://github.com/tonsky/FiraCode)
+        
+Project-URL: homepage, https://superset.apache.org/
+Project-URL: documentation, https://superset.apache.org/docs/intro
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+Provides-Extra: athena
+Provides-Extra: aurora-data-api
+Provides-Extra: bigquery
+Provides-Extra: clickhouse
+Provides-Extra: cockroachdb
+Provides-Extra: cors
+Provides-Extra: crate
+Provides-Extra: databend
+Provides-Extra: databricks
+Provides-Extra: db2
+Provides-Extra: dremio
+Provides-Extra: drill
+Provides-Extra: druid
+Provides-Extra: duckdb
+Provides-Extra: dynamodb
+Provides-Extra: solr
+Provides-Extra: elasticsearch
+Provides-Extra: exasol
+Provides-Extra: excel
+Provides-Extra: firebird
+Provides-Extra: firebolt
+Provides-Extra: gevent
+Provides-Extra: gsheets
+Provides-Extra: hana
+Provides-Extra: hive
+Provides-Extra: impala
+Provides-Extra: kusto
+Provides-Extra: kylin
+Provides-Extra: mssql
+Provides-Extra: mysql
+Provides-Extra: ocient
+Provides-Extra: oracle
+Provides-Extra: pinot
+Provides-Extra: playwright
+Provides-Extra: postgres
+Provides-Extra: presto
+Provides-Extra: trino
+Provides-Extra: prophet
+Provides-Extra: redshift
+Provides-Extra: rockset
+Provides-Extra: shillelagh
+Provides-Extra: snowflake
+Provides-Extra: spark
+Provides-Extra: teradata
+Provides-Extra: thumbnails
+Provides-Extra: vertica
+Provides-Extra: netezza
+Provides-Extra: starrocks
+Provides-Extra: doris
+Provides-Extra: oceanbase
+Provides-Extra: development
+License-File: LICENSE.txt
+
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+# Superset
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/apache/superset?sort=semver)](https://github.com/apache/superset/tree/latest)
+[![Build Status](https://github.com/apache/superset/workflows/Python/badge.svg)](https://github.com/apache/superset/actions)
+[![PyPI version](https://badge.fury.io/py/apache-superset.svg)](https://badge.fury.io/py/apache-superset)
+[![Coverage Status](https://codecov.io/github/apache/superset/coverage.svg?branch=master)](https://codecov.io/github/apache/superset)
+[![PyPI](https://img.shields.io/pypi/pyversions/apache-superset.svg?maxAge=2592000)](https://pypi.python.org/pypi/apache-superset)
+[![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](http://bit.ly/join-superset-slack)
+[![Documentation](https://img.shields.io/badge/docs-apache.org-blue.svg)](https://superset.apache.org)
+
+<picture width="500">
+  <source
+    width="600"
+    media="(prefers-color-scheme: dark)"
+    src="https://superset.apache.org/img/superset-logo-horiz-dark.svg"
+    alt="Superset logo (dark)"
+  />
+  <img
+    width="600"
+    src="https://superset.apache.org/img/superset-logo-horiz-apache.svg"
+    alt="Superset logo (light)"
+  />
+</picture>
+
+A modern, enterprise-ready business intelligence web application.
+
+[**Why Superset?**](#why-superset) |
+[**Supported Databases**](#supported-databases) |
+[**Installation and Configuration**](#installation-and-configuration) |
+[**Release Notes**](https://github.com/apache/superset/blob/master/RELEASING/README.md#release-notes-for-recent-releases) |
+[**Get Involved**](#get-involved) |
+[**Contributor Guide**](#contributor-guide) |
+[**Resources**](#resources) |
+[**Organizations Using Superset**](https://github.com/apache/superset/blob/master/RESOURCES/INTHEWILD.md)
+
+## Why Superset?
+
+Superset is a modern data exploration and data visualization platform. Superset can replace or augment proprietary business intelligence tools for many teams. Superset integrates well with a variety of data sources.
+
+Superset provides:
+
+- A **no-code interface** for building charts quickly
+- A powerful, web-based **SQL Editor** for advanced querying
+- A **lightweight semantic layer** for quickly defining custom dimensions and metrics
+- Out of the box support for **nearly any SQL** database or data engine
+- A wide array of **beautiful visualizations** to showcase your data, ranging from simple bar charts to geospatial visualizations
+- Lightweight, configurable **caching layer** to help ease database load
+- Highly extensible **security roles and authentication** options
+- An **API** for programmatic customization
+- A **cloud-native architecture** designed from the ground up for scale
+
+## Screenshots & Gifs
+
+**Video Overview**
+<!-- File hosted here https://github.com/apache/superset-site/raw/lfs/superset-video-4k.mp4 -->
+[superset-video-4k.webm](https://github.com/apache/superset/assets/812905/da036bc2-150c-4ee7-80f9-75e63210ff76)
+
+<br/>
+
+**Large Gallery of Visualizations**
+
+<kbd><img title="Gallery" src="https://superset.apache.org/img/screenshots/gallery.jpg"/></kbd><br/>
+
+**Craft Beautiful, Dynamic Dashboards**
+
+<kbd><img title="View Dashboards" src="https://superset.apache.org/img/screenshots/slack_dash.jpg"/></kbd><br/>
+
+**No-Code Chart Builder**
+
+<kbd><img title="Slice & dice your data" src="https://superset.apache.org/img/screenshots/explore.jpg"/></kbd><br/>
+
+**Powerful SQL Editor**
+
+<kbd><img title="SQL Lab" src="https://superset.apache.org/img/screenshots/sql_lab.jpg"/></kbd><br/>
+
+## Supported Databases
+
+Superset can query data from any SQL-speaking datastore or data engine (Presto, Trino, Athena, [and more](https://superset.apache.org/docs/configuration/databases)) that has a Python DB-API driver and a SQLAlchemy dialect.
+
+Here are some of the major database solutions that are supported:
+
+<p align="center">
+  <img src="https://superset.apache.org/img/databases/redshift.png" alt="redshift" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/google-biquery.png" alt="google-biquery" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/snowflake.png" alt="snowflake" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/trino.png" alt="trino" border="0" width="150" />
+  <img src="https://superset.apache.org/img/databases/presto.png" alt="presto" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/databricks.png" alt="databricks" border="0" width="160" />
+  <img src="https://superset.apache.org/img/databases/druid.png" alt="druid" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/firebolt.png" alt="firebolt" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/timescale.png" alt="timescale" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/rockset.png" alt="rockset" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/postgresql.png" alt="postgresql" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/mysql.png" alt="mysql" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/mssql-server.png" alt="mssql-server" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/ibm-db2.svg" alt="db2" border="0" width="220" />
+  <img src="https://superset.apache.org/img/databases/sqlite.png" alt="sqlite" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/sybase.png" alt="sybase" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/mariadb.png" alt="mariadb" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/vertica.png" alt="vertica" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/oracle.png" alt="oracle" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/firebird.png" alt="firebird" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/greenplum.png" alt="greenplum" border="0" width="200"  />
+  <img src="https://superset.apache.org/img/databases/clickhouse.png" alt="clickhouse" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/exasol.png" alt="exasol" border="0" width="160" />
+  <img src="https://superset.apache.org/img/databases/monet-db.png" alt="monet-db" border="0" width="200"  />
+  <img src="https://superset.apache.org/img/databases/apache-kylin.png" alt="apache-kylin" border="0" width="80"/>
+  <img src="https://superset.apache.org/img/databases/hologres.png" alt="hologres" border="0" width="80"/>
+  <img src="https://superset.apache.org/img/databases/netezza.png" alt="netezza" border="0" width="80"/>
+  <img src="https://superset.apache.org/img/databases/pinot.png" alt="pinot" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/teradata.png" alt="teradata" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/yugabyte.png" alt="yugabyte" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/databend.png" alt="databend" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/starrocks.png" alt="starrocks" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/doris.png" alt="doris" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/oceanbase.svg" alt="oceanbase" border="0" width="220" />
+</p>
+
+**A more comprehensive list of supported databases** along with the configuration instructions can be found [here](https://superset.apache.org/docs/configuration/databases).
+
+Want to add support for your datastore or data engine? Read more [here](https://superset.apache.org/docs/frequently-asked-questions#does-superset-work-with-insert-database-engine-here) about the technical requirements.
+
+## Installation and Configuration
+
+[Extended documentation for Superset](https://superset.apache.org/docs/installation/docker-compose)
+
+## Get Involved
+
+- Ask and answer questions on [StackOverflow](https://stackoverflow.com/questions/tagged/apache-superset) using the **apache-superset** tag
+- [Join our community's Slack](http://bit.ly/join-superset-slack)
+  and please read our [Slack Community Guidelines](https://github.com/apache/superset/blob/master/CODE_OF_CONDUCT.md#slack-community-guidelines)
+- [Join our dev@superset.apache.org Mailing list](https://lists.apache.org/list.html?dev@superset.apache.org). To join, simply send an email to [dev-subscribe@superset.apache.org](mailto:dev-subscribe@superset.apache.org)
+- If you want to help troubleshoot GitHub Issues involving the numerous database drivers that Superset supports, please consider adding your name and the databases you have access to on the [Superset Database Familiarity Rolodex](https://docs.google.com/spreadsheets/d/1U1qxiLvOX0kBTUGME1AHHi6Ywel6ECF8xk_Qy-V9R8c/edit#gid=0)
+- Join Superset's Town Hall and [Operational Model](https://preset.io/blog/the-superset-operational-model-wants-you/) recurring meetings.  Meeting info is available on the [Superset Community Calendar](https://superset.apache.org/community)
+
+## Contributor Guide
+
+Interested in contributing? Check out our
+[CONTRIBUTING.md](https://github.com/apache/superset/blob/master/CONTRIBUTING.md)
+to find resources around contributing along with a detailed guide on
+how to set up a development environment.
+
+## Resources
+
+- [Superset "In the Wild"](https://github.com/apache/superset/blob/master/RESOURCES/INTHEWILD.md) - open a PR to add your org to the list!
+- [Feature Flags](https://github.com/apache/superset/blob/master/RESOURCES/FEATURE_FLAGS.md) - the status of Superset's Feature Flags.
+- [Standard Roles](https://github.com/apache/superset/blob/master/RESOURCES/STANDARD_ROLES.md) - How RBAC permissions map to roles.
+- [Superset Wiki](https://github.com/apache/superset/wiki) - Tons of additional community resources: best practices, community content and other information.
+- [Superset SIPs](https://github.com/orgs/apache/projects/170) - The status of Superset's SIPs (Superset Improvement Proposals) for both consensus and implementation status.
+
+Understanding the Superset Points of View
+
+- [The Case for Dataset-Centric Visualization](https://preset.io/blog/dataset-centric-visualization/)
+- [Understanding the Superset Semantic Layer](https://preset.io/blog/understanding-superset-semantic-layer/)
+
+- Getting Started with Superset
+  - [Superset in 2 Minutes using Docker Compose](https://superset.apache.org/docs/installation/docker-compose#installing-superset-locally-using-docker-compose)
+  - [Installing Database Drivers](https://superset.apache.org/docs/configuration/databases#installing-database-drivers)
+  - [Building New Database Connectors](https://preset.io/blog/building-database-connector/)
+  - [Create Your First Dashboard](https://superset.apache.org/docs/using-superset/creating-your-first-dashboard/)
+  - [Comprehensive Tutorial for Contributing Code to Apache Superset
+  ](https://preset.io/blog/tutorial-contributing-code-to-apache-superset/)
+- [Resources to master Superset by Preset](https://preset.io/resources/)
+
+- Deploying Superset
+  - [Official Docker image](https://hub.docker.com/r/apache/superset)
+  - [Helm Chart](https://github.com/apache/superset/tree/master/helm/superset)
+
+- Recordings of Past [Superset Community Events](https://preset.io/events)
+  - [Mixed Time Series Charts](https://preset.io/events/mixed-time-series-visualization-in-superset-workshop/)
+  - [How the Bing Team Customized Superset for the Internal Self-Serve Data & Analytics Platform](https://preset.io/events/how-the-bing-team-heavily-customized-superset-for-their-internal-data/)
+  - [Live Demo: Visualizing MongoDB and Pinot Data using Trino](https://preset.io/events/2021-04-13-visualizing-mongodb-and-pinot-data-using-trino/)
+  - [Introduction to the Superset API](https://preset.io/events/introduction-to-the-superset-api/)
+  - [Building a Database Connector for Superset](https://preset.io/events/2021-02-16-building-a-database-connector-for-superset/)
+
+- Visualizations
+  - [Creating Viz Plugins](https://superset.apache.org/docs/contributing/creating-viz-plugins/)
+  - [Managing and Deploying Custom Viz Plugins](https://medium.com/nmc-techblog/apache-superset-manage-custom-viz-plugins-in-production-9fde1a708e55)
+  - [Why Apache Superset is Betting on Apache ECharts](https://preset.io/blog/2021-4-1-why-echarts/)
+
+- [Superset API](https://superset.apache.org/docs/rest-api)
+
+## Repo Activity
+
+<a href="https://next.ossinsight.io/widgets/official/compose-last-28-days-stats?repo_id=39464018" target="_blank" align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/compose-last-28-days-stats/thumbnail.png?repo_id=39464018&image_size=auto&color_scheme=dark" width="655" height="auto" />
+    <img alt="Performance Stats of apache/superset - Last 28 days" src="https://next.ossinsight.io/widgets/official/compose-last-28-days-stats/thumbnail.png?repo_id=39464018&image_size=auto&color_scheme=light" width="655" height="auto" />
+  </picture>
+</a>
+
+<!-- Made with [OSS Insight](https://ossinsight.io/) -->
+
+<!-- telemetry/analytics pixel: -->
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=bc1c90cd-bc04-4e11-8c7b-289fb2839492" />

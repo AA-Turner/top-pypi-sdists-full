@@ -1,0 +1,64 @@
+Metadata-Version: 2.1
+Name: jinja2-strcase
+Version: 0.0.2
+Summary: A python package for converting string case in jinja2 templates
+Home-page: https://github.com/marchmiel/jinja2-strcase
+Author: Marek Chmiel
+Maintainer: Marek Chmiel
+License: MIT
+Description: # jinja2-strcase
+        
+        A python package for converting string case in jinja2 templates (including cookiecutter).
+        
+        It is a port of the go package [strcase](https://github.com/iancoleman/strcase)
+        
+        ## Installation
+        
+        jinja2-strcase is available for download from PyPI via pip:
+        
+        ```
+        $ pip install jinja2-strcase
+        ```
+        
+        ## Example
+        
+        ```
+        from jinja2 import Environment
+        
+        env = Environment(extensions=['jinja2_strcase.StrcaseExtension'])
+        
+        # This will convert 'Any kind of string' -> 'any_kind_of_string'
+        template = env.from_string("{% 'Any kind of string' |  to_snake }")
+        
+        template.render()
+        ```
+        
+        | Function                        | Result               |
+        |---------------------------------|----------------------|
+        | `to_snake`                      | `any_kind_of_string` |
+        | `to_screaming_snake`            | `ANY_KIND_OF_STRING` |
+        | `to_kebab`                      | `any-kind-of-string` |
+        | `to_screaming_kebab`            | `ANY-KIND-OF-STRING` |
+        | `to_camel`                      | `AnyKindOfString`    |
+        | `to_lower_camel`                | `anyKindOfString`    |
+        
+Keywords: jinja2,extension,strcase
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python
+Description-Content-Type: text/markdown

@@ -1,0 +1,97 @@
+Metadata-Version: 2.4
+Name: zmq-anyio
+Version: 0.3.9
+Summary: Asynchronous API for ZMQ using AnyIO
+Project-URL: Source, https://github.com/davidbrochart/zmq-anyio
+Project-URL: Issues, https://github.com/davidbrochart/zmq-anyio/issues
+Author-email: David Brochart <david.brochart@gmail.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2024, David Brochart
+        
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+        
+        Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+        
+        Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+        
+        Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: System :: Networking
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: anyio<5.0.0,>=4.8.0
+Requires-Dist: anyioutils<0.8.0,>=0.7.1
+Requires-Dist: pyzmq<27.0.0,>=26.0.0
+Provides-Extra: test
+Requires-Dist: coverage[toml]<8,>=7; extra == 'test'
+Requires-Dist: mypy; extra == 'test'
+Requires-Dist: pytest-timeout; extra == 'test'
+Requires-Dist: pytest<9,>=8; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: trio<0.28,>=0.27.0; extra == 'test'
+Description-Content-Type: text/markdown
+
+[![Build Status](https://github.com/davidbrochart/zmq-anyio/actions/workflows/test.yml/badge.svg?query=branch%3Amain++)](https://github.com/davidbrochart/zmq-anyio/actions/workflows/test.yml/badge.svg?query=branch%3Amain++)
+
+# zmq-anyio
+
+Asynchronous API for ZMQ using AnyIO.
+
+## Usage
+
+`zmq_anyio.Socket` is a subclass of `zmq.Socket`. Here is how it must be used:
+- Create a `zmq_anyio.Socket` from a `zmq.Socket` or from a `zmq.Context`:
+    - Create a blocking ZMQ socket using a `zmq.Context`, and pass it to an async `zmq_anyio.Socket`:
+        ```py
+        ctx = zmq.Context()
+        sock = ctx.socket(zmq.PAIR)
+        asock = zmq_anyio.Socket(sock)
+        ```
+    - Or create an async `zmq_anyio.Socket` using a `zmq.Context`:
+        ```py
+        ctx = zmq.Context()
+        asock = zmq_anyio.Socket(ctx)
+        ```
+- Use the `zmq_anyio.Socket` with an async context manager.
+- Use `arecv()` for the async API, `recv()` for the blocking API, etc.
+
+```py
+import anyio
+import zmq
+import zmq_anyio
+
+ctx = zmq.Context()
+sock1 = ctx.socket(zmq.PAIR)
+port = sock1.bind("tcp://127.0.0.1:1234")
+sock2 = ctx.socket(zmq.PAIR)
+sock2.connect("tcp://127.0.0.1:1234")
+
+# wrap the `zmq.Socket` with `zmq_anyio.Socket`:
+sock1 = zmq_anyio.Socket(sock1)
+sock2 = zmq_anyio.Socket(sock2)
+
+async def main():
+    async with sock1, sock2:  # use an async context manager
+        await sock1.asend(b"Hello").wait()  # use `asend` instead of `send`, and await the `.wait()` method
+        sock1.asend(b", World!")  # or don't await it, it's sent in the background
+        assert await sock2.arecv().wait() == b"Hello"  # use `arecv` instead of `recv`, and await the `.wait()` method
+        future = sock2.arecv()  # or get the future and await it later
+        assert await future.wait() == b", World!"
+
+anyio.run(main)
+```

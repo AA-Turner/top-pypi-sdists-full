@@ -1,0 +1,20 @@
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    {name = "frostming", email = "mianghong@gmail.com"},
+]
+dynamic = ["version"]
+requires-python = ">=3.5"
+license = "MIT"
+dependencies = []
+description = ""
+name = "foo"
+readme = "README.md"
+
+[project.optional-dependencies]
+
+[tool.pdm]
+version = {source = "scm" }

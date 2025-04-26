@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: rust_demangler
+Version: 1.0
+Summary: A package for demangling Rust symbols
+Home-page: https://github.com/teambi0s/rust_demangler
+Author: bi0s
+Author-email: amritabi0s1@example.com
+License: UNKNOWN
+Description: # rust_demangler
+        
+        A package for demangling Rust symbols, written in Python.
+        
+        Setup
+        -----
+        ```bash
+        pip install rust-demangler
+        ```
+        
+        Usage
+        -----
+        ```py
+        from rust-demangler import demangle
+        print(demangle(<mangled_name>))
+        ```
+        Example 
+        -------
+        ```py
+        demangle("_ZN3foo3barE") == "foo::bar"  #legacy style
+        demangle("_RNvC6_123foo3bar") == "123foo::bar"  #v0 style
+        ```
+        
+        License 
+        -------
+        
+        This project is licensed under the [MIT License](LICENSE)
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cwl-utils"
+authors = [{name = "Common Workflow Language project contributors", email = "common-workflow-language@googlegroups.com"}]
+license = {text = "Apache 2.0"}
+keywords = ["cwl", "commonwl", "common-workflow-language", "sciworkflows"]
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: File Formats",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+]
+requires-python = ">=3.9,<3.14"
+dynamic = ["version", "dependencies"]
+
+[project.urls]
+Documentation = "https://cwl-utils.readthedocs.io/"
+Homepage = "https://www.commonwl.org"
+Repository = "https://github.com/common-workflow-language/cwl-utils"
+Issues = "https://github.com/common-workflow-language/cwl-utils/issues"
+Changelog = "https://github.com/common-workflow-language/cwl-utils/releases"
+"Related Tools" = "https://www.commonwl.org/tools/"
+
+[project.optional-dependencies]
+pretty = ["cwlformat"]
+testing = [
+    "pytest<9",
+    "pytest-mock",
+]
+
+[project.scripts]
+cwl-cite-extract = "cwl_utils.cite_extract:main"
+cwl-docker-extract = "cwl_utils.docker_extract:main"
+cwl-expression-refactor = "cwl_utils.expression_refactor:main"
+cwl-graph-split = "cwl_utils.graph_split:main"
+cwl-normalizer = "cwl_utils.normalizer:main"
+cwl-inputs-schema-gen = "cwl_utils.inputs_schema_gen:main"
+
+[tool.aliases]
+test = "pytest"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools]
+packages = [
+    "cwl_utils",
+    "cwl_utils.parser",
+    "cwl_utils.tests",
+    "cwl_utils.testdata",
+    "cwl_utils.testdata.checker_wf",
+    "cwl_utils.testdata.extensions",
+    "cwl_utils.testdata.types",
+    "cwl_utils.testdata.workflows",
+]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"cwl_utils.parser" = "cwl_utils/parser"
+"cwl_utils.tests" = "tests"
+"cwl_utils.testdata" = "testdata"
+"cwl_utils.testdata.checker_wf" = "testdata/checker_wf"
+"cwl_utils.testdata.extensions" = "testdata/extensions"
+"cwl_utils.testdata.types" = "testdata/types"
+"cwl_utils.testdata.workflows" = "testdata/workflows"
+
+[tool.setuptools.package-data]
+"cwl_utils" = ["templates/*.json"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cwl_utils.__meta__.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff.lint]
+select = [
+  "D",   # pydocstyle
+]
+ignore = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D107",
+  "D203",
+  "D212",
+]

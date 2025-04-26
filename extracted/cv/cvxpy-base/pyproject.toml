@@ -1,0 +1,93 @@
+[tool.ruff]
+select = [
+    "E",
+    "F",
+    "I",
+    "NPY201",
+    "W605",  # Check for invalid escape sequences in docstrings (errors in py >= 3.11)
+]
+line-length = 100
+exclude = [
+    "build",
+    "examples",
+    "doc",
+    "cvxpy/cvxcore/*",
+    "*__init__.py"
+]
+# The minimum Python version that should be supported
+target-version = "py39"
+
+
+[tool.pytest.ini_options]
+testpaths = [
+    "cvxpy/tests/"
+]
+
+[build-system]
+requires = [
+    "numpy >= 2.0.0",
+    "scipy >= 1.13.0",
+    # 68.1.0 Promoted pyproject.toml's [tool.setuptools] out of beta.
+    "setuptools >= 68.1.0",
+    "wheel",
+    "pybind11"
+]
+
+# We need access to the 'setup' package at build time.
+# Hence we declare a custom build backend.
+build-backend = "setup.build_meta"  # just re-exports setuptools.build_meta definitions
+backend-path = ["."]
+
+[project]
+name = "cvxpy-base"
+description = "A domain-specific language for modeling convex optimization problems in Python."
+dependencies = [
+    "numpy >= 1.21.6",
+    "scipy >= 1.11.0",
+]
+requires-python = ">=3.9"
+urls = {Homepage = "https://github.com/cvxpy/cvxpy"}
+license = {text = "Apache License, Version 2.0"}
+authors = [{name = "Steven Diamond", email = "stevend2@stanford.edu"},
+           {name = "", email = "akshayka@cs.stanford.edu"},
+           {name = "Eric Chu", email = "echu508@stanford.edu"},
+           {name = "Stephen Boyd", email = "boyd@stanford.edu"}]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# Solver names as in cvxpy.settings = pip-installable distribution providing it
+CBC = ["cylp>=0.91.5"]
+CLARABEL = []
+CVXOPT = ["cvxopt"]
+DIFFCP = ["diffcp"]
+ECOS = ["ecos"]
+ECOS_BB = ["ecos"]
+GLOP = ["ortools>=9.7,<9.12"]
+GLPK = ["cvxopt"]
+GLPK_MI = ["cvxopt"]
+GUROBI = ["gurobipy"]
+HIGHS = ["highspy"]
+MOSEK = ["Mosek"]
+OSQP = []
+PDLP = ["ortools>=9.7,<9.12"]
+PIQP = ["piqp"]
+PROXQP = ["proxsuite"]
+QOCO = ["qoco"]
+SCIP = ["PySCIPOpt"]
+SCIPY = ["scipy"]
+SCS = []
+XPRESS = ["xpress"]
+DAQP = ["daqp"]
+testing = ["pytest", "hypothesis"]
+doc = ["sphinx",
+       "sphinxcontrib.jquery",
+       "sphinx-inline-tabs",
+       "sphinx-design",
+       "sphinx-immaterial>=0.11.7"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+include-package-data = false

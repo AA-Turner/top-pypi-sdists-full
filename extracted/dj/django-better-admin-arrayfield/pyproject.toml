@@ -1,0 +1,34 @@
+[tool.black]
+line-length = 119
+py36 = true
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | \.pytest_cache
+  | migrations
+  | _build
+  | buck-out
+  | build
+  | dist
+  | docs/conf.py
+  | build
+)/
+'''
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+django_find_project = false
+
+[tool.isort]
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+known_django = ["django"]
+known_first_party = ["sample_app"]
+sections = ["FUTURE","STDLIB","DJANGO","THIRDPARTY","FIRSTPARTY","LOCALFOLDER"]
+known_third_party = ["pytest"]

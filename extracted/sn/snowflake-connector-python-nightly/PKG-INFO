@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: snowflake-connector-python-nightly
+Version: 2025.4.26
+Summary: Nigthly build of Snowflake Connector for Python
+Home-page: https://www.snowflake.com/
+Author: Snowflake, Inc
+Author-email: snowflake-python-libraries-dl@snowflake.com
+License: Apache-2.0
+Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/python-connector.html
+Project-URL: Source, https://github.com/keller00/snowflake-connector-python-nightlies/
+Project-URL: Issues, https://github.com/snowflakedb/snowflake-connector-python/issues
+Project-URL: Changelog, https://github.com/snowflakedb/snowflake-connector-python/blob/main/DESCRIPTION.md
+Keywords: Snowflake db database cloud analytics warehouse
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Database
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+License-File: NOTICE
+Requires-Dist: asn1crypto<2.0.0,>0.24.0
+Requires-Dist: boto3>=1.24
+Requires-Dist: botocore>=1.24
+Requires-Dist: cffi<2.0.0,>=1.9
+Requires-Dist: cryptography>=3.1.0
+Requires-Dist: pyOpenSSL<26.0.0,>=22.0.0
+Requires-Dist: pyjwt<3.0.0
+Requires-Dist: pytz
+Requires-Dist: requests<3.0.0
+Requires-Dist: packaging
+Requires-Dist: charset_normalizer<4,>=2
+Requires-Dist: idna<4,>=2.5
+Requires-Dist: urllib3<2.0.0,>=1.21.1; python_version < "3.10"
+Requires-Dist: certifi>=2017.4.17
+Requires-Dist: typing_extensions<5,>=4.3
+Requires-Dist: filelock<4,>=3.5
+Requires-Dist: sortedcontainers>=2.4.0
+Requires-Dist: platformdirs<5.0.0,>=2.6.0
+Requires-Dist: tomlkit
+Provides-Extra: development
+Requires-Dist: Cython; extra == "development"
+Requires-Dist: coverage; extra == "development"
+Requires-Dist: more-itertools; extra == "development"
+Requires-Dist: numpy<2.1.0; extra == "development"
+Requires-Dist: pendulum!=2.1.1; extra == "development"
+Requires-Dist: pexpect; extra == "development"
+Requires-Dist: pytest<7.5.0; extra == "development"
+Requires-Dist: pytest-cov; extra == "development"
+Requires-Dist: pytest-rerunfailures; extra == "development"
+Requires-Dist: pytest-timeout; extra == "development"
+Requires-Dist: pytest-xdist; extra == "development"
+Requires-Dist: pytzdata; extra == "development"
+Provides-Extra: pandas
+Requires-Dist: pandas<3.0.0,>=2.1.2; extra == "pandas"
+Requires-Dist: pyarrow<19.0.0; extra == "pandas"
+Provides-Extra: secure-local-storage
+Requires-Dist: keyring<26.0.0,>=23.1.0; extra == "secure-local-storage"
+Dynamic: license-file
+
+Nigthly build of Snowflake Connector for Python

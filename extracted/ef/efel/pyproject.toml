@@ -1,0 +1,20 @@
+[tool.coverage.run]
+omit = [
+    "efel/_version.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError"
+]
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.cibuildwheel]
+test-requires = "pytest neo[neomatlabio]>=0.5.1 pytest-xdist>=3.3.1"
+test-command = "pytest -sx -n auto {project}/tests"
+
+[tool.cibuildwheel.windows]
+test-command = "pytest -sx -n auto {project}\\tests"

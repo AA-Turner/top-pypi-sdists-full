@@ -1,0 +1,68 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "b2luigi"
+author = "Nils Braun, Michael Eliachevitch, The Belle II Collaboration"
+author-email = "software-b2luigi@belle2.org"
+home-page = "https://github.com/belle2/b2luigi"
+license = "GNU General Public License v3 or later (GPLv3+)"
+keywords = "luigi, workflow management, belle2"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+requires = [
+	 "luigi>=3.0.2",
+	 "parse>=1.8.4",
+	 "GitPython>=2.1.11",
+	 "colorama>=0.3.9",
+	 "cachetools>=2.1.0",
+	 "jinja2",
+	 "retry2>=0.9.3"]
+requires-python = ">=3.8, <3.12"
+description-file = "README.rst"
+
+[tool.flit.metadata.requires-extra]
+# Use the same versions of sphinx and sphinx-book-theme
+# as in the latest version of the basf2 externals
+# (see https://github.com/belle2/externals)
+doc = [
+    "sphinx",
+    "sphinx-book-theme",
+    "sphinxcontrib-applehelp",
+    "sphinxcontrib-devhelp",
+    "sphinxcontrib-htmlhelp",
+    "sphinxcontrib-jsmath",
+    "sphinxcontrib-qthelp",
+    "sphinxcontrib-serializinghtml",
+    "sphinx-gallery",
+    "sphinx-autobuild"
+]
+dev = [
+    "pre_commit",
+    "pytest",
+    "pytest-cov",
+    "python-coveralls",
+    "bump-my-version"
+]
+
+[tool.flit.metadata.urls]
+"Homepage" = "https://github.com/belle2/b2luigi"
+"Documentation" = "https://b2luigi.belle2.org/"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.extend-per-file-ignores]
+"__init__.py" = ["F401", "F403", "E402"]
+"examples/gbasf2/example_mdst_analysis.py" = ["E501"]
+"examples/tutorial/Ex13_plot_invariant_mass.py" = ["E402"]

@@ -1,0 +1,90 @@
+[tool.poetry]
+name = "worker-automate-hub"
+version = "0.5.473"
+description = "Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta."
+authors = ["Joel Paim"]
+readme = "README.md"
+packages = [{include = "worker_automate_hub"}]
+classifiers = [
+    "Topic :: Utilities",
+    "Environment :: Console",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.12",
+]
+
+[tool.poetry.scripts]
+worker = "worker_automate_hub.cli:app"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.3"
+typer = "^0.12.3"
+rich = "^13.7.1"
+pathlib3x = "^2.0.3"
+dynaconf = "^3.2.5"
+prompt-toolkit = "^3.0.47"
+python-dotenv = "^1.0.1"
+pandas = "^2.2.2"
+aiohttp = "^3.9.5"
+openpyxl = "^3.1.4"
+xlib = "^0.21"
+pyfiglet = "^1.0.2"
+packaging = "^24.1"
+toml = "^0.10.2"
+psutil = "^6.0.0"
+pyscreeze = "^0.1.30"
+pywinauto = "^0.6.8"
+pyautogui = "^0.9.54"
+pillow = "^10.4.0"
+opencv-python = "^4.10.0.84"
+pydantic = "^2.8.2"
+pyperclip = "^1.9.0"
+inquirer = "^3.3.0"
+google-auth = "^2.32.0"
+google-auth-oauthlib = "^1.2.1"
+google-auth-httplib2 = "^0.2.0"
+google-api-python-client = "^2.136.0"
+playwright = "^1.45.1"
+pytesseract = "^0.3.10"
+torch = "^2.4.0"
+opencv-python-headless = "^4.10.0.84"
+timedelta = "^2020.12.3"
+beautifulsoup4 = "^4.12.3"
+xhtml2pdf = "^0.2.16"
+pywinauto-recorder = "^0.6.8"
+plyer = "^2.1.0"
+win10toast = "^0.9"
+python-dateutil = "^2.9.0.post0"
+pyqt6 = "^6.7.1"
+gitpython = "^3.1.43"
+selenium = "^4.27.1"
+webdriver-manager = "^4.0.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+pytest-cov = "^4.0.0"
+blue = "^0.9.1"
+isort = "^5.12.0"
+watchdog = "^4.0.1"
+import-linter = "^2.1"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = "."
+
+[tool.isort]
+profile = "black"
+line_length = 79
+
+[tool.taskipy.tasks]
+lint = "blue --check --diff . && isort --check --diff ."
+format = "blue . && isort ."
+pre_test = "task lint"
+test = "pytest -s -x --cov=abin_sim -vv"
+post_test = "coverage html"

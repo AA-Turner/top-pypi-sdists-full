@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 88
+target-version = ['py36', 'py37', 'py38', 'py39', 'py310', 'py310']
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error:::marshmallow_dataclass|test",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    '^\s*\.\.\.\s*$',
+    '^\s*pass\s*$',
+]

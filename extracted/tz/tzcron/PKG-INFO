@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: tzcron
+Version: 1.0.0
+Summary: Timezone aware Cron/Quartz parser
+Home-page: https://github.com/bloomberg/tzcron
+Author: Mario Corchero
+Author-email: mariocj89@gmail.com
+License: Apache
+Description: UNKNOWN
+Keywords: cron,time,datetime,timezone,quartz,schedule
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5

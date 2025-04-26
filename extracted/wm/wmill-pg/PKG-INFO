@@ -1,0 +1,39 @@
+Metadata-Version: 2.1
+Name: wmill-pg
+Version: 1.483.2
+Summary: An extension client for the wmill client library focused on pg
+Home-page: https://windmill.dev
+License: Apache-2.0
+Author: Ruben Fiszel
+Author-email: ruben@windmill.dev
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: psycopg2-binary
+Requires-Dist: wmill (>=1.5.0,<2.0.0)
+Project-URL: Documentation, https://windmill.dev
+Description-Content-Type: text/markdown
+
+# wmill
+
+The postgres extension client for the [Windmill](https://windmill.dev) platform.
+
+[windmill-api](https://pypi.org/project/windmill-api/).
+
+## Quickstart
+
+```python
+import wmill_pg
+
+
+def main():
+    my_list = query("UPDATE demo SET value = 'value' RETURNING key, value")
+    for key, value in my_list:
+        ...
+```
+

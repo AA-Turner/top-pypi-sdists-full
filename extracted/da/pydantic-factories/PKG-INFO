@@ -1,0 +1,132 @@
+Metadata-Version: 2.1
+Name: pydantic-factories
+Version: 1.17.3
+Summary: Mock data generation for pydantic based models and python dataclasses
+Home-page: https://github.com/starlite-api/pydantic-factories
+License: MIT
+Keywords: dataclasses,factory,faker,mock,pydantic,pytest,starlite,tdd,testing
+Author: Na'aman Hirschfeld
+Author-email: nhirschfeld@gmail.com
+Maintainer: Na'aman Hirschfeld
+Maintainer-email: nhirschfeld@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Pytest
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Testing :: Unit
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Dist: faker
+Requires-Dist: pydantic (>=1.10.0)
+Requires-Dist: typing-extensions
+Project-URL: Documentation, https://github.com/starlite-api/pydantic-factories
+Project-URL: Repository, https://github.com/starlite-api/pydantic-factories
+Description-Content-Type: text/markdown
+
+<!-- markdownlint-disable -->
+<p align="center">
+  <img src="https://github.com/starlite-api/branding/blob/9ab099a2089219c07727baaa29f67e9474ff93c8/assets/Starlite%20Branding%20-%20SVG%20-%20Transparent/Logo%20-%20Banner%20-%20Inline%20-%20Light.svg#gh-light-mode-only" alt="Starlite Logo - Light" width="100%" height="auto" />
+  <img src="https://github.com/starlite-api/branding/blob/9ab099a2089219c07727baaa29f67e9474ff93c8/assets/Starlite%20Branding%20-%20SVG%20-%20Transparent/Logo%20-%20Banner%20-%20Inline%20-%20Dark.svg#gh-dark-mode-only" alt="Starlite Logo - Dark" width="100%" height="auto" />
+</p>
+<!-- markdownlint-restore -->
+
+<!-- markdownlint-disable -->
+<div align="center">
+
+![PyPI - License](https://img.shields.io/pypi/l/pydantic-factories?color=blue)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pydantic-factories)
+
+[![Discord](https://img.shields.io/discord/919193495116337154?color=202235&label=%20Discord&logo=discord)](https://discord.gg/X3FJqy8d2j) [![Matrix](https://img.shields.io/badge/%5Bm%5D%20Matrix-bridged-blue?color=202235)](https://matrix.to/#/#starlitespace:matrix.org) [![Reddit](https://img.shields.io/reddit/subreddit-subscribers/starlite?label=r%2FStarlite&logo=reddit)](https://reddit.com/r/starlite)
+
+</div>
+<!-- markdownlint-restore -->
+
+# ⚠️
+
+# The next version of this library is released as [polyfactory](https://pypi.org/project/polyfactory/). Users are encouraged to migrate to it.
+
+# ⚠️
+
+# Pydantic-Factories
+
+This library offers powerful mock data generation capabilities for [pydantic](https://github.com/samuelcolvin/pydantic)
+based models, `dataclasses` and `TypeDict`s. It can also be used with other libraries that use pydantic as a foundation.
+
+Check out [the documentation 📚](https://starlite-api.github.io/pydantic-factories/).
+
+## Installation
+
+```shell
+pip install pydantic-factories
+```
+
+## Example
+
+```python
+from datetime import date, datetime
+from typing import List, Union
+
+from pydantic import BaseModel, UUID4
+
+from pydantic_factories import ModelFactory
+
+
+class Person(BaseModel):
+    id: UUID4
+    name: str
+    hobbies: List[str]
+    age: Union[float, int]
+    birthday: Union[datetime, date]
+
+
+class PersonFactory(ModelFactory):
+    __model__ = Person
+
+
+result = PersonFactory.build()
+```
+
+That's it - with almost no work, we are able to create a mock data object fitting the `Person` class model definition.
+
+This is possible because of the typing information available on the pydantic model and model-fields, which are used as a
+source of truth for data generation.
+
+The factory parses the information stored in the pydantic model and generates a dictionary of kwargs that are passed to
+the `Person` class' init method.
+
+## Features
+
+- ✅ supports both built-in and pydantic types
+- ✅ supports pydantic field constraints
+- ✅ supports complex field types
+- ✅ supports custom model fields
+- ✅ supports dataclasses
+- ✅ supports TypedDicts
+
+## Why This Library?
+
+- 💯 powerful
+- 💯 extensible
+- 💯 simple
+- 💯 rigorously tested
+
+## Contributing
+
+This library is open to contributions - in fact we welcome it. [Please see the contribution guide!](CONTRIBUTING.md)
+

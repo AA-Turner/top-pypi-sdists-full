@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ghome-foyer-api"
+description = "Generated protobuf stubs for Google Home Foyer API"
+authors = [{name = "Ruslan Sayfutdinov", email = "ruslan@sayfutdinov.com"}]
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+keywords = ["Google Home", "Foyer API"]
+requires-python = ">=3.9,<3.14"
+dynamic = ["version"]
+dependencies = [
+    "grpcio>=1.66.2,<2",
+    "protobuf>=5.28.3,<6",
+]
+
+[dependency-groups]
+dev = [
+    "grpc-stubs>=1.53.0.5",
+    "grpcio-tools==1.66.2",
+    "mypy-protobuf>=3.6.0",
+    "mypy>=1.13.0",
+    "ruff>=0.7.2",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/KapJI/ghome-foyer-api"
+"Bug Tracker" = "https://github.com/KapJI/ghome-foyer-api/issues"
+"Release Notes" = "https://github.com/KapJI/ghome-foyer-api/releases"
+
+[tool.hatch.build]
+packages = ["ghome_foyer_api"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.ruff]
+required-version = ">=0.7.0"
+target-version = "py39"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.9"
+show_error_codes = true
+strict = true
+disallow_any_explicit = true
+disallow_any_unimported = true
+warn_no_return = true
+warn_unreachable = true

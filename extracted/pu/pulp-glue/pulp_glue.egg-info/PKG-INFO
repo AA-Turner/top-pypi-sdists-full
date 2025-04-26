@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: pulp-glue
+Version: 0.32.1
+Summary: Version agnostic glue library to talk to pulpcore's REST API.
+Author-email: Pulp Team <pulp-list@redhat.com>
+License: GPLv2+
+Project-URL: documentation, https://pulpproject.org/pulp-glue/docs/dev/
+Project-URL: repository, https://github.com/pulp/pulp-cli
+Project-URL: changelog, https://pulpproject.org/pulp-cli/changes/
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: System :: Software Distribution
+Classifier: Typing :: Typed
+Requires-Python: <3.14,>=3.9
+Description-Content-Type: text/markdown
+
+# Pulp Glue
+## The version agnostic Pulp 3 client library in python

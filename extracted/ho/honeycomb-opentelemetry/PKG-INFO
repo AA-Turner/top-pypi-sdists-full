@@ -1,0 +1,66 @@
+Metadata-Version: 2.1
+Name: honeycomb-opentelemetry
+Version: 0.6.0b0
+Summary: Honeycomb OpenTelemetry Distro for Python
+License: Apache-2.0
+Author: Honeycomb
+Author-email: support@honeycomb.io
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Dist: opentelemetry-api (>=1.22.0,<2.0.0)
+Requires-Dist: opentelemetry-exporter-otlp (>=1.22.0,<2.0.0)
+Requires-Dist: opentelemetry-instrumentation (>=0.43b0,<0.44)
+Requires-Dist: opentelemetry-processor-baggage (>=0.46b0,<0.47)
+Requires-Dist: opentelemetry-sdk (>=1.22.0,<2.0.0)
+Description-Content-Type: text/markdown
+
+# Honeycomb OpenTelemetry Distro for Python
+
+[![OSS Lifecycle](https://img.shields.io/osslifecycle/honeycombio/honeycomb-opentelemetry-python)](https://github.com/honeycombio/home/blob/main/honeycomb-oss-lifecycle-and-practices.md)
+[![CircleCI](https://circleci.com/gh/honeycombio/honeycomb-opentelemetry-python.svg?style=shield)](https://circleci.com/gh/honeycombio/honeycomb-opentelemetry-python)
+[![PyPi](https://img.shields.io/pypi/v/honeycomb-opentelemetry)](https://pypi.org/project/honeycomb-opentelemetry/)
+
+**STATUS**: This project is being Sunset. See [this issue](https://github.com/honeycombio/honeycomb-opentelemetry-python/issues/193) for more details.
+
+This is Honeycomb's Distribution of OpenTelemetry for Python.
+It makes getting started with OpenTelemetry and Honeycomb easier!
+
+Latest release built with:
+
+- [OpenTelemetry version 1.22.0/0.43b0](https://github.com/open-telemetry/opentelemetry-python/releases/tag/v1.22.0)
+
+## Requirements
+
+- Python 3.8 or higher
+
+## Getting Started
+
+Honeycomb's Distribution of OpenTelemetry for Python allows you to streamline configuration and to instrument as quickly and easily as possible.
+
+- [Documentation](https://docs.honeycomb.io/getting-data-in/opentelemetry/python/)
+- [Examples](/examples/)
+  - [Flask](/examples/hello-world-flask/)
+  - [Django](/examples/hello-world-django/)
+- See [DEVELOPING.md](/DEVELOPING.md) for additional instructions for building and testing this project in development.
+
+## Why would I want to use this?
+
+- Streamlined configuration for sending data to Honeycomb!
+- Easy interop with existing instrumentation with OpenTelemetry!
+- Deterministic sampling!
+- Multi-span attributes!
+- Local visualizations!
+
+## License
+
+[Apache 2.0 License](./LICENSE).
+

@@ -1,0 +1,113 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "unearth"
+description = "A utility to fetch and download python packages"
+authors = [
+    { name = "Frost Ming", email = "me@frostming.com" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "packaging>=20",
+    "httpx>=0.27.0,<1",
+]
+dynamic = []
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+]
+version = "0.17.5"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/frostming/unearth"
+Documentation = "https://unearth.readthedocs.io"
+Changelog = "https://github.com/frostming/unearth/releases"
+
+[project.optional-dependencies]
+keyring = [
+    "keyring",
+]
+legacy = [
+    "requests>=2.25",
+]
+
+[project.scripts]
+unearth = "unearth.__main__:cli"
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.build]
+package-dir = "src"
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=6.1",
+    "pytest-httpserver>=1.0.4",
+    "flask>=2.1.2",
+    "requests-wsgi-adapter>=0.4.1",
+    "trustme>=0.9.0; python_version < \"3.13\"",
+    "pytest-mock>=3.12.0",
+]
+doc = [
+    "furo",
+    "sphinx",
+    "myst-parser",
+    "sphinx-copybutton",
+    "sphinx-argparse",
+]
+
+[tool.pdm.scripts]
+test = "pytest tests/"
+lint = "pre-commit run --all-files"
+doc = "sphinx-build -b html docs {args:docs/_build}"
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "B",
+    "C4",
+    "PGH",
+    "RUF",
+    "W",
+    "YTT",
+]
+extend-ignore = [
+    "B018",
+    "B019",
+]
+exclude = [
+    "tests/fixtures",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "unearth",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

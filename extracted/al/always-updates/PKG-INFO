@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: always_updates
+Version: 156.7
+Summary: always_updates updates your system, always.
+Home-page: https://github.com/alwaysupdates/always_updates
+Author: Always Updates
+Author-email: alwaysupdates@sixsixsigma.com
+License: MIT
+Download-URL: https://aupd.19700101t000000z.com
+Description: # always_updates
+        
+        always_updates updates your system. always_updates will always update, even
+        if other packages on your system do not have updates available.
+        
+        
+        ## installation
+        ```
+        pip install always-updates
+        ```
+        
+        ## usage
+        ```
+        aupd
+        ```
+        
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.0
+Description-Content-Type: text/markdown

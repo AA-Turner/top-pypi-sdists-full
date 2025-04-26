@@ -1,0 +1,595 @@
+Metadata-Version: 2.4
+Name: dbt-artifacts-parser
+Version: 0.8.2
+Summary: A dbt artifacts parser in python
+Project-URL: Home, https://github.com/yu-iskw/dbt-artifacts-parser
+Author: yu-iskw
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.8.0
+Requires-Dist: pydantic<3.0,>=2.0
+Provides-Extra: dev
+Requires-Dist: black==24.8.0; extra == 'dev'
+Requires-Dist: build==1.2.2; extra == 'dev'
+Requires-Dist: datamodel-code-generator<0.30,>=0.20; extra == 'dev'
+Requires-Dist: flake8<4.0.0,>=3.8.3; extra == 'dev'
+Requires-Dist: isort<6.0.0,>=5.0.6; extra == 'dev'
+Requires-Dist: mypy==1.14.1; extra == 'dev'
+Requires-Dist: pdoc3>=0.9.2; extra == 'dev'
+Requires-Dist: pre-commit>=2.15.0; extra == 'dev'
+Requires-Dist: pylint>=2.12.0; extra == 'dev'
+Requires-Dist: pyyaml>=5.3; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: pytest<9.0.0,>=6.2.4; extra == 'test'
+Description-Content-Type: text/markdown
+
+[![Test python](https://github.com/yu-iskw/dbt-artifacts-parser/actions/workflows/test.yml/badge.svg)](https://github.com/yu-iskw/dbt-artifacts-parser/actions/workflows/test.yml)
+<a href="https://pypi.org/project/dbt-artifacts-parser" target="_blank">
+<img src="https://img.shields.io/pypi/v/dbt-artifacts-parser?color=%2334D058&label=pypi%20package" alt="Package version">
+</a>
+<a href="https://pypi.org/project/dbt-artifacts-parser" target="_blank">
+<img src="https://img.shields.io/pypi/pyversions/dbt-artifacts-parser.svg?color=%2334D058" alt="Supported Python versions">
+</a>
+
+# dbt-artifacts-parser
+
+This is a dbt artifacts parse in python.
+It enables us to deal with `catalog.json`, `manifest.json`, `run-results.json` and `sources.json` as python objects.
+
+This package is primarily designed for dbt-core, enabling seamless interaction with dbt artifacts as Python objects. While dbt Cloud provides additional artifact types beyond those of dbt-core, this package does not offer comprehensive support for them.
+
+## Supported Versions and Compatibility
+
+> **⚠️ Important Note:**
+>
+> - **Pydantic v1 will not be supported for dbt 1.9 or later.**
+> - **To parse dbt 1.9 or later, please migrate your code to pydantic v2.**
+> - **We will reassess version compatibility upon the release of pydantic v3.**
+
+| Version | Supported dbt Version | Supported pydantic Version |
+|---------|-----------------------|----------------------------|
+|  0.8    | dbt 1.5 to 1.9        | pydantic v2                |
+|  0.7    | dbt 1.5 to 1.8        | pydantic v2                |
+|  0.6    | dbt 1.5 to 1.8        | pydantic v1                |
+|  0.5    | dbt 1.5 to 1.7        | pydantic v1                |
+
+## Installation
+
+```bash
+pip install -U dbt-artifacts-parser
+```
+
+## Python classes
+
+Those are the classes to parse dbt artifacts.
+
+### Catalog
+
+- [CatalogV1](dbt_artifacts_parser/parsers/catalog/catalog_v1.py) for catalog.json v1
+
+### Manifest
+
+- [ManifestV1](dbt_artifacts_parser/parsers/manifest/manifest_v1.py) for manifest.json v1
+- [ManifestV2](dbt_artifacts_parser/parsers/manifest/manifest_v2.py) for manifest.json v2
+- [ManifestV3](dbt_artifacts_parser/parsers/manifest/manifest_v3.py) for manifest.json v3
+- [ManifestV4](dbt_artifacts_parser/parsers/manifest/manifest_v4.py) for manifest.json v4
+- [ManifestV5](dbt_artifacts_parser/parsers/manifest/manifest_v5.py) for manifest.json v5
+- [ManifestV6](dbt_artifacts_parser/parsers/manifest/manifest_v6.py) for manifest.json v6
+- [ManifestV7](dbt_artifacts_parser/parsers/manifest/manifest_v7.py) for manifest.json v7
+- [ManifestV8](dbt_artifacts_parser/parsers/manifest/manifest_v8.py) for manifest.json v8
+- [ManifestV9](dbt_artifacts_parser/parsers/manifest/manifest_v9.py) for manifest.json v9
+- [ManifestV10](dbt_artifacts_parser/parsers/manifest/manifest_v10.py) for manifest.json v10
+- [ManifestV11](dbt_artifacts_parser/parsers/manifest/manifest_v11.py) for manifest.json v11
+- [ManifestV12](dbt_artifacts_parser/parsers/manifest/manifest_v12.py) for manifest.json v12
+
+### Run Results
+
+- [RunResultsV1](dbt_artifacts_parser/parsers/manifest/manifest_v1.py) for run_results.json v1
+- [RunResultsV2](dbt_artifacts_parser/parsers/manifest/manifest_v2.py) for run_results.json v2
+- [RunResultsV3](dbt_artifacts_parser/parsers/manifest/manifest_v3.py) for run_results.json v3
+- [RunResultsV4](dbt_artifacts_parser/parsers/manifest/manifest_v4.py) for run_results.json v4
+- [RunResultsV5](dbt_artifacts_parser/parsers/manifest/manifest_v5.py) for run_results.json v5
+- [RunResultsV6](dbt_artifacts_parser/parsers/manifest/manifest_v6.py) for run_results.json v6
+
+### Sources
+
+- [SourcesV1](dbt_artifacts_parser/parsers/sources/sources_v1.py) for sources.json v1
+- [SourcesV2](dbt_artifacts_parser/parsers/sources/sources_v2.py) for sources.json v2
+- [SourcesV3](dbt_artifacts_parser/parsers/sources/sources_v3.py) for sources.json v3
+
+## Examples
+
+### Parse catalog.json
+
+```python
+import json
+
+# parse any version of catalog.json
+from dbt_artifacts_parser.parser import parse_catalog
+
+with open("path/to/catalog.json", "r") as fp:
+    catalog_dict = json.load(fp)
+    catalog_obj = parse_catalog(catalog=catalog_dict)
+
+# parse catalog.json v1
+from dbt_artifacts_parser.parser import parse_catalog_v1
+
+with open("path/to/catalog.json", "r") as fp:
+    catalog_dict = json.load(fp)
+    catalog_obj = parse_catalog_v1(catalog=catalog_dict)
+```
+
+### Parse manifest.json
+
+```python
+import json
+
+# parse any version of manifest.json
+from dbt_artifacts_parser.parser import parse_manifest
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest(manifest=manifest_dict)
+
+# parse manifest.json v1
+from dbt_artifacts_parser.parser import parse_manifest_v1
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v1(manifest=manifest_dict)
+
+# parse manifest.json v2
+from dbt_artifacts_parser.parser import parse_manifest_v2
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v2(manifest=manifest_dict)
+
+# parse manifest.json v3
+from dbt_artifacts_parser.parser import parse_manifest_v3
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v3(manifest=manifest_dict)
+
+# parse manifest.json v4
+from dbt_artifacts_parser.parser import parse_manifest_v4
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v4(manifest=manifest_dict)
+
+# parse manifest.json v5
+from dbt_artifacts_parser.parser import parse_manifest_v5
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v5(manifest=manifest_dict)
+
+# parse manifest.json v6
+from dbt_artifacts_parser.parser import parse_manifest_v6
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v6(manifest=manifest_dict)
+
+# parse manifest.json v7
+from dbt_artifacts_parser.parser import parse_manifest_v7
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v7(manifest=manifest_dict)
+
+# parse manifest.json v8
+from dbt_artifacts_parser.parser import parse_manifest_v8
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v8(manifest=manifest_dict)
+
+# parse manifest.json v9
+from dbt_artifacts_parser.parser import parse_manifest_v9
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v9(manifest=manifest_dict)
+
+# parse manifest.json v10
+from dbt_artifacts_parser.parser import parse_manifest_v10
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v10(manifest=manifest_dict)
+
+# parse manifest.json v11
+from dbt_artifacts_parser.parser import parse_manifest_v11
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v11(manifest=manifest_dict)
+
+# parse manifest.json v12
+from dbt_artifacts_parser.parser import parse_manifest_v12
+
+with open("path/to/manifest.json", "r") as fp:
+    manifest_dict = json.load(fp)
+    manifest_obj = parse_manifest_v12(manifest=manifest_dict)
+```
+
+### Parse run-results.json
+
+```python
+import json
+
+# parse any version of run-results.json
+from dbt_artifacts_parser.parser import parse_run_results
+
+with open("path/to/run-resultsjson", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results(run_results=run_results_dict)
+
+# parse run-results.json v1
+from dbt_artifacts_parser.parser import parse_run_results_v1
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v1(run_results=run_results_dict)
+
+# parse run-results.json v2
+from dbt_artifacts_parser.parser import parse_run_results_v2
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v2(run_results=run_results_dict)
+
+# parse run-results.json v3
+from dbt_artifacts_parser.parser import parse_run_results_v3
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v3(run_results=run_results_dict)
+
+# parse run-results.json v4
+from dbt_artifacts_parser.parser import parse_run_results_v4
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v4(run_results=run_results_dict)
+
+# parse run-results.json v5
+from dbt_artifacts_parser.parser import parse_run_results_v5
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v5(run_results=run_results_dict)
+
+# parse run-results.json v6
+from dbt_artifacts_parser.parser import parse_run_results_v6
+
+with open("path/to/run-results.json", "r") as fp:
+    run_results_dict = json.load(fp)
+    run_results_obj = parse_run_results_v6(run_results=run_results_dict)
+```
+
+### Parse sources.json
+
+```python
+import json
+
+# parse any version of sources.json
+from dbt_artifacts_parser.parser import parse_sources
+
+with open("path/to/sources.json", "r") as fp:
+    sources_dict = json.load(fp)
+    sources_obj = parse_sources(sources=sources_dict)
+
+# parse sources.json v1
+from dbt_artifacts_parser.parser import parse_sources_v1
+
+with open("path/to/sources.json", "r") as fp:
+    sources_dict = json.load(fp)
+    sources_obj = parse_sources_v1(sources=sources_dict)
+
+# parse sources.json v2
+from dbt_artifacts_parser.parser import parse_sources_v2
+
+with open("path/to/sources.json", "r") as fp:
+    sources_dict = json.load(fp)
+    sources_obj = parse_sources_v2(sources=sources_dict)
+
+# parse sources.json v3
+from dbt_artifacts_parser.parser import parse_sources_v3
+
+with open("path/to/sources.json", "r") as fp:
+    sources_dict = json.load(fp)
+    sources_obj = parse_sources_v3(sources=sources_dict)
+```
+
+## Contributors
+
+Thank you for your contributions!
+
+If you are interested in contributing to this package, please check out the [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+<!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/yu-iskw">
+                    <img src="https://avatars.githubusercontent.com/u/1523515?v=4" width="100;" alt="yu-iskw"/>
+                    <br />
+                    <sub><b>Yu Ishikawa</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/dlawin">
+                    <img src="https://avatars.githubusercontent.com/u/11282254?v=4" width="100;" alt="dlawin"/>
+                    <br />
+                    <sub><b>Null</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/bbrewington">
+                    <img src="https://avatars.githubusercontent.com/u/10573749?v=4" width="100;" alt="bbrewington"/>
+                    <br />
+                    <sub><b>Brent Brewington</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/judahrand">
+                    <img src="https://avatars.githubusercontent.com/u/17158624?v=4" width="100;" alt="judahrand"/>
+                    <br />
+                    <sub><b>Judah Rand</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/ulixius9">
+                    <img src="https://avatars.githubusercontent.com/u/39544459?v=4" width="100;" alt="ulixius9"/>
+                    <br />
+                    <sub><b>Mayur Singal</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/nabilm">
+                    <img src="https://avatars.githubusercontent.com/u/987369?v=4" width="100;" alt="nabilm"/>
+                    <br />
+                    <sub><b>Mohamed Nabil Mahmoud Hafez</b></sub>
+                </a>
+            </td>
+		</tr>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/OnkarVO7">
+                    <img src="https://avatars.githubusercontent.com/u/28966081?v=4" width="100;" alt="OnkarVO7"/>
+                    <br />
+                    <sub><b>Onkar Ravgan</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/meyer-glean">
+                    <img src="https://avatars.githubusercontent.com/u/134302890?v=4" width="100;" alt="meyer-glean"/>
+                    <br />
+                    <sub><b>Null</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
+<!-- readme: contributors -end -->

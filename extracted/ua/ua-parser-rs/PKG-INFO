@@ -1,0 +1,36 @@
+Metadata-Version: 2.3
+Name: ua-parser-rs
+Version: 0.1.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: License :: OSI Approved :: Apache Software License
+License-File: LICENSE
+Summary: native accelerator for ua-parser
+Home-Page: https://github.com/ua-parser/uap-rust/blob/main/ua-parser/
+Author: masklinn <uap@masklinn.net>
+Author-email: masklinn <uap@masklinn.net>
+License: Apache 2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/ua-parser/uap-rust/
+
+a ua-parser accelerator
+=======================
+
+This package is (currently) not intended to be used directly, instead
+it is one of the native accelerators for [ua-parser][1].
+
+The API is very simplistic and should be pretty stable (if only
+because having to update [ua-parser][1] all the time is undesirable),
+but there is no formal guarantee that it'll keep, as the goal is
+really nothing more than a very basic export of [uap-rust][2] to
+Python.
+
+[1]: https://pypi.org/project/ua-parser/
+[2]: https://crates.io/crates/ua-parser
+

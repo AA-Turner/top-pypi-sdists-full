@@ -1,0 +1,144 @@
+Metadata-Version: 2.1
+Name: whylogs
+Version: 1.6.4
+Summary: Profile and monitor your ML data pipeline end-to-end
+Home-page: https://docs.whylabs.ai
+License: Apache-2.0
+Author: WhyLabs.ai
+Author-email: support@whylabs.ai
+Requires-Python: >=3.7.1,<4
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Provides-Extra: all
+Provides-Extra: datasets
+Provides-Extra: docs
+Provides-Extra: embeddings
+Provides-Extra: fugue
+Provides-Extra: gcs
+Provides-Extra: image
+Provides-Extra: mlflow
+Provides-Extra: proc
+Provides-Extra: proc-mp
+Provides-Extra: s3
+Provides-Extra: spark
+Provides-Extra: viz
+Requires-Dist: Pillow (>=10.1.0,<11) ; (python_version >= "3.8") and (extra == "viz" or extra == "image" or extra == "all")
+Requires-Dist: Pillow (>=9.2.0) ; (python_version < "3.8") and (extra == "viz" or extra == "image" or extra == "all")
+Requires-Dist: backoff (>=2.2.1,<3.0.0)
+Requires-Dist: boto3 (>=1.22.13,<2.0.0) ; (python_version >= "3.8") and (extra == "s3" or extra == "all")
+Requires-Dist: databricks-cli (>=0.8.0,<0.9.0) ; extra == "mlflow"
+Requires-Dist: faster-fifo (>=1.4.5,<2.0.0) ; extra == "proc" or extra == "all"
+Requires-Dist: fugue (>=0.8.1,<0.9.0) ; extra == "fugue" or extra == "all"
+Requires-Dist: furo (>=2022.3.4,<2023.0.0) ; extra == "docs"
+Requires-Dist: google-cloud-storage (>=2.5.0,<3.0.0) ; extra == "gcs" or extra == "all"
+Requires-Dist: importlib-metadata (<4.3) ; python_version < "3.8"
+Requires-Dist: ipython ; extra == "viz" or extra == "all"
+Requires-Dist: ipython_genutils (>=0.2.0,<0.3.0) ; extra == "docs"
+Requires-Dist: mlflow-skinny (<2.0.1) ; (python_version < "3.8") and (extra == "mlflow" or extra == "all")
+Requires-Dist: mlflow-skinny (>=2.5.0,<3.0.0) ; (python_version >= "3.8") and (extra == "mlflow" or extra == "all")
+Requires-Dist: myst-parser[sphinx] (>=0.17.2,<0.18.0) ; extra == "docs"
+Requires-Dist: nbconvert (>=7.0.0,<8.0.0) ; extra == "docs"
+Requires-Dist: nbsphinx (>=0.8.9,<0.9.0) ; extra == "docs"
+Requires-Dist: numpy (>=1.23.2) ; (python_version >= "3.11") and (extra == "viz" or extra == "image" or extra == "embeddings" or extra == "all")
+Requires-Dist: numpy ; (python_version < "3.11") and (extra == "viz" or extra == "image" or extra == "embeddings" or extra == "all")
+Requires-Dist: orjson (>=3.8.10,<4.0.0) ; extra == "proc" or extra == "proc-mp" or extra == "all"
+Requires-Dist: pandas ; extra == "datasets" or extra == "proc" or extra == "proc-mp" or extra == "all"
+Requires-Dist: platformdirs (>=3.5.0,<4.0.0)
+Requires-Dist: protobuf (>=3.19.4)
+Requires-Dist: pyarrow (>=8.0.0,<13) ; extra == "spark" or extra == "all"
+Requires-Dist: pybars3 (>=0.9,<0.10) ; extra == "viz" or extra == "all"
+Requires-Dist: pyspark (>=3.0.0,<4.0.0) ; extra == "spark" or extra == "all"
+Requires-Dist: requests (>=2.27,<3.0)
+Requires-Dist: scikit-learn (>=1.0.2,<2.0.0) ; (python_version < "3.11") and (extra == "embeddings" or extra == "all")
+Requires-Dist: scikit-learn (>=1.1.2,<2) ; (python_version >= "3.11") and (extra == "embeddings" or extra == "all")
+Requires-Dist: scipy (>=1.5) ; (python_version < "3.11") and (extra == "viz" or extra == "all")
+Requires-Dist: scipy (>=1.9.2) ; (python_version >= "3.11") and (extra == "viz" or extra == "all")
+Requires-Dist: sphinx ; extra == "docs"
+Requires-Dist: sphinx-autoapi ; extra == "docs"
+Requires-Dist: sphinx-autobuild (>=2021.3.14,<2022.0.0) ; extra == "docs"
+Requires-Dist: sphinx-copybutton (>=0.5.0,<0.6.0) ; extra == "docs"
+Requires-Dist: sphinx-inline-tabs ; (python_version >= "3.8" and python_version < "4") and (extra == "docs")
+Requires-Dist: sphinxext-opengraph (>=0.6.3,<0.7.0) ; extra == "docs"
+Requires-Dist: typing-extensions (>=3.10) ; python_version < "4"
+Requires-Dist: whylabs-client (>=0.6.15,<0.7.0)
+Requires-Dist: whylogs-sketching (>=3.4.1.dev3)
+Description-Content-Type: text/markdown
+
+<img src="https://static.scarf.sh/a.png?x-pxid=bc3c57b0-9a65-49fe-b8ea-f711c4d35b82" /><p align="center">
+<img src="https://i.imgur.com/nv33goV.png" width="35%"/>
+</br>
+
+<h1 align="center">The open standard for data logging
+
+ </h1>
+  <h3 align="center">
+   <a href="https://whylogs.readthedocs.io/"><b>Documentation</b></a> &bull;
+   <a href="https://bit.ly/whylogsslack"><b>Slack Community</b></a> &bull;
+   <a href="https://github.com/whylabs/whylogs#python-quickstart"><b>Python Quickstart</b></a> &bull;
+   <a href="https://whylogs.readthedocs.io/en/latest/examples/integrations/writers/Writing_to_WhyLabs.html"><b>WhyLabs Quickstart</b></a>
+ </h3>
+
+<p align="center">
+<a href="https://github.com/whylabs/whylogs-python/blob/mainline/LICENSE" target="_blank">
+    <img src="http://img.shields.io/:license-Apache%202-blue.svg" alt="License">
+</a>
+<a href="https://badge.fury.io/py/whylogs" target="_blank">
+    <img src="https://badge.fury.io/py/whylogs.svg" alt="PyPi Version">
+</a>
+<a href="https://github.com/python/black" target="_blank">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black">
+</a>
+<a href="https://pepy.tech/project/whylogs" target="_blank">
+    <img src="https://pepy.tech/badge/whylogs" alt="PyPi Downloads">
+</a>
+<a href="bit.ly/whylogs" target="_blank">
+    <img src="https://github.com/whylabs/whylogs-python/workflows/whylogs%20CI/badge.svg" alt="CI">
+</a>
+<a href="https://codeclimate.com/github/whylabs/whylogs-python/maintainability" target="_blank">
+    <img src="https://api.codeclimate.com/v1/badges/442f6ca3dca1e583a488/maintainability" alt="Maintainability">
+</a>
+</p>
+
+## What is whylogs
+
+whylogs is an open source library for logging any kind of data. With whylogs, users are able to generate summaries of their datasets (called _whylogs profiles_) which they can use to:
+
+1. Track changes in their dataset
+2. Create _data constraints_ to know whether their data looks the way it should
+3. Quickly visualize key summary statistics about their datasets
+
+These three functionalities enable a variety of use cases for data scientists, machine learning engineers, and data engineers:
+
+- Detect data drift in model input features
+- Detect training-serving skew, concept drift, and model performance degradation
+- Validate data quality in model inputs or in a data pipeline
+- Perform exploratory data analysis of massive datasets
+- Track data distributions & data quality for ML experiments
+- Enable data auditing and governance across the organization
+- Standardize data documentation practices across the organization
+- And more
+
+## Quickstart
+
+Install whylogs using the pip package manager in a terminal by running:
+
+```
+pip install whylogs
+```
+
+Then you can log data in python as simply as this:
+
+```python
+import whylogs as why
+import pandas as pd
+
+df = pd.read_csv("path/to/file.csv")
+results = why.log(df)
+```
+
+And voilà, you now have a whylogs profile. To learn more about what a whylogs profile is and what you can do with it, check out our [docs](https://whylogs.readthedocs.io/en/latest/) and our [examples](https://github.com/whylabs/whylogs/tree/mainline/python/examples).
+

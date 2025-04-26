@@ -1,0 +1,199 @@
+[build-system]
+requires = ["setuptools >= 61.1.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optuna-integration"
+description = "Integration libraries of Optuna."
+readme = "README.md"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+dependencies = [
+  "optuna",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "coverage",
+  "fakeredis[lua]",
+  "grpcio",
+  "protobuf>=5.28.1",
+]
+checking = [
+  "black",
+  "blackdoc",
+  "hacking",
+  "isort",
+  "mypy",
+  "types-PyYAML",
+  "types-redis",
+  "types-setuptools",
+  "typing_extensions>=3.10.0.0",
+]
+document = [
+    "mlflow",
+    "pandas",
+    "scikit-learn>=0.24.2",
+    "scipy>=1.9.2; python_version>='3.8'",
+    "sphinx",
+    "sphinx-notfound-page",
+    "sphinx_rtd_theme",
+]
+allennlp = [
+    "allennlp",
+    "jsonnet",
+    "numpy<2.0.0",
+    "psutil",
+]
+chainer = [
+    "chainer",
+    "numpy<2.0.0",
+]
+chainermn = [
+    "chainermn",
+    "numpy<2.0.0",
+]
+botorch = [
+    "botorch<0.10.0",
+]
+catboost = [
+    "numpy<2.0.0",  # TODO(nabe): Remove this constraint once this issue is resolved. https://github.com/numpy/numpy/issues/26710
+    "catboost",
+]
+cma = [
+    "numpy<2.0.0",  # TODO(nabe): Remove this constraint once this issue is resolved. https://github.com/numpy/numpy/issues/26710
+    "cma",
+]
+comet = [
+    "comet_ml>=3.39.3",
+]
+dask = [
+    "distributed",
+]
+fastai = [
+    "fastai>=2.0.0",
+]
+fastaiv2 = [
+    "fastai>=2.0.0",
+]
+keras = [
+    "tensorflow",
+]
+lightgbm = [
+    "lightgbm",
+    "scikit-learn",
+]
+mlflow = [
+    "mlflow",
+]
+mxnet = [
+    "mxnet",
+]
+pytorch_distributed = [
+    "gpytorch",
+]
+pytorch-distributed = [
+    "gpytorch",
+]
+pytorch_ignite = [
+    "pytorch-ignite",
+]
+pytorch-ignite = [
+    "pytorch-ignite",
+]
+pytorch_lightning = [
+    "lightning",
+]
+pytorch-lightning = [
+    "lightning",
+]
+shap = [
+    "numpy<2.0.0",  # TODO(nabe): Remove this constraint once this issue is resolved. https://github.com/numpy/numpy/issues/26710
+    "shap",
+]
+sklearn = [
+    "pandas",
+    "scikit-learn",
+    "scipy",
+]
+skorch = [
+    "skorch",
+    # "torch",  # Required for running test_skorch.
+]
+tensorboard = [
+    "tensorboard",
+    "tensorflow",
+]
+tensorflow = [
+    "tensorflow<=2.15.0",
+]
+tfkeras = [
+    "tensorflow",
+]
+wandb = [
+    "wandb",
+]
+xgboost = [
+    "xgboost",
+]
+
+[project.urls]
+repository = "https://github.com/optuna/optuna-integration"
+
+[tool.setuptools.packages.find]
+# where = ["."]
+include = ["optuna_integration*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "optuna_integration.version.__version__"}
+
+[tool.black]
+line-length = 99
+target-version = ['py38']
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.isort]
+profile = 'black'
+src_paths = ['optuna_integration', 'tests', 'docs']
+line_length = 99
+lines_after_imports = 2
+force_single_line = 'True'
+force_sort_within_sections = 'True'
+order_by_type = 'False'
+
+[tool.pytest.ini_options]
+addopts = "--color=yes"

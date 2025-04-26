@@ -1,0 +1,170 @@
+[build-system]
+requires = [
+    "hatchling>=0.21.1",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "backrefs"
+description = "A wrapper around re and regex that adds additional back references."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
+]
+keywords = [
+    "regex",
+    "re"
+]
+dynamic = [
+    "classifiers",
+    "version"
+]
+
+[project.optional-dependencies]
+extras = [
+    "regex"
+]
+
+[project.urls]
+Homepage = "https://github.com/facelessuser/backrefs"
+
+[tool.hatch.version]
+source = "code"
+path = "backrefs/__meta__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/docs/src/markdown/**/*.md",
+    "/docs/src/markdown/**/*.gif",
+    "/docs/src/markdown/**/*.png",
+    "/docs/src/markdown/dictionary/*.txt",
+    "/docs/theme/**/*.css",
+    "/docs/theme/**/*.js",
+    "/docs/theme/**/*.html",
+    "/requirements/*.txt",
+    "/backrefs/**/*.py",
+    "/backrefs/py.typed",
+    "/tests/**/*.py",
+    "/tools/**/*.py",
+    "/tools/unicodedata/*.zip",
+    "/tools/unicodedata/LICENSE",
+    "/.pyspelling.yml",
+    "/.coveragerc",
+    "/mkdocs.yml"
+]
+
+exclude = [
+    "backrefs/uniprops/unidata/*"
+]
+
+[tool.hatch.build.targets.wheel]
+ignore-vcs = true
+include = [
+    "/backrefs"
+]
+
+[tool.hatch.build.hooks.custom]
+[tool.hatch.metadata.hooks.custom]
+
+[tool.mypy]
+files = [
+    "backrefs"
+]
+strict = true
+show_error_codes = true
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = [
+    'backrefs.uniprops.*',
+    'backrefs._bregex_typing'
+]
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = 'backrefs.uniprops.*'
+implicit_reexport = true
+
+[tool.ruff]
+line-length = 120
+
+extend-exclude = [
+    "backrefs/uniprops/unidata/*"
+]
+
+lint.select = [
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "D",    # pydocstyle
+    "C4",   # flake8-comprehensions
+    "N",    # pep8-naming
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "PGH",  # pygrep-hooks
+    "RUF",  # ruff
+    # "UP",   # pyupgrade
+    "W",    # pycodestyle
+    "YTT",  # flake8-2020,
+    "PERF"  # Perflint
+]
+
+lint.ignore = [
+    "B034",
+    "E741",
+    "D202",
+    "D401",
+    "D212",
+    "D203",
+    "N802",
+    "N801",
+    "N803",
+    "N806",
+    "N818",
+    "RUF012",
+    "RUF005",
+    "PGH004",
+    "RUF022",
+    "RUF023",
+    "RUF100"
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+envlist =
+    py39,py310,py311,py312,py313,
+    lint
+
+[testenv]
+passenv = *
+deps=
+    .[extras]
+    -r requirements/test.txt
+commands=
+    {envpython} tools/unidatadownload.py
+    {envpython} tools/unipropgen.py backrefs/uniprops/unidata
+    {envpython} -m mypy
+    {envpython} -m pytest --cov backrefs --cov-append tests
+    {envpython} -m coverage html -d {envtmpdir}/coverage
+    {envpython} -m coverage xml
+    {envpython} -m coverage report --show-missing
+
+[testenv:documents]
+passenv = *
+deps=
+    -r requirements/docs.txt
+commands=
+    {envpython} -m mkdocs build --clean --verbose --strict
+    {envbindir}/pyspelling
+
+[testenv:lint]
+passenv = *
+deps=
+    .
+    -r requirements/lint.txt
+commands=
+    "{envbindir}"/ruff check .
+"""

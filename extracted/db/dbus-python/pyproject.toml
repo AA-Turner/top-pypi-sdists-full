@@ -1,0 +1,50 @@
+# Copyright 2022 Collabora Ltd.
+# SPDX-License-Identifier: MIT
+
+[build-system]
+build-backend = 'mesonpy'
+requires = [
+    'meson-python>=0.8.1',
+    'meson>=0.60.0',
+    'ninja',
+    'patchelf',
+    'setuptools',
+    'wheel',
+]
+
+[project]
+name = 'dbus-python'
+license = { text = 'Expat (MIT/X11)' }
+description = 'Python bindings for libdbus'
+maintainers = [
+    { name = 'The D-Bus maintainers', email = 'dbus@lists.freedesktop.org' },
+]
+requires-python = '>=3.7'
+readme = { file = 'README', content-type = 'text/x-rst' }
+keywords = ['dbus', 'D-Bus']
+classifiers = [
+    'Development Status :: 7 - Inactive',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: C',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Topic :: Software Development :: Object Brokering',
+]
+dynamic = [
+    'version'
+]
+
+[project.optional-dependencies]
+doc = [
+    'sphinx',
+    'sphinx_rtd_theme',
+]
+test = [
+    'tap.py',
+]
+
+[project.urls]
+homepage = 'http://www.freedesktop.org/wiki/Software/DBusBindings/#python'
+download = 'http://dbus.freedesktop.org/releases/dbus-python/'
+source = 'https://gitlab.freedesktop.org/dbus/dbus-python/'
+tracker = 'https://gitlab.freedesktop.org/dbus/dbus-python/-/issues'

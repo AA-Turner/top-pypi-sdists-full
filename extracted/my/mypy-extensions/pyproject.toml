@@ -1,0 +1,33 @@
+[build-system]
+requires      = ["flit_core>=3.11,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name        = "mypy_extensions"
+version     = "1.1.0"
+description = "Type system extensions for programs checked with the mypy type checker."
+readme      = "README.md"
+authors     = [
+    {name = "The mypy developers", email = "jukka.lehtosalo@iki.fi"}
+]
+license     = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/python/mypy_extensions"
+
+[tool.flit.sdist]
+include = ["tox.ini", "*/*test*.py"]

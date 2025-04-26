@@ -1,0 +1,63 @@
+[build-system]
+requires = [
+    "setuptools>=61.2",
+    "setuptools_scm[toml]>=6.2",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "LbEnv"
+requires-python = ">=3.7"
+authors = [{name = "CERN - LHCb Core Software", email = "lhcb-core-soft@cern.ch"}]
+description = "LHCb Environment tools"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+]
+urls = {Homepage = "https://gitlab.cern.ch/lhcb-core/LbEnv"}
+dependencies = [
+    "LbPlatformUtils>=4.2.3",
+    "xenv<1.0.0",
+    "importlib_resources",
+    "importlib_metadata",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+testing = [
+    "pytest", "pytest-cov",
+    "coverage",
+]
+
+[project.scripts]
+lb-run = "LbEnv.ProjectEnv.script:main"
+lb-completion-helper = "LbEnv.Utils.Completion:main"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["python"]
+namespaces = false
+
+[tool.setuptools.package-data]
+LbEnv = [
+    "data/projects.txt",
+    "data/packages.txt",
+    "data/aliases.sh",
+    "data/aliases.csh",
+]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+lint.select = ["E", "F", "I", "UP"]
+# TODO: These should be fixed rather than ignored
+lint.ignore = ["E501", "E731", "E741", "F401", "E722", "E721"]
+line-length = 120
+src = ["python", "tests"]

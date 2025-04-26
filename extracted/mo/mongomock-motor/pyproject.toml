@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "mongomock-motor"
+version = "0.0.35"
+description = "Library for mocking AsyncIOMotorClient built on top of mongomock."
+keywords = ["library", "mongodb"]
+readme = "README.md"
+authors = ["Michael Kryukov <kryukov.ms@ya.ru>"]
+license = "MIT"
+repository = "https://github.com/michaelkryukov/mongomock_motor"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+mongomock = "^4.1.2"
+
+[tool.poetry.group.dev.dependencies]
+anyio = "^3.5.0"
+beanie = "^1.21.0"
+mongo-thingy = "^0.15.1"
+pytest = "^7.0.0"
+ruff = "^0.2.0"
+umongo = "^3.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

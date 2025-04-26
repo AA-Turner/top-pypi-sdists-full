@@ -1,0 +1,21 @@
+"""
+Configuration file for the Sphinx documentation builder.
+
+Receives majority of configuration from pytools conf_base.py
+"""
+
+import os
+import sys
+
+_dir_base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "base")
+sys.path.insert(0, _dir_base)
+
+from conf_base import set_config  # noqa: E402
+
+# ----- set custom configuration -----
+
+set_config(
+    globals(),
+    project="pytools",
+    html_logo=os.path.join("_images", "gamma_pytools_logo.png"),
+)

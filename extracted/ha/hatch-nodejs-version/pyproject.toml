@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hatch-nodejs-version"
+description = "Hatch plugin for versioning from a package.json file"
+authors = [
+    {name = "Angus Hollands", email = "goosey15@gmail.com"},
+]
+dependencies = [
+    "hatchling>=0.21.0"
+]
+requires-python = ">= 3.7"
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+  "Framework :: Hatch",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+
+[project.entry-points.hatch]
+nodejs = "hatch_nodejs_version.hooks"
+
+[project.urls]
+Homepage = "https://github.com/agoose77/hatch-nodejs-version"
+"Issue Tracker" = "https://github.com/agoose77/hatch-nodejs-version/issues"
+"Source Code" = "https://github.com/agoose77/hatch-nodejs-version"
+
+[tool.hatch.version]
+path = "hatch_nodejs_version/_version.py"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = "extern"
+
+[tool.isort]
+profile = "black"
+
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=7.0.1",
+]

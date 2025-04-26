@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "suntimes"
+version = "1.1.2"
+authors = [
+  { name="Paul MATHIS", email="pmathis@protonmail.com" },
+]
+description = "For a given place (longitude, latitude and altitude) and a given day, returns the time of sunrise and the time of sunset (in UTC and in local time). Create and save a json or csv file with the timetables for a whole year. Calculations valid beyond the polar circles; returns Polar Day or Polar Night if needed."
+readme = "README.md"
+license = { file="LICENSE" }
+keywords = ["sun", "sunset", "sunrise","python" ]
+requires-python = ">=3.6"
+dependencies = [
+    "pytz",
+    "tzlocal",
+    "jdcal"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/p-mathis/suntimes"
+

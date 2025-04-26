@@ -1,0 +1,30 @@
+Metadata-Version: 1.1
+Name: callee
+Version: 0.3.1
+Summary: Argument matchers for unittest.mock
+Home-page: https://github.com/Xion/callee
+Author: Karol Kuczmarski
+Author-email: UNKNOWN
+License: BSD
+Description: 
+        callee
+        ======
+        
+        Argument matchers for unittest.mock
+        
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Testing

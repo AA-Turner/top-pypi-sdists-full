@@ -1,0 +1,13 @@
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from typing import ClassVar as _ClassVar
+
+DESCRIPTOR: _descriptor.FileDescriptor
+FEATURE_STORE_FORMAT_VERSION_DEFAULT: FeatureStoreFormatVersion
+FEATURE_STORE_FORMAT_VERSION_MAX: FeatureStoreFormatVersion
+FEATURE_STORE_FORMAT_VERSION_ONLINE_STORE_TTL_DELETION_ENABLED: FeatureStoreFormatVersion
+FEATURE_STORE_FORMAT_VERSION_TIME_NANOSECONDS: FeatureStoreFormatVersion
+FEATURE_STORE_FORMAT_VERSION_TTL_FIELD: FeatureStoreFormatVersion
+
+class FeatureStoreFormatVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stanio"
+description = "Utilities for preparing Stan inputs and processing Stan outputs"
+readme = "README.md"
+authors = [{ name = "Stan Dev Team" }]
+dependencies = ["numpy"]
+requires-python = ">=3.8"
+license = { text = "BSD-3-Clause" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/stan-dev/stanio"
+"Bug Tracker" = "https://github.com/stan-dev/stanio/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "stanio.__version__" }
+
+[tool.setuptools]
+packages = ["stanio"]
+
+[project.optional-dependencies]
+test = ["pandas", "pytest", "pytest-cov"]
+ujson = ["ujson>=5.5.0"]
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.run]
+source = ["stanio"]
+
+[tool.setuptools.package-data]
+"stanio" = ["py.typed"]

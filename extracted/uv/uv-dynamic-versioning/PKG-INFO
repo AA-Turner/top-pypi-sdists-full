@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: uv-dynamic-versioning
+Version: 0.7.0
+Summary: Dynamic versioning based on VCS tags for uv/hatch project
+Project-URL: Repository, https://github.com/ninoseki/uv-dynamic-versioning/
+Project-URL: Homepage, https://github.com/ninoseki/uv-dynamic-versioning/
+License: MIT License
+        
+        Copyright (c) 2024 Manabu Niseki
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: hatch,uv
+Classifier: Framework :: Hatch
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: <4.0,>=3.9
+Requires-Dist: dunamai~=1.23
+Requires-Dist: eval-type-backport~=0.2; python_version < '3.10'
+Requires-Dist: hatchling~=1.26
+Requires-Dist: jinja2~=3.0
+Requires-Dist: pydantic~=2.10
+Requires-Dist: returns~=0.23
+Requires-Dist: tomlkit~=0.13
+Description-Content-Type: text/markdown
+
+# uv-dynamic-versioning
+
+[poetry-dynamic-versioning](https://github.com/mtkennerly/poetry-dynamic-versioning) influenced dynamic versioning tool for [uv](https://github.com/astral-sh/uv)/[hatch](https://github.com/pypa/hatch), powered by [dunamai](https://github.com/mtkennerly/dunamai/).
+
+## Installation
+
+Update or add `build-system` to use `uv-dynamic-versioning`.
+
+```toml
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+```
+
+## Plugins
+
+This project offers two plugins:
+
+- Version source plugin: is for setting a version based on VCS.
+- Metadata hook plugin: is for setting dependencies and optional-dependencies dynamically based on on VCS. This plugin is useful for monorepo.
+
+See [Version Source](docs/version_source.md) and [Metadata Hook](docs/metadata_hook.md) for more details.
+
+## Examples
+
+See [Examples](./examples/).
+
+## Alternatives
+
+- [hatch-vcs](https://github.com/ofek/hatch-vcs): Hatch plugin for versioning with your preferred VCS.
+- [versioningit](https://github.com/jwodder/versioningit): Versioning It with your Version In Git.

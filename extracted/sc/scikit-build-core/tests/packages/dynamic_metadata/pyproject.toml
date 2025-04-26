@@ -1,0 +1,13 @@
+[build-system]
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "dynamic"
+dynamic = ["version", "readme", "license"]
+
+[tool.scikit-build]
+experimental = true
+metadata.version.provider = "test_version"
+metadata.readme.provider = "test_readme"
+metadata.license.provider = "test_license"

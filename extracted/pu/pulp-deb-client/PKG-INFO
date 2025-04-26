@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: pulp_deb-client
+Version: 3.5.2
+Summary: Pulp 3 API
+Home-page: 
+Author: Pulp Team
+Author-email: pulp-list@redhat.com
+License: GPLv2+
+Keywords: pulp,pulpcore,client,Pulp 3 API
+Description-Content-Type: text/markdown
+
+    Fetch, Upload, Organize, and Distribute Software Packages
+    

@@ -1,0 +1,90 @@
+[tool.poetry]
+name = "flask-oidc"
+version = "2.3.1"
+description = "OpenID Connect extension for Flask"
+readme = "README.rst"
+authors = [
+    "Erica Ehrhardt",
+    "Patrick Uiterwijk",
+    "Aurélien Bompard <aurelien@bompard.org>",
+]
+homepage = "https://github.com/fedora-infra/flask-oidc"
+repository = "https://github.com/fedora-infra/flask-oidc"
+license = "BSD-2-Clause"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+include = [
+    { path = "tox.ini", format = "sdist" },
+    { path = "tests/*", format = "sdist" },
+    { path = "docs/*", format = "sdist" },
+    { path = "LICENSES/*", format = "sdist" },
+    { path = "REUSE.toml", format = "sdist" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+flask = ">=0.12.2,<4.0.0"
+authlib = "^1.2.0"
+requests = "^2.20.0"
+blinker = "^1.4.0"
+
+[tool.poetry.group.dev.dependencies]
+black = ">=22.6.0"
+pytest = "^7.1.2 || ^8.0.0"
+pytest-cov = ">=3.0.0"
+ruff = ">=0.0.253"
+responses = ">=0.23.3"
+packaging = "^23.1"
+reuse = "^2.1.0 || ^3.0.0 || ^4.0.0 || ^5.0.0"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+myst-parser = "*"
+sphinxcontrib-httpdomain = "*"
+flask-sphinx-themes = "*"
+
+[tool.poetry.build]
+generate-setup-file = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]
+"doc/conf.py" = ["E402", "I001"]
+
+[tool.coverage.run]
+branch = true
+# source = [
+#     "flask_oidc",
+# ]
+# omit =
+
+[tool.coverage.report]
+precision = 2
+fail_under = 100
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+    "if __name__ == .__main__.:",
+]

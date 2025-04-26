@@ -1,0 +1,136 @@
+Metadata-Version: 2.1
+Name: tecton
+Version: 1.1.8
+Summary: Tecton Python SDK
+Author-email: "Tecton, Inc." <support@tecton.ai>
+License: Tecton Proprietary
+Project-URL: Homepage, https://tecton.ai
+Project-URL: Documentation, https://docs.tecton.ai
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: License :: Other/Proprietary License
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: attrs>=21.3.0
+Requires-Dist: boto3
+Requires-Dist: deltalake==0.18.2; python_version > "3.7"
+Requires-Dist: jinja2~=3.0
+Requires-Dist: numpy~=1.16
+Requires-Dist: pathspec
+Requires-Dist: pendulum~=2.1; python_version < "3.12"
+Requires-Dist: pendulum==3.0.0; python_version >= "3.12"
+Requires-Dist: protobuf<5,>=4.21.12
+Requires-Dist: pypika~=0.48.9
+Requires-Dist: pytimeparse
+Requires-Dist: pandas>=1.0
+Requires-Dist: texttable
+Requires-Dist: requests
+Requires-Dist: colorama~=0.4
+Requires-Dist: tqdm~=4.41
+Requires-Dist: yaspin<3,>=0.16
+Requires-Dist: typing-extensions~=4.1
+Requires-Dist: pygments>=2.7.4
+Requires-Dist: pytest
+Requires-Dist: click~=8.0
+Requires-Dist: typeguard~=2.0
+Requires-Dist: sqlparse
+Requires-Dist: semantic_version
+Requires-Dist: pyarrow<16,>=8
+Requires-Dist: pydantic<3,>=1.10.13
+Requires-Dist: pyyaml
+Requires-Dist: setuptools
+Requires-Dist: pip
+Requires-Dist: pex~=2.1
+Requires-Dist: uv~=0.4.1; python_version > "3.7"
+Provides-Extra: databricks-connect
+Requires-Dist: databricks-connect[sql]~=10.4.12; extra == "databricks-connect"
+Provides-Extra: databricks-connect9
+Requires-Dist: databricks-connect[sql]~=9.1.23; extra == "databricks-connect9"
+Provides-Extra: databricks-connect10
+Requires-Dist: databricks-connect[sql]~=10.4.12; extra == "databricks-connect10"
+Provides-Extra: databricks-connect11
+Requires-Dist: databricks-connect[sql]~=11.3.12; extra == "databricks-connect11"
+Provides-Extra: pyspark
+Requires-Dist: pyspark[sql]~=3.2; extra == "pyspark"
+Provides-Extra: pyspark3
+Requires-Dist: pyspark[sql]~=3.2; extra == "pyspark3"
+Provides-Extra: pyspark3-1
+Requires-Dist: pyspark[sql]~=3.1.2; extra == "pyspark3-1"
+Provides-Extra: pyspark3-2
+Requires-Dist: pyspark[sql]~=3.2.1; extra == "pyspark3-2"
+Provides-Extra: pyspark3-3
+Requires-Dist: pyspark[sql]~=3.3.2; extra == "pyspark3-3"
+Provides-Extra: rift
+Requires-Dist: duckdb==1.1.2; extra == "rift"
+Requires-Dist: pyarrow>=11.0.0; extra == "rift"
+Requires-Dist: pandas>=1.5; extra == "rift"
+Provides-Extra: rift-materialization
+Requires-Dist: duckdb==1.1.2; extra == "rift-materialization"
+Requires-Dist: pyarrow~=15.0.0; extra == "rift-materialization"
+Requires-Dist: pandas>=1.5; extra == "rift-materialization"
+Requires-Dist: snowflake-connector-python[pandas]~=3.10; extra == "rift-materialization"
+Requires-Dist: snowflake-snowpark-python[pandas]~=1.0; extra == "rift-materialization"
+Requires-Dist: google-cloud-bigquery[pandas]~=3.16; extra == "rift-materialization"
+Requires-Dist: google-cloud-bigquery-storage~=2.25; extra == "rift-materialization"
+Requires-Dist: google-cloud-storage~=2.8; extra == "rift-materialization"
+Requires-Dist: redshift-connector~=2.1; extra == "rift-materialization"
+Requires-Dist: boto3>=1.12.6; extra == "rift-materialization"
+Requires-Dist: pyiceberg[glue]~=0.7; extra == "rift-materialization"
+Requires-Dist: psycopg[binary]~=3.2; extra == "rift-materialization"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-snowpark-python[pandas]~=1.0; extra == "snowflake"
+Provides-Extra: athena
+Requires-Dist: awswrangler~=3.0; extra == "athena"
+Provides-Extra: materialization
+Requires-Dist: statsd==3.3.0; extra == "materialization"
+Requires-Dist: urllib3<2.0.0; extra == "materialization"
+Provides-Extra: ml-extras
+Requires-Dist: torch>=2.0.0; extra == "ml-extras"
+Requires-Dist: transformers>=4.40.0; extra == "ml-extras"
+
+![logo](https://s3.us-west-2.amazonaws.com/tecton.ai.public/documentation/pypi/tecton-logo.svg)
+
+Tecton is the fastest way to build operational machine learning applications. It helps automate real-time decision making like fraud detection, product recommendations, and search result ranking in production applications.
+
+Tecton is a fully-managed feature platform built to orchestrate the complete lifecycle of features, from transformation to online serving, with enterprise-grade SLAs.
+
+With Tecton, you can:
+
+- Define and manage features using code in a git repository.
+- Automatically compute and orchestrate batch, streaming, and real-time feature
+  transformations.
+- Store and serve feature data for training and inference.
+- Share, discover, and manage access to features.
+
+# Contents of the `tecton` PyPI package
+
+The `tecton` PyPI package bundles Tecton's Python SDK, which is used for defining and testing feature pipelines and services, and generating datasets for training and batch inference. For more information, see the [SDK reference](https://docs.tecton.ai/api-reference/index.html).
+
+# Getting started resources
+
+To get started using Tecton, see these resources, which are found in the [documentation](https://docs.tecton.ai/):
+
+* [Machine Learning Application Concepts](https://docs.tecton.ai/docs/introduction/machine-learning-application-concepts)
+
+* [Tecton Concepts](https://docs.tecton.ai/docs/introduction/tecton-concepts)
+
+* [Setting up Tecton](https://docs.tecton.ai/docs/category/setting-up-tecton)
+
+* [Tecton Fundamentals Tutorial](https://docs.tecton.ai/docs/tutorials/tecton-fundamentals/)
+
+# License
+
+Copyright (2023) Tecton, Inc. This library (the "Software") may not be used except in connection with the Licensee's use
+of the Tecton Platform Services (defined below) pursuant to an Agreement (defined below) between Licensee (defined
+below) and Tecton, Inc. ("Tecton"). This Software shall be deemed part of the "Services" under the Agreement, or if the
+Agreement does not define Services, then the term in such Agreement that refers to the applicable Tecton Platform
+Services (as defined below) shall be substituted herein for "Services." Licensee's use of the Software must comply at
+all times with any restrictions applicable to the Services, generally, and must be used in accordance with any
+applicable documentation. If you have not agreed to an Agreement or otherwise do not agree to these terms, you may not
+use the Software. This license terminates automatically upon the termination of the Agreement or Licensee's breach of
+these terms. Agreement: the agreement between Tecton and Licensee governing the use of the Tecton Platform Services,
+which shall be, with respect to Tecton, the Tecton Platform-as-a-Service Agreement located
+at https://www.tecton.ai/tecton_online-tos/, unless Licensee has entered into a separate written agreement with Tecton
+governing the use of the Tecton Platform Services. Tecton Platform Services: the Tecton services according to where the
+Software is used. Licensee: the user of the Software, or, if the Software is being used on behalf of a company, the
+company.

@@ -1,0 +1,46 @@
+[project]
+name = "google-api-python-client-stubs"
+version = "1.29.0"
+description = "Type stubs for google-api-python-client"
+authors = [ 
+    { name = "Henrik Bruåsdal", email = "henrik.bruasdal@gmail.com" },
+]
+readme = "README.md"
+license = "Apache-2.0"
+repository = "https://github.com/henribru/google-api-python-client-stubs"
+classifiers = [
+   "Typing :: Stubs Only",
+]
+dependencies = [
+    "google-api-python-client>=2.159.0",
+    "types-httplib2>=0.22.0.2",
+    "typing-extensions>=3.10.0",
+]
+requires-python = ">=3.7"
+
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.11.2 ; python_full_version >= '3.8'",
+    "ruff>=0.6.8",
+    "stubdefaulter>=0.1.0",
+]
+
+[tool.ruff.lint]
+select = ["UP", "I"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = [
+    "apiclient",
+    "googleapiclient",
+]
+
+[tool.mypy]
+warn_unused_ignores = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["googleapiclient-stubs", "apiclient-stubs"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

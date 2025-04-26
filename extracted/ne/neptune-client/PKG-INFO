@@ -1,0 +1,128 @@
+Metadata-Version: 2.3
+Name: neptune-client
+Version: 1.14.0
+Summary: Neptune Client
+License: Apache-2.0
+Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store
+Author: neptune.ai
+Author-email: contact@neptune.ai
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: airflow
+Provides-Extra: aws
+Provides-Extra: detectron2
+Provides-Extra: experimental
+Provides-Extra: fastai
+Provides-Extra: kedro
+Provides-Extra: lightgbm
+Provides-Extra: mlflow
+Provides-Extra: mosaicml
+Provides-Extra: optuna
+Provides-Extra: prophet
+Provides-Extra: pytorch
+Provides-Extra: pytorch-lightning
+Provides-Extra: sacred
+Provides-Extra: sklearn
+Provides-Extra: tensorboard
+Provides-Extra: tensorflow-keras
+Provides-Extra: transformers
+Provides-Extra: xgboost
+Provides-Extra: zenml
+Requires-Dist: GitPython (>=2.0.8)
+Requires-Dist: Pillow (>=1.1.6)
+Requires-Dist: PyJWT
+Requires-Dist: boto3 (>=1.28.0)
+Requires-Dist: bravado (>=11.0.0,<12.0.0)
+Requires-Dist: click (>=7.0)
+Requires-Dist: future (>=0.17.1)
+Requires-Dist: importlib-metadata ; python_version < "3.8"
+Requires-Dist: kedro-neptune ; (python_version < "3.11") and (extra == "kedro")
+Requires-Dist: mosaicml ; extra == "mosaicml"
+Requires-Dist: neptune-airflow ; extra == "airflow"
+Requires-Dist: neptune-aws ; extra == "aws"
+Requires-Dist: neptune-detectron2 ; (python_version >= "3.8") and (extra == "detectron2")
+Requires-Dist: neptune-fastai ; extra == "fastai"
+Requires-Dist: neptune-lightgbm ; extra == "lightgbm"
+Requires-Dist: neptune-mlflow ; extra == "mlflow"
+Requires-Dist: neptune-optuna ; extra == "optuna"
+Requires-Dist: neptune-prophet ; extra == "prophet"
+Requires-Dist: neptune-pytorch ; extra == "pytorch"
+Requires-Dist: neptune-sacred ; extra == "sacred"
+Requires-Dist: neptune-sklearn ; extra == "sklearn"
+Requires-Dist: neptune-tensorboard ; extra == "tensorboard"
+Requires-Dist: neptune-tensorflow-keras ; extra == "tensorflow-keras"
+Requires-Dist: neptune-xgboost ; extra == "xgboost"
+Requires-Dist: oauthlib (>=2.1.0)
+Requires-Dist: packaging
+Requires-Dist: pandas
+Requires-Dist: psutil
+Requires-Dist: pytorch-lightning ; extra == "pytorch-lightning"
+Requires-Dist: requests (>=2.20.0)
+Requires-Dist: requests-oauthlib (>=1.0.0)
+Requires-Dist: six (>=1.12.0)
+Requires-Dist: swagger-spec-validator (>=2.7.4)
+Requires-Dist: transformers ; extra == "transformers"
+Requires-Dist: typing-extensions (>=3.10.0)
+Requires-Dist: urllib3
+Requires-Dist: websocket-client (>=0.35.0,!=1.0.0)
+Requires-Dist: zenml ; extra == "zenml"
+Project-URL: Documentation, https://docs.neptune.ai/
+Project-URL: Homepage, https://neptune.ai/
+Project-URL: Repository, https://github.com/neptune-ai/neptune-client
+Project-URL: Tracker, https://github.com/neptune-ai/neptune-client/issues
+Description-Content-Type: text/markdown
+
+<div align="center">
+    <img src="https://raw.githubusercontent.com/neptune-ai/neptune-client/assets/readme/Github-cover-022025.png" width="1500" />
+ <h1>neptune.ai Legacy</h1>
+</div>
+
+<div align="center">
+  <a href="https://neptune.ai/">Website</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://docs.neptune.ai/">Docs</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://neptune.ai/blog">Blog</a>
+&nbsp;
+  <hr />
+</div>
+
+> [!IMPORTANT]
+> This is the legacy client.<br/>
+> For the new Neptune client, go to **[neptune-client-scale &rarr;][client]**
+
+> [!NOTE]
+> If you need to access Neptune Legacy (app version `2.x`), see the [legacy documentation][legacy-setup] for setup instructions.
+<hr />
+
+&nbsp;
+## Support
+
+If you get stuck or simply want to talk to us about something, here are your options:
+* Chat! In the Legacy app, click the blue message icon in the bottom-right corner and send a message. A real person will talk to you ASAP (typically very ASAP).
+* Shoot us an email at [support@neptune.ai](mailto:support@neptune.ai).
+&nbsp;
+
+
+[client]: https://github.com/neptune-ai/neptune-client-scale
+[legacy-setup]: https://docs-legacy.neptune.ai/setup
+

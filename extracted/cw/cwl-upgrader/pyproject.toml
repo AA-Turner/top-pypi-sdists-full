@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cwl-upgrader"
+authors = [{name = "Common Workflow Language project contributors", email = "common-workflow-language@googlegroups.com"}]
+license = {text = "Apache 2.0"}
+keywords = ["cwl", "commonwl", "common-workflow-language"]
+description = "Upgrade a CWL tool or workflow document from one version to another"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: File Formats",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "setuptools",
+    "ruamel.yaml >= 0.16.0, < 0.19",
+    "schema_salad",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://www.commonwl.org"
+Repository = "https://github.com/common-workflow-language/cwl-upgrader"
+Issues = "https://github.com/common-workflow-language/cwl-upgrader/issues"
+Changelog = "https://github.com/common-workflow-language/cwl-upgrader/releases"
+"Related Tools" = "https://www.commonwl.org/tools/"
+
+[project.scripts]
+cwl-upgrader = "cwlupgrader.main:main"
+
+[project.optional-dependencies]
+testing = ["pytest < 9"]
+
+[tool.aliases]
+test = "pytest"
+
+[tool.setuptools]
+package-dir = {"cwlupgrader.tests" = "tests"}
+packages = ["cwlupgrader", "cwlupgrader.tests"]
+zip-safe = true
+include-package-data = true
+license-files = ["LICENSE.txt"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cwlupgrader.__version__"}
+
+[tool.setuptools.package-data]
+"cwlupgrader.tests" = ["../testdata/**/*.cwl"]
+
+[tool.isort]
+multi_line_output = "3"
+include_trailing_comma = "True"
+force_grid_wrap = "0"
+use_parentheses = "True"
+line_length = "88"

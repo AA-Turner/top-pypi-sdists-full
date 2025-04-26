@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "openhands-aci"
+version = "0.2.10"
+description = "An Agent-Computer Interface (ACI) designed for software development agents OpenHands."
+authors = ["OpenHands"]
+license = "MIT"
+readme = "README.md"
+packages = [
+  { include = "openhands_aci/**/*" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+gitpython = "*"
+tree-sitter = "^0.24.0"
+tree-sitter-python = "^0.23.6"
+tree-sitter-javascript = "^0.23.1"
+tree-sitter-typescript = "^0.23.2"
+tree-sitter-ruby = "^0.23.1"
+grep-ast = "0.3.3"
+flake8 = "*"
+whatthepatch = "^1.0.6"
+binaryornot = "^0.4.4"
+cachetools = "^5.5.2"
+charset-normalizer = "^3.4.1"
+pydantic = "^2.11.3"
+
+
+
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.7.2"
+pre-commit = "^4.0.1"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.3"
+psutil = "^5.9.8"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = [
+  "poetry-core",
+]
+
+[tool.autopep8]
+# autopep8 fights with mypy on line length issue
+ignore = [ "E501" ]
+
+[tool.black]
+# prevent black (if installed) from changing single quotes to double quotes
+skip-string-normalization = true
+
+[tool.ruff.lint]
+select = ["D"]
+# ignore warnings for missing docstrings
+ignore = ["D1"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

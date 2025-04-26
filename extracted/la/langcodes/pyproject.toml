@@ -1,0 +1,47 @@
+[project]
+name = "langcodes"
+description = "Tools for labeling human languages with IETF language tags"
+authors = [{name = "Elia Robyn Speer", email = "rspeer@arborelia.net"}]
+maintainers = [{name = "Georg Krause", email = "mail@georg-krause.net"}]
+readme = "README.md"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+
+requires-python = ">= 3.9"
+dependencies = [
+  "language-data>=1.2"
+]
+
+[project.urls]
+Homepage = "https://github.com/georgkrause/langcodes"
+Repository = "https://github.com/georgkrause/langcodes"
+Issues = "https://github.com/georgkrause/langcodes/issues"
+
+[project.optional-dependencies]
+test = [
+  'pytest',
+  'pytest-cov'
+]
+build = [
+  'build',
+  'twine'
+]
+
+[build-system]
+requires = ["setuptools>=60", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --doctest-glob=README.md --ignore=setup.py --ignore=example.py --ignore=langcodes/data"
+norecursedirs = ".git ignore build __pycache__"

@@ -1,0 +1,562 @@
+[build-system]
+requires = [
+    "pdm-backend ~= 2.4",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "types-lxml"
+dynamic = []
+description = "Complete lxml external type annotation"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+license-files = [
+    "LICENSE",
+]
+dependencies = [
+    "typing_extensions ~= 4.10; python_version < \"3.13\"",
+    "cssselect ~= 1.2",
+    "beautifulsoup4 ~= 4.13",
+    "types-html5lib ~= 1.1.11.20241018",
+]
+keywords = [
+    "lxml",
+    "typing",
+    "stubs",
+    "annotation",
+]
+authors = [
+    { name = "Abel Cheung", email = "abelcheung@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Stubs Only",
+    "Operating System :: OS Independent",
+]
+version = "2025.3.30"
+
+[project.urls]
+homepage = "https://github.com/abelcheung/types-lxml"
+
+[project.optional-dependencies]
+mypy = [
+    "mypy ~= 1.11",
+]
+pyright = [
+    "pyright >= 1.1.351",
+]
+basedpyright = [
+    "basedpyright >= 1.4.0",
+]
+
+[dependency-groups]
+basic = [
+    "types-html5lib ~= 1.1.11",
+    "typing_extensions == 4.12.2; python_version < '3.13'",
+    "cssselect == 1.2.0; python_version <= '3.8'",
+    "cssselect == 1.3.0; python_version >= '3.9'",
+    "beautifulsoup4 == 4.13.3",
+]
+mypy = [
+    "mypy == 1.15.0; python_version >= '3.9'",
+    "mypy == 1.14.0; python_version <= '3.8'",
+]
+pyright = [
+    "pyright == 1.1.397",
+    "basedpyright == 1.28.2",
+]
+format = [
+    "ruff ~= 0.6",
+]
+stub-test = [
+    "pytest-mypy-plugins == 3.2.0; python_version >= '3.9'",
+    "pytest-mypy-plugins == 3.1.2; python_version <= '3.8'",
+    { include-group = "mypy" },
+]
+rt-test = [
+    "html5lib == 1.1",
+    "pook == 2.1.3",
+    "urllib3 == 2.3.0",
+    "hypothesis[zoneinfo] == 6.129.4",
+    "pytest-revealtype-injector == 0.5.1",
+    "rnc2rng == 2.7.0",
+    { include-group = "mypy" },
+    { include-group = "pyright" },
+]
+lxml49 = [
+    "lxml == 4.9.4",
+]
+lxml50 = [
+    "lxml == 5.0.2",
+]
+lxml51 = [
+    "lxml == 5.1.1",
+]
+lxml52 = [
+    "lxml == 5.2.2",
+]
+lxml53 = [
+    "lxml == 5.3.1",
+]
+dev = [
+    "tox ~= 4.22",
+    "pyright >=1.1.389,!=1.1.395",
+    "html5lib == 1.1",
+    "pook >= 2.0",
+    "urllib3 >= 2.0",
+    "pytest-mypy-plugins >= 2.0",
+    "pytest-revealtype-injector >= 0.5.0",
+    "lxml >= 4.9",
+    "rnc2rng",
+    "hypothesis[zoneinfo] >= 6.127.7",
+    { include-group = "format" },
+    { include-group = "basic" },
+]
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.build]
+includes = [
+    "src",
+]
+package-dir = "src"
+excludes = [
+    "**/__pycache__",
+    "**/.*",
+    "**/*.bak",
+    "**/*.patch",
+    "/*.py",
+]
+
+[tool.setuptools_scm]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportPrivateUsage = false
+reportDeprecated = false
+reportUnnecessaryTypeIgnoreComment = false
+enableTypeIgnoreComments = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/runtime"
+extraPaths = [
+    "src",
+]
+
+[tool.mypy]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
+packages = "lxml-stubs"
+strict = true
+show_error_context = true
+pretty = true
+warn_unused_ignores = false
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+]
+ignore = [
+    "E501",
+]
+task-tags = [
+    "BUG",
+    "DEBUG",
+    "FIX",
+    "FIXME",
+    "HACK",
+    "IDEA",
+    "NOTE",
+    "OPTIMIZE",
+    "REVIEW",
+    "TODO",
+    "UGLY",
+    "XXX",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/runtime/**.py" = [
+    "E202",
+    "E203",
+    "E271",
+]
+
+[tool.ruff.lint.isort]
+extra-standard-library = [
+    "typing_extensions",
+    "_typeshed",
+]
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--tb=short",
+    "--import-mode=importlib",
+]
+markers = [
+    "slow: marks tests as slow",
+]
+filterwarnings = [
+    "ignore:Truth-testing of elements was .+:FutureWarning",
+    "ignore:The behavior of this method will change .+:FutureWarning",
+    "ignore:NotImplemented should not be used in a boolean context:DeprecationWarning",
+    "ignore:The 'strip_cdata' option of HTMLParser.+:DeprecationWarning",
+]
+
+[[tool.tox.env_list]]
+replace = "ref"
+of = [
+    "tool",
+    "tox",
+    "labels",
+    "typecheck",
+]
+extend = true
+
+[[tool.tox.env_list]]
+replace = "ref"
+of = [
+    "tool",
+    "tox",
+    "labels",
+    "static",
+]
+extend = true
+
+[[tool.tox.env_list]]
+replace = "ref"
+of = [
+    "tool",
+    "tox",
+    "labels",
+    "runtime",
+]
+extend = true
+
+[tool.tox.labels]
+typecheck = [
+    "pyright",
+    "mypy",
+]
+static = [
+    "py38-stub",
+    "py39-stub",
+    "py310-stub",
+    "py311-stub",
+    "py312-stub",
+    "py313-stub",
+]
+runtime = [
+    "py310-rt-lxml49",
+    "py310-rt-lxml50",
+    "py310-rt-lxml51",
+    "py310-rt-lxml52",
+    "py310-rt-lxml53",
+    "py311-rt-lxml49",
+    "py311-rt-lxml50",
+    "py311-rt-lxml51",
+    "py311-rt-lxml52",
+    "py311-rt-lxml53",
+    "py312-rt-lxml49",
+    "py312-rt-lxml50",
+    "py312-rt-lxml51",
+    "py312-rt-lxml52",
+    "py312-rt-lxml53",
+    "py313-rt-lxml53",
+]
+
+[tool.tox.gh-actions]
+python = "    3.8: py38\n    3.9: py39\n    3.10: py310\n    3.11: py311\n    3.12: py312\n    3.13: py313\n    "
+
+[tool.tox.env_run_base.set_env]
+PYTHONUTF8 = "1"
+
+[tool.tox.env.mypy]
+description = "Use mypy to check annotation files for error"
+package = "skip"
+dependency_groups = [
+    "basic",
+    "mypy",
+]
+commands = [
+    [
+        "mypy",
+        { replace = "posargs", extend = true },
+    ],
+]
+
+[tool.tox.env.pyright]
+description = "Use pyright to check annotation files for error"
+package = "skip"
+dependency_groups = [
+    "basic",
+    "pyright",
+]
+commands = [
+    [
+        "pyright",
+        { replace = "posargs", extend = true },
+        "src",
+    ],
+]
+
+[tool.tox.env.py38-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py39-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py310-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py311-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py312-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py313-stub]
+base = [
+    "_env_stub",
+]
+
+[tool.tox.env.py310-rt-lxml49]
+base = [
+    "_env_rt",
+    "_env_lxml49",
+]
+
+[tool.tox.env.py310-rt-lxml50]
+base = [
+    "_env_rt",
+    "_env_lxml50",
+]
+
+[tool.tox.env.py310-rt-lxml51]
+base = [
+    "_env_rt",
+    "_env_lxml51",
+]
+
+[tool.tox.env.py310-rt-lxml52]
+base = [
+    "_env_rt",
+    "_env_lxml52",
+]
+
+[tool.tox.env.py310-rt-lxml53]
+base = [
+    "_env_rt",
+    "_env_lxml53",
+]
+
+[tool.tox.env.py311-rt-lxml49]
+base = [
+    "_env_rt",
+    "_env_lxml49",
+]
+
+[tool.tox.env.py311-rt-lxml50]
+base = [
+    "_env_rt",
+    "_env_lxml50",
+]
+
+[tool.tox.env.py311-rt-lxml51]
+base = [
+    "_env_rt",
+    "_env_lxml51",
+]
+
+[tool.tox.env.py311-rt-lxml52]
+base = [
+    "_env_rt",
+    "_env_lxml52",
+]
+
+[tool.tox.env.py311-rt-lxml53]
+base = [
+    "_env_rt",
+    "_env_lxml53",
+]
+
+[tool.tox.env.py312-rt-lxml49]
+base = [
+    "_env_rt",
+    "_env_lxml49",
+]
+
+[tool.tox.env.py312-rt-lxml50]
+base = [
+    "_env_rt",
+    "_env_lxml50",
+]
+
+[tool.tox.env.py312-rt-lxml51]
+base = [
+    "_env_rt",
+    "_env_lxml51",
+]
+
+[tool.tox.env.py312-rt-lxml52]
+base = [
+    "_env_rt",
+    "_env_lxml52",
+]
+
+[tool.tox.env.py312-rt-lxml53]
+base = [
+    "_env_rt",
+    "_env_lxml53",
+]
+
+[tool.tox.env.py313-rt-lxml53]
+base = [
+    "_env_rt",
+    "_env_lxml53",
+]
+
+[tool.tox.env.build-normal]
+pass_env = [
+    "PDM_BUILD_SCM_VERSION",
+]
+deps = [
+    "build",
+]
+package = "skip"
+commands = [
+    [
+        "python",
+        "-m",
+        "build",
+        { replace = "posargs", extend = true },
+    ],
+]
+
+[tool.tox.env.build-alt]
+base = [
+    "env.build-normal",
+]
+allowlist_externals = [
+    "git",
+]
+commands_pre = [
+    [
+        "git",
+        "apply",
+        "multi-subclass.patch",
+    ],
+]
+commands_post = [
+    [
+        "git",
+        "apply",
+        "--reverse",
+        "multi-subclass.patch",
+    ],
+]
+
+[tool.tox._env_stub]
+pass_env = [
+    "CI",
+    "TF_BUILD",
+]
+package = "wheel"
+wheel_build_env = "{package_env}"
+dependency_groups = [
+    "basic",
+    "stub-test",
+]
+commands = [
+    [
+        "pytest",
+        "--mypy-ini-file=tests/static/mypy-pytest.ini",
+        { replace = "posargs", default = [
+    "tests/static",
+], extend = true },
+    ],
+]
+
+[tool.tox._env_rt]
+pass_env = [
+    "CI",
+    "TF_BUILD",
+]
+package = "wheel"
+wheel_build_env = "{package_env}"
+commands = [
+    [
+        "pytest",
+        "--revealtype-mypy-config=tests/runtime/mypy.ini",
+        { replace = "posargs", default = [
+    "tests/runtime",
+], extend = true },
+    ],
+]
+
+[tool.tox._env_lxml49]
+dependency_groups = [
+    "basic",
+    "rt-test",
+    "lxml49",
+]
+
+[tool.tox._env_lxml50]
+dependency_groups = [
+    "basic",
+    "rt-test",
+    "lxml50",
+]
+
+[tool.tox._env_lxml51]
+dependency_groups = [
+    "basic",
+    "rt-test",
+    "lxml51",
+]
+
+[tool.tox._env_lxml52]
+dependency_groups = [
+    "basic",
+    "rt-test",
+    "lxml52",
+]
+
+[tool.tox._env_lxml53]
+dependency_groups = [
+    "basic",
+    "rt-test",
+    "lxml53",
+]

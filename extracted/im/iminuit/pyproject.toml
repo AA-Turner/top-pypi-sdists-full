@@ -1,0 +1,143 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "iminuit"
+description = "Jupyter-friendly Python frontend for MINUIT2 in C++"
+version = "2.31.1"
+maintainers = [{ name = "Hans Dembinski", email = "hans.dembinski@gmail.com" }]
+readme = "README.rst"
+requires-python = ">=3.9"
+license = { text = "MIT+LGPL" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+    "Programming Language :: C++",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+]
+dependencies = ["numpy >=1.21"]
+
+[project.urls]
+repository = "http://github.com/scikit-hep/iminuit"
+documentation = "https://scikit-hep.org/iminuit"
+
+[project.optional-dependencies]
+test = [
+    "coverage",
+    # ipywidgets 8.0.5 and 8.0.6 are broken
+    # see https://github.com/jupyter-widgets/ipywidgets/issues/3731
+    "ipywidgets",
+    # needed by ipywidgets >= 8.0.6
+    "ipykernel",
+    "PySide6",
+    "joblib",
+    "jacobi",
+    "matplotlib",
+    "numpy",
+    "numba; platform_python_implementation=='CPython'",
+    "numba-stats; platform_python_implementation=='CPython'",
+    "pytest",
+    "pytest-xdist",
+    "pytest-xvfb",
+    "pytest-qt",
+    "scipy",
+    "tabulate",
+    "boost_histogram",
+    "resample",
+    "unicodeitplus",
+    "pydantic",
+    "annotated_types",
+]
+doc = [
+    "sphinx-rtd-theme", # installs correct sphinx as well
+    "nbsphinx",
+    "nbconvert",
+    "nbformat",
+    "jupyter_client",
+    "ipykernel",
+    "jax",
+    "jaxlib",
+    "pytest-xdist",
+]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+sdist.exclude = ["extern/root"]
+sdist.include = ["extern/root/math/minuit2/inc", "extern/root/math/minuit2/src"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-q", "-ra", "--ff", "--strict-config", "--strict-markers"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = [
+    "error::PendingDeprecationWarning",
+    "error::DeprecationWarning",
+    "error::FutureWarning",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "D", # pydocstyle
+]
+ignore = [
+    "D212", # multi-line-summary-first-line
+]
+pydocstyle.convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["B", "D"]
+"conftest.py" = ["B", "D"]
+"*.ipynb" = ["D"]
+"automatic_differentiation.ipynb" = ["F821"]
+"cython.ipynb" = ["F821"]
+".ci/*.py" = ["D"]
+"bench/*.py" = ["D"]
+"doc/*.py" = ["D"]
+
+[tool.mypy]
+ignore_missing_imports = true
+allow_redefinition = true
+plugins = "numpy.typing.mypy_plugin"
+pretty = true
+files = ["src"]
+no_implicit_optional = false
+
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
+skip = ["cp39-musllinux_i686"]                    # no numpy wheel
+test-requires = "pytest"
+test-command = "python -m pytest {package}/tests"
+test-skip = ["*universal2:arm64"]
+# to match numpy, we use manylinux2014 for cp310+
+manylinux-x86_64-image = "manylinux2014"
+manylinux-i686-image = "manylinux2014"
+free-threaded-support = true
+
+[tool.cibuildwheel.environment]
+# this makes sure that we build only on platforms that have a corresponding numpy wheel
+PIP_ONLY_BINARY = ":all:"
+
+[[tool.cibuildwheel.overrides]]
+# to match numpy, we use manylinux2010 for cp36 to cp39
+select = "cp3?-manylinux*"
+manylinux-x86_64-image = "manylinux2010"
+manylinux-i686-image = "manylinux2010"
+build-frontend = "build"

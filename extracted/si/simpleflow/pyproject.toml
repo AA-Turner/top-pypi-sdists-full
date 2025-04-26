@@ -1,0 +1,130 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simpleflow"
+description = "Python library for dataflow programming with Amazon SWF"
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+authors = [
+    { name = "Greg Leclercq" },
+]
+maintainers = [
+    { "email" = "tech@botify.com" },
+]
+keywords = ["simpleflow", "amazon swf", "simple workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "attrs",
+    "boto3>=1.28.20",
+    "dill>=0.3.6",
+    "diskcache>=4.1.0",
+    "Jinja2",
+    "markupsafe",
+    "multiprocess>=0.70.14",
+    "lazy_object_proxy",
+    "lockfile>=0.9.1",
+    "tabulate>=0.8.2,<1.0.0",
+    "setproctitle",
+    "click",
+    "psutil",
+    "pytz",
+]
+
+[project.urls]
+documentation = "https://botify-labs.github.io/simpleflow"
+repository = "https://github.com/botify-labs/simpleflow"
+changelog = "https://github.com/botify-labs/simpleflow/blob/main/CHANGELOG.md"
+
+[project.scripts]
+simpleflow = "simpleflow.command:cli"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+    "UP",  # pyupgrade
+    "I",   # isort
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "RUF", # ruff
+]
+allowed-confusables = ["‘", "’"]
+extend-ignore = [
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.bandit]
+exclude_dirs = ["/tests", "/examples", "/venv", "/build"]
+skips = ["B404"]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --ignore=setup.py --ignore=tasks.py --ignore=docs/ --ignore=build/ --ignore=examples/"
+
+[tool.hatch.version]
+path = "simpleflow/__init__.py"
+
+[tool.hatch.build]
+include = ["/simpleflow"]
+exclude = ["*~"]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3,swf]",
+    "cffi==v1.17.0rc1; python_full_version=='3.13.0b4'", # via cryptography via moto, secretstorage
+    "flaky",
+    "hatch",
+    "invoke",
+    "moto>=4.2.8,<5.0.0",
+    "packaging",
+    "pre-commit",
+    "pytest",
+    "pytest-xdist>=3.2.0",
+    "ruff",
+    "setuptools<72", # See https://github.com/pypa/setuptools/issues/4519
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sure",
+    "typing-extensions",
+    "vcrpy",
+    "twine",
+]
+
+doc = [
+    "mkdocs",
+    "mkdocs-material",
+    "pygments",
+    "pymdown-extensions",
+    "markdown-include",
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://pypi.org/legacy/"
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"

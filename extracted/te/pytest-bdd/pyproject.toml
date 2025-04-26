@@ -1,0 +1,109 @@
+[tool.poetry]
+name = "pytest-bdd"
+version = "8.1.0"
+description = "BDD for pytest"
+authors = ["Oleg Pidsadnyi <oleg.pidsadnyi@gmail.com>", "Anatoly Bubenkov <bubenkoff@gmail.com>"]
+maintainers = ["Alessio Bogon <778703+youtux@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.rst"
+homepage = "https://pytest-bdd.readthedocs.io/"
+documentation = "https://pytest-bdd.readthedocs.io/"
+repository = "https://github.com/pytest-dev/pytest-bdd"
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[tool.poetry.plugins."pytest11"]
+"pytest-bdd" = "pytest_bdd.plugin"
+
+[tool.poetry.scripts]
+"pytest-bdd" = "pytest_bdd.scripts:main"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+Mako = "*"
+parse = "*"
+parse-type = "*"
+pytest = ">=7.0.0"
+typing-extensions = "*"
+packaging = "*"
+gherkin-official = "^29.0.0"
+
+[tool.poetry.group.dev.dependencies]
+tox = ">=4.11.3"
+mypy = ">=1.6.0"
+types-setuptools = ">=68.2.0.0"
+pytest-xdist = ">=3.3.1"
+coverage = {extras = ["toml"], version = ">=6.5.0"}
+Pygments = ">=2.13.0"  # for code-block highlighting
+sphinx = "*"
+sphinx-autobuild = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+
+[tool.flake8]
+# E1: indentation: already covered by `black`
+# E2: whitespace: already covered by `black`
+# E3: blank line: already covered by `black`
+# E501: line length: already covered by `black`
+extend-ignore = "E1,E2,E3,E501"
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "if typing\\.TYPE_CHECKING:",
+]
+[tool.coverage.html]
+show_contexts = true
+
+[tool.coverage.run]
+branch = true
+# `parallel` will cause each tox env to put data into a different file, so that we can combine them later
+parallel = true
+source = ["pytest_bdd", "tests"]
+dynamic_context = "test_function"
+
+[tool.coverage.paths]
+# treat these directories as the same when combining
+# the first item is going to be the canonical dir
+source = [
+    "src/pytest_bdd",
+    ".tox/*/lib/python*/site-packages/pytest_bdd",
+]
+
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+files = "src/pytest_bdd/**/*.py"
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["parse", "parse_type"]
+ignore_missing_imports = true

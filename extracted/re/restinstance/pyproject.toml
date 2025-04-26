@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RESTinstance"
+version = "1.5.2"
+description = "Robot Framework library for RESTful JSON APIs"
+authors = [{ name = "Anssi Syrjäsalo", email = "opensource@syrjasalo.com" }]
+dependencies = [
+    "docutils",
+    "flex",
+    "GenSON",
+    "jsonpath-ng",
+    "jsonschema",
+    "openapi-core",
+    "pygments",
+    "pytz",
+    "requests",
+    "robotframework",
+    "tzlocal",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+license = { text = "LGPLv3" }
+keywords = ["robotframework", "library", "http", "json", "api"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Robot Framework",
+    "Framework :: Robot Framework :: Library",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+]
+
+[project.urls]
+Homepage = "https://pypi.org/project/RESTinstance"
+Documentation = "https://asyrjasalo.github.io/RESTinstance"
+Repository = "https://github.com/asyrjasalo/RESTinstance"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = ["ruff"]
+test = [
+    "pytest",
+    "pytest-clarity",
+    "pytest-instafail",
+    "pytest-spec",
+    "setuptools",
+]
+
+[tool.pdm.scripts]
+test = "python -m pytest {args:test/}"
+testenv = "npx -y mountebank --host localhost --allowInjection --configfile testapi/apis.ejs"
+atest = "python -m robot -P src --xunit xunit.xml --outputdir results {args:atest/}"
+tests = { composite = ["test", "atest"] }
+format = "ruff format ."
+lint = "ruff check --fix ."
+docs = "python -m robot.libdoc -P src REST docs/index.html"
+clean = { shell = "rm -rf .pdm-build/ .pytest_cache/ .ruff_cache/ dist/ node_modules/ results/ src/*.egg-info mb.pid *.log" }
+
+[tool.pytest]
+testpaths = "test"
+addopts = "--cov --spec --instafail --diff-type=auto"
+
+[tool.ruff]
+line-length = 80
+indent-width = 4
+exclude = [
+    ".git",
+    ".pdm-build",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "atest",
+    "dist",
+    "docs",
+    "node_modules",
+    "results",
+    "testapi",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "Q", "W"]

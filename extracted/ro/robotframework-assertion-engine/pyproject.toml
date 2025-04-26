@@ -1,0 +1,116 @@
+[tool.poetry]
+name = "robotframework-assertion-engine"
+version = "3.0.3"
+description = "Generic way to create meaningful and easy to use assertions for the Robot Framework libraries."
+authors = ["Tatu Aalto <aalto.tatu@gmail.com>"]
+license = "Apache License 2.0"
+readme = "README.rst"
+homepage = "https://github.com/MarketSquare/AssertionEngine"
+documentation = "https://github.com/MarketSquare/AssertionEngine/blob/master/README.rst"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Testing",
+    "Framework :: Robot Framework",
+    "Framework :: Robot Framework :: Tool",
+]
+packages = [
+    { include = "assertionengine", from="."}
+]
+include = ["assertionengine/py.typed"]
+
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+robotframework = ">=5.0.1"
+robotframework-pythonlibcore = "^3.0.0 || ^4.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.10.0"
+pytest = "^7.4.0"
+approvaltests = ">=8.4.1,<11.0.0"
+mypy = ">=1.6.1"
+pytest-approvaltests = "^0.2.4"
+invoke = "^2.2.0"
+robotstatuschecker = "^3.0.1"
+pre-commit = "^3.3.0"
+empty-files = "^0.0.9"
+robotframework-tidy = ">=4.6.0"
+ruff = ">=0.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py38']
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+unfixable = []
+exclude = [
+  "__pycache__",
+]
+ignore = [
+  "E501",  # line too long
+]
+target-version = "py38"
+select = [
+  "E",
+  "F",
+  "W",
+  "C90",
+  "I",
+  "N",
+  "B",
+  "PYI",
+  "PL",
+  "PTH",
+  "UP",
+  "A",
+  "C4",
+  "DTZ",
+  "ISC",
+  "ICN",
+  "INP",
+  "PIE",
+  "T20",
+  "PYI",
+  "PT",
+  "RSE",
+  "RET",
+  "SIM",
+  "RUF"
+]
+
+[tool.ruff.pylint]
+max-args = 6
+
+[tool.mypy]
+[mypy]
+python_version = 3.8
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "mypy-pytest.*"
+ignore_missing_imports = true

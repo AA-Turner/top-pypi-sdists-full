@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools >= 65.3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-iso639"
+version = "2025.2.18"
+description = "ISO 639 language codes, names, and other associated information"
+readme = "README.md"
+requires-python = ">= 3.9"
+license = { text = "Apache 2.0" }
+authors = [ { name = "Jackson L. Lee", email = "jacksonlunlee@gmail.com" } ]
+keywords = ["ISO 639", "language codes", "languages", "linguistics"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: General",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Text Processing :: Linguistic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black == 25.1.0",
+    "build == 1.2.2",
+    "flake8 == 7.1.1",
+    "mypy == 1.15.0",
+    "pytest == 8.3.4",
+    "requests == 2.32.3",
+    "twine == 6.1.0",
+]
+
+[project.urls]
+Source = "https://github.com/jacksonllee/iso639"
+
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+[tool.setuptools]
+zip-safe = false
+package-dir = { "" = "src" }
+package-data = { "iso639" = ["_data/*.tab", "py.typed"] }
+
+[tool.pytest.ini_options]
+addopts = "-vv --durations=0 --strict-markers"
+testpaths = [ "tests" ]

@@ -1,0 +1,64 @@
+[build-system]
+requires = ["maturin>=1.1,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tsdownsample"
+description = "Time series downsampling in rust"
+version = "0.1.4.1"
+requires-python = ">=3.8"
+dependencies = ["numpy"]
+authors = [{name = "Jeroen Van Der Donckt"}]
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["time series", "downsampling", "rust", "data science", "visualization"]
+classifiers = [
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Operating System :: POSIX',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows'
+]
+
+[project.urls]
+Homepage = "https://github.com/predict-idlab/tsdownsample"
+Repository = "https://github.com/predict-idlab/tsdownsample"
+
+# Build Python bindings for rust
+[tool.maturin]
+bindings = "pyo3"
+module-name = "tsdownsample._rust._tsdownsample_rs" # The path to place the compiled Rust module
+# See: https://www.maturin.rs/project_layout.html#import-rust-as-a-submodule-of-your-project
+
+# Linting
+[tool.ruff]
+select = ["E", "F", "I"]
+line-length = 88
+extend-select = ["Q"]
+ignore = ["E402", "F403"]
+
+# Formatting
+[tool.black]
+color = true
+line-length = 88
+skip-string-normalization = true
+skip-magic-trailing-comma = true
+
+# Static typing
+[tool.mypy]
+follow_imports = "normal"
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_reexport = true
+disallow_untyped_defs = false
+disallow_any_generics = false
+ignore_missing_imports = true

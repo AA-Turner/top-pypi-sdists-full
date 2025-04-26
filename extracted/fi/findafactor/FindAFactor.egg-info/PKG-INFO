@@ -1,0 +1,27 @@
+Metadata-Version: 2.2
+Name: FindAFactor
+Version: 6.7.0
+Summary: Find any nontrivial factor of a number
+Home-page: https://github.com/vm6502q/FindAFactor
+Author: Dan Strano
+Author-email: Dan Strano <stranoj@gmail.com>
+Maintainer-email: Dan Strano <stranoj@gmail.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/vm6502q/FindAFactor
+Project-URL: Documentation, https://github.com/vm6502q/FindAFactor/blob/main/README.md
+Project-URL: Repository, https://github.com/vm6502q/FindAFactor
+Project-URL: Issues, https://github.com/vm6502q/FindAFactor/issues
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: home-page

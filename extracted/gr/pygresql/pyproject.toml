@@ -1,0 +1,106 @@
+[project]
+name = "PyGreSQL"
+version = "6.1.0"
+requires-python = ">=3.7"
+authors = [
+  {name = "D'Arcy J. M. Cain", email = "darcy@pygresql.org"},
+  {name = "Christoph Zwerschke", email = "cito@online.de"},
+]
+description = "Python PostgreSQL interfaces"
+readme = "README.rst"
+keywords = ["pygresql", "postgresql", "database", "api", "dbapi"]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: PostgreSQL License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: SQL",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.license]
+file = "LICENSE.txt"
+
+[project.urls]
+Homepage = "https://pygresql.github.io/"
+Documentation = "https://pygresql.github.io/contents/"
+"Source Code" = "https://github.com/PyGreSQL/PyGreSQL"
+"Issue Tracker" = "https://github.com/PyGreSQL/PyGreSQL/issues/"
+Changelog = "https://pygresql.github.io/contents/changelog.html"
+Download = "https://pygresql.github.io/download/"
+"Mailing List" = "https://mail.vex.net/mailman/listinfo/pygresql"
+
+[tool.ruff]
+target-version = "py37"
+line-length = 79
+exclude = [
+    "__pycache__",
+    "__pypackages__",
+    ".git",
+    ".tox",
+    ".venv",
+    ".devcontainer",
+    ".vscode",
+    "docs",
+    "build",
+    "dist",
+    "local",
+    "venv",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
+  "N",   # pep8-naming
+  "UP",  # pyupgrade
+  "D",   # pydocstyle
+  "B",   # bugbear
+  "S",   # bandit
+  "SIM", # simplify
+  "RUF", # ruff
+]
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D100", "D101", "D102", "D103", "D105", "D107", "S"]
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*"
+]
+disallow_untyped_defs = false
+
+[tool.setuptools]
+packages = ["pg", "pgdb"]
+license-files = ["LICENSE.txt"]
+
+[tool.setuptools.package-data]
+pg = ["pg.typed"]
+pgdb = ["pg.typed"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel>=0.42"]
+build-backend = "setuptools.build_meta"

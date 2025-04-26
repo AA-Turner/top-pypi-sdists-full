@@ -1,0 +1,174 @@
+[build-system]
+requires = [
+    "pdm-backend",
+    "wheel>=0.42",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "pymediainfo"
+description = "A Python wrapper for the MediaInfo library."
+authors = [
+    { name = "Louis Sautier", email = "sautier.louis@gmail.com" },
+]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = []
+requires-python = ">=3.9"
+dependencies = []
+version = "7.0.1"
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+tests = [
+    "pytest>=6",
+    "pytest-cov",
+    "pytest-xdist",
+]
+docs = [
+    "alabaster",
+    "myst-parser",
+    "setuptools_scm",
+    "sphinx",
+]
+dev = [
+    "ipython",
+    "mypy>=1.0",
+    "black",
+    "isort",
+    "flake8",
+    "pylint",
+]
+
+[project.urls]
+Homepage = "https://github.com/sbraz/pymediainfo"
+Documentation = "https://pymediainfo.readthedocs.io/"
+Bugs = "https://github.com/sbraz/pymediainfo/issues"
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.dev-dependencies]
+download_library = [
+    "wheel>=0.44",
+    "requests",
+]
+
+[tool.pdm.build]
+source-includes = [
+    "docs/",
+    "scripts/",
+    "tests/",
+]
+
+[tool.pdm.scripts.types]
+help = "Check type hints"
+cmd = "mypy --install-types --non-interactive --config-file=pyproject.toml {args:src tests}"
+
+[tool.pdm.scripts.docs]
+help = "Build and test documentation"
+composite = [
+    "sphinx-build -W --keep-going --color -b html docs docs/_build",
+    "sphinx-build -W --keep-going --color -b linkcheck docs docs/_build",
+]
+
+[tool.pdm.scripts.test-nocov]
+help = "Run tests without coverage"
+cmd = "pytest {args:-n auto}"
+
+[tool.pdm.scripts.test]
+help = "Run tests with coverage"
+cmd = "pytest --cov --cov-report=term-missing --cov-config=pyproject.toml {args:-n auto}"
+
+[tool.pdm.scripts.download_library]
+help = "Download mediainfo library"
+cmd = "python scripts/download_library.py {args:-c --auto}"
+
+[tool.pdm.scripts.clean_library]
+help = "Clean mediainfo library"
+cmd = "python scripts/download_library.py -c"
+
+[tool.pdm.scripts.tag_wheel]
+help = "Tag the wheels for a specific platform"
+cmd = "python scripts/tag_pure_wheels.py"
+
+[tool.pdm.scripts.build_linux_x86_64]
+help = "Build wheel with bundled library for Linux x86_64"
+composite = [
+    "download_library -c -p linux -a x86_64",
+    "pdm build -v --no-sdist",
+    "tag_wheel manylinux_2_27_x86_64",
+]
+
+[tool.pdm.scripts.build_linux_arm64]
+help = "Build wheel with bundled library for Linux arm64"
+composite = [
+    "download_library -c -p linux -a arm64",
+    "pdm build -v --no-sdist",
+    "tag_wheel manylinux_2_27_aarch64",
+]
+
+[tool.pdm.scripts.build_win32_x86_64]
+help = "Build wheel with bundled library for Windows x64"
+composite = [
+    "download_library -c -p win32 -a x86_64",
+    "pdm build -v --no-sdist",
+    "tag_wheel win_amd64",
+]
+
+[tool.pdm.scripts.build_win32_i386]
+help = "Build wheel with bundled library for Windows x32"
+composite = [
+    "download_library -c -p win32 -a i386",
+    "pdm build -v --no-sdist",
+    "tag_wheel win32",
+]
+
+[tool.pdm.scripts.build_darwin]
+help = "Build wheel with bundled library for MacOS x86_64 and arm64"
+composite = [
+    "download_library -c -p darwin -a arm64",
+    "pdm build -v --no-sdist",
+    "tag_wheel macosx_10_10_universal2",
+]
+
+[tool.pdm.scripts.build_all]
+help = "Build all the wheels with bundled library and the sdist and wheel without library"
+composite = [
+    "build_linux_arm64",
+    "build_linux_x86_64",
+    "build_win32_x86_64",
+    "build_win32_i386",
+    "build_darwin",
+    "clean_library",
+    "pdm build",
+]
+
+[tool.mypy]
+pretty = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pymediainfo.*",
+]
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "-vv -r a"

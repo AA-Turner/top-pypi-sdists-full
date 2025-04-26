@@ -1,0 +1,77 @@
+[project]
+name = "pyprobables"
+dynamic = ["version"]
+authors = [{ name = "Tyler Barrus", email = "barrust@gmail.com" }]
+license = { text = "MIT" }
+description = "Probabilistic data structures in python"
+keywords = [
+    "python",
+    "probabilistic",
+    "data-structure",
+    "bloom",
+    "filter",
+    "count-min",
+    "sketch",
+    "bloom-filter",
+    "count-min-sketch",
+    "cuckoo-filter",
+    "quotient-filter",
+]
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "License :: OSI Approved",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+
+[tool.setuptools.dynamic]
+version = { attr = "probables.__version__" }
+
+[project.urls]
+Homepage = "https://github.com/barrust/pyprobables"
+Bug-tracker = "https://github.com/barrust/pyprobables/issues"
+Documentation = "https://pyprobables.readthedocs.io/"
+
+[tool.setuptools.packages.find]
+include = ["probables", "probables.*"]
+
+[tool.flit.module]
+name = "probables"
+
+[tool.distutils.bdist_wheel]
+universal = 0
+
+[tool.pep8]
+max-line-length = 120
+
+[tool.pycodestyle]
+max-line-length = 120
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+include = '\.pyi?$'
+
+[build-system]
+
+requires = ["setuptools>=61.2.0", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,46 @@
+[project]
+name = "multimethod"
+version = "2.0"
+description = "Multiple argument dispatching."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE.txt"}
+authors = [{name = "Aric Coady", email = "aric.coady@gmail.com"}]
+keywords = ["multiple", "dispatch", "multidispatch", "generic", "functions", "methods", "overload"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/coady/multimethod"
+Documentation = "https://coady.github.io/multimethod"
+Changelog = "https://github.com/coady/multimethod/blob/main/CHANGELOG.md"
+Issues = "https://github.com/coady/multimethod/issues"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+ignore = ["F811"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.coverage.run]
+source = ["multimethod"]
+branch = true
+
+[tool.pytest.ini_options]
+markers = ["benchmark"]

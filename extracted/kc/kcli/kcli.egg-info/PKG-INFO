@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: kcli
+Version: 99.0.202504231102
+Summary: Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers
+Home-page: http://github.com/karmab/kcli
+Author: Karim Boumedhel
+Author-email: karimboumedhel@gmail.com
+License: ASL
+License-File: LICENSE
+Requires-Dist: argcomplete
+Requires-Dist: PyYAML
+Requires-Dist: prettytable
+Requires-Dist: jinja2
+Requires-Dist: libvirt-python>=2.0.0
+Provides-Extra: all
+Requires-Dist: pyghmi; extra == "all"
+Requires-Dist: podman; extra == "all"
+Requires-Dist: websockify; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: google-api-python-client; extra == "all"
+Requires-Dist: google-auth-httplib2; extra == "all"
+Requires-Dist: google-cloud-dns; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: google-cloud-container; extra == "all"
+Requires-Dist: google-cloud-compute; extra == "all"
+Requires-Dist: python-cinderclient; extra == "all"
+Requires-Dist: python-neutronclient; extra == "all"
+Requires-Dist: python-glanceclient; extra == "all"
+Requires-Dist: python-keystoneclient; extra == "all"
+Requires-Dist: python-novaclient; extra == "all"
+Requires-Dist: python-swiftclient; extra == "all"
+Requires-Dist: ovirt-engine-sdk-python; extra == "all"
+Requires-Dist: packet-python; extra == "all"
+Requires-Dist: pyvmomi; extra == "all"
+Requires-Dist: cryptography; extra == "all"
+Requires-Dist: google-crc32c==1.1.2; extra == "all"
+Requires-Dist: ibm_vpc; extra == "all"
+Requires-Dist: ibm-cos-sdk; extra == "all"
+Requires-Dist: ibm-platform-services; extra == "all"
+Requires-Dist: ibm-cloud-networking-services; extra == "all"
+Requires-Dist: azure-mgmt-compute; extra == "all"
+Requires-Dist: azure-mgmt-network; extra == "all"
+Requires-Dist: azure-mgmt-core; extra == "all"
+Requires-Dist: azure-identity; extra == "all"
+Requires-Dist: azure-mgmt-resource; extra == "all"
+Requires-Dist: azure-mgmt-marketplaceordering; extra == "all"
+Requires-Dist: azure-storage-blob; extra == "all"
+Requires-Dist: azure-mgmt-dns; extra == "all"
+Requires-Dist: azure-mgmt-containerservice; extra == "all"
+Requires-Dist: azure-mgmt-storage; extra == "all"
+Requires-Dist: azure-mgmt-msi; extra == "all"
+Requires-Dist: azure-mgmt-authorization; extra == "all"
+Requires-Dist: hcloud; extra == "all"
+Provides-Extra: libvirt
+Provides-Extra: aws
+Requires-Dist: boto3; extra == "aws"
+Provides-Extra: azure
+Requires-Dist: azure-mgmt-compute; extra == "azure"
+Requires-Dist: azure-mgmt-network; extra == "azure"
+Requires-Dist: azure-mgmt-core; extra == "azure"
+Requires-Dist: azure-identity; extra == "azure"
+Requires-Dist: azure-mgmt-resource; extra == "azure"
+Requires-Dist: azure-mgmt-marketplaceordering; extra == "azure"
+Requires-Dist: azure-storage-blob; extra == "azure"
+Requires-Dist: azure-mgmt-dns; extra == "azure"
+Requires-Dist: azure-mgmt-containerservice; extra == "azure"
+Requires-Dist: azure-mgmt-storage; extra == "azure"
+Requires-Dist: azure-mgmt-msi; extra == "azure"
+Requires-Dist: azure-mgmt-authorization; extra == "azure"
+Provides-Extra: gcp
+Requires-Dist: google-api-python-client; extra == "gcp"
+Requires-Dist: google-auth-httplib2; extra == "gcp"
+Requires-Dist: google-cloud-dns; extra == "gcp"
+Requires-Dist: google-cloud-storage; extra == "gcp"
+Requires-Dist: google-cloud-container; extra == "gcp"
+Requires-Dist: google-cloud-compute; extra == "gcp"
+Provides-Extra: hcloud
+Requires-Dist: hcloud; extra == "hcloud"
+Provides-Extra: ibm
+Requires-Dist: google-crc32c==1.1.2; extra == "ibm"
+Requires-Dist: ibm_vpc; extra == "ibm"
+Requires-Dist: ibm-cos-sdk; extra == "ibm"
+Requires-Dist: ibm-platform-services; extra == "ibm"
+Requires-Dist: ibm-cloud-networking-services; extra == "ibm"
+Provides-Extra: openstack
+Requires-Dist: python-cinderclient; extra == "openstack"
+Requires-Dist: python-neutronclient; extra == "openstack"
+Requires-Dist: python-glanceclient; extra == "openstack"
+Requires-Dist: python-keystoneclient; extra == "openstack"
+Requires-Dist: python-novaclient; extra == "openstack"
+Requires-Dist: python-swiftclient; extra == "openstack"
+Provides-Extra: ovirt
+Requires-Dist: ovirt-engine-sdk-python; extra == "ovirt"
+Provides-Extra: packet
+Requires-Dist: packet-python; extra == "packet"
+Provides-Extra: proxmox
+Requires-Dist: proxmoxer; extra == "proxmox"
+Provides-Extra: vsphere
+Requires-Dist: pyvmomi; extra == "vsphere"
+Requires-Dist: cryptography; extra == "vsphere"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers

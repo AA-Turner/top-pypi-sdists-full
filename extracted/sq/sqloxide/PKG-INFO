@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: sqloxide
+Version: 0.1.54
+Classifier: Programming Language :: Rust
+License-File: LICENSE
+Author: Will Eaton <me@wseaton.com>
+Author-email: Will Eaton <me@wseaton.com>
+Requires-Python: >=3.7

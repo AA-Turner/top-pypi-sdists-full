@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 120
+target_version = ["py37"]
+
+[tool.isort]
+# config compatible with Black
+line_length = 120
+multi_line_output = 3
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+known_first_party = "postmarker"
+known_third_party = ["betamax", "betamax_serializers", "django", "postmarker", "pytest", "requests", "setuptools", "sphinx_rtd_theme", "tornado"]

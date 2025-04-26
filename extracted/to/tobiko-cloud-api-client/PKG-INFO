@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: tobiko-cloud-api-client
+Version: 202517.44.0
+Author: TobikoData Inc.
+Author-email: engineering@tobikodata.com
+Requires-Python: <3.13,>=3.9
+Requires-Dist: Authlib
+Requires-Dist: httpx
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: ruamel.yaml
+Requires-Dist: tenacity
+Requires-Dist: tobiko-cloud-helpers==202517.44.0
+Requires-Dist: tobiko-cloud-pydantic==202517.44.0
+Requires-Dist: typing_extensions

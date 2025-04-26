@@ -1,0 +1,106 @@
+[project]
+name = "plum-dispatch"
+description="Multiple dispatch in Python"
+authors=[
+    {name = "Wessel Bruinsma", email="wessel.p.bruinsma@gmail.com"},
+]
+license = {text= "MIT"}
+readme = "README.md"
+keywords = ["multiple dispatch"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+
+requires-python = ">=3.8"
+dependencies = [
+    "beartype>=0.16.2",
+    "typing-extensions>=4.9.0",
+    "rich>=10.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "numpy",
+    "pytest>=6",
+    "pytest-cov",
+    "coveralls",
+    "pre-commit",
+    "IPython",
+    "black==23.9.0",
+    "ghp-import",
+    "wheel",
+    "build",
+    "tox",
+    "jupyter-book",
+    "mypy",
+    "pyright>=1.1.331",
+    "ruff>=0.2.1",
+    "sybil",
+]
+
+[project.urls]
+repository = "https://github.com/beartype/plum"
+documentation = "https://beartype.github.io/plum"
+
+
+[build-system]
+requires = ["hatchling>=1.8.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch]
+version.source = "vcs"
+build.include = ["plum*"]
+build.hooks.vcs.version-file = "plum/_version.py"
+
+
+# Development tools
+[tool.coverage]
+run.branch = true
+run.command_line = "-m pytest --verbose test"
+run.source = ["plum"]
+report.exclude_also = [
+  '\.\.\.',
+  'if TYPE_CHECKING:',
+  'if typing.TYPE_CHECKING:',
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/", "plum", "docs"]
+addopts = [
+    "-ra",
+    "-p",
+    "no:doctest",
+]
+minversion = "6.0"
+
+
+[tool.ruff]
+src = ["plum"]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "B",  # flake8-bugbear
+    "D410",
+    "E", "W",  # pycodestyle
+    "F",  # Pyflakes
+    "I",  # isort
+    "SIM",  # flake8-simplify
+    "UP",  # pyupgrade
+]
+ignore = ["F811", "B018"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["beartype"]
+known-local-folder = ["plum"]
+
+[tool.ruff.format]
+docstring-code-format = true

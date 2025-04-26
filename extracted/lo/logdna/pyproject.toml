@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "logdna"
+version = "1.18.12"
+description = 'A Python Package for Sending Logs to LogDNA'
+authors = ["logdna <help@logdna.com>"]
+license = "MIT"
+
+[tool.semantic_release]
+version_toml = "pyproject.toml:tool.poetry.version"
+version_pattern = "logdna/VERSION:(\\d+\\.\\d+\\.\\d+)"
+branch = "master"
+commit_subject = "release: Version {version} [skip ci]"
+commit_author = "LogDNA Bot <bot@logdna.com>"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = "^2.28.1"
+
+[tool.poetry.dev-dependencies]
+coverage = "^5.4"
+"tap.py" = "^3.0"
+ipdb = "^0.13.4"
+flake8 = "^3.8.4"
+yapf = "^0.30.0"
+pytest = "^7.2.0"
+pytest-cov = "^2.11.1"
+taskipy = "^1.6.0"
+python-semantic-release = "^7.28.1"
+
+[tool.taskipy.tasks]
+pre_test = "mkdir -p coverage"
+test = "pytest --junitxml=coverage/test.xml --cov=logdna --cov-report=html --verbose tests/"
+post_test = "python scripts/json_coverage.py"
+lint = "flake8 --doctests"
+"lint:fix" =  "yapf -r -i logdna scripts tests"
+"post_lint:fix" = "task lint"
+release = "semantic-release publish"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = "tests"
+
+[tool.coverage.run]
+branch = true
+source = ["logdna"]
+
+[tool.coverage.report]
+fail_under = 76
+show_missing = true
+
+[tool.coverage.json]
+output = "coverage/coverage.json"
+
+[tool.coverage.html]
+directory = "coverage"
+show_contexts = true

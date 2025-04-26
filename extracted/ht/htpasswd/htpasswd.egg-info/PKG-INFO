@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: htpasswd
+Version: 2.3
+Summary: Library to work with htpasswd user (basic authorization) and group files.
+Home-page: https://github.com/thesharp/htpasswd
+Author: Ilya Otyutskiy
+Author-email: ilya.otyutskiy@icloud.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN

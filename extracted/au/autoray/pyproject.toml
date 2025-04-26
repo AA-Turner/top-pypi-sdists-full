@@ -1,0 +1,81 @@
+[project]
+name = "autoray"
+description = "Abstract your array operations."
+readme = { file = "README.md", content-type = "text/markdown" }
+dynamic = ["version"]
+authors = [{ name = "Johnnie Gray", email = "johnniemcgray@gmail.com" }]
+license = { text = "Apache" }
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = [
+    "agnostic",
+    "array",
+    "autograd",
+    "cupy",
+    "dask",
+    "dispatch",
+    "jax",
+    "numeric",
+    "numpy",
+    "tensor",
+    "tensorflow",
+]
+
+[project.optional-dependencies]
+tests = ["numpy", "coverage", "pytest", "pytest-cov"]
+docs = [
+    "astroid<3",
+    "furo",
+    "ipython!=8.7.0",
+    "myst-nb",
+    "setuptools_scm",
+    "sphinx-autoapi",
+    "sphinx-copybutton",
+    "sphinx>=2.0",
+]
+
+[project.urls]
+"Documentation" = "https://autoray.readthedocs.io/"
+"Repository" = "https://github.com/jcmgray/autoray/"
+"Issues" = "https://github.com/jcmgray/autoray/issues"
+"Changelog" = "https://github.com/jcmgray/autoray/releases"
+
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "autoray/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+filterwarnings = "once"
+
+[tool.coverage.run]
+omit = ["*/autoray/experimental/*"]
+source = ["autoray"]
+
+[tool.pylama]
+ignore = "C901"
+max_line_length = 79
+
+[tool.ruff]
+line-length = 79
+target-version = "py39"
+lint.ignore = ["E741"]
+
+[tool.black]
+line-length = 79
+target-version = ['py39']

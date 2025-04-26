@@ -1,0 +1,132 @@
+[project]
+name = "Willow"
+description = "A Python image library that sits on top of Pillow, Wand and OpenCV"
+authors = [{name = "Karl Hobley", email = "karl@kaed.uk"}]
+maintainers = [{name = "Wagtail Core team", email = "hello@wagtail.org"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["Imaging"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dynamic = ["version"]  # will read __version__ from willow/__init__.py
+requires-python = ">=3.9"
+dependencies = [
+    "filetype>=1.0.10,!=1.1.0",
+    "defusedxml>=0.7,<1.0",
+]
+
+[project.optional-dependencies]
+pillow = ["Pillow>=9.1.0,<12.0.0"]
+wand = ["Wand>=0.6,<1.0"]
+heif = [
+    # Pinned because pillow-heif 0.23+ has dropped AVIF support but we still rely on it.
+    "pillow-heif>=0.10.0,<0.22.0; python_version < '3.12'",
+    "pillow-heif>=0.13.0,<0.22.0; python_version >= '3.12'",
+]
+
+testing = [
+    "willow[pillow,wand,heif]",
+    "coverage[toml]>=7.2.7,<8.0",
+    "pre-commit>=3.4.0"
+]
+docs = [
+    "Sphinx>=7.0",
+    "sphinx-wagtail-theme>=6.1.1,<7.0",
+    "sphinxcontrib-spelling>=8.0,<9.0",
+    "sphinx_copybutton>=0.5"
+]
+
+[project.urls]
+Source = "https://github.com/wagtail/Willow"
+Changelog = "https://willow.wagtail.org/latest/changelog.html"
+Documentation = "https://willow.wagtail.org/"
+
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "willow"
+
+[tool.flit.sdist]
+exclude = [
+    ".*",
+    "*.json",
+    "*.ini",
+    "*.sh",
+    "*.yml",
+    "*.yaml",
+    "docs/",
+    "tests/",
+    "CHANGELOG.txt",
+    "Dockerfile.py3",
+    "runtests.py",
+]
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["willow"]
+
+omit = ["tests/*", "willow/utils/deprecation.py"]
+
+[tool.coverage.paths]
+source = ["willow"]
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+skip_empty = true
+skip_covered = true
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc.)?abstractmethod",
+
+    # Nor complain about type checking
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+target-version = "py39"  # minimum target version
+
+# E501: Line too long
+lint.ignore = ["E501"]
+lint.select = [
+    "E", # pycodestyle errors
+    "F", # pyflakes
+    "I", # isort
+    "T20", # flake8-print
+    "BLE", # flake8-blind-except
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]

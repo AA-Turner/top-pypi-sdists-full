@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: rust_nurbs
+Version: 0.28.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: maturin ; extra == 'build'
+Requires-Dist: maturin ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: numpy>=1.8 ; extra == 'dev'
+Requires-Dist: tox ; extra == 'dev'
+Requires-Dist: pydata-sphinx-theme ; extra == 'dev'
+Requires-Dist: sphinx-design ; extra == 'dev'
+Requires-Dist: sphinx-autoapi ; extra == 'dev'
+Provides-Extra: build
+Provides-Extra: dev
+License-File: LICENSE
+Summary: A Python API for evaluation of Non-Uniform Rational B-Splines (NURBS) curves and surfaces implemented in Rust
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# rust_nurbs
+Welcome to **rust_nurbs**, a Python API for evaluation of Non-Uniform Rational B-Splines (NURBS) curves and surfaces implemented in Rust. The primary goals of this package are to allow for extremely fast NURBS evaluation while providing a user-friendly interface through Python with zero external dependencies.
+
+- Install this package from PyPi using `pip install rust_nurbs` or `pip install rust-nurbs`
+- Check out the documentation page [here](https://rust-nurbs.readthedocs.io/en/latest/)
+

@@ -1,0 +1,39 @@
+Metadata-Version: 2.1
+Name: evervault
+Version: 4.4.2
+Summary: Evervault SDK
+Home-page: https://evervault.com
+License: MIT
+Author: Evervault
+Author-email: engineering@evervault.com
+Requires-Python: >=3.8.0,<4.0.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: certifi
+Requires-Dist: cryptography (>=43,<44)
+Requires-Dist: evervault-attestation-bindings (==0.4.0)
+Requires-Dist: pyasn1 (>=0.4.8,<0.5.0)
+Requires-Dist: pycryptodome (>=3.10.1,<4.0.0)
+Requires-Dist: requests (>=2.32.2,<3.0.0)
+Project-URL: Repository, https://github.com/evervault/evervault-python
+Description-Content-Type: text/markdown
+
+[![Evervault](https://evervault.com/evervault.svg)](https://evervault.com/)
+
+[![Unit Tests Status](https://github.com/evervault/evervault-python/workflows/evervault-unit-tests/badge.svg)](https://github.com/evervault/evervault-python/actions?query=workflow%3Aevervault-unit-tests)
+
+# Evervault Python SDK
+
+See the Evervault [Python SDK documentation](https://docs.evervault.com/sdks/python) to learn how to install, set up, and use the SDK.
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/evervault/evervault-python.
+
+## Feedback
+
+Questions or feedback? [Let us know](mailto:support@evervault.com).

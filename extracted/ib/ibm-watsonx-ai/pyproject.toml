@@ -1,0 +1,211 @@
+#  -----------------------------------------------------------------------------------------
+#  (C) Copyright IBM Corp. 2023-2025.
+#  https://opensource.org/licenses/BSD-3-Clause
+#  -----------------------------------------------------------------------------------------
+
+[build-system]
+requires = ["setuptools", "build"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "ibm_watsonx_ai"
+dynamic = ["version"]
+requires-python = ">=3.10,<3.13"
+authors = [
+  {name = "IBM"}
+]
+maintainers = [
+  {name = "Łukasz Ćmielowski", email = "lukasz.cmielowski@pl.ibm.com"},
+  {name = "Dorota Lączak", email = "dorota.laczak@ibm.com"}
+]
+description = "IBM watsonx.ai API Client"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+keywords = [
+    "watsonx.ai",
+    "machine learning",
+    "IBM",
+    "Bluemix",
+    "client",
+    "API",
+    "IBM Cloud",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Natural Language :: English",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Internet",
+]
+dependencies = [
+    "requests",
+    "httpx<0.29,>=0.27",
+    "urllib3",
+    "pandas<2.3.0,>=0.24.2",
+    "certifi",
+    "lomond",
+    "tabulate",
+    "packaging",
+    "ibm-cos-sdk<2.15.0,>=2.12.0",
+]
+
+
+[project.optional-dependencies]
+"rag" = [
+    "langchain-core>=0.3,<0.4",
+    "langchain>=0.3,<0.4",
+    "langchain-community>=0.3,<0.4",
+    "langchain-elasticsearch==0.3.0",
+    "langchain-ibm>=0.3,<0.4",
+    "langchain-chroma==0.1.4",
+    "langchain-milvus==0.1.8",
+    "grpcio>=1.54.3",
+    "python-docx==1.1.2",
+    "python-pptx==1.0.2",
+    "pypdf==4.2.0",
+    "beautifulsoup4==4.12.3",
+    "markdown==3.4.1",
+    "pyYAML>=5.1.2",
+]
+"mcp" = [
+    "mcp>=1.6.0,<2.0"
+]
+"fl-rt23.1-py3.10" = [
+    "tensorflow==2.12.0",
+    "scikit-learn==1.1.1",
+    "torch==2.0.1",
+    "numpy==1.23.5",
+    "pandas==1.5.3",
+    "pytest==6.2.5",
+    "pyYAML==6.0.1",
+    "parse==1.19.0",
+    "websockets==10.1",
+    "requests==2.32.3",
+    "scipy==1.10.1",
+    "environs==9.5.0",
+    "pathlib2==2.3.6",
+    "diffprivlib==0.5.1",
+    "numcompress==0.1.2",
+    "psutil",
+    "setproctitle",
+    "tabulate==0.8.9",
+    "lz4",
+    "gym",
+    "image==1.5.33",
+    "ddsketch==2.0.4",
+    "skorch==0.12.0",
+    "protobuf==4.22.1",
+    "GPUtil",
+    "joblib==1.1.1",
+    "skops==0.9.0",
+    "msgpack==1.0.7",
+    "msgpack-numpy==0.4.8",
+    "cryptography==42.0.5",
+]
+"fl-rt24.1-py3.11" = [
+    "tensorflow==2.14.1",
+    "scikit-learn==1.3.0",
+    "torch==2.1.2",
+    "numpy==1.26.4",
+    "pandas==2.1.4",
+    "pytest==6.2.5",
+    "pyYAML==6.0.1",
+    "parse==1.19.0",
+    "websockets==10.1",
+    "requests==2.32.3",
+    "scipy==1.11.4",
+    "environs==9.5.0",
+    "pathlib2==2.3.6",
+    "diffprivlib==0.5.1",
+    "numcompress==0.1.2",
+    "psutil",
+    "setproctitle",
+    "tabulate==0.8.9",
+    "lz4",
+    "gym",
+    "image==1.5.33",
+    "ddsketch==2.0.4",
+    "skorch==0.12.0",
+    "protobuf==4.22.1",
+    "GPUtil",
+    "joblib==1.3.2",
+    "skops==0.9.0",
+    "msgpack==1.0.7",
+    "msgpack-numpy==0.4.8",
+    "cryptography==42.0.5",
+]
+"fl-crypto" = ["pyhelayers==1.5.0.3"]
+"fl-crypto-rt24.1" = [
+    "pyhelayers==1.5.5.0"
+]
+
+
+[project.urls]
+Homepage = "https://ibm.github.io/watsonx-ai-python-sdk"
+
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+
+[tool.setuptools]
+package-data = {messages = ["messages/messages_en.json"], foundation_models = ["foundation_models/extensions/rag/pattern/_default_inference_service_schema/request.json", "foundation_models/extensions/rag/pattern/_default_inference_service_schema/response.json"], api_version_param = ["utils/API_VERSION_PARAM"]}
+include-package-data = true
+license-files = []
+
+
+[tool.setuptools.packages.find]
+exclude = ["tests.*", "tests"]
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope="session"
+addopts = "--clean-alluredir --alluredir=target/allure-results"
+markers = [
+    "asyncio: async function",
+    "flaky: flaky test",
+    "smokeCPD: smoke tests CPD suite",
+    "smokeWXCLOUD: smoke tests CLOUD suite",
+    "smokeWXCPD: smoke tests WX.CPD suite",
+    "wip: work in progress test",
+    "order: mark for ordering tests",
+    "unittest: isolated source code tests",
+    "timeout: specify time for test"
+]
+testpaths = [
+    "tests"
+]
+filterwarnings = [
+    "always::PendingDeprecationWarning",
+    "always::DeprecationWarning",
+    "ignore:.*Model needs to be:UserWarning",
+    "ignore:.*invalid escape sequence.*:DeprecationWarning"
+]
+
+
+[tool.mypy]
+packages = [
+    "ibm_watsonx_ai.foundation_models",
+    "ibm_watsonx_ai.experiment.fm_tune",
+    "ibm_watsonx_ai.experiment.autoai.optimizers.rag_optimizer",
+    "ibm_watsonx_ai.experiment.autoai.engines.rag_engine"
+]
+exclude = 'ibm_watsonx_ai/foundation_models/extensions/rag/pattern/default_.*\.py'
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+explicit_package_bases = true
+follow_imports = "silent"

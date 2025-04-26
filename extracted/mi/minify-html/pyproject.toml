@@ -1,0 +1,8 @@
+[build-system]
+requires = ["maturin>=0.13"]
+build-backend = "maturin"
+
+[tool]
+
+[tool.maturin]
+manifest-path = "minify-html-python/Cargo.toml"

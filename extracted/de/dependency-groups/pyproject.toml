@@ -1,0 +1,102 @@
+[build-system]
+requires = ["flit-core"]
+build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+coverage = ["coverage[toml]"]
+test = ["pytest", {include-group = "coverage"}]
+docs = ["sphinx>=8.1", "sphinx-issues>=5", "furo"]
+lint = ["pre-commit"]
+typing = ["mypy", "packaging"]
+build = ["twine", "build"]
+dev = [{include-group = "test"}]
+
+[project]
+name = "dependency-groups"
+version = "1.3.0"
+description = 'A tool for resolving PEP 735 Dependency Group data'
+readme = "README.rst"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = []
+authors = [
+  { name = "Stephen Rosen", email = "sirosen0@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "packaging",
+    "tomli;python_version<'3.11'",
+]
+
+[project.scripts]
+lint-dependency-groups = "dependency_groups._lint_dependency_groups:main"
+pip-install-dependency-groups = "dependency_groups._pip_wrapper:main"
+dependency-groups = "dependency_groups.__main__:main"
+
+[project.optional-dependencies]
+cli = ["tomli; python_version<'3.11'"]
+
+[project.urls]
+source = "https://github.com/sirosen/dependency-groups"
+changelog = "https://github.com/sirosen/dependency-groups/blob/main/CHANGELOG.rst"
+documentation = "https://dependency-groups.readthedocs.io/"
+
+
+[tool.flit.sdist]
+include = ["LICENSE.txt", "CHANGELOG.rst", "tests/*.py", "tox.ini"]
+
+
+[tool.uv]
+environments = [
+  "python_version >= '3.10'",
+]
+
+
+[tool.coverage.run]
+parallel = true
+source = ["dependency_groups"]
+
+[tool.coverage.paths]
+source = [
+    "src/",
+    "*/site-packages/",
+]
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    # the pragma to disable coverage
+    "pragma: no cover",
+    # don't complain if tests don't hit unimplemented methods/modes
+    "raise NotImplementedError",
+    # don't check on executable components of importable modules
+    "if __name__ == .__main__.:",
+    # mypy-only code segments
+    "if t.TYPE_CHECKING:",
+    # type-checking overloads
+    "@t.overload"
+]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+disallow_subclassing_any = false
+files = ["src"]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["mddj"]
+
+[tool.check-sdist]
+git-only = [".*", "Makefile", "docs/*", "scripts/*"]

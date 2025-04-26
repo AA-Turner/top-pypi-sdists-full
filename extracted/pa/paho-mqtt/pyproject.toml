@@ -1,0 +1,146 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "paho-mqtt"
+dynamic = ["version"]
+description = "MQTT version 5.0/3.1.1 client class"
+readme = "README.rst"
+# see https://lists.spdx.org/g/Spdx-legal/topic/request_for_adding_eclipse/67981884
+# for why Eclipse Distribution License v1.0 is listed as BSD-3-Clause
+license = { text = "EPL-2.0 OR BSD-3-Clause" }
+requires-python = ">=3.7"
+authors = [
+    { name = "Roger Light", email = "roger@atchoo.org" },
+]
+keywords = [
+    "paho",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Communications",
+    "Topic :: Internet",
+]
+dependencies = []
+
+[project.optional-dependencies]
+proxy = [
+    "PySocks",
+]
+
+[project.urls]
+Homepage = "http://eclipse.org/paho"
+
+[tool.coverage.report]
+exclude_also = [
+    "@(abc\\.)?abstractmethod",
+    "def __repr__",
+    "except ImportError:",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/paho",
+    "/examples",
+    "/tests",
+    "about.html",
+    "CONTRIBUTING.md",
+    "edl-v10",
+    "epl-v20",
+    "LICENSE.txt",
+    "notice.html",
+    "README.rst",
+]
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+include = [
+    "src/paho",
+]
+
+[tool.hatch.version]
+path = "src/paho/mqtt/__init__.py"
+
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = "paho.mqtt.client"
+# check_untyped_defs = true
+# disallow_untyped_calls = true
+# disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+addopts = ["-r", "xs"]
+testpaths = "tests src"
+filterwarnings = [
+    "ignore:Callback API version 1 is deprecated, update to latest version"
+]
+
+[tool.ruff]
+exclude = ["test/lib/python/*"]
+extend-select = [
+    "B",
+    "C4",
+    "E",
+    "E9",
+    "F63",
+    "F7",
+    "F82",
+    "FLY",  # flynt
+    "I",
+    "ISC",
+    "PERF",
+    "S", # Bandit
+    "UP",
+    "RUF",
+    "W",
+]
+ignore = []
+line-length = 167
+
+[tool.ruff.per-file-ignores]
+"examples/**/*.py" = [
+    "B",
+    "E402",
+    "E711",
+    "E741",
+    "F401",
+    "F811",
+    "F841",
+    "I",
+    "PERF",
+    "S",
+    "UP",
+]
+"tests/**/*.py" = [
+    "F811",
+    "PERF203",
+    "S101",
+    "S105",
+    "S106",
+]
+
+[tool.typos.default.extend-words]
+Mosquitto = "Mosquitto"
+
+[tool.typos.type.sh.extend-words]
+# gen.sh use the openssl option pass(word) in
+passin = "passin"

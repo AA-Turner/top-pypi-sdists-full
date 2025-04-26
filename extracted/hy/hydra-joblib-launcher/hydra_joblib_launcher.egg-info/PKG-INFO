@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: hydra-joblib-launcher
+Version: 1.2.0
+Summary: Joblib Launcher for Hydra apps
+Home-page: https://github.com/facebookresearch/hydra/
+Author: Jan-Matthis Lueckmann, Omry Yadan
+Author-email: mail@jan-matthis.de, omry@fb.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Description-Content-Type: text/markdown
+
+# Hydra Joblib Launcher
+Provides a [`Joblib.Parallel`](https://joblib.readthedocs.io/en/latest/parallel.html) based Hydra Launcher supporting parallel execution.
+
+See [website](https://hydra.cc/docs/next/plugins/joblib_launcher) for more information
+
+

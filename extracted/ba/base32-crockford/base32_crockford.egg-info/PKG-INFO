@@ -1,0 +1,48 @@
+Metadata-Version: 1.1
+Name: base32-crockford
+Version: 0.3.0
+Summary: A Python implementation of Douglas Crockford's base32 encoding scheme
+Home-page: https://github.com/jbittel/base32-crockford
+Author: Jason Bittel
+Author-email: jason.bittel@gmail.com
+License: BSD
+Download-URL: https://pypi.python.org/pypi/base32-crockford/
+Description: 
+        base32-crockford
+        ================
+        
+        A Python module implementing the alternate base32 encoding as described
+        by Douglas Crockford at: http://www.crockford.com/wrmg/base32.html.
+        
+        He designed the encoding to:
+        
+           * Be human and machine readable
+           * Be compact
+           * Be error resistant
+           * Be pronounceable
+        
+        It uses a symbol set of 10 digits and 22 letters, excluding I, L O and
+        U. Decoding is not case sensitive, and 'i' and 'l' are converted to '1'
+        and 'o' is converted to '0'. Encoding uses only upper-case characters.
+        
+        Hyphens may be present in symbol strings to improve readability, and
+        are removed when decoding.
+        
+        A check symbol can be appended to a symbol string to detect errors
+        within the string.
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities

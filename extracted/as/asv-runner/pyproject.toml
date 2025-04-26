@@ -1,0 +1,93 @@
+[project]
+name = "asv_runner"
+description = "Core Python benchmark code for ASV"
+authors = [
+    { name = "Rohit Goswami", email = "rog32@hi.is" },
+    { name = "Michael Droettboom", email = "mdroe@stsci.edu" },
+]
+maintainers = [
+    { name = "Rohit Goswami", email = "rog32@hi.is" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Benchmark",
+]
+dependencies = [
+    "importlib-metadata",
+]
+requires-python = ">=3.7"
+readme = "README.md"
+dynamic = []
+version = "0.2.1"
+
+[project.license]
+text = "BSD-3-Clause"
+
+[project.optional-dependencies]
+docs = [
+    "furo",
+    "sphinx",
+    "sphinx-contributors",
+    "sphinx-copybutton",
+    "sphinx-design",
+    "sphinx-autobuild",
+    "sphinxcontrib-spelling",
+    "myst-parser>=2",
+    "sphinx-autodoc2>=0.4.2",
+]
+
+[project.urls]
+homepage = "https://asv.readthedocs.io/projects/asv-runner/en/latest/"
+repository = "https://github.com/airspeed-velocity/asv_runner"
+documentation = "https://asv.readthedocs.io/projects/asv-runner/en/latest/"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.ruff]
+line-length = 88
+extend-ignore = [
+    "E741",
+]
+select = [
+    "E",
+    "F",
+    "UP",
+    "I001",
+]
+
+[tool.pdm.dev-dependencies]
+base = [
+    "towncrier>=23.6.0",
+    "tbump>=6.11.0",
+    "ruff>=0.2.1",
+]
+
+[tool.pdm.scripts.lint]
+composite = [
+    "ruff --fix --unsafe-fixes asv_runner/",
+    "ruff format asv_runner/",
+]
+
+[tool.pdm.scripts.mkdoc]
+composite = [
+    "sphinx-build -b html docs/source docs/build/html",
+]
+
+[tool.pdm.version]
+source = "scm"
+write_to = "asv_runner/__init__.py"
+write_template = "__version__ = '{}'"

@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: horovod
+Version: 0.28.1
+Summary: Distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
+Home-page: https://github.com/horovod/horovod
+Author: The Horovod Authors
+License: Apache 2.0
+Description: Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
+        The goal of Horovod is to make distributed Deep Learning fast and easy to use.
+Keywords: deep learning,tensorflow,keras,pytorch,mxnet,spark,AI
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.6
+Provides-Extra: all-frameworks
+Provides-Extra: tensorflow
+Provides-Extra: tensorflow-cpu
+Provides-Extra: tensorflow-gpu
+Provides-Extra: keras
+Provides-Extra: pytorch
+Provides-Extra: mxnet
+Provides-Extra: spark
+Provides-Extra: pytorch-spark
+Provides-Extra: ray
+Provides-Extra: dev
+Provides-Extra: test

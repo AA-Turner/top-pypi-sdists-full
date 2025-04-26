@@ -1,0 +1,159 @@
+[project]
+name = "sse-starlette"
+version = "2.3.3"
+description = "SSE plugin for Starlette"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.9"
+authors = [
+    { name = "sysid", email = "sysid@gmx.de" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+    "anyio>=4.7.0",
+    "starlette>=0.41.3",
+]
+
+[project.optional-dependencies]
+examples = [
+    "fastapi",
+]
+uvicorn = [
+    "uvicorn>=0.34.0",
+]
+
+[dependency-groups]  # new standard, included by default
+dev = [
+    "asgi-lifespan>=2.1.0",
+    "async-timeout>=5.0.1",
+    "codecov>=2.1.13",
+    "httpx>=0.28.1",
+    "mypy>=1.14.0",
+    "portend>=3.2.0",
+    "psutil>=6.1.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.4",
+    "tenacity>=9.0.0",
+    "testcontainers>=4.9.0",
+    "build>=1.2.2.post1",
+]
+
+[project.urls]
+Source = "https://github.com/sysid/sse-starlette"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.bumpversion]
+current_version = "2.3.3"
+commit = true
+tag = false
+message = "Bump version to {new_version}"
+
+[tool.bumpversion.file_patterns]
+"sse_starlette/__init__.py" = [
+    {search = "__version__ = '{current_version}'", replace = "__version__ = '{new_version}'"},
+]
+"VERSION" = [
+    {search = "{current_version}", replace = "{new_version}"},
+]
+"pyproject.toml" = [
+    {search = "version = {current_version}", replace = "version = {new_version}"},
+]
+
+[[tool.bumpversion.files]]
+filename = "VERSION"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "sse_starlette/__init__.py"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests",
+    "experimentation: marks tests as experimental tests, not to be run in CICD"
+]
+asyncio_mode = "auto"
+#addopts = "--cov=my_package --cov-report=term-missing"
+
+[tool.mypy]
+ignore_missing_imports = false
+namespace_packages = true
+
+[tool.coverage.run]
+source = ["sse_starlette"]
+omit = [
+    "tests/*",
+    "**/__main__.py",
+    "**/.venv/*",
+    "**/site-packages/*",
+]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 85
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

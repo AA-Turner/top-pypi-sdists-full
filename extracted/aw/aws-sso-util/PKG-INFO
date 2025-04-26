@@ -1,0 +1,80 @@
+Metadata-Version: 2.1
+Name: aws-sso-util
+Version: 4.33.0
+Summary: Utilities to make AWS SSO easier
+Home-page: https://github.com/benkehoe/aws-sso-util
+License: Apache-2.0
+Author: Ben Kehoe
+Author-email: ben@kehoe.io
+Requires-Python: >=3.7,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Utilities
+Requires-Dist: aws-error-utils (>=2.4,<3.0)
+Requires-Dist: aws-sso-lib (>=1.13.0,<2.0.0)
+Requires-Dist: boto3 (>=1.24.60,<2.0.0)
+Requires-Dist: click (>=8.0.0,<9.0.0)
+Requires-Dist: jsonschema (>=4.0.1,<5.0.0)
+Requires-Dist: python-dateutil (>=2.8.1,<3.0.0)
+Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
+Requires-Dist: requests (>=2.26.0,<3.0.0)
+Project-URL: Repository, https://github.com/benkehoe/aws-sso-util
+Description-Content-Type: text/markdown
+
+# aws-sso-util
+## Making life with Identity Center a little easier
+
+[AWS IAM Identity Center](https://aws.amazon.com/single-sign-on/) (formerly AWS SSO) has some rough edges, and `aws-sso-util` is here to smooth them out, hopefully temporarily until AWS makes it better.
+
+`aws-sso-util` contains utilities for the following:
+* Configuring `.aws/config`
+* Logging in/out
+* AWS SDK support
+* Looking up identifiers
+* CloudFormation
+
+The underlying Python library for Identity Center authentication is [`aws-sso-lib`](https://pypi.org/project/aws-sso-lib/), which has useful functions like interactive login, creating a boto3 session for specific a account and role, and the programmatic versions of the `lookup` functions in `aws-sso-util`.
+
+`aws-sso-util` supersedes `aws-sso-credential-process`, which is still available in its original form [here](https://github.com/benkehoe/aws-sso-credential-process).
+Read the updated docs for `aws-sso-util credential-process` [here](docs/credential-process.md).
+
+## Quickstart
+
+1. I recommend you install [`pipx`](https://pipxproject.github.io/pipx/), which installs the tool in an isolated virtualenv while linking the script you need.
+
+Mac [and Linux](https://docs.brew.sh/Homebrew-on-Linux):
+```bash
+brew install pipx
+pipx ensurepath
+```
+
+Other:
+```bash
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+
+2. Install
+```bash
+pipx install aws-sso-util
+```
+
+3. Learn
+```bash
+aws-sso-util --help
+```
+
+## Documentation
+
+See the full docs at [https://github.com/benkehoe/aws-sso-util](https://github.com/benkehoe/aws-sso-util)
+

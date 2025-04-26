@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "netconf_client"
+version = "3.1.3"
+description = "A Python NETCONF client"
+authors = ["ADTRAN, Inc."]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/ADTRAN/netconf_client"
+repository = "https://github.com/ADTRAN/netconf_client"
+documentation = "https://adtran.github.io/netconf_client/"
+keywords = ["netconf"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Telecommunications Industry"
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+lxml = "^4.6.3 || ^5"
+paramiko = "^2.7.2 || ^3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.2"
+pylama = "^7.7"
+pylint = "^2.9"
+pytest-cov = "^2.12"
+black = "22.8.0"
+sphinx = "^5"
+coveralls = "^3.3.1"
+
+[tool.pytest.ini_options]
+addopts = "-vvl --cov=netconf_client --cov-branch --cov-report term-missing"
+testpaths = ["test"]
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

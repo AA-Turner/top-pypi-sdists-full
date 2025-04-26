@@ -1,0 +1,136 @@
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-context=test --durations=0 --durations-min=3.0"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+
+[tool.coverage.report]
+skip_empty = true
+omit = ["*test*", "setup.py", "docs/*", "*/__init__.py"]
+exclude_also = [
+    #  TYPE_CHECKING is always False in runtime
+    # https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
+    "if TYPE_CHECKING:",
+    ]
+
+[tool.pylint]
+ignore-paths=["docs/"]
+
+[tool.pylint."messages control"]
+disable = [
+    "C0103", # Argument name "xyz" doesn't conform to snake_case naming style
+    "C0301", # Line too long. This is handled by black
+#    # To be removed:
+    "C0114", # Missing module docstring
+    "C0115", # Missing class docstring
+    "C0116", # Missing function or method docstring
+    "C0302", # Too many lines in module
+    "R0801", # Similar lines in 2 files
+    "R0902", # Too many instance attributes
+    "R0903", # Too few public methods
+    "R0904", # Too many public methods
+    "R0913", # Too many arguments
+    "R0914", # Too many local variables
+    "W0511", # TODO
+    "W0621", # redefined-outer-name
+    "R0917", # too many positional arguments
+]
+
+[tool.ruff]
+target-version = 'py39'
+line-length = 120
+exclude = [
+    "docs/"
+]
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
+# See complete list : https://beta.ruff.rs/docs/rules
+select = [
+#    "F",     # pyflakes
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "C90",   # mccabe
+    "I",     # isort
+#    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "YTT",   # flake8-2020
+    "C4",    # flake8-comprehensions
+    "T10",   # flake8-debugger
+    "DJ",    # flake8-django
+    "EXE",   # flake8-executable
+    "FA",    # flake8-future-annotations
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "INP",   # flake8-no-pep420
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print
+#    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+#    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "SIM",   # flake8-simplify
+    "TID",   # flake8-tidy-imports
+    "TCH",   # flake8-type-checking
+    "INT",   # flake8-gettext
+    "PD",    # pandas-vet
+    "PLC",   # pylint-convention
+    "PLE",   # pylint-errors
+    "PLW",   # pylint-warnings
+    "FLY",   # flynt
+    "NPY",   # numpy-specific rules
+    "AIR",   # airflow
+]
+
+fixable = [
+    "PIE",
+    "PT",
+    "C4",
+    "I",
+    "SIM",
+    "SIM",
+    "UP",
+    "TCH",
+]
+
+# Never enforce some rules
+ignore = [
+    "E501", # line length violations
+    "ISC001" # Implicitly concatenated string literals on one line (conflict with ruff format)
+]
+
+## Ignore some rules for some files
+[tool.ruff.lint.per-file-ignores]
+"**/*test*.py" = [
+    "SLF001", # Private member accessed
+    "T201", # print found
+]
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+force-wrap-aliases = true
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.mypy]
+# error whenever it encounters a function definition without type annotations
+#disallow_untyped_defs = true
+# error whenever a function with type annotations calls a function defined without annotations
+disallow_untyped_calls = true
+# stop treating arguments with a None default value as having an implicit Optional type
+no_implicit_optional = true
+# error whenever your code uses an unnecessary cast that can safely be removed
+warn_redundant_casts = true
+# Shows a warning when encountering any code inferred to be unreachable or redundant after performing type analysis.
+warn_unreachable = true
+# Prohibit equality checks, identity checks, and container checks between non-overlapping types.
+strict_equality = true

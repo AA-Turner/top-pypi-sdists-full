@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: pytest-eventlet
+Version: 1.0.0
+Summary: Applies eventlet monkey-patch as a pytest plugin.
+Home-page: https://github.com/nameko/pytest-eventlet
+Author: Nameko Authors
+License: Apache License, Version 2.0
+Platform: UNKNOWN
+Provides-Extra: dev
+License-File: LICENSE
+
+UNKNOWN
+

@@ -1,0 +1,10 @@
+[tool.ruff.lint]
+select = ["F", "ARG"]
+
+exclude = ["_nbdev.py"]
+
+[tool.mypy]
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = 'mlforecast.compat'
+ignore_errors = true

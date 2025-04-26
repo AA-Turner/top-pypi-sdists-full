@@ -1,0 +1,132 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkdocs-gen-files"
+description = "MkDocs plugin to programmatically generate documentation pages during the build"
+readme = "README.md"
+license = "MIT"
+keywords = ["mkdocs", "mkdocs-plugin"]
+authors = [
+    {name = "Oleh Prypin", email = "oleh@pryp.in"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+requires-python = ">=3.7"
+dependencies = [
+    "mkdocs >=1.0.3",
+    #min "jinja2 >=2.10.1",
+    #min "markupsafe >=2.0.1",
+]
+
+[project.urls]
+Documentation = "https://oprypin.github.io/mkdocs-gen-files/"
+Source = "https://github.com/oprypin/mkdocs-gen-files"
+Issues = "https://github.com/oprypin/mkdocs-gen-files/issues"
+History = "https://github.com/oprypin/mkdocs-gen-files/releases"
+
+[project.entry-points."mkdocs.plugins"]
+gen-files = "mkdocs_gen_files.plugin:GenFilesPlugin"
+
+[tool.hatch.version]
+path = "mkdocs_gen_files/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/mkdocs_gen_files", "/tests"]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    "hatch run style:format",
+    "hatch run types:check",
+    "hatch run test:test",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pytest-golden",
+]
+[tool.hatch.envs.test.scripts]
+test = [
+    "pytest -q",
+]
+
+[tool.hatch.envs.types]
+dependencies = [
+    "mypy",
+]
+[tool.hatch.envs.types.scripts]
+check = [
+    "mypy mkdocs_gen_files"
+]
+
+[tool.hatch.envs.style]
+skip-install = true
+dependencies = [
+    "pyupgrade",
+    "autoflake",
+    "isort",
+    "black",
+]
+[tool.hatch.envs.style.scripts]
+format = [
+    "find mkdocs_gen_files tests -name '*.py' | xargs pyupgrade --exit-zero-even-if-changed --py37-plus",
+    "autoflake -r mkdocs_gen_files tests",
+    "isort -q mkdocs_gen_files tests",
+    "black -q mkdocs_gen_files tests",
+]
+
+[tool.hatch.envs.docs]
+detached = true
+dependencies = [
+    "mkdocs >=1.3.0",
+    "mkdocs-material >=7.3.6",
+    "mkdocstrings-python >=0.7.1",
+    "mkdocs-gen-files >=0.3.2",
+    "mkdocs-literate-nav >=0.4.0",
+    "pymdown-extensions >=9.0",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.autoflake]
+in-place = true
+remove-all-unused-imports = true
+remove-unused-variables = true
+expand-star-imports = true
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unreachable = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+addopts = "--tb=native"
+enable_assertion_pass_hook = true
+filterwarnings = ["ignore::DeprecationWarning:.*:",
+                  "default::DeprecationWarning:mkdocs_gen_files.*:"]
+testpaths = ["tests"]

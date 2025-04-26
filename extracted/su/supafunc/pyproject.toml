@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "supafunc"
+version = "0.9.4" # {x-release-please-version}
+description = "Library for Supabase Functions"
+authors = [
+    "Joel Lee <joel@joellee.org>",
+    "Andrew Smith <a.smith@silentworks.co.uk>"
+]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/supabase/functions-py"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+httpx = {version = ">=0.26,<0.29", extras = ["http2"]}
+strenum = "^0.4.15"
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.9.1,<26.0.0"
+isort = ">=5.12,<7.0"
+pre-commit = ">=3.4,<5.0"
+pyjwt = "^2.8.0"
+pytest = ">=7.4.2,<9.0.0"
+pytest-cov = ">=4,<7"
+unasync-cli = "^0.0.9"
+pytest-asyncio = ">=0.21.1,<0.26.0"
+coveralls = "^3.3.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "tests"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

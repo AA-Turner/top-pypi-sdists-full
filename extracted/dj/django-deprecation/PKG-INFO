@@ -1,0 +1,166 @@
+Metadata-Version: 2.1
+Name: django-deprecation
+Version: 0.1.1
+Summary: Deprecate django fields and make migrations without breaking existing code.
+Home-page: https://github.com/openbox/django-deprecation
+Author: Tomás Fox
+Author-email: tomas.c.fox@gmail.com
+License: MIT
+Description: # django-deprecation
+        
+        [![build status](https://img.shields.io/travis/openbox/django-deprecation.svg)](https://travis-ci.org/openbox/django-deprecation)
+        [![coverage](https://img.shields.io/codecov/c/github/openbox/django-deprecation.svg)](https://codecov.io/gh/openbox/django-deprecation)
+        [![PyPI version](https://img.shields.io/pypi/v/django-deprecation.svg)](https://pypi.org/project/django-deprecation/)
+        ![python version](https://img.shields.io/pypi/pyversions/django-deprecation.svg)
+        ![django version](https://img.shields.io/pypi/djversions/django-deprecation.svg)
+        
+        Deprecate django fields and make migrations without breaking existing code.
+        
+        
+        ## Install
+        
+        ```bash
+        pip install django-deprecation
+        ```
+        
+        
+        ## Usage
+        
+        ### TL;DR
+        
+        ```py
+        # Before:
+        class Album(models.Model):
+            name = models.CharField(max_length=50)
+        
+        
+        # After:
+        class Album(models.Model):
+            name = DeprecatedField('title')
+            title = models.CharField(max_length=50)
+        
+        
+        assert album.name == album.title
+        assert list(Album.objects.filter(name='foo')) == list(Album.objects.filter(title='foo'))
+        ```
+        
+        ### Long explanation
+        
+        Let's suppose we have the following models:
+        
+        ```py
+        from django.db import models
+        
+        
+        class Musician(models.Model):
+            name = models.CharField(max_length=50)
+        
+        
+        class Album(models.Model):
+            musician = models.ForeignKey(Musician, on_delete=models.CASCADE)
+            name = models.CharField(max_length=100)
+        ```
+        
+        
+        Now, for some reason, let's suppose we want to rename the field `Album#musician` to `Album#artist`.
+        
+        So we make the migration using the
+        [RenameField](https://docs.djangoproject.com/en/1.11/ref/migration-operations/#renamefield)
+        operation. The problem is that any existing code that used the old field would break.
+        
+        We could create a property as an alias:
+        
+        ```py
+        class Album(models.Model):
+            artist = models.ForeignKey(Musician, on_delete=models.CASCADE)
+            name = models.CharField(max_length=100)
+        
+            @property
+            def musician(self):
+                return self.artist
+        
+            @musician.setter
+            def musician(self, value):
+                self.artist = value
+        ```
+        
+        But any code using
+        [QuerySet#filter](https://docs.djangoproject.com/en/2.0/ref/models/querysets/#filter)
+        would break if it uses the `musician` field.
+        
+        This is where `django-deprecation` comes handy.
+        We set the `musician` field as a `DeprecatedField` and point it to the `artist` field:
+        
+        ```py
+        from django_deprecation import DeprecatedField
+        
+        
+        class Album(models.Model):
+            artist = models.ForeignKey(Musician, on_delete=models.CASCADE)
+            musician = DeprecatedField('artist')
+            name = models.CharField(max_length=100)
+        ```
+        
+        
+        Now, the following code snippet will work:
+        
+        ```py
+        from .models import Album, Musician
+        
+        album = Album.objects.first()
+        assert album.musician == album.artist
+        
+        new_musician = Musician.objects.create(
+            first_name='John',
+            last_name='Doe',
+            instrument='Guitar',
+        )
+        album.musician = new_musician
+        assert album.artist == new_musician
+        
+        new_musician_album = Album.objects.filter(
+            musician=new_musician,
+        ).first()
+        new_artist_album = Album.objects.filter(
+            artist=new_musician,
+        ).first()
+        assert new_musician_album == new_artist_album
+        ```
+        
+        If you want to control how to report the error,
+        replace the `DeprecatedField.warn` function with a custom one:
+        
+        ```py
+        from django_deprecation import DeprecatedField
+        
+        
+        def warn_function(message):
+            # do stuff
+            import warnings
+            warnings.warn(message, DeprecationWarning)
+        
+        
+        DeprecatedField.warn = warn_function
+        ```
+        
+Keywords: django deprecation deprecated field migrate alias
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 1.8
+Classifier: Framework :: Django :: 1.9
+Classifier: Framework :: Django :: 1.10
+Classifier: Framework :: Django :: 1.11
+Classifier: Framework :: Django :: 2.0
+Classifier: Framework :: Django :: 2.1
+Description-Content-Type: text/markdown

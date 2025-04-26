@@ -1,0 +1,127 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "asyncer"
+dynamic = []
+description = "Asyncer, async and await, focused on developer experience."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Framework :: Trio",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet",
+    "Typing :: Typed",
+]
+dependencies = [
+    "anyio >=3.4.0,<5.0",
+    "typing_extensions >=4.8.0; python_version < '3.10'",
+]
+version = "0.0.8"
+
+[project.urls]
+Homepage = "https://github.com/fastapi/asyncer"
+Documentation = "https://asyncer.tiangolo.com"
+Repository = "https://github.com/fastapi/asyncer"
+Issues = "https://github.com/fastapi/asyncer/issues"
+Changelog = "https://asyncer.tiangolo.com/release-notes/"
+
+[project.optional-dependencies]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.version]
+source = "file"
+path = "asyncer/__init__.py"
+
+[tool.pdm.build]
+source-includes = [
+    "tests/",
+    "docs_src/",
+    "requirements*.txt",
+    "scripts/",
+]
+
+[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project]
+name = "asyncer-slim"
+
+[tool.tiangolo._internal-slim-build.packages.asyncer.project.optional-dependencies]
+
+[tool.coverage.run]
+parallel = true
+data_file = "coverage/.coverage"
+source = [
+    "docs_src",
+    "tests",
+    "asyncer",
+]
+context = "${CONTEXT}"
+dynamic_context = "test_function"
+
+[tool.coverage.report]
+show_missing = true
+sort = "-Cover"
+omit = [
+    "docs_src/tutorial/soonify_return/tutorial002.py",
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = "docs_src.*"
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+warn_no_return = false
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+]
+ignore = [
+    "E501",
+    "B008",
+    "C901",
+    "W191",
+]
+
+[tool.ruff.lint.per-file-ignores]
+
+[tool.ruff.lint.isort]
+known-third-party = [
+    "asyncer",
+    "anyio",
+]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true

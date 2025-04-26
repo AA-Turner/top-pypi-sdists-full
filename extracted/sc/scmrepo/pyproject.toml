@@ -1,0 +1,209 @@
+[build-system]
+requires = ["setuptools>=48", "setuptools_scm[toml]>=6.3.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "scmrepo"
+description = "scmrepo"
+readme = "README.rst"
+license = {text = "Apache-2.0"}
+authors = [{ name = "Iterative", email = "support@dvc.org" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 4 - Beta",
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = [
+    "gitpython>3",
+    "dulwich>=0.22.1",
+    "pygit2>=1.14.0",
+    "pygtrie>=2.3.2",
+    "fsspec[tqdm]>=2024.2.0",
+    "pathspec>=0.9.0",
+    "asyncssh>=2.13.1,<3",
+    "funcy>=1.14",
+    "aiohttp-retry>=2.5.0",
+    "tqdm",
+]
+
+[project.urls]
+Issues = "https://github.com/iterative/scmrepo/issues"
+Source = "https://github.com/iterative/scmrepo"
+
+[project.optional-dependencies]
+tests = [
+    "aioresponses>=0.7,<0.8",
+    "paramiko>=3.4.0,<4",
+    "pytest>=7,<9",
+    "pytest-asyncio>=0.23.2,<1",
+    "pytest-cov>=4.1.0",
+    "pytest-docker>=1,<4",
+    "pytest-mock",
+    "pytest-sugar",
+    "pytest-test-utils>=0.1.0,<0.2",
+    "proxy.py",
+]
+dev = [
+    "mypy==1.14.1",
+    "scmrepo[tests]",
+    "types-certifi",
+    "types-mock",
+    "types-paramiko",
+    "types-tqdm",
+]
+
+[tool.setuptools.package-data]
+scmrepo = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+markers = [
+    "skip_git_backend: skip tests for given backend",
+    "slow: mark test as slow to run",
+]
+asyncio_mode = "auto"
+
+
+[tool.coverage.run]
+branch = true
+source = ["scmrepo", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "raise AssertionError",
+    "@overload",
+]
+
+[tool.mypy]
+# Error output
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+pretty = true
+check_untyped_defs = false
+# Warnings
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pygtrie",
+    "funcy",
+    "git",
+    "gitdb.*",
+    "fsspec.*",
+    "pathspec.patterns",
+    "asyncssh.*",
+    "pygit2.*",
+    "pytest_docker.plugin",
+    "urllib3.*",
+]
+ignore_missing_imports = true
+
+[tool.codespell]
+ignore-words-list = "cachable, keypair"
+skip = "CODE_OF_CONDUCT.rst"
+
+[tool.ruff]
+output-format = "full"
+show-fixes = true
+
+[tool.ruff.lint]
+ignore = [
+    "S101", # assert
+    "PLR2004", # magic-value-comparison
+    "PLW2901", # redefined-loop-name
+    "ISC001", # single-line-implicit-string-concatenation
+    "SIM105", # suppressible-exception
+    "SIM108", # if-else-block-instead-of-if-exp
+    "D203", # one blank line before class
+    "D213", # multi-line-summary-second-line
+    "RET501", # unnecessary-return-none
+    "RET502", # implicit-return-value
+    "RET503", # implicit-return
+    "SIM117", # multiple-with-statements
+    "N818", # error-suffix-on-exception-name
+]
+select = [
+    "A", # flake8-buitlins
+    "ASYNC", # flake8-async
+    "B", # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C4", # flake8-comprehensions
+    "C90", # mccabe
+    "DTZ", # flake8-datetimez
+    "E", # pycodestyle - Error
+    "EXE", # flake8-executable
+    "F", # pyflakes
+    "FLY", # flynt-rules
+    "G", # flake8-logging-format
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "INP", # flake8-no-pep420
+    "ISC", # flake8-implicit-str-concat
+    "N", # pep8-naming
+    "PERF101", # perflint
+    "PGH", # pygrep-hooks
+    "PIE", # flake8-pie
+    "PL", # pylint
+    "PT", # flake8-pytest-style
+    "PYI", # flake8-pyi
+    "Q", # flae8-quotes
+    "RET", # flake8-return
+    "RSE", # flake8-raise
+    "RUF", # ruff
+    "S", # flake8-bandit
+    "SIM", # flake8-simplify
+    "SLOT", # flake8-slots
+    "T10", # flake8-debugger
+    "T20", # flake8-print
+    "TCH", # flake8-type-checking
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "UP", # pyupgrade
+    "W", # pycodestyle - Warning
+    "YTT", # flake8-2020
+]
+
+[tool.ruff.lint.per-file-ignores]
+"noxfile.py" = ["D", "PTH"]
+"tests/**" = ["S", "ARG001", "ARG002", "ANN"]
+"docs/**" = ["INP"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["scmrepo"]
+
+[tool.ruff.lint.pylint]
+max-args = 10

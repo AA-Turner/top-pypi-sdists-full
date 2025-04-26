@@ -1,0 +1,141 @@
+[build-system]
+requires = ["hatchling", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hishel"
+dynamic = ["readme", "version"]
+description = "Persistent cache implementation for httpx and httpcore"
+license = "BSD-3-Clause"
+requires-python = ">=3.9"
+authors = [
+    { name = "Kar Petrosyan", email = "kar.petrosyanpy@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: AsyncIO",
+    "Framework :: Trio",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+
+yaml = [
+    "pyyaml==6.0.1",
+]
+
+redis = [
+    "redis==5.0.4"
+]
+
+sqlite = [
+    "anysqlite>=0.0.5"
+]
+
+s3 = [
+    "boto3>=1.15.0,<=1.15.3; python_version < '3.12'",
+    "boto3>=1.15.3; python_version >= '3.12'"
+]
+
+[project.urls]
+Homepage = "https://hishel.com"
+Source = "https://github.com/karpetrosyan/hishel"
+
+[tool.hatch.version]
+path = "hishel/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/hishel",
+    "/CHANGELOG.md",
+    "/README.md",
+]
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "CHANGELOG.md"
+
+[tool.mypy]
+strict = true
+show_error_codes = true
+warn_unused_ignores = false
+exclude = ['venv', '.venv']
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+
+[tool.pytest.ini_options]
+addopts = ["-rxXs", "--strict-config", "--strict-markers"]
+filterwarnings = []
+
+[tool.coverage.run]
+omit = [
+    "venv/*", 
+    "hishel/_sync/*",
+    "hishel/_s3.py"
+]
+include = ["hishel/*", "tests/*"]
+
+[tool.coverage.report]
+exclude_also = [
+  '__repr__',
+  'raise NotImplementedError()'
+]
+
+[tool.ruff]
+exclude = [
+    "hishel/_sync",
+    "hishel/__init__.py",
+    "tests/_sync",
+]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I"
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[dependency-groups]
+dev = [
+    "anyio==4.7.0",
+    "coverage==7.6.10",
+    "hatch==1.9.3",
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.5.1",
+    "mypy==1.14.1",
+    "pytest==8.3.4",
+    "ruff==0.11.0",
+    "trio==0.28.0",
+    "types-boto3==1.0.2",
+    "types-pyyaml==6.0.12.20240311",
+    "types-redis==4.6.0.20240425",
+    "zipp>=3.19.1",
+]

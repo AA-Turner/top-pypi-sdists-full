@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling>=1.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyter_server_fileid"
+authors = [{name = "David L. Qiu", email = "david@qiu.dev"}]
+dynamic = ["version"]
+readme = "README.md"
+description = "Jupyter Server extension providing an implementation of the File ID service."
+requires-python = ">=3.7"
+keywords = ["Jupyter", "Extension"]
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Framework :: Jupyter",
+]
+dependencies = [
+    "jupyter_server>=1.15, <3",
+    "jupyter_events>=0.5.0"
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+  "pytest-jupyter",
+  "jupyter_server[test]>=1.15, <3"
+]
+
+cli = [
+  "click"
+]
+
+[project.scripts]
+jupyter-fileid = "jupyter_server_fileid.cli:main"
+
+[project.license]
+file="LICENSE"
+
+[project.urls]
+Home = "https://github.com/jupyter-server/jupyter_server_fileid"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyter-config" = "etc/jupyter"
+
+[tool.black]
+line_length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+addopts = "-raXs --durations 10 --color=yes --doctest-modules"
+testpaths = [
+    "tests/"
+]
+
+[tool.jupyter_releaser]
+skip = ["check-links"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+pretty = true
+show_error_context = true
+show_error_codes = true
+strict_equality = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.hatch.version]
+path = "jupyter_server_fileid/__init__.py"

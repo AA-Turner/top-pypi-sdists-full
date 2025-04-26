@@ -1,0 +1,107 @@
+[project]
+name = "labelbox"
+version = "6.10.0"
+description = "Labelbox Python API"
+authors = [{ name = "Labelbox", email = "engineering@labelbox.com" }]
+dependencies = [
+    "google-api-core>=1.22.1",
+    "pydantic>=2.0",
+    "python-dateutil>=2.8.2, <2.10.0",
+    "requests>=2.22.0",
+    "strenum>=0.4.15",
+    "tqdm>=4.66.2",
+    "geojson>=3.1.0",
+    "mypy==1.10.1",
+    "lbox-clients==1.1.2",
+]
+readme = "README.md"
+requires-python = ">=3.9,<3.14"
+classifiers = [
+    # How mature is this project?
+    "Development Status :: 5 - Production/Stable",
+    # Indicate who your project is intended for
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    # Pick your license as you wish
+    "License :: OSI Approved :: Apache Software License",
+    # Specify the Python versions you support here.
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+keywords = ["ml", "ai", "labelbox", "labeling", "llm", "machinelearning", "edu"]
+
+[project.urls]
+Homepage = "https://labelbox.com/"
+Documentation = "https://labelbox-python.readthedocs.io/en/latest/"
+Repository = "https://github.com/Labelbox/labelbox-python"
+Issues = "https://github.com/Labelbox/labelbox-python/issues"
+Changelog = "https://github.com/Labelbox/labelbox-python/blob/develop/libs/labelbox/CHANGELOG.md"
+
+[project.optional-dependencies]
+data = [
+    "shapely>=2.0.3",
+    "numpy>=1.25.0",
+    "pillow>=10.2.0",
+    "typeguard>=4.1.5",
+    "imagesize>=1.4.1",
+    "pyproj>=3.5.0",
+    "pygeotile>=1.0.6",
+    "typing-extensions>=4.10.0",
+    "opencv-python-headless>=4.9.0.80",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "mypy>=1.9.0",
+    "types-pillow>=10.2.0.20240311",
+    "types-python-dateutil>=2.9.0.20240316",
+    "types-requests>=2.31.0.20240311",
+    "types-tqdm>=4.66.0.20240106",
+]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+ignore = ["F841", "E722", "F811", "F403", "F821", "F541"]
+exclude = ["**/__init__.py"]
+
+[tool.rye.scripts]
+unit = "pytest tests/unit"
+# https://github.com/Labelbox/labelbox-python/blob/7c84fdffbc14fd1f69d2a6abdcc0087dc557fa4e/Makefile
+# see integration_client.py for full meaning / customization of this command
+# LABELBOX_TEST_ENVIRON="custom" \
+# DA_GCP_LABELBOX_API_KEY=${DA_GCP_LABELBOX_API_KEY} \
+# LABELBOX_TEST_API_KEY=${LABELBOX_TEST_API_KEY_CUSTOM} \
+# LABELBOX_TEST_GRAPHQL_API_ENDPOINT=${LABELBOX_TEST_GRAPHQL_API_ENDPOINT} \
+# LABELBOX_TEST_REST_API_ENDPOINT=${LABELBOX_TEST_REST_API_ENDPOINT} \
+# used by LB 
+# LABELBOX_TEST_ENVIRON="ephemeral" \
+# SERVICE_API_KEY=${SERVICE_API_KEY} \
+# LABELBOX_TEST_BASE_URL="http://host.docker.internal:8080" \
+integration = { cmd = "pytest tests/integration" }
+data = { cmd = "pytest tests/data" }
+rye-lint = "rye lint"
+rye-fmt-check = "rye fmt --check"
+MYPYPATH = "../lbox-clients/src/"
+mypy-lint = "mypy src --pretty --show-error-codes --non-interactive --install-types"
+lint = { chain = ["rye-fmt-check", "mypy-lint", "rye-lint"] }
+test = { chain = ["lint", "unit", "integration"] }
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/labelbox"]

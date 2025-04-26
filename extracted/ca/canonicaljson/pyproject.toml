@@ -1,0 +1,11 @@
+[tool.mypy]
+show_error_codes = true
+strict = true
+
+files = ["."]
+
+[build-system]
+requires = [
+    "setuptools >= 35.0.2",
+]
+build-backend = "setuptools.build_meta"

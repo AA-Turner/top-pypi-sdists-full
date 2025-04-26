@@ -1,0 +1,41 @@
+Metadata-Version: 2.1
+Name: types-factory-boy
+Version: 0.4.1
+Summary: Typing stubs for factory-boy
+Home-page: https://github.com/youtux/types-factory-boy
+License: MIT
+Author: Alessio Bogon
+Author-email: 778703+youtux@users.noreply.github.com
+Requires-Python: >=3.7
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Typing :: Stubs Only
+Requires-Dist: factory-boy (>=3.2.0)
+Requires-Dist: typing-extensions (>=4.2.0,<5.0.0)
+Project-URL: Repository, https://github.com/youtux/types-factory-boy
+Description-Content-Type: text/markdown
+
+## Typing stubs for factory-boy
+
+This is a PEP 561 type stub package for the `factory-boy` package.
+It can be used by type-checking tools like mypy, PyCharm, pytype etc. to check code
+that uses `factory-boy`.
+
+### Installation
+
+```shell
+pip install types-factory-boy
+```
+

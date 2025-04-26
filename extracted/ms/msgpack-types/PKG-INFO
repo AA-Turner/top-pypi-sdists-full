@@ -1,0 +1,41 @@
+Metadata-Version: 2.1
+Name: msgpack-types
+Version: 0.5.0
+Summary: Type stubs for msgpack
+Home-page: https://github.com/sbdchd/msgpack-types
+License: Apache-2.0
+Keywords: msgpack,types,mypy,stubs
+Author: Steve Dignam
+Author-email: steve@dignam.xyz
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: msgpack (>=1.1.0,<1.2.0)
+Requires-Dist: typing-extensions (>=4.6.0)
+Project-URL: Repository, https://github.com/sbdchd/msgpack-types
+Description-Content-Type: text/markdown
+
+# msgpack-types [![PyPI](https://img.shields.io/pypi/v/msgpack-types.svg)](https://pypi.org/project/msgpack-types/)
+
+> Type stubs for [msgpack](https://github.com/msgpack/msgpack-python)
+
+Allows for autocomplete and static typing.
+
+## install
+
+```
+pip install msgpack-types
+```
+
+## related
+
+- <https://github.com/sbdchd/django-types>
+- <https://github.com/sbdchd/djangorestframework-types>
+- <https://github.com/sbdchd/celery-types>
+- <https://github.com/sbdchd/mongo-types>
+

@@ -1,0 +1,98 @@
+Metadata-Version: 2.4
+Name: urbanairship
+Version: 7.0.0
+Summary: ``urbanairship`` is a Python library for using the `Airship
+Home-page: https://airship.com/
+Author: Airship Tools
+Author-email: tools@airship.com
+License: BSD License
+Project-URL: Documentation, https://docs.airship.com/
+Project-URL: Source, https://github.com/urbanairship/python-library
+Project-URL: Tracker, https://github.com/urbanairship/python-library/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: requests>=2.32
+Requires-Dist: six
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: pyjwt>=2.8.0
+Provides-Extra: test
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0; extra == "test"
+Requires-Dist: mock>=5.0.0; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: mock>=5.0.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+
+``urbanairship`` is a Python library for using the `Airship
+<http://airship.com/>`_ REST API for push notifications, message
+center messages, email, and SMS.
+
+Requirements
+============
+
+Python 3.6 or higher is required. Other requirements can be found in requirements.txt.
+
+Questions
+=========
+
+The best place to ask questions or report a problem is our support site:
+http://support.airship.com/
+
+Usage
+=====
+
+See the `full documentation for this library
+<https://docs.airship.com/api/libraries/python/>`_, as well as the
+`Airship API Documentation
+<https://docs.airship.com/api/ua/>`_.
+
+
+History
+=======
+
+* 7.0 Update to client classes and authentication methods. Removes support for Python version prior to 3.10.
+* 6.3 Support for OAuth2 Authentication. Adds new clients module and class.
+* 6.0 Support for Bearer Token Authentication. Removes support for Python 2.
+* 5.0 Support for SMS and Email messages. See changelog for other updates.
+* 4.0 Support for Automation, removed Feedback
+* 3.0 Support for Open Channels, several other significant changes
+* 2.0 Support for Web Notify and more iOS 10, stopped supporting Python 2.6
+* 1.0 Support for In-App and iOS 10
+* 0.8 Support for Reports APIs
+* 0.7 Support for Python 3, major refactoring
+* 0.6 Major refactoring, support for push api v3
+* 0.5 Added Android, Rich Push, and scheduled notifications
+* 0.4 Added batch push
+* 0.3 Added deregister, device token list, other minor improvements
+* 0.2 Added tags, broadcast, feedback
+* 0.1 Initial release
+
+See the CHANGELOG file for more details.

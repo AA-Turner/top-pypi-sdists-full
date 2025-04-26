@@ -1,0 +1,78 @@
+Metadata-Version: 2.1
+Name: universal-startfile
+Version: 0.2
+Summary: A cross-platform version of 'os.startfile' from the standard library.
+Home-page: https://pypi.org/project/universal-startfile
+License: MIT
+Keywords: files,startfile,utilities
+Author: Jace Browning
+Author-email: jacebrowning@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Desktop Environment :: File Managers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Filesystems
+Classifier: Topic :: Utilities
+Project-URL: Documentation, https://universal-startfile.readthedocs.io
+Project-URL: Repository, https://github.com/jacebrowning/universal-startfile
+Description-Content-Type: text/markdown
+
+# Overview
+
+This is a cross-platform version of the [os.startfile](https://docs.python.org/3/library/os.html#os.startfile) function in the Python standard library.
+
+It emulates the following actions in an operating system's UI:
+
+- double-clicking a file 
+- single-clicking a URL
+
+which will open the default program associated with that type.
+
+[![Unix Build Status](https://img.shields.io/github/workflow/status/jacebrowning/universal-startfile/main)](https://github.com/jacebrowning/universal-startfile/actions)
+[![Windows Build Status](https://img.shields.io/appveyor/ci/jacebrowning/universal-startfile.svg?label=windows)](https://ci.appveyor.com/project/jacebrowning/universal-startfile)
+[![Coverage Status](https://img.shields.io/codecov/c/gh/jacebrowning/universal-startfile)](https://codecov.io/gh/jacebrowning/universal-startfile)
+[![PyPI License](https://img.shields.io/pypi/l/universal-startfile.svg)](https://pypi.org/project/universal-startfile)
+[![PyPI Version](https://img.shields.io/pypi/v/universal-startfile.svg)](https://pypi.org/project/universal-startfile)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/universal-startfile.svg?color=orange)](https://pypistats.org/packages/universal-startfile)
+
+## Setup
+
+### Requirements
+
+* Python 3.7+
+
+### Installation
+
+Install it directly into an activated virtual environment:
+
+```text
+$ pip install universal-startfile
+```
+
+or add it to your [Poetry](https://poetry.eustace.io/) project:
+
+```text
+$ poetry add universal-startfile
+```
+
+## Usage
+
+After installation, import the `startfile` function:
+
+```python
+from startfile import startfile
+
+startfile("~/Downloads/example.png")
+startfile("http://example.com")
+```
+

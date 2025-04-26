@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: djangorestframework-types
+Version: 0.9.0
+Summary: Type stubs for Django Rest Framework
+Home-page: https://github.com/sbdchd/djangorestframework-types
+License: MIT
+Keywords: django,djangorestframework,types,mypy,stubs
+Author: Steve Dignam
+Author-email: steve@dignam.xyz
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: typing_extensions (>=4.6,<5.0) ; python_version < "3.11"
+Project-URL: Repository, https://github.com/sbdchd/djangorestframework-types
+Description-Content-Type: text/markdown
+
+# djangorestframework-types [![PyPI](https://img.shields.io/pypi/v/djangorestframework-types.svg)](https://pypi.org/project/djangorestframework-types/)
+
+Type stubs for [Django Rest Framework](https://www.django-rest-framework.org).
+
+> Note: this project was forked from
+> <https://github.com/typeddjango/djangorestframework-stubs> with the goal of
+> removing the [`mypy`](https://github.com/python/mypy) plugin dependency so
+> that `mypy` can't [crash due to Django
+> config](https://github.com/typeddjango/django-stubs/issues/318), and that
+> non-`mypy` type checkers like
+> [`pyright`](https://github.com/microsoft/pyright) will work better with
+> Django Rest Framework.
+
+## install
+
+```bash
+pip install djangorestframework-types
+```
+
+## related
+
+- <https://github.com/sbdchd/django-types>
+- <https://github.com/sbdchd/celery-types>
+- <https://github.com/sbdchd/mongo-types>
+- <https://github.com/sbdchd/msgpack-types>
+

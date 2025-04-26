@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: airflow-providers-clickhouse
+Version: 0.0.1
+Summary: Apache Airflow providers for Yandex Clickhouse Database
+Home-page: https://github.com/klimenkoIv/apache-airflow-providers-clickhouse
+Author: Ivan Klimenko
+Author-email: klimenko.iv@gmail.com
+License: Apache License 2.0
+Project-URL: Bug Tracker, https://github.com/klimenkoIv/apache-airflow-providers-clickhouse/issues
+Keywords: clickhouse,airflow,providers,database,ClickhouseHook,ClickhouseOperator
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# apache-airflow-providers-clickhouse
+Provider allow connect Apache Airflow to Yandex Clickhouse Database and perform query using ClickhouseOperator
+
+

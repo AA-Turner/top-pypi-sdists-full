@@ -1,0 +1,60 @@
+Metadata-Version: 2.3
+Name: gcloud-aio-pubsub
+Version: 6.1.0
+Summary: Python Client for Google Cloud Pub/Sub
+License: MIT
+Author: Vi Engineering
+Author-email: voiceai-eng@dialpad.com
+Requires-Python: >=3.9,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet
+Requires-Dist: gcloud-aio-auth (>=3.3.0,<6.0.0)
+Requires-Dist: prometheus-client (>=0.13.1,<1.0.0)
+Project-URL: Repository, https://github.com/talkiq/gcloud-aio
+Description-Content-Type: text/x-rst
+
+(Asyncio OR Threadsafe) Python Client for Google Cloud Pub/Sub
+==============================================================
+
+    This is a shared codebase for ``gcloud-aio-pubsub`` and
+    ``gcloud-rest-pubsub``
+
+|pypi| |pythons|
+
+Installation
+------------
+
+.. code-block:: console
+
+    $ pip install --upgrade gcloud-{aio,rest}-pubsub
+
+Usage
+-----
+
+See `our docs`_.
+
+Contributing
+------------
+
+Please see our `contributing guide`_.
+
+.. _contributing guide: https://github.com/talkiq/gcloud-aio/blob/master/.github/CONTRIBUTING.rst
+.. _our docs: https://talkiq.github.io/gcloud-aio
+
+.. |pypi| image:: https://img.shields.io/pypi/v/gcloud-aio-pubsub.svg?style=flat-square
+    :alt: Latest PyPI Version
+    :target: https://pypi.org/project/gcloud-aio-pubsub/
+
+.. |pythons| image:: https://img.shields.io/pypi/pyversions/gcloud-aio-pubsub.svg?style=flat-square&label=python
+    :alt: Python Version Support
+    :target: https://pypi.org/project/gcloud-aio-pubsub/
+

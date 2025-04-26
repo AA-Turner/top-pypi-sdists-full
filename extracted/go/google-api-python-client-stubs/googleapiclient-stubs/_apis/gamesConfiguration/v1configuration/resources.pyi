@@ -1,0 +1,133 @@
+import collections.abc
+import typing
+
+import httplib2
+import typing_extensions
+
+import googleapiclient.discovery
+import googleapiclient.http
+
+from .schemas import *
+
+_list = list
+
+@typing.type_check_only
+class GamesConfigurationResource(googleapiclient.discovery.Resource):
+    @typing.type_check_only
+    class AchievementConfigurationsResource(googleapiclient.discovery.Resource):
+        def delete(
+            self, *, achievementId: str, **kwargs: typing.Any
+        ) -> googleapiclient.http.HttpRequest: ...
+        def get(
+            self, *, achievementId: str, **kwargs: typing.Any
+        ) -> AchievementConfigurationHttpRequest: ...
+        def insert(
+            self,
+            *,
+            applicationId: str,
+            body: AchievementConfiguration = ...,
+            **kwargs: typing.Any,
+        ) -> AchievementConfigurationHttpRequest: ...
+        def list(
+            self,
+            *,
+            applicationId: str,
+            maxResults: int = ...,
+            pageToken: str = ...,
+            **kwargs: typing.Any,
+        ) -> AchievementConfigurationListResponseHttpRequest: ...
+        def list_next(
+            self,
+            previous_request: AchievementConfigurationListResponseHttpRequest,
+            previous_response: AchievementConfigurationListResponse,
+        ) -> AchievementConfigurationListResponseHttpRequest | None: ...
+        def update(
+            self,
+            *,
+            achievementId: str,
+            body: AchievementConfiguration = ...,
+            **kwargs: typing.Any,
+        ) -> AchievementConfigurationHttpRequest: ...
+
+    @typing.type_check_only
+    class LeaderboardConfigurationsResource(googleapiclient.discovery.Resource):
+        def delete(
+            self, *, leaderboardId: str, **kwargs: typing.Any
+        ) -> googleapiclient.http.HttpRequest: ...
+        def get(
+            self, *, leaderboardId: str, **kwargs: typing.Any
+        ) -> LeaderboardConfigurationHttpRequest: ...
+        def insert(
+            self,
+            *,
+            applicationId: str,
+            body: LeaderboardConfiguration = ...,
+            **kwargs: typing.Any,
+        ) -> LeaderboardConfigurationHttpRequest: ...
+        def list(
+            self,
+            *,
+            applicationId: str,
+            maxResults: int = ...,
+            pageToken: str = ...,
+            **kwargs: typing.Any,
+        ) -> LeaderboardConfigurationListResponseHttpRequest: ...
+        def list_next(
+            self,
+            previous_request: LeaderboardConfigurationListResponseHttpRequest,
+            previous_response: LeaderboardConfigurationListResponse,
+        ) -> LeaderboardConfigurationListResponseHttpRequest | None: ...
+        def update(
+            self,
+            *,
+            leaderboardId: str,
+            body: LeaderboardConfiguration = ...,
+            **kwargs: typing.Any,
+        ) -> LeaderboardConfigurationHttpRequest: ...
+
+    def new_batch_http_request(
+        self,
+        callback: collections.abc.Callable[
+            [
+                str,
+                googleapiclient.http.HttpRequest,
+                googleapiclient.errors.HttpError | None,
+            ],
+            typing.Any,
+        ]
+        | None = None,
+    ) -> googleapiclient.http.BatchHttpRequest: ...
+    def achievementConfigurations(self) -> AchievementConfigurationsResource: ...
+    def leaderboardConfigurations(self) -> LeaderboardConfigurationsResource: ...
+
+@typing.type_check_only
+class AchievementConfigurationHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> AchievementConfiguration: ...
+
+@typing.type_check_only
+class AchievementConfigurationListResponseHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> AchievementConfigurationListResponse: ...
+
+@typing.type_check_only
+class LeaderboardConfigurationHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> LeaderboardConfiguration: ...
+
+@typing.type_check_only
+class LeaderboardConfigurationListResponseHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> LeaderboardConfigurationListResponse: ...

@@ -1,0 +1,81 @@
+[project]
+name = "url-normalize"
+version = "2.2.0"
+description = "URL normalization for Python"
+authors = [{ name = "Nikolay Panov", email = "github@npanov.com" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["url", "normalization", "normalize"]
+dependencies = ["idna>=3.3"]
+
+[project.urls]
+Homepage = "https://github.com/niksite/url-normalize"
+Repository = "https://github.com/niksite/url-normalize"
+Issues = "https://github.com/niksite/url-normalize/issues"
+Changelog = "https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md"
+
+[project.scripts]
+url-normalize = "url_normalize.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "mypy",
+  "pre-commit",
+  "pytest-cov",
+  "pytest-ruff",
+  "pytest-socket",
+  "pytest",
+  "ruff",
+  "tox",
+]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+unsafe-fixes = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+extend-select = [
+  "D400", # First line should end with a period
+  "D401", # First line should be in imperative mood
+  "D413", # Missing blank line after the last section of a multiline docstring
+]
+fixable = ["ALL"]
+ignore = [
+  "COM812", # missing-trailing-comma
+  "D203",   # One blank line before class - we prefer D211 instead
+  "D213",   # multi-line-summary-second-line - we prefer D212 instead
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["INP001", "ANN001", "ANN201", "S101", "CPY001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = ["tests"]
+python_version = "3.8"
+show_error_codes = true
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--cov-fail-under=100",
+  "--cov-report=term-missing:skip-covered",
+  "--cov=url_normalize",
+  "--disable-socket",
+  "--ruff",
+  "-v",
+]
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

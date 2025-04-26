@@ -1,0 +1,75 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Publish pip package to PyPI https://pypi.org/project/ultralytics/ and Docs to https://docs.ultralytics.com
+
+# Overview:
+# This `pyproject.toml` file manages the build, packaging, and distribution of the `thop` library. 
+# It defines essential project metadata, dependencies, and settings used to develop and deploy the library.
+
+# Key Sections:
+# - `[build-system]`: Specifies the build requirements and backend (e.g., setuptools, wheel).
+# - `[project]`: Includes details like name, version, description, authors, dependencies, and more.
+# - `[tool.setuptools.dynamic]`: Configures dynamic versioning for the project.
+# - `[tool.setuptools]`: Configures settings specific to the `setuptools` build backend.
+
+# Installation:
+# The `thop` library can be installed using the command: `pip install ultralytics-thop`
+# For development purposes, you can install the package in editable mode with: `pip install -e .`
+# This approach allows for real-time code modifications without the need for re-installation.
+
+# Documentation:
+# For comprehensive documentation and usage instructions, visit: https://github.com/ultralytics/thop
+
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultralytics-thop"
+dynamic = ["version"]
+description = "Ultralytics THOP package for fast computation of PyTorch model FLOPs and parameters."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { "text" = "AGPL-3.0" }
+keywords = ["FLOPs", "PyTorch", "Model Analysis"]  # Optional
+authors = [
+    { name = "Ligeng Zhu", email = "ligeng.zhu+github@gmail.com" }
+]
+maintainers = [
+    { name = "Ultralytics", email = "hello@ultralytics.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "numpy",
+    "torch",
+]
+
+[project.urls]
+"Homepage" = "https://ultralytics.com"
+"Source" = "https://github.com/ultralytics/thop"
+"Documentation" = "https://docs.ultralytics.com"
+"Bug Reports" = "https://github.com/ultralytics/thop/issues"
+"Changelog" = "https://github.com/ultralytics/thop/releases"
+
+[tool.setuptools.dynamic]
+version = { attr = "thop.__version__" }

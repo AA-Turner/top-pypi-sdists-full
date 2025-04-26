@@ -1,0 +1,63 @@
+[tool.poetry]
+name = "asynch"
+version = "0.2.5"
+description = "An asyncio driver for ClickHouse with native TCP support"
+authors = ["long2ice <long2ice@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/long2ice/asynch"
+repository = "https://github.com/long2ice/asynch.git"
+documentation = "https://github.com/long2ice/asynch"
+keywords = ["asyncio", "clickhouse", "python", "driver"]
+packages = [{ include = "asynch" }]
+include = ["LICENSE", "README.md", "CHANGELOG.md"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+leb128 = "*"
+pytz = "*"
+lz4 = "*"
+clickhouse-cityhash = { version = "*", optional = true }
+zstd = "*"
+tzlocal = "*"
+ciso8601 = "*"
+
+[tool.poetry.extras]
+compression = ["clickhouse-cityhash"]
+
+[tool.poetry.dev-dependencies]
+bandit = "*"
+black = "*"
+clickhouse-driver = "*"
+isort = "*"
+ruff = "*"
+uvloop = "*"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.8"
+pytest-mock = "^3.14.0"
+pytest-random-order = "^1.1.1"
+pytest-xdist = "^3.6.1"
+
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311']
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+addopts = "--maxfail=1 -s -vvv --random-order"
+asyncio_mode = "auto"
+minversion = "7.4"
+testpaths = ["tests"]
+xfail_strict = true
+
+[tool.ruff]
+line-length = 100

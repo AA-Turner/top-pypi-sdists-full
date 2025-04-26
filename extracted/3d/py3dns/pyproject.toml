@@ -1,0 +1,32 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "py3dns"
+description = 'Python 3 DNS library'
+authors = [{name = "Anthony Baxter and others", email ="py3dns-hackers@lists.launchpad.net"},]
+maintainers = [{name = "Scott Kitterman", email = "scott@kitterman.com"}]
+readme = "README.txt"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+keywords = ['DNS']
+requires-python = ">=3.2"
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Environment :: No Input/Output (Daemon)',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: Python License (CNRI Python License)',
+  'Natural Language :: English',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python :: 3',
+  'Topic :: Internet :: Name Service (DNS)',
+  'Topic :: Software Development :: Libraries :: Python Modules'
+]
+
+[tool.flit.module]
+name = "DNS"
+
+[tool.flit.sdist]
+include = ["CHANGES", "CREDITS.txt", "README-guido.txt", "test.py", "tests", "tools"]
+exclude = [".gitignore"]

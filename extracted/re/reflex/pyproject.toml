@@ -1,0 +1,170 @@
+[project]
+name = "reflex"
+version = "0.7.8"
+description = "Web apps in pure Python."
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Nikhil Rao", email = "nikhil@reflex.dev" },
+  { name = "Alek Petuskey", email = "alek@reflex.dev" },
+  { name = "Masen Furer", email = "masen@reflex.dev" },
+  { name = "Elijah Ahianyo", email = "elijahahianyo@gmail.com" },
+  { name = "Thomas Brandeho", email = "thomas@reflex.dev" },
+  { name = "Khaleel Al-Adhami", email = "khaleel@reflex.dev" },
+]
+maintainers = [
+  { name = "Masen Furer", email = "masen@reflex.dev" },
+  { name = "Thomas Brandeho", email = "thomas@reflex.dev" },
+  { name = "Khaleel Al-Adhami", email = "khaleel@reflex.dev" },
+]
+readme = "README.md"
+keywords = ["web", "framework"]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+  "alembic >=1.15.2,<2.0",
+  "distro >=1.9.0,<2.0; platform_system == 'Linux'",
+  "fastapi >=0.115.0",
+  "granian[reload] >=2.2.3",
+  "gunicorn >=23.0.0,<24.0.0",
+  "httpx >=0.28.0,<1.0",
+  "jinja2 >=3.1.2,<4.0",
+  "packaging >=24.2,<25.0",
+  "platformdirs >=4.3.7,<5.0",
+  "psutil >=7.0.0,<8.0",
+  "pydantic >=1.10.21,<3.0",
+  "python-socketio >=5.12.0,<6.0",
+  "python-multipart >=0.0.20,<1.0",
+  "redis >=5.2.1,<6.0",
+  "reflex-hosting-cli >=0.1.38",
+  "rich >=13.0.0,<14.0",
+  "sqlmodel >=0.0.24,<0.1",
+  "typer >=0.15.2,<1.0",
+  "typing_extensions >=4.13.0",
+  "uvicorn >=0.34.0",
+  "wrapt >=1.17.0,<2.0",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+
+[project.urls]
+homepage = "https://reflex.dev"
+repository = "https://github.com/reflex-dev/reflex"
+documentation = "https://reflex.dev/docs/getting-started/introduction"
+
+[project.scripts]
+reflex = "reflex.reflex:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["reflex"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["*.pyi"]
+
+[tool.hatch.build.targets.wheel]
+artifacts = ["*.pyi"]
+
+[tool.hatch.build.hooks.custom]
+dependencies = ["plotly", "ruff"]
+require-runtime-dependencies = true
+
+[tool.pyright]
+reportIncompatibleMethodOverride = false
+
+[tool.ruff]
+target-version = "py310"
+output-format = "concise"
+lint.isort.split-on-trailing-comma = false
+lint.select = [
+  "ANN001",
+  "B",
+  "C4",
+  "D",
+  "E",
+  "ERA",
+  "F",
+  "FURB",
+  "I",
+  "N",
+  "PERF",
+  "PGH",
+  "PTH",
+  "RUF",
+  "SIM",
+  "T",
+  "TRY",
+  "UP",
+  "W",
+]
+lint.ignore = [
+  "B008",
+  "D205",
+  "E501",
+  "F403",
+  "SIM115",
+  "RUF006",
+  "RUF008",
+  "RUF012",
+  "TRY0",
+  "UP038",
+]
+lint.pydocstyle.convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*.py" = ["ANN001", "D100", "D103", "D104", "B018", "PERF", "T", "N"]
+"benchmarks/*.py" = ["ANN001", "D100", "D103", "D104", "B018", "PERF", "T", "N"]
+"reflex/.templates/*.py" = ["D100", "D103", "D104"]
+"*.pyi" = ["D301", "D415", "D417", "D418", "E742", "N", "PGH"]
+"pyi_generator.py" = ["N802"]
+"reflex/constants/*.py" = ["N"]
+"*/blank.py" = ["I001"]
+
+[tool.pytest.ini_options]
+filterwarnings = "ignore:fields may not start with an underscore:RuntimeWarning"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.codespell]
+skip = "docs/*,*.html,examples/*, *.pyi, poetry.lock, uv.lock"
+ignore-words-list = "te, TreeE"
+
+[dependency-groups]
+dev = [
+  "asynctest >=0.13",
+  "darglint >=1.8",
+  "dill >=0.3",
+  "hatchling >=1.27",
+  "libsass >=0.23",
+  "numpy >=2.2",
+  "pandas >=2.2",
+  "pillow >=11",
+  "playwright >=1.51",
+  "plotly >=6.0",
+  "pre-commit >=4.2",
+  "psycopg[binary] >=3.2",
+  "pyright >=1.1.399",
+  "pytest >=8.3",
+  "pytest-asyncio >=0.26",
+  "pytest-benchmark >=5.1",
+  "pytest-codspeed >=3.2",
+  "pytest-cov >=6.1",
+  "pytest-mock >=3.14",
+  "pytest-playwright >=0.7",
+  "pytest-retry >=1.7",
+  "pytest-split >=0.10",
+  "python-dotenv >=1",
+  "ruff >=0.11",
+  "selenium >=4.31",
+  "starlette-admin >=0.14",
+]

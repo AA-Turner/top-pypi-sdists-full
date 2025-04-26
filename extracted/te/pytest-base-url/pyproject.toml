@@ -1,0 +1,84 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs>=0.3",
+  "hatchling>=1.13",
+]
+
+[project]
+name = "pytest-base-url"
+description = "pytest plugin for URL based testing"
+readme = "README.rst"
+license = "MPL-2.0"
+requires-python = ">=3.8"
+keywords = [
+    "pytest",
+    "base",
+    "url",
+    "mozilla",
+    "automation"
+]
+authors = [
+  { name = "Dave Hunt", email =  "dhunt@mozilla.com" },
+  { name = "Jim Brannlund", email = "jimbrannlund@fastmail.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Natural Language :: English",
+  "Operating System :: POSIX",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Utilities",
+]
+dependencies = [
+  "pytest>=7.0.0",
+  "requests>=2.9",
+]
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest-localserver>=0.7.1",
+  "black>=22.1.0",
+  "flake8>=4.0.1",
+  "pre-commit>=2.17.0",
+  "tox>=3.24.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/pytest-dev/pytest-base-url"
+Tracker = "https://github.com/pytest-dev/pytest-base-url/issues"
+Source = "https://github.com/pytest-dev/pytest-base-url"
+
+[project.entry-points.pytest11]
+base_url = 'pytest_base_url.plugin'
+
+[tool.hatch.envs.test]
+features = [
+  "test",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/pytest_base_url/__version.py"

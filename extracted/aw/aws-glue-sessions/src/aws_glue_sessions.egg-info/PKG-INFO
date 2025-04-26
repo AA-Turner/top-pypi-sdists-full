@@ -1,0 +1,98 @@
+Metadata-Version: 2.1
+Name: aws-glue-sessions
+Version: 1.0.9
+Summary: Glue Interactive Sessions Jupyter kernel that integrates almost anywhere Jupyter does including your favorite IDEs.
+Home-page: https://aws.amazon.com/glue/
+Author: Glue Development Team
+Author-email: glue-sessions-preview@amazon.com
+License: Apache 2.0 License
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Glue Interactive Sessions Jupyter kernel
+
+Glue Interactive Sessions Jupyter kernel enables you to use [AWS Glue Interactive Sessions](https://docs.aws.amazon.com/glue/latest/dg/interactive-sessions-overview.html) from your favorite IDEs. This kernel integrates almost anywhere Jupyter does including your favorite IDEs.
+Documentation on how to install and use the kernel can also be found [here](https://docs.aws.amazon.com/glue/latest/dg/interactive-sessions.html).
+
+## Installation
+
+1. Use the following to install the kernel on your machine:
+
+   The command, `install-glue-kernels`, installs the jupyter kernelspec for both pyspark and spark kernels.
+
+
+   ```pip3 install --upgrade jupyter boto3 aws-glue-sessions```
+
+   ```install-glue-kernels```
+
+2. Make sure your IAM role have permissions to run Glue
+   https://docs.aws.amazon.com/glue/latest/dg/set-up-iam.html
+
+## Getting Started
+### Using the kernel via a local Jupyter Notebook
+
+To start a local Jupyter Notebook, complete the following steps.
+
+1. Run the following command to launch Jupyter Notebook.
+
+   `jupyter notebook`
+
+2. Choose New, and then choose one of the AWS Glue kernels to begin coding against AWS Glue.
+
+### Using the kernel via other IDEs
+
+You may also use this kernel via VSCode or other IDEs that support Jupyter kernels.
+To set up the Glue Interactive Sessions kernel for Visual Studio Code follow [these instructions](https://docs.aws.amazon.com/glue/latest/dg/interactive-sessions-vscode.html).
+
+
+## ChangeLog
+
+### v1.0.9 (2025-03-28)
+
+* Removed deprecated hdijupyterutils dependency from IPython.core.display which was used for printing error messages
+
+### v1.0.8 (2025-01-08)
+
+* Fix certificate issue and fix ADC region error
+
+### v1.0.7 (2024-09-06)
+
+* Fixed %%tags implementation for newly created sessions.
+
+### v1.0.6 (2024-05-23)
+
+* Removed glue_ray session type and related magics.
+
+### v1.0.5 (2024-04-19)
+
+* New magic %timeout for configuring 'Timeout' parameter for Session.
+* New magic %reconnect, Customers can use %reconnect <sessionId> and reconnect to any of their live Session.
+
+### v1.0.4 (2023-12-01)
+
+Added support for inferring region from AWS_REGION environment variable.
+
+### v1.0.3 (2023-11-15)
+
+Added support for handling special characters in owner tag.
+
+### v1.0.2 (2023-10-16)
+
+There is no change in customer behavior with this kernel version.
+
+### v1.0.1 (2023-10-13)
+
+There is no change in customer behavior with this kernel version.
+
+### v1.0.0 (2023-09-05)
+
+* Kernel defaults to Glue version [4.0](https://aws.amazon.com/about-aws/whats-new/2022/11/introducing-aws-glue-4-0/) if a default Glue version wasn’t specified.
+* New magics %session_type ,  %%assume_role, %%tags
+* %list_sessions  now also displays session status and creation time.
+* Support for additional visualizations through %matplotlib magic
+* Configurations can now be provided through magics, environment variables and AWS config files.
+* Fix for VSCode startup issue
+
+
+

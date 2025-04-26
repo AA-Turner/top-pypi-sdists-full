@@ -1,0 +1,11 @@
+[tool.ruff]
+target-version = "py38"
+
+# E: pycodestyle errors
+# F: Pyflakes
+# I: isort
+# T20: flake8-print
+# BLE: flake8-blind-except
+# C4: flake8-comprehensions
+select = ["E", "F", "I", "T20", "BLE", "C4"]
+ignore = ["E501"]

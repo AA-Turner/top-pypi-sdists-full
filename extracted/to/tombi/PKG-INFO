@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: tombi
+Version: 0.3.28
+License-File: LICENSE
+Summary: Reserved package for tombi
+Author: yassun7010 <yassun7010@outlook.com>
+Author-email: yassun7010 <yassun7010@outlook.com>
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: GitHub, https://github.com/tombi-toml/tombi
+
+<div align="center" style="display: flex; flex-direction: column; gap: 0;">
+    <img src="https://raw.githubusercontent.com/tombi-toml/tombi/refs/heads/main/docs/public/tombi.svg" alt="Logo" style="display: block; margin: 0;">
+    <img src="https://raw.githubusercontent.com/tombi-toml/tombi/refs/heads/main/docs/public/demo.gif" style="display: block; margin: 0;" />
+</div>
+
+<div align="center">
+
+[![Marketplace Version](https://vsmarketplacebadges.dev/version/tombi-toml.tombi.png?label=VS%20Code%20Marketplace&logo=visual-studio-code "Current Release")](https://marketplace.visualstudio.com/items?itemName=tombi-toml.tombi)
+[![pypi](https://img.shields.io/pypi/v/tombi.svg)](https://pypi.python.org/pypi/tombi)
+[![toml-test](https://github.com/tombi-toml/tombi/actions/workflows/toml-test.yml/badge.svg)](https://github.com/tombi-toml/tombi/actions)
+[![GitHub license](https://badgen.net/github/license/Naereen/Strapdown.js?style=flat-square)](https://github.com/Naereen/StrapDown.js/blob/master/LICENSE)
+
+</div>
+
+<br>
+
+<div align="center">
+    <div align="center" style="font-size: 2.0em; margin-bottom: 30px;">
+        <strong> 🦅&nbsp; Feature-Rich TOML Toolkit &nbsp 🦅</strong>
+    </div>
+    Tombi(鳶) provides a Formatter, Linter, and Language Server
+    <br><br>
+    <a href="https://tombi-toml.github.io/tombi" style="font-size: 1.2em; color: #007acc; text-decoration: none;">
+        📚 Documentation here 📚
+    </a>
+</div>
+

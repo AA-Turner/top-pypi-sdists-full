@@ -1,0 +1,238 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "astronomer-cosmos"
+dynamic = ["version"]
+description = "Orchestrate your dbt projects in Airflow"
+readme = "README.rst"
+license = "Apache-2.0"
+requires-python = ">=3.8"
+authors = [{ name = "Astronomer", email = "humans@astronomer.io" }]
+keywords = ["airflow", "apache-airflow", "astronomer", "dags", "dbt"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Apache Airflow",
+    "Framework :: Apache Airflow :: Provider",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "aenum",
+    "attrs",
+    "apache-airflow>=2.4.0",
+    "deprecation",  # Python 3.13 exposes a deprecated operator, we can remove this dependency in the future
+    "importlib-metadata; python_version < '3.8'",
+    "Jinja2>=3.0.0",
+    "msgpack",
+    "packaging>=22.0",
+    "pydantic>=1.10.0",
+    "virtualenv",
+]
+
+[project.optional-dependencies]
+dbt-all = [
+    "dbt-athena",
+    "dbt-bigquery",
+    "dbt-clickhouse",
+    # The dbt-databricks:1.9.0 version causes a dependency conflict with
+    # the Pydantic version required by Airflow (version > 2.7)
+    # See: https://github.com/astronomer/astronomer-cosmos/issues/1379
+    "dbt-databricks!=1.9.0",
+    "dbt-exasol",
+    "dbt-oracle",
+    "dbt-postgres",
+    "dbt-redshift",
+    "dbt-snowflake",
+    "dbt-spark",
+    "dbt-teradata",
+    "dbt-vertica",
+]
+dbt-athena = ["dbt-athena-community", "apache-airflow-providers-amazon>=8.0.0"]
+dbt-bigquery = ["dbt-bigquery"]
+dbt-clickhouse = ["dbt-clickhouse"]
+dbt-databricks = ["dbt-databricks"]
+dbt-exasol = ["dbt-exasol"]
+dbt-oracle = ["dbt-oracle"]
+dbt-postgres = ["dbt-postgres"]
+dbt-redshift = ["dbt-redshift"]
+dbt-snowflake = ["dbt-snowflake"]
+dbt-spark = ["dbt-spark"]
+dbt-teradata = ["dbt-teradata"]
+dbt-vertica = ["dbt-vertica<=1.5.4"]
+openlineage = ["openlineage-integration-common!=1.15.0", "openlineage-airflow"]
+amazon = [
+    "apache-airflow-providers-amazon[s3fs]>=3.0.0",
+]
+
+# Due to issue https://github.com/fsspec/gcsfs/issues/664
+google = ["apache-airflow-providers-google>=10.17.0", "gcsfs<2025.3.0"]
+microsoft = ["apache-airflow-providers-microsoft-azure>=8.5.0"]
+all = [
+    "astronomer-cosmos[dbt-all]",
+    "astronomer-cosmos[openlineage]",
+    "astronomer-cosmos[amazon]",
+    "astronomer-cosmos[google]",
+    "astronomer-cosmos[microsoft]",
+]
+docs = [
+    "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-autobuild",
+    "sphinx-autoapi",
+    "apache-airflow-providers-cncf-kubernetes>=5.1.1",
+]
+docker = [
+    "apache-airflow-providers-docker>=3.5.0",
+]
+kubernetes = [
+    "apache-airflow-providers-cncf-kubernetes>=5.1.1",
+]
+aws_eks = [
+    "apache-airflow-providers-amazon>=8.0.0",
+]
+aws-ecs = [
+    "apache-airflow-providers-amazon>=8.0.0",
+]
+azure-container-instance = [
+    "apache-airflow-providers-microsoft-azure>=8.5.0",
+]
+gcp-cloud-run-job = [
+    "apache-airflow-providers-google>=10.11.0",
+]
+
+[project.entry-points.apache_airflow_provider]
+provider_info = "cosmos:get_provider_info"
+
+[project.entry-points."airflow.plugins"]
+cosmos = "cosmos.plugin:CosmosPlugin"
+
+[project.urls]
+Homepage = "https://github.com/astronomer/astronomer-cosmos"
+Documentation = "https://astronomer.github.io/astronomer-cosmos"
+"Source code" = "https://github.com/astronomer/astronomer-cosmos"
+
+[tool.hatch.version]
+path = "cosmos/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/cosmos"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["/cosmos"]
+
+######################################
+# TESTING
+######################################
+
+[tool.hatch.envs.tests]
+dependencies = [
+    # do not install Airflow dependencies here!
+    # we need to use constrantis and we're doing this in the `pre-install-commands`
+    "packaging>=22.0",
+    "pytest>=6.0",
+    "pytest-split",
+    "pytest-dotenv",
+    "requests-mock",
+    "pytest-cov",
+    "pytest-describe",
+    "sqlalchemy-stubs", # Change when sqlalchemy is upgraded https://docs.sqlalchemy.org/en/14/orm/extensions/mypy.html
+    "pre-commit",
+    "types-PyYAML",
+    "types-attrs",
+    "types-pytz",
+    "types-requests",
+    "types-python-dateutil",
+    "Werkzeug<3.0.0",
+    "dbt-core",
+    "methodtools",
+]
+pre-install-commands = ["sh scripts/test/pre-install-airflow.sh {matrix:airflow} {matrix:python}"]
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+airflow = ["2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"]
+dbt = ["1.5", "1.6", "1.7", "1.8", "1.9"]
+
+[tool.hatch.envs.tests.overrides]
+matrix.airflow.dependencies = [
+    { value = "typing_extensions<4.6", if = ["2.6"] },
+]
+
+[tool.hatch.envs.tests.scripts]
+freeze = "pip freeze"
+test = 'sh scripts/test/unit.sh'
+test-cov = 'sh scripts/test/unit-cov.sh'
+test-integration = 'sh scripts/test/integration.sh'
+test-kubernetes = "sh scripts/test/integration-kubernetes.sh"
+test-kubernetes-setup = "sh scripts/test/kubernetes-setup.sh"
+test-integration-dbt-1-5-4 = 'sh scripts/test/integration-dbt-1-5-4.sh'
+test-integration-dbt-async = 'sh scripts/test/integration-dbt-async.sh  {matrix:dbt}'
+test-integration-expensive = 'sh scripts/test/integration-expensive.sh'
+test-integration-setup = 'sh scripts/test/integration-setup.sh'
+test-performance = 'sh scripts/test/performance.sh'
+test-performance-setup = 'sh scripts/test/performance-setup.sh'
+type-check = "pre-commit run mypy --files cosmos/**/*"
+
+[tool.pytest.ini_options]
+addopts = "--ignore-glob=**/dbt_packages/*"
+filterwarnings = ["ignore::DeprecationWarning"]
+minversion = "6.0"
+markers = ["integration", "perf"]
+
+######################################
+# DOCS
+######################################
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "aenum",
+    "msgpack",
+    "apache-airflow",
+    "pydantic",
+    "pydata-sphinx-theme",
+    "sphinx",
+    "sphinx-autoapi",
+    "sphinx-autobuild",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b html docs docs/_build"
+serve = "sphinx-autobuild docs docs/_build"
+
+######################################
+# THIRD PARTY TOOLS
+######################################
+[tool.black]
+line-length = 120
+target-version = ['py37', 'py38', 'py39', 'py310']
+
+[tool.isort]
+profile = "black"
+known_third_party = ["airflow", "jinja2"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+no_warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 120
+[tool.ruff.lint]
+select = ["C901", "D300", "I", "F"]
+ignore = ["F541"]
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.distutils.bdist_wheel]
+universal = true

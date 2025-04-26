@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools >= 45.0.0", "setuptools_scm[toml] >= 7.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# https://peps.python.org/pep-0621/#readme
+requires-python = ">=3.7"
+dynamic = ["version"]
+name = "ansi2html"
+description = "Convert text with ANSI color codes to HTML or to LaTeX"
+readme = "README.md"
+authors = [{ "name" = "Ralph Bean", "email" = "rbean@redhat.com" }]
+maintainers = [{ "name" = "Ralph Bean", "email" = "rbean@redhat.com" }]
+license = { text = "LGPLv3+" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Topic :: System :: Systems Administration",
+  "Topic :: Text Processing :: Markup :: HTML",
+  "Topic :: Text Processing :: Markup",
+  "Topic :: Text Processing",
+  "Topic :: Utilities",
+]
+keywords = ["ansi", "html", "color"]
+dependencies = [
+  'importlib-metadata; python_version<"3.8"',
+  'typing_extensions; python_version<"3.8"'
+]
+
+[project.urls]
+homepage = "https://github.com/pycontribs/ansi2html"
+documentation = "https://ansi2html.readthedocs.io/"
+repository = "https://github.com/pycontribs/ansi2html"
+changelog = "https://github.com/pycontribs/ansi2html/releases"
+
+[project.scripts]
+ansi2html = "ansi2html.__main__:main"
+
+[project.optional-dependencies]
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocs-material-extensions",
+  "mkdocstrings",
+  "mkdocstrings-python",
+  "pymdown-extensions",
+]
+test = ["pytest", "pytest-cov"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["ansi2html._version"]
+ignore_missing_imports = true
+ignore_errors = true
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+  # TODO(ssbarnea): remove temporary skips adding during initial adoption:
+  "attribute-defined-outside-init",
+  "consider-using-dict-comprehension",
+  "consider-using-enumerate",
+  "consider-using-f-string",
+  "deprecated-module",
+  "import-error",
+  "invalid-name",
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+  "redefined-builtin",
+  "redefined-outer-name",
+  "too-few-public-methods",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-instance-attributes",
+  "too-many-locals",
+  "too-many-public-methods",
+  "too-many-statements",
+  "unused-argument",
+  "unused-variable",
+]
+
+[tool.pylint.REPORTS]
+output-format = "colorized"
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+write_to = "src/ansi2html/_version.py"

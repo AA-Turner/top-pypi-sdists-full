@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bs4"
+version = "0.0.2"
+description = "Dummy package for Beautiful Soup (beautifulsoup4)"
+readme = "README.rst"
+license = { text = "MIT License" }
+authors = [
+    { name = "Leonard Richardson", email = "leonardr@segfault.org" },
+]
+dependencies = [
+    "beautifulsoup4",
+]
+
+# This module has no content of its own whatsoever, but hatch requires
+# that we include something, so we'll include the README.
+[tool.hatch.build]
+include = ["README.rst"]

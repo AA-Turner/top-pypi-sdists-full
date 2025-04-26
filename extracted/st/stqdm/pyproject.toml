@@ -1,0 +1,75 @@
+[tool.poetry]
+name = "stqdm"
+version = "0.0.5"
+description = "Easy progress bar for streamlit based on the awesome streamlit.progress and tqdm"
+authors = ["Wirg <Wirg@users.noreply.github.com>"]
+maintainers = ["Wirg <Wirg@users.noreply.github.com>"]
+license = "Apache License 2.0"
+keywords = ["streamlit", "progressbar", "progressmeter", "progress", "bar", "meter", "rate", "eta", "tqdm"]
+readme = "README.md"
+homepage = "https://github.com/Wirg/stqdm"
+repository = "https://github.com/Wirg/stqdm"
+include = [
+    "LICENSE",
+]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.7.2,<4.0.0"
+tqdm = ">=4.50"
+streamlit = ">=0.66"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^2.21.0"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+black = "^22.12.0"
+click = ">=8.1" # Force for black compatibility
+isort = "^5.11.4"
+pylint = "^2.15.9"
+nox = "^2022.11.21"
+nox-poetry = "^1.0.2"
+
+[tool.black]
+line-length = 127
+target-version = ['py37', 'py38', 'py39', 'py310']
+
+[tool.isort]
+py_version=39
+profile = "black"
+multi_line_output = 3
+skip_gitignore = true
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.pylint.messages_control]
+disable = [
+    "ungrouped-imports", # already managed by isort
+    "wrong-import-order",
+    "wrong-import-position",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "too-few-public-methods"
+]
+
+[tool.pylint.basic]
+max-line-length=140
+docstring-min-length=15
+max-args = 6
+
+[tool.pylint.miscellaneous]
+notes = ["FIXME"]
+
+[tool.pylint.similarities]
+ignore-signatures = "yes"
+ignore-imports = "yes"
+min-similarity-lines = 8
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

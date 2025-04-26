@@ -1,0 +1,34 @@
+Metadata-Version: 2.3
+Name: taplo
+Version: 0.9.3
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Software Development :: Quality Assurance
+License-File: LICENSE.md
+Summary: A CLI for Taplo TOML toolkit
+Keywords: toml,linter,formatter
+Home-Page: https://taplo.tamasfe.dev
+Author: tamasfe
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/tamasfe/taplo
+
+# Taplo CLI
+
+A command line tool for linting and formatting TOML files.
+
+More information on the [website](https://taplo.tamasfe.dev/cli/introduction.html)
+

@@ -1,0 +1,139 @@
+[build-system]
+requires = ["hatchling>=1.6.0,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "niquests"
+description = "Niquests is a simple, yet elegant, HTTP library. It is a drop-in replacement for Requests, which is under feature freeze."
+readme = "README.md"
+license-files = { paths = ["LICENSE"] }
+license = "Apache-2.0"
+keywords = ["requests", "http2", "http3", "QUIC", "http", "https", "http client", "http/1.1", "ocsp", "revocation", "tls", "multiplexed", "dns-over-quic", "doq", "dns-over-tls", "dot", "dns-over-https", "doh", "dnssec", "websocket", "sse"]
+authors = [
+  {name = "Kenneth Reitz", email = "me@kennethreitz.org"}
+]
+maintainers = [
+  {name = "Ahmed R. TAHRI", email="tahri.ahmed@proton.me"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.7"
+dynamic = ["version"]
+dependencies = [
+    "charset_normalizer>=2,<4",
+    "urllib3.future>=2.12.900,<3",
+    "wassima>=1.0.1,<2",
+]
+
+[project.optional-dependencies]
+socks = [
+    "urllib3.future[socks]",
+]
+http3 = [
+    "urllib3.future[qh3]",
+]
+ocsp = [
+    "urllib3.future[qh3]",
+]
+ws = [
+    "urllib3.future[ws]",
+]
+speedups = [
+    "orjson>=3,<4",
+    "urllib3.future[zstd,brotli]",
+]
+zstd = [
+    "urllib3.future[zstd]",
+]
+brotli = [
+    "urllib3.future[brotli]",
+]
+full = [
+    "orjson>=3,<4",
+    "urllib3.future[zstd,brotli,ws,socks]",
+]
+
+[project.urls]
+"Changelog" = "https://github.com/jawah/niquests/blob/main/HISTORY.md"
+"Documentation" = "https://niquests.readthedocs.io"
+"Code" = "https://github.com/jawah/niquests"
+"Issue tracker" = "https://github.com/jawah/niquests/issues"
+
+[tool.hatch.version]
+path = "src/niquests/__version__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/docs",
+    "/src",
+    "/tests",
+    "/requirements-dev.txt",
+    "/HISTORY.md",
+    "/README.md",
+    "/SECURITY.md",
+    "/AUTHORS.rst",
+    "/LICENSE",
+    "/NOTICE",
+    "/Makefile",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/niquests",
+]
+
+[tool.ruff]
+line-length = 128
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "W",  # pycodestyle
+    "I",  # isort
+    "U",  # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[[tool.mypy.overrides]]
+module = ["niquests.packages.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"
+minversion = "6.2"
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    '''ignore:'parse_authorization_header' is deprecated and will be removed:DeprecationWarning''',
+    '''ignore:The 'set_digest' method is deprecated and will be removed:UserWarning''',
+    '''ignore:Passing bytes as a header value is deprecated and will:DeprecationWarning''',
+    '''ignore:The 'JSONIFY_PRETTYPRINT_REGULAR' config key is deprecated and will:DeprecationWarning''',
+    '''ignore:unclosed .*:ResourceWarning''',
+    '''ignore:Parsed a negative serial number:cryptography.utils.CryptographyDeprecationWarning''',
+    '''ignore:A plugin raised an exception during an old-style hookwrapper teardown''',
+    '''ignore:.*:pytest.PytestUnraisableExceptionWarning''',
+]

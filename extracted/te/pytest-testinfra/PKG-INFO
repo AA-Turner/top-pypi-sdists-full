@@ -1,0 +1,155 @@
+Metadata-Version: 2.4
+Name: pytest-testinfra
+Version: 10.2.2
+Summary: Test infrastructures
+Author-email: Philippe Pepiot <phil@philpep.org>
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: Pytest
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: System :: Systems Administration
+Requires-Python: >=3.9
+Requires-Dist: pytest>=6
+Provides-Extra: ansible
+Requires-Dist: ansible; extra == 'ansible'
+Provides-Extra: dev
+Requires-Dist: alabaster>=0.7.2; extra == 'dev'
+Requires-Dist: ansible; extra == 'dev'
+Requires-Dist: distro; extra == 'dev'
+Requires-Dist: looseversion; extra == 'dev'
+Requires-Dist: msgpack; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: paramiko; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
+Requires-Dist: pywinrm; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: salt; extra == 'dev'
+Requires-Dist: sphinx<7.2,>=7.1; extra == 'dev'
+Requires-Dist: tornado; extra == 'dev'
+Requires-Dist: types-paramiko; extra == 'dev'
+Provides-Extra: doc
+Requires-Dist: alabaster>=0.7.2; extra == 'doc'
+Requires-Dist: sphinx<7.2,>=7.1; extra == 'doc'
+Provides-Extra: lint
+Requires-Dist: ruff; extra == 'lint'
+Provides-Extra: paramiko
+Requires-Dist: paramiko; extra == 'paramiko'
+Provides-Extra: salt
+Requires-Dist: distro; extra == 'salt'
+Requires-Dist: looseversion; extra == 'salt'
+Requires-Dist: msgpack; extra == 'salt'
+Requires-Dist: salt; extra == 'salt'
+Requires-Dist: tornado; extra == 'salt'
+Provides-Extra: test
+Requires-Dist: ansible; extra == 'test'
+Requires-Dist: distro; extra == 'test'
+Requires-Dist: looseversion; extra == 'test'
+Requires-Dist: msgpack; extra == 'test'
+Requires-Dist: paramiko; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest-xdist; extra == 'test'
+Requires-Dist: pywinrm; extra == 'test'
+Requires-Dist: salt; extra == 'test'
+Requires-Dist: tornado; extra == 'test'
+Provides-Extra: typing
+Requires-Dist: mypy; extra == 'typing'
+Requires-Dist: types-paramiko; extra == 'typing'
+Provides-Extra: winrm
+Requires-Dist: pywinrm; extra == 'winrm'
+Description-Content-Type: text/x-rst
+
+##################################
+Testinfra test your infrastructure
+##################################
+
+Latest documentation: https://testinfra.readthedocs.io/en/latest
+
+About
+=====
+
+With Testinfra you can write unit tests in Python to test *actual state* of
+your servers configured by management tools like Salt_, Ansible_, Puppet_,
+Chef_ and so on.
+
+Testinfra aims to be a Serverspec_ equivalent in python and is written as
+a plugin to the powerful Pytest_ test engine
+
+License
+=======
+
+`Apache License 2.0 <https://github.com/pytest-dev/pytest-testinfra/blob/main/LICENSE>`_
+
+The logo is licensed under the `Creative Commons NoDerivatives 4.0 License <https://creativecommons.org/licenses/by-nd/4.0/>`_
+If you have some other use in mind, contact us.
+
+Quick start
+===========
+
+Install testinfra using pip::
+
+    $ pip install pytest-testinfra
+
+    # or install the devel version
+    $ pip install 'git+https://github.com/pytest-dev/pytest-testinfra@main#egg=pytest-testinfra'
+
+
+Write your first tests file to `test_myinfra.py`:
+
+.. code-block:: python
+
+    def test_passwd_file(host):
+        passwd = host.file("/etc/passwd")
+        assert passwd.contains("root")
+        assert passwd.user == "root"
+        assert passwd.group == "root"
+        assert passwd.mode == 0o644
+
+
+    def test_nginx_is_installed(host):
+        nginx = host.package("nginx")
+        assert nginx.is_installed
+        assert nginx.version.startswith("1.2")
+
+
+    def test_nginx_running_and_enabled(host):
+        nginx = host.service("nginx")
+        assert nginx.is_running
+        assert nginx.is_enabled
+
+
+And run it::
+
+    $ pytest -v test_myinfra.py
+
+
+    ====================== test session starts ======================
+    platform linux -- Python 2.7.3 -- py-1.4.26 -- pytest-2.6.4
+    plugins: testinfra
+    collected 3 items
+
+    test_myinfra.py::test_passwd_file[local] PASSED
+    test_myinfra.py::test_nginx_is_installed[local] PASSED
+    test_myinfra.py::test_nginx_running_and_enabled[local] PASSED
+
+    =================== 3 passed in 0.66 seconds ====================
+
+
+.. _Salt: https://saltstack.com/
+.. _Ansible: https://www.ansible.com/
+.. _Puppet: https://puppetlabs.com/
+.. _Chef: https://www.chef.io/
+.. _Serverspec: https://serverspec.org/
+.. _Pytest: https://pytest.org/

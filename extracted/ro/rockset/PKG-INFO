@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: rockset
+Version: 2.1.2
+Summary: The python client for the Rockset API.
+Home-page: https://github.com/rockset/rockset-python-client
+License: Apache-2.0
+Author: Rockset
+Author-email: support@rockset.com
+Requires-Python: >=3.6,<4.0
+Classifier: Environment :: Console
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Shells
+Requires-Dist: geojson (>=2.5.0,<3.0.0)
+Requires-Dist: python_dateutil (>=2.5.3,<3.0.0)
+Requires-Dist: urllib3 (>=1.25.3,<2.0.0)
+Project-URL: Documentation, https://github.com/rockset/rockset-python-client
+Project-URL: Repository, https://github.com/rockset/rockset-python-client
+Description-Content-Type: text/x-rst
+
+Official Rockset Python Client
+==============================
+
+A Python library for Rockset's API.
+
+
+Setup
+-----
+
+You can install this package by using the pip tool and installing:
+
+    $ pip install rockset
+
+
+Using the Rockset API
+---------------------
+
+Documentation for this library can be found here:
+
+- https://github.com/rockset/rockset-python-client
+

@@ -1,0 +1,74 @@
+[project]
+name = "pip-check"
+version = "3.1"
+description = "Display installed pip packages and their update status."
+requires-python = ">=3.8"
+dynamic = ["readme"]
+license = { text = "MIT" }
+authors = [
+    { name = "Martin Mahner", email = "martin@mahner.org" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python",
+]
+dependencies = [
+    "terminaltables",
+    "packaging",
+]
+
+[dependency-groups]
+dev = [
+    "nox>=2022.1.7",
+    "ruff>=0.11.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/bartTC/pip-check/"
+Issues = "https://github.com/bartTC/pip-check/issues"
+
+[project.scripts]
+pip-check = "pip_check:main"
+
+[build-system]
+requires = ["hatchling", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = "\n\n"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "CHANGELOG.md"
+
+[tool.ruff]
+target-version = "py38"
+lint.select = ["ALL"]
+lint.ignore = [
+  "D203",     # No blank line before cclass
+  "D212",     # Multi-line summary first line
+  "E501",     # Line too long (>88)
+  "COM812",   # (ruff format) Checks for the absence of trailing commas
+  "ISC001",   # (ruff format) Checks for implicitly concatenated strings on a single line
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"noxfile.py" = [
+  "S101",    # Use of assert detected
+]

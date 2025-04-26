@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: weblinx_browsergym
+Version: 0.0.3
+Summary: BrowserGym integration for the WebLINX benchmark
+Home-page: https://github.com/McGill-NLP/weblinx_browsergym
+Author: McGill NLP
+Author-email: weblinx@googlegroups.com
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: tqdm
+Requires-Dist: huggingface_hub
+Requires-Dist: numpy
+Requires-Dist: weblinx[eval]<0.4.0,>=0.3.2
+Requires-Dist: datasets
+Requires-Dist: Pillow
+Requires-Dist: playwright
+Requires-Dist: browsergym-core>=0.11.2
+Requires-Dist: lxml
+Requires-Dist: gymnasium
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Provides-Extra: all
+Requires-Dist: black; extra == "all"
+Requires-Dist: wheel; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+# BrowserGym integration for the WebLINX benchmark
+
+This package provides a BrowserGym environment for the WebLINX benchmark. It is built on top of the [BrowserGym](https://www.github.com/ServiceNow/browsergym) and [WebLINX](https://www.github.com/McGill-NLP/weblinx) packages.
+
+## Installation
+
+To install the package, run:
+    
+```bash
+pip install weblinx-browsergym
+```

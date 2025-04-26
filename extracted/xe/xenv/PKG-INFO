@@ -1,0 +1,27 @@
+Metadata-Version: 2.2
+Name: xenv
+Version: 1.0.1
+Summary: run commands in modified environment
+Author-email: CERN - LHCb Core Software <lhcb-core-soft@cern.ch>
+License: GPLv3+
+Project-URL: Homepage, https://gitlab.cern.ch/gaudi/xenv
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Provides-Extra: testing
+Requires-Dist: coverage; extra == "testing"
+
+xenv: eXtended ENV
+==================
+
+xenv consists in classes and functions to manipulate the environment in a
+platform independent way.
+
+In particular it allows to describe the changest to the environment in an XML
+file that can be used by the script ``xenv`` (similar to the Unix ``env``
+command) to run a command in the modified environment.

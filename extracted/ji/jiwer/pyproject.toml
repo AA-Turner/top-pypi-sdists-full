@@ -1,0 +1,36 @@
+[project]
+name = "jiwer"
+version = "3.1.0"
+description = "Evaluate your speech-to-text system with similarity measures such as word error rate (WER)"
+readme = "README.md"
+authors = [
+    { name = "Nik Vaessen", email = "nikvaes@gmail.com" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.1.8",
+    "rapidfuzz>=3.9.7",
+]
+license = "Apache-2.0"
+
+[project.scripts]
+jiwer = "jiwer.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+    "black>=24.8.0",
+    "flake8>=5.0.4",
+    "pytest>=8.3.4",
+    "pytest-benchmark>=4.0.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.1",
+    "mkdocs-material>=9.5.50",
+    "mkdocstrings[python]>=0.26.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

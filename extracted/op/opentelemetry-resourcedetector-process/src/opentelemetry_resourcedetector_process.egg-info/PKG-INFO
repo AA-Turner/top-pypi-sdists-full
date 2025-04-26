@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: opentelemetry-resourcedetector-process
+Version: 0.3.0
+Summary: An OpenTelemetry package to populates Resource attributes from the running process
+Home-page: https://github.com/chrisguidry/opentelemetry-resourcedetector-process
+Author: Chris Guidry
+Author-email: chris@theguidrys.us
+Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-resourcedetector-process/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+License-File: LICENSE
+
+# opentelemetry-resourcedetector-process
+
+An OpenTelemetry package to populates Resource attributes from the running process.
+
+## Usage
+
+```
+from opentelemetry.sdk.resources import get_aggregated_resources
+from opentelemetry_resourcedetector_process import ProcessResourceDetector
+
+...
+
+resource = get_aggregated_resources([
+    ProcessResourceDetector(),
+    SomeOtherResourceDetector()
+])
+
+... pass the returned `resource` to a TracerProvder, for example ...
+```

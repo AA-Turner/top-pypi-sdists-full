@@ -1,0 +1,134 @@
+[tool.poetry]
+name = "pydantic-factories"
+version = "1.17.3"
+description = "Mock data generation for pydantic based models and python dataclasses"
+authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
+maintainers = [
+  "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
+  "Peter Schutt <peter.github@proton.me>",
+  "Cody Fincher <cody.fincher@gmail.com>",
+  "Janek Nouvertné <provinzkraut@posteo.de>",
+  "Konstantin Mikhailov <konstantin.mikhailov@proton.me>"
+]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/starlite-api/pydantic-factories"
+repository = "https://github.com/starlite-api/pydantic-factories"
+documentation = "https://github.com/starlite-api/pydantic-factories"
+keywords = [
+    "dataclasses",
+    "factory",
+    "faker",
+    "mock",
+    "pydantic",
+    "pytest",
+    "starlite",
+    "tdd",
+    "testing",
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Unit",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+include = ["CHANGELOG.md"]
+packages = [
+    { include = "pydantic_factories" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+faker = "*"
+pydantic = ">=1.10.0"
+typing-extensions = "*"
+
+[tool.poetry.group.dev.dependencies]
+email-validator = "*"
+hypothesis = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.pylint.MESSAGE_CONTROL]
+disable = [
+    "import-outside-toplevel",
+    "line-too-long",
+    "missing-class-docstring",
+    "missing-module-docstring",
+    "not-callable",
+    "too-few-public-methods",
+    "ungrouped-imports",
+    "unnecessary-lambda-assignment",
+]
+enable = "useless-suppression"
+extension-pkg-allow-list = ["pydantic"]
+
+[tool.pylint.REPORTS]
+reports = "no"
+
+[tool.pylint.FORMAT]
+max-line-length = "120"
+
+[tool.pylint.DESIGN]
+max-args = 10
+max-attributes = 10
+max-locals = 12
+max-returns = 10
+max-public-methods = 21
+
+[tool.pylint.VARIABLES]
+ignored-argument-names = "args|kwargs|_|__"
+no-docstring-rgx = "(__.*__|main|test.*|.*test|.*Test|^_.*)$"
+
+[tool.pylint.BASIC]
+good-names = "_,i,e,l,g,mm,yy,T,lt,le,gt,ge,cb,fn"
+
+[tool.coverage.run]
+omit = ["*/tests/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'if TYPE_CHECKING:',
+    'except ImportError:',
+    '\.\.\.'
+]
+
+[tool.pycln]
+all = true
+
+[tool.pydocstyle]
+add-ignore = "D100,D104,D105,D106,D202,D205,D415"
+add-select = "D401,D404,D417"
+convention = "google"
+match_dir = "pydantic_factories"

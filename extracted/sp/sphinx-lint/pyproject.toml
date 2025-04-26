@@ -1,0 +1,85 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs",
+  "hatchling",
+]
+
+[project]
+name = "sphinx-lint"
+description = "Check for stylistic and formal issues in .rst and .py files included in the documentation."
+readme = "README.md"
+license = {text = "PSF License"}
+authors = [
+    {name = "Georg Brandl", email = "georg@python.org"},
+    {name = "Julien Palard", email = "julien@palard.fr"},
+]
+requires-python = ">= 3.8"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Python Software Foundation License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Documentation :: Sphinx",
+]
+dynamic = [
+  "version",
+]
+dependencies = [
+  "polib",
+  "regex",
+]
+[project.optional-dependencies]
+tests = [
+  "pytest",
+  "pytest-cov",
+]
+[project.urls]
+Changelog = "https://github.com/sphinx-contrib/sphinx-lint/releases"
+Repository = "https://github.com/sphinx-contrib/sphinx-lint"
+[project.scripts]
+sphinx-lint = "sphinxlint.cli:main"
+
+[tool.hatch]
+version.source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sphinxlint"]
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle errors
+  "F", # pyflakes errors
+  "I", # isort
+  "PGH", # pygrep-hooks
+  "RUF100", # unused noqa (yesqa)
+  "UP", # pyupgrade
+  "W", # pycodestyle warnings
+  "YTT", # flake8-2020
+]
+extend-ignore = [
+  "E203", # Whitespace before ':'
+  "E221", # Multiple spaces before operator
+  "E226", # Missing whitespace around arithmetic operator
+  "E241", # Multiple spaces after ','
+  "UP038", # makes code slower and more verbose
+]
+
+[tool.ruff.format]
+preview = true
+
+[tool.pylint.variables]
+callbacks = ["check_"]

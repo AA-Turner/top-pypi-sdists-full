@@ -1,0 +1,14 @@
+[build-system]
+requires = [
+  "setuptools",
+  "setuptools-scm[toml]>=6.2.3",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+disallow_untyped_defs = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.setuptools_scm]

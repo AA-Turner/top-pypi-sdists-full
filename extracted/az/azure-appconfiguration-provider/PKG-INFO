@@ -1,0 +1,446 @@
+Metadata-Version: 2.1
+Name: azure-appconfiguration-provider
+Version: 2.0.2
+Summary: Microsoft App Configuration Provider Library for Python
+Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/appconfiguration/azure-appconfiguration-provider
+Author: Microsoft Corporation
+Author-email: azpysdkhelp@microsoft.com
+License: MIT License
+Keywords: azure,azure sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: azure-core>=1.30.0
+Requires-Dist: azure-appconfiguration>=1.6.1
+Requires-Dist: azure-keyvault-secrets>=4.3.0
+Requires-Dist: dnspython>=2.6.1
+
+# Azure App Configuration Python Provider client library for Python
+
+Azure App Configuration is a managed service that helps developers centralize their application configurations simply and securely. This provider adds additional functionality above the azure-sdk-for-python.
+
+Using the provider enables loading sets of configurations from an Azure App Configuration store in a managed way.
+
+## Getting started
+
+### Get credentials
+
+Use the [Azure CLI][azure_cli] snippet below to get the connection string from the Configuration Store.
+
+```Powershell
+az appconfig credential list --name <config-store-name>
+```
+
+Alternatively, get the connection string from the Azure Portal.
+
+### Creating a provider
+
+You can create a client with a connection string:
+
+```python
+from azure.appconfiguration.provider import load
+
+config = load(connection_string="your-connection-string")
+```
+
+or with AAD:
+
+```python
+from azure.appconfiguration.provider import load
+
+config = load(endpoint="your-endpoint", credential=DefaultAzureCredential())
+```
+
+these providers will by default load all configurations with `(No Label)` from your configuration store into a dictionary of key/values.
+
+### Features
+
+Currently the Azure App Configuration Provider enables:
+
+* Connecting to an App Configuration Store using a connection string or Azure Active Directory.
+* Selecting multiple sets of configurations using `SettingSelector`.
+* Loading Feature Flags
+* Dynamic Refresh
+* Geo-Replication support
+* Trim prefixes off key names.
+* Resolving Key Vault References, requires AAD.
+* Secret Resolver, resolve Key Vault References locally without connecting to Key Vault.
+* Json Content Type
+
+#### Future Features
+
+List of features we are going to add to the Python Provider in the future.
+
+* Configuration Placeholders
+
+## Examples
+
+### Selecting configurations
+
+You can refine or expand the configurations loaded from your store by using `SettingSelector`s. Setting selectors provide a way to pass a key filter and label filter into the provider.
+
+```python
+from azure.appconfiguration.provider import load, SettingSelector
+from azure.identity import DefaultAzureCredential
+
+selects = {SettingSelector(key_filter="*", label_filter="\0"), SettingSelector(key_filter="*", label_filter="dev")}
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), selects=selects)
+```
+
+In this example all configuration with empty label and the dev label are loaded. Because the dev selector is listed last, any configurations from dev take priority over those with `(No Label)` when duplicates are found.
+
+## Dynamic Refresh
+
+The provider can be configured to refresh configurations from the store on a set interval. This is done by providing a `refresh_on` to the provider, which is a list of key(s) that will be watched for changes, and when they do change a refresh can happen. `refresh_interval` is the period of time in seconds between refreshes. `on_refresh_success` is a callback that will be called only if a change is detected and no error happens. `on_refresh_error` is a callback that will be called when a refresh fails.
+
+```python
+from azure.appconfiguration.provider import load, WatchKey
+import os
+
+connection_string = os.environ.get("APPCONFIGURATION_CONNECTION_STRING")
+
+def my_callback_on_success():
+    # Do something on success
+    ...
+
+def my_callback_on_fail(error):
+    # Do something on fail
+    ...
+
+config = load(
+    connection_string=connection_string,
+    refresh_on=[WatchKey("Sentinel")],
+    refresh_interval=60,
+    on_refresh_success=my_callback_on_success,
+    on_refresh_error=my_callback_on_fail,
+    **kwargs,
+)
+```
+
+In this example, the sentinel key will be checked for changes no sooner than every 60 seconds. In order to check for changes, the provider's `refresh` method needs to be called.
+
+```python
+config.refresh()
+```
+
+Once the provider is refreshed, the configurations can be accessed as normal. And if any changes have been made it will be updated with the latest values. If the `refresh_interval` hasn't passed since the last refresh check, the provider will not check for changes.
+
+For additional info check out [Dynamic Refresh](https://learn.microsoft.com/azure/azure-app-configuration/enable-dynamic-configuration-python) on MS Learn.
+
+### Trimming Keys
+
+You can trim the prefix off of keys by providing a list of trimmed key prefixes to the provider. For example, if you have the key(s) like `/application/message` in your configuration store, you could trim `/application/` from them.
+
+```python
+from azure.appconfiguration.provider import load
+from azure.identity import DefaultAzureCredential
+
+trim_prefixes={"/application/"}
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), trim_prefixes=trim_prefixes)
+print(config["message"])
+```
+
+### Resolving Key Vault References
+
+Key Vault References can be resolved by providing credentials to your key vault to the provider using `AzureAppConfigurationKeyVaultOptions`.
+
+#### With Credentials
+
+You can provide `AzureAppConfigurationKeyVaultOptions` with a credential and all key vault references will be resolved with it. The provider will attempt to connect to any key vault referenced with the credential provided.
+
+```python
+from azure.appconfiguration.provider import load, AzureAppConfigurationKeyVaultOptions
+from azure.identity import DefaultAzureCredential
+
+key_vault_options = AzureAppConfigurationKeyVaultOptions(credential=DefaultAzureCredential())
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), key_vault_options=key_vault_options)
+```
+
+### With Clients
+
+You can provide `AzureAppConfigurationKeyVaultOptions` with a list of `SecretClients`.
+
+```python
+from azure.appconfiguration.provider import load, AzureAppConfigurationKeyVaultOptions
+from azure.identity import DefaultAzureCredential
+
+key_vault_options = AzureAppConfigurationKeyVaultOptions(
+    client_configs={key_vault_uri: {'credential': credential}})
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), key_vault_options=key_vault_options)
+```
+
+### Secret Resolver
+
+If no Credentials or Clients are provided a secret resolver can be used. Secret resolver provides a way to return any value you want to a key vault reference.
+
+```python
+from azure.appconfiguration.provider import load, AzureAppConfigurationKeyVaultOptions
+from azure.identity import DefaultAzureCredential
+
+def secret_resolver(uri):
+    return "From Secret Resolver"
+
+key_vault_options = AzureAppConfigurationKeyVaultOptions(
+    secret_resolver=secret_resolver)
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), key_vault_options=key_vault_options)
+```
+
+## Geo Replication
+
+The Azure App Configuration Provider library will automatically discover the provided configuration store's replicas and use the replicas if any issue arises. From more information see [Geo-Replication](https://learn.microsoft.com/azure/azure-app-configuration/howto-geo-replication).
+
+Replica discovery is enabled by default. If you want to disable it, you can set `replica_discovery_enabled` to `False`.
+
+```python
+from azure.appconfiguration.provider import load
+from azure.identity import DefaultAzureCredential
+
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), replica_discovery_enabled=False)
+```
+
+## Loading Feature Flags
+
+Feature Flags can be loaded from config stores using the provider. Feature flags are loaded as a dictionary of key/value pairs stored in the provider under the `feature_management`, then `feature_flags`.
+
+```python
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), feature_flags_enabled=True)
+alpha = config["feature_management"]["feature_flags"]["Alpha"]
+print(alpha["enabled"])
+```
+
+By default all feature flags with no label are loaded when `feature_flags_enabled` is set to `True`. . If you want to load feature flags with a specific label you can use `SettingSelector` to filter the feature flags.
+
+```python
+from azure.appconfiguration.provider import load, SettingSelector
+
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), feature_flags_enabled=True, feature_flag_selectors=[SettingSelector(key_filter="*", label_filter="dev")])
+alpha = config["feature_management"]["feature_flags"]["Alpha"]
+print(alpha["enabled"])
+```
+
+To enable refresh for feature flags you need to enable refresh. This will allow the provider to refresh feature flags the same way it refreshes configurations. Unlike configurations, all loaded feature flags are monitored for changes and will cause a refresh. Refresh of configuration settings and feature flags are independent of each other. Both are trigged by the `refresh` method, but a feature flag changing will not cause a refresh of configurations and vice versa. Also, if refresh for configuration settings is not enabled, feature flags can still be enabled for refresh.
+
+```python
+config = load(endpoint=endpoint, credential=DefaultAzureCredential(), feature_flags_enabled=True, feature_flag_refresh_enabled=True)
+
+...
+
+config.refresh()
+```
+
+## Key concepts
+
+## Troubleshooting
+
+## Next steps
+
+Check out our Django and Flask examples to see how to use the provider in a web application.
+
+### [Django](https://github.com/Azure/AppConfiguration/tree/main/examples/Python/python-django-webapp-sample)
+
+### [Flask](https://github.com/Azure/AppConfiguration/tree/main/examples/Python/python-flask-webapp-sample)
+
+## Contributing
+
+This project welcomes contributions and suggestions. Most contributions require
+you to agree to a Contributor License Agreement (CLA) declaring that you have
+the right to, and actually do, grant us the rights to use your contribution.
+For details, visit <https://cla.microsoft.com>.
+
+When you submit a pull request, a CLA-bot will automatically determine whether
+you need to provide a CLA and decorate the PR appropriately (e.g., label,
+comment). Simply follow the instructions provided by the bot. You will only
+need to do this once across all repos using our CLA.
+
+This project has adopted the
+[Microsoft Open Source Code of Conduct][code_of_conduct]. For more information,
+see the Code of Conduct FAQ or contact <opencode@microsoft.com> with any
+additional questions or comments.
+
+[azure_cli]: https://learn.microsoft.com/cli/azure/appconfig
+[code_of_conduct]: https://opensource.microsoft.com/codeofconduct/
+
+
+# Release History
+
+## 2.0.2 (2025-04-17)
+
+### Other Changes
+
+* Updates telemetry for JSON usage.
+## 2.0.1 (2025-03-07)
+
+### Bugs Fixed
+
+* Updates the failure to load from a config store from a debug level log to a warning level log.
+* Fixes an issue where the stack trace from the azure sdk wasn't being logged on startup.
+* Fixes a bug where feature flags could be loaded as configurations.
+
+### Other Changes
+
+* Bumped minimum dependency on `azure-core` to `>=1.30.0`
+* Bumped minimum dependency on `azure-appconfiguration` to `>=1.6.1`
+
+## 2.0.0 (2025-01-06)
+
+### Features Added
+
+* Added support for load balancing between replicas.
+* Added support for adding telemetry information to feature flags.
+
+## 2.0.0b3 (2024-11-13)
+
+### Breaking Changes
+
+* Allocation Id value changed so other providers can match the value.
+
+## 2.0.0b2 (2024-10-11)
+
+### Feature Added
+
+* Added AllocationId to the feature flag telemetry metadata when the feature flag has telemetry enabled.
+
+### Bugs Fixed
+
+* Fixed a number of cases where snake case was used instead of pascal case for feature flag telemetry.
+  * etag -> ETag
+  * feature_flag_reference -> FeatureFlagReference
+  * feature_flag_id -> FeatureFlagId
+
+## 2.0.0b1 (2024-09-11)
+
+### Features Added
+
+* Added support for feature flag telemetry.
+
+## 1.3.0 (2024-09-09)
+
+### Features Added
+
+* Added support for auto failover between replicas.
+* Added support for auto discovery of replicas.
+
+## 1.2.0 (2024-05-24)
+
+### Features Added
+
+* Enable loading of feature flags with `feature_flag_enabled`
+* Select Feature Flags to load with `feature_flag_selectors`
+* Enable/Disable Feature Flag Refresh with `feature_flag_refresh_enabled`
+
+### Bugs Fixed
+
+* Fixes issue where loading configurations were slower due to returning a copy of the configurations.
+
+## 1.1.0 (2024-01-29)
+
+### Features Added
+
+* New API for Azure App Configuration Provider, `refresh`, which can be used to refresh the configuration from the Azure App Configuration service. `refresh` by default can check every 30 seconds for changes to specified sentinel keys. If a change is detected then all configurations are reloaded. Sentinel keys can be set by passing a list of `SentinelKey`'s to `refresh_on`.
+* Added new options `on_refresh_success` and `on_refresh_failure` callbacks to the load method. These callbacks are called when the refresh method successfully refreshes the configuration or fails to refresh the configuration.
+
+### Bugs Fixed
+
+* Verifies that the `refresh_interval` is at least 1 second.
+
+## 1.1.0b3 (2023-12-19)
+
+### Features Added
+
+- Added on_refresh_success callback to load method. This callback is called when the refresh method successfully refreshes the configuration.
+- Added minimum up time. This is the minimum amount of time the provider will try to be up before throwing an error. This is to prevent quick restart loops.
+
+### Bugs Fixed
+
+- Fixes issue where the refresh timer only reset after a change was found.
+
+### Other Changes
+
+- Renamed the type `SentinelKey` to be `WatchKey`.
+
+## 1.1.0b2 (2023-09-29)
+
+### Features Added
+
+* Added support for `keyvault_credential`, `keyvault_client_configs`, and `secret_resolver` as `kwargs` instead of using `AzureAppConfigurationKeyVaultOptions`.
+
+### Bugs Fixed
+
+* Fixes issue where `user_agent` was required to be set.
+* Fixes issue where correlation context info is wrong on refresh.
+
+## 1.1.0b1 (2023-09-13)
+
+### Features Added
+
+* New API for Azure App Configuration Provider, `refresh`, which can be used to refresh the configuration from the Azure App Configuration service. `refresh` by default can check every 30 seconds for changes to specified sentinel keys. If a change is detected then all configurations are reloaded. Sentinel keys can be set by passing  a list of `SentinelKey`'s to `refresh_on`.
+* Added support for customer provided user agent prefix.
+
+### Other Changes
+
+* Updated to use AZURE_APP_CONFIGURATION_TRACING_DISABLED environment variable to disable tracing.
+* Changed the maximum number of retries to 2 from the default of 3 retries.
+* Changed the maximum back off time between retries to 1 minute from the default of 2 minutes.
+* Bumped minimum dependency on `azure-core` to `>=1.25.0`
+
+## 1.0.0 (2023-03-09)
+
+### Breaking Changes
+* Renamed `load_provider` to `load`
+* Added `AzureAppConfigurationKeyVaultOptions` to take in a `client_configs` a Mapping of endpoints to client kwargs instead of taking in the whole client.
+* Removed `AzureAppConfigurationKeyVaultOptions` `secret_clients`, `client_configs` should be used instead.
+* Made key_filter and label_filter kwargs for Setting Selector
+* Renamed `trimmed_key_prefixes` to `trim_prefixes`
+
+### Other Changes
+* Made EMPTY_LABEL a constant. i.e. "\0"
+
+## 1.0.0b2 (2023-02-15)
+
+### Features Added
+* Added Async Support
+* Added missing methods for Mapping API
+* Made load method properties unordered.
+
+### Breaking Changes
+* Changes how load works. Moves if from AzureAppConfigurationProvider.load to load_provider.
+* Removed custom Key Vault Error
+* Removed unneeded __repr__ and copy methods.
+* All Feature Flags are added to there own key and have there prefix removed
+
+### Bugs Fixed
+* Fixed Issue where Key Vault Clients couldn't be set in some situations
+
+### Other Changes
+* Updated method docs
+* Fixed load doc that used `selector` instead of `selects`.
+* Fixed CLI link in Readme.
+
+## 1.0.0b1 (2022-10-13)
+
+New Azure App Configuration Provider
+
+Provides additional support above the Azure App Configuration SDK. Enables:
+* Connecting to an Azure App Configuration store
+* Selecting multiple keys using Setting Selector
+* Resolve Key Vault References when supplied AzureAppConfigurationKeyVaultOptions
+
+The Azure App Configuration Provider once loaded returns a dictionary of key/value pairs to use in configuration.
+
+```python
+endpoint = "https://<your-store>.azconfig.io"
+default_credential = DefaultAzureCredential()
+config = AzureAppConfigurationProvider.load(
+    endpoint=endpoint, credential=default_credential)
+print(config["message"])
+```

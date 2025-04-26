@@ -1,0 +1,93 @@
+[tool.pyink]
+# Yes, we use the _Black_ style to format _Pyink_ code.
+pyink = false
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = 'tests/data'
+unstable = true
+
+[build-system]
+requires = ["hatchling>=1.20.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyink"
+description = "Pyink is a python formatter, forked from Black with slightly different behavior."
+license = { text = "MIT" }
+requires-python = ">=3.9"
+readme = "README.md"
+authors = [{name = "The Pyink Maintainers", email = "pyink-maintainers@google.com"}]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+  "click>=8.0.0",
+  "mypy_extensions>=0.4.3",
+  "packaging>=22.0",
+  "pathspec>=0.9.0",
+  "platformdirs>=2",
+  "tomli>=1.1.0; python_version < '3.11'",
+  "typing_extensions>=4.0.1; python_version < '3.11'",
+  "black==24.10.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+colorama = ["colorama>=0.4.3"]
+uvloop = ["uvloop>=0.15.2"]
+jupyter = [
+  "ipython>=7.8.0",
+  "tokenize-rt>=3.2.0",
+]
+
+[project.scripts]
+pyink = "pyink:patched_main"
+
+[project.entry-points."validate_pyproject.tool_schema"]
+pyink = "pyink.schema:get_schema"
+
+[project.urls]
+Changelog = "https://github.com/google/pyink/blob/pyink/CHANGES.md"
+Repository = "https://github.com/google/pyink"
+Issues = "https://github.com/google/pyink/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/_pyink_version.py"
+template = '''
+version = "{version}"
+'''
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+# Note that we change the behaviour of this flag below
+macos-max-compat = true
+
+[tool.pytest.ini_options]
+# Option below requires `tests/optional.py`
+addopts = "--strict-config --strict-markers"
+optional-tests = [
+  "no_jupyter: run when `jupyter` extra NOT installed",
+]
+markers = [
+  "incompatible_with_mypyc: run when testing mypyc compiled black"
+]
+xfail_strict = true
+filterwarnings = ["error"]

@@ -1,0 +1,150 @@
+[build-system]
+requires = [
+    "hatchling>=0.21.1",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyspelling"
+description = "Spell checker."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
+]
+keywords = [
+    "spelling"
+]
+
+dependencies = [
+    "beautifulsoup4",
+    "soupsieve>=1.8",
+    "markdown",
+    "pyyaml",
+    "wcmatch>=8.5",
+    "lxml",
+    "html5lib"
+]
+dynamic = [
+    "classifiers",
+    "version",
+    "scripts"
+]
+
+[project.urls]
+Homepage = "https://github.com/facelessuser/pyspelling"
+
+[tool.hatch.version]
+source = "code"
+path = "pyspelling/__meta__.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/pyspelling",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/docs/src/markdown/**/*.md",
+    "/docs/src/markdown/**/*.gif",
+    "/docs/src/markdown/**/*.png",
+    "/docs/src/markdown/dictionary/*.txt",
+    "/docs/theme/**/*.css",
+    "/docs/theme/**/*.js",
+    "/docs/theme/**/*.html",
+    "/requirements/*.txt",
+    "/pyspelling/**/*.py",
+    # "/pyspelling/py.typed",
+    "/tests/**/*.py",
+    "/tests/test_files/odf/*.fodt",
+    "/tests/test_files/odf/*.odp",
+    "/tests/test_files/odf/*.ods",
+    "/tests/test_files/odf/*.odt",
+    "/tests/test_files/ooxml/*.docx",
+    "/tests/test_files/ooxml/*.pptx",
+    "/tests/test_files/ooxml/*.xlsx",
+    "/.pyspelling.yml",
+    "/.coveragerc",
+    "/mkdocs.yml"
+]
+
+# TODO
+# [tool.mypy]
+# files = [
+#     "pyspelling"
+# ]
+# strict = true
+# show_error_codes = true
+
+[tool.hatch.metadata.hooks.custom]
+
+[tool.ruff]
+line-length = 120
+
+select = [
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "D",    # pydocstyle
+    "C4",   # flake8-comprehensions
+    "N",    # pep8-naming
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "PGH",  # pygrep-hooks
+    "RUF",  # ruff
+    # "UP",   # pyupgrade
+    "W",    # pycodestyle
+    "YTT",  # flake8-2020,
+    "PERF"  # Perflint
+]
+
+ignore = [
+    "E741",
+    "D202",
+    "D401",
+    "D212",
+    "D203",
+    "D417",
+    "N802",
+    "N801",
+    "N803",
+    "N806",
+    "N818",
+    "RUF012",
+    "RUF005",
+    "PGH004",
+    "RUF100"
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+envlist =
+    py38,py39,py310,py311,py312,lint
+
+[testenv]
+passenv = LANG,TOX_SPELL_PATH,TOX_SPELL_REQUIRE,HOME
+deps=
+    -r requirements/tests.txt
+commands=
+    {envpython} -m pytest --cov pyspelling --cov-append {toxinidir}
+    {envpython} -m coverage html -d {envtmpdir}/coverage
+    {envpython} -m coverage xml
+    {envpython} -m coverage report --show-missing
+
+[testenv:documents]
+deps=
+    .
+    -r requirements/docs.txt
+commands=
+    {envpython} -m mkdocs build --clean --verbose --strict
+    {envpython} -m pyspelling
+
+[testenv:lint]
+deps=
+    .
+    -r requirements/lint.txt
+commands=
+    "{envbindir}"/ruff check .
+"""

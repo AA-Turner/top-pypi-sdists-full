@@ -1,0 +1,59 @@
+[build-system]
+requires = ["flit_core >=3.9,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "multipart"
+requires-python = ">=3.8"
+dynamic = ["version"]
+license = {text = "MIT License"}
+description = "Parser for multipart/form-data"
+readme = "README.rst"
+authors = [
+  {name = "Marcel Hellkamp", email = "marc@gsites.de"},
+]
+
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: CGI Tools/Libraries",
+    "Topic :: Internet :: WWW/HTTP :: WSGI",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+PyPI = "https://pypi.org/project/multipart/"
+Homepage = "https://multipart.readthedocs.io/"
+Documentation = "https://multipart.readthedocs.io/"
+Changelog = "https://multipart.readthedocs.io/en/latest/changelog.html"
+Source = "https://github.com/defnull/multipart"
+Issues = "https://github.com/defnull/multipart/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "build",
+    "twine",
+]
+docs = [
+    "sphinx>=8,<9",
+    "sphinx-autobuild",
+]
+
+[tool.flit.sdist]
+include = [
+  "test/*.py",
+  "README.rst",
+  "MAINTAINERS.rst",
+  "CHANGELOG.rst",
+  "LICENSE"
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = [ "test" ]
+

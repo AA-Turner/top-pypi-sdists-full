@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: joblibspark
+Version: 0.6.0
+Summary: Joblib Apache Spark Backend
+Home-page: https://github.com/joblib/joblib-spark
+Author: Weichen Xu
+Author-email: weichen.xu@databricks.com
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development :: Libraries
+License-File: LICENSE
+Requires-Dist: joblib>=0.14
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
+
+
+Joblib spark backend is a extension for joblib, which make joblib running on spark parallelly.

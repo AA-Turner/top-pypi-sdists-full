@@ -1,0 +1,66 @@
+[build-system]
+requires = [
+    # Keep this aligned with the project dependencies.
+    "setuptools >= 61.0",
+    "tomli; python_version < '3.11'",
+]
+backend-path = [".", "./src"]  # See _build_meta.py
+build-backend = "_build_meta:build_meta"
+
+[project]
+name = "incremental"
+dynamic = ["version"]
+maintainers = [
+    {name = "Amber Brown", email = "hawkowl@twistedmatrix.com"},
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: Hatch",
+    "Framework :: Setuptools Plugin",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+description = "A small library that versions your Python projects."
+readme = "README.rst"
+dependencies = [
+    "setuptools >= 61.0",
+    "tomli; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+scripts = [
+    "click>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/twisted/incremental"
+Documentation = "https://twisted.org/incremental/docs/"
+Issues = "https://github.com/twisted/incremental/issues"
+Changelog = "https://github.com/twisted/incremental/blob/trunk/NEWS.rst"
+
+[project.entry-points."distutils.setup_keywords"]
+use_incremental = "incremental:_get_distutils_version"
+[project.entry-points."setuptools.finalize_distribution_options"]
+incremental = "incremental:_get_setuptools_version"
+[project.entry-points.hatch]
+incremental = "incremental._hatch"
+
+[tool.setuptools.dynamic]
+version = {attr = "incremental._setuptools_version"}
+
+[tool.incremental]
+
+[tool.black]
+target-version = ['py36', 'py37', 'py38']
+
+[tool.towncrier]
+filename = "NEWS.rst"
+package_dir = "src/"
+package = "incremental"
+issue_format = "`#{issue} <https://github.com/twisted/incremental/issues/{issue}>`__"

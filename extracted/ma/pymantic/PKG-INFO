@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: pymantic
+Version: 1.0.0
+Summary: Semantic Web and RDF library for Python
+Home-page: https://github.com/norcalrdf/pymantic/
+Author: Gavin Carothers, Nick Pilon
+Author-email: gavin@carothers.name, npilon@gmail.com
+License: BSD
+Keywords: RDF N3 Turtle Semantics
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Text Processing :: Markup
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/x-rst
+Provides-Extra: testing
+License-File: LICENSE
+
+========
+Pymantic
+========
+---------------------------------------
+Semantic Web and RDF library for Python
+---------------------------------------
+
+
+Quick Start
+===========
+::
+
+    >>> from pymantic.rdf import *
+    >>> from pymantic.parsers import turtle_parser
+    >>> import requests
+    >>> Resource.prefixes['foaf'] = Prefix('http://xmlns.com/foaf/0.1/')
+    >>> graph = turtle_parser.parse(requests.get('https://raw.github.com/norcalrdf/pymantic/master/examples/foaf-bond.ttl').text)
+    >>> bond_james = Resource(graph, 'http://example.org/stuff/Bond')
+    >>> print("%s knows:" % (bond_james.get_scalar('foaf:name'),))
+    >>> for person in bond_james['foaf:knows']:
+            print(person.get_scalar('foaf:name'))
+
+
+
+Requirements
+============
+
+``pymantic`` requires Python 3.9 or higher.
+``lark`` is used for the Turtle and NTriples parser.
+The ``requests`` library is used for HTTP requests and the SPARQL client.
+``lxml`` and ``rdflib`` are required by the SPARQL client as well.
+
+
+Install
+=======
+
+::
+
+    $ pip install pymantic
+
+This will install ``pymantic`` and all its dependencies.
+
+
+Documentation
+=============
+
+Generating a local copy of the documentation requires Sphinx:
+
+::
+
+    $ pip install Sphinx
+
+

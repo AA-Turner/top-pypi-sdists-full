@@ -1,0 +1,140 @@
+[build-system]
+requires = [
+    "hatchling",
+    "jupyterlab==4.*",
+    "hatch-nodejs-version>=0.3.2",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "ipympl"
+description = "Matplotlib Jupyter Extension"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Matplotlib Development Team", email = "matplotlib-users@python.org"},
+]
+keywords = [
+    "graphics",
+    "ipython",
+    "jupyter",
+    "widgets",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Framework :: Jupyter :: JupyterLab",
+    "Framework :: Jupyter :: JupyterLab :: 3",
+    "Framework :: Jupyter :: JupyterLab :: 4",
+    "Framework :: Jupyter :: JupyterLab :: Extensions",
+    "Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "ipython<10",
+    "ipywidgets>=7.6.0,<9",
+    "matplotlib>=3.5.0,<4",
+    "numpy",
+    "pillow",
+    "traitlets<6",
+]
+requires-python = ">=3.9"
+dynamic = [
+    "version",
+]
+
+[project.optional-dependencies]
+docs = [
+    "myst-nb",
+    "Sphinx >= 1.5",
+    "sphinx-book-theme",
+    "sphinx-copybutton",
+    "sphinx-thebe",
+    "sphinx-togglebutton",
+]
+
+[project.urls]
+Homepage = "http://matplotlib.org/ipympl"
+Repository = "https://github.com/matplotlib/ipympl"
+
+[project.entry-points."matplotlib.backend"]
+ipympl = "ipympl.backend_nbagg"
+widget = "ipympl.backend_nbagg"
+
+[tool.hatch.build]
+artifacts = [
+    "ipympl/nbextension/index.*",
+    "ipympl/nbextension/package.json",
+    "ipympl/labextension/*.tgz",
+    "ipympl/labextension",
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"ipympl/nbextension" = "share/jupyter/nbextensions/jupyter-matplotlib"
+"ipympl/labextension" = "share/jupyter/labextensions/jupyter-matplotlib"
+"jupyter-matplotlib.json" = "etc/jupyter/nbconfig/notebook.d/jupyter-matplotlib.json"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".github",
+]
+
+[tool.hatch.build.hooks.jupyter-builder]
+build-function = "hatch_jupyter_builder.npm_builder"
+dependencies = [
+    "hatch-jupyter-builder>=0.8.3",
+]
+ensured-targets = [
+    "ipympl/nbextension/index.js",
+    "lib/plugin.js",
+]
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+path = "."
+build_cmd = "build:prod"
+npm = ["jlpm"]
+
+[tool.hatch.build.hooks.jupyter-builder.editable-build-kwargs]
+npm = ["jlpm"]
+
+[tool.hatch.version]
+path = "ipympl/_version.py"
+source = "code"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "docs/examples",
+]
+norecursedirs = [
+    "node_modules",
+    ".ipynb_checkpoints",
+]
+addopts = "--nbval-lax --current-env"
+
+[tool.isort]
+profile = "black"
+src_paths = "ipympl"
+multi_line_output = 3
+
+[tool.pydocstyle]
+match_dir = "ipympl"
+convention = "numpy"
+add_select = [
+    "D402",
+    "D415",
+    "D417",
+]
+
+[tool.black]
+skip-string-normalization = true

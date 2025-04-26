@@ -1,0 +1,94 @@
+[tool.poetry]
+name = "yaspin"
+version = "3.1.0"
+description = "Yet Another Terminal Spinner"
+license = "MIT"
+authors = ["Pavlo Dmytrenko <pavdmyt@aiven.io>"]
+readme = "README.rst"
+homepage = "https://github.com/pavdmyt/yaspin"
+repository = "https://github.com/pavdmyt/yaspin"
+documentation = "https://github.com/pavdmyt/yaspin/blob/master/README.rst"
+keywords = ["spinner", "console", "terminal", "loader", "indicator"]
+include = [
+    { path = "tests", format = "sdist" },
+    { path = "examples", format = "sdist" },
+    { path = "HISTORY.rst", format = "sdist"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Environment :: Other Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Shells",
+    "Topic :: Terminals",
+    "Topic :: Utilities",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+termcolor = ">=2.2.0, <2.4.0"
+
+[tool.poetry.dev-dependencies]
+black = "^24.8"
+twine = "^5.1"
+flake8 = "^7.1"
+isort = "^5.13"
+mypy = "^1.11"
+pytest = "^8.1, <8.2"
+pytest-xdist = "^3.5, !=3.6.0"
+pytest-cov = "^5.0"
+pylint = "^3.3"
+semgrep = "^1.89"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/pavdmyt/yaspin/issues"
+"Changelog" = "https://github.com/pavdmyt/yaspin/releases"
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.9"
+show_error_codes = true
+pretty = true
+disable_error_code = ["annotation-unchecked"]
+namespace_packages = false
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.black]
+line-length = 110
+
+[tool.isort]
+profile = "black"
+line_length = 110

@@ -1,0 +1,10 @@
+[project]
+name = "my-package"
+version = "0.1"
+dynamic = ["readme"]
+
+[tool.poetry]
+readme = [
+    "README-1.rst",
+    "README-2.rst"
+]

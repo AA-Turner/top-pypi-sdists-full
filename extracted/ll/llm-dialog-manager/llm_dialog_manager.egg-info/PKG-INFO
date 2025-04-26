@@ -1,0 +1,149 @@
+Metadata-Version: 2.4
+Name: llm_dialog_manager
+Version: 0.4.7
+Summary: A Python package for managing LLM chat conversation history
+Author-email: xihajun <work@2333.fun>
+License: MIT
+Project-URL: Bug Tracker, https://github.com/xihajun/llm_dialog_manager/issues
+Project-URL: Documentation, https://github.com/xihajun/llm_dialog_manager#readme
+Project-URL: Source Code, https://github.com/xihajun/llm_dialog_manager
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: openai>=1.54.2
+Requires-Dist: anthropic>=0.39.0
+Requires-Dist: google-generativeai>=0.1.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: uuid>=1.30
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=23.9.1; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=6.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.14.0; extra == "test"
+Requires-Dist: pytest-cov>=2.0; extra == "test"
+Provides-Extra: lint
+Requires-Dist: black>=22.0; extra == "lint"
+Requires-Dist: isort>=5.0; extra == "lint"
+Provides-Extra: all
+Requires-Dist: pytest>=8.0.0; extra == "all"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "all"
+Requires-Dist: pytest-cov>=4.1.0; extra == "all"
+Requires-Dist: black>=23.9.1; extra == "all"
+Requires-Dist: isort>=5.12.0; extra == "all"
+Dynamic: license-file
+
+# LLM Dialog Manager
+
+A Python package for managing AI chat conversation history with support for multiple LLM providers (OpenAI, Anthropic, Google, X.AI) and convenient conversation management features.
+
+## Features
+
+- Support for multiple AI providers:
+  - OpenAI (GPT-3.5, GPT-4)
+  - Anthropic (Claude)
+  - Google (Gemini)
+  - X.AI (Grok)
+- Intelligent message role management (system, user, assistant)
+- Conversation history tracking and validation
+- Load balancing across multiple API keys
+- Error handling and retry mechanisms
+- Conversation saving and loading
+- Memory management options
+- Conversation search and indexing
+- Rich conversation display options
+- Vision & Json Output enabled [20240111]
+
+## Installation
+
+```bash
+pip install llm-dialog-manager
+```
+
+## Quick Start
+
+
+### Environment Variables
+
+Create a `.env` file in your project root:
+
+```bash
+# OpenAI
+OPENAI_API_KEY_1=your-key-1
+OPENAI_API_BASE_1=https://api.openai.com/v1
+
+# Anthropic
+ANTHROPIC_API_KEY_1=your-anthropic-key
+ANTHROPIC_API_BASE_1=https://api.anthropic.com
+
+# Google
+GEMINI_API_KEY=your-gemini-key
+
+# X.AI
+XAI_API_KEY=your-x-key
+```
+
+### Basic Usage
+
+
+```python
+from llm_dialog_manager import Agent
+
+# Initialize an agent with a specific model
+agent = Agent("claude-2.1", memory_enabled=True)
+
+# Add messages and generate responses
+agent.add_message("system", "You are a helpful assistant")
+agent.add_message("user", "What is the capital of France?")
+response = agent.generate_response()
+
+# Save conversation
+agent.save_conversation()
+```
+
+### Setup Debugging Console
+
+```bash
+python app.py
+# open localhost:8000
+```
+https://github.com/user-attachments/assets/5f640029-24e6-44ea-a3a3-02eb3de0d4df
+
+
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support, please open an issue in the GitHub repository or contact the maintainers.

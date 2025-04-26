@@ -1,0 +1,100 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "rtoml"
+requires-python = ">=3.9"
+authors = [
+    {name = "Samuel Colvin", email = "s@muelcolvin.com"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+]
+dynamic = [
+    "description",
+    "license",
+    "readme",
+    "version"
+]
+
+[project.urls]
+Homepage = "https://github.com/samuelcolvin/rtoml"
+Funding = "https://github.com/sponsors/samuelcolvin"
+Source = "https://github.com/samuelcolvin/rtoml"
+
+[dependency-groups]
+dev = [
+    "coverage[toml]>=7.6.9",
+    "dirty-equals>=0.8.0",
+    "maturin>=1.7.8",
+    "pytest>=8.3.4",
+    "pytest-pretty>=1.2.0",
+    "pytest-speed>=0.3.5",
+]
+lint = [
+    "mypy>=1.13.0",
+    "ruff>=0.8.2",
+]
+
+[tool.maturin]
+python-source = "python"
+bindings = "pyo3"
+module-name = "rtoml._rtoml"
+features = ["pyo3/extension-module", "pyo3/generate-import-lib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+xfail_strict = true
+# avoid pytest warning when pytest-speed is not installed
+markers = ["benchmark"]
+
+[tool.coverage.run]
+source = ["rtoml"]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = ["Q", "RUF100", "UP", "I"]
+lint.flake8-quotes = {inline-quotes = "single", multiline-quotes = "double"}
+lint.isort = { known-first-party = ["rtoml", "tests"] }
+format.quote-style = "single"
+target-version = "py39"
+
+[tool.mypy]
+follow_imports = "normal"
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+disallow_untyped_defs = true

@@ -1,0 +1,42 @@
+Metadata-Version: 2.4
+Name: quickstart-vdk
+Version: 0.2.1787460408
+Summary: Versatile Data Kit SDK packaging containing common plugins to get started quickly using it.
+Home-page: https://github.com/vmware/versatile-data-kit
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Description-Content-Type: text/markdown
+Requires-Dist: vdk-core
+Requires-Dist: vdk-plugin-control-cli
+Requires-Dist: vdk-sqlite
+Requires-Dist: vdk-ingest-http
+Requires-Dist: vdk-ingest-file
+Requires-Dist: vdk-server
+Requires-Dist: vdk-structlog
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
+
+# Quickstart-VDK
+
+<a href="https://pypistats.org/packages/quickstart-vdk" alt="Monthly Downloads">
+        <img src="https://img.shields.io/pypi/dm/quickstart-vdk.svg" alt="monthly download count for quickstart-vdk"></a>
+
+This is the first VDK packaging that users would install to play around with.
+
+It packages:
+
+* Plugin for a local database to get started quickly
+* Plugin for job management (vdk-control-cli)
+* Plugin for local Control Service installation (vdk-server)
+
+See also [Versatile Data Kit Getting Started](https://github.com/vmware/versatile-data-kit/wiki/Getting-Started).

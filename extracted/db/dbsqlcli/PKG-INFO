@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: dbsqlcli
+Version: 0.1.1
+Summary: 
+Author: Your Name
+Author-email: you@example.com
+Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: Pygments (>=1.6)
+Requires-Dist: cli_helpers[styles] (>=1.1.0)
+Requires-Dist: click (>=7.0)
+Requires-Dist: configobj (>=5.0.5)
+Requires-Dist: databricks-sql-connector (==v2.0.0b1)
+Requires-Dist: prompt_toolkit (>=2.0.6,<3.0.0)
+Requires-Dist: sqlparse (>=0.3.0,<0.4.0)

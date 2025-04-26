@@ -1,0 +1,53 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "uuid_utils"
+description = "Drop-in replacement for Python UUID in Rust"
+authors = [{ name = "Amin Alaee", email = "me@aminalaee.dev" }]
+keywords = ["rust", "uuid"]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Rust",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+]
+
+dynamic = ["license", "version"]
+
+[project.urls]
+Documentation = "https://github.com/aminalaee/uuid-utils"
+Issues = "https://github.com/aminalaee/uuid-utils/issues"
+Source = "https://github.com/aminalaee/uuid-utils"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "uuid_utils._uuid_utils"
+
+[tool.mypy]
+disallow_untyped_defs = true
+ignore_missing_imports = true
+show_error_codes = true
+no_implicit_optional = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "C4",
+    "UP",
+]

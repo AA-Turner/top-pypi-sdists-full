@@ -1,0 +1,70 @@
+[project]
+name = "jira2markdown"
+version = "0.5"
+description = "Convert text from JIRA markup to Markdown using parsing expression grammars"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.9,<4.0"
+authors = [
+    { name = "Evgeniy Krysanov", email = "evgeniy.krysanov@gmail.com" },
+]
+maintainers = [
+    { name = "Evgeniy Krysanov", email = "evgeniy.krysanov@gmail.com" },
+]
+keywords = ["jira", "markdown"]
+classifiers = [
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "pyparsing>=3",
+]
+
+[project.urls]
+repository = "https://github.com/catcombo/jira2markdown"
+
+[project.scripts]
+jira2markdown = "jira2markdown.main:main"
+
+[tool.poetry]
+packages = [
+    { include = "jira2markdown" },
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+ruff = "*"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "C4",     # flake8-comprehensions
+    "COM",    # flake8-commas
+    "DJ001",  # flake8-django: Avoid using null=True on string-based fields such as
+    "DJ012",  # flake8-django: Order of model's inner classes, methods, and fields
+    "DTZ",    # flake8-datetimez
+    "E",      # Error
+    "F",      # Pyflakes
+    "I",      # isort
+    "PTH",    # flake8-use-pathlib
+    "RSE",    # flake8-raise
+    "Q",      # flake8-quotes
+    "UP009",  # pyupgrade: UTF-8 encoding declaration is unnecessary
+    "W"       # Warning
+]
+ignore = []
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

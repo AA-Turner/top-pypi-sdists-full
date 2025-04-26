@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools"]
+build-backend= "setuptools.build_meta"
+
+[project]
+name = "Mastodon.py"
+version = "2.0.1"
+description = "Python wrapper for the Mastodon API"
+readme = "README.rst"
+authors = [
+    { name = "Lorenz Diener", email = "lorenzd+mastodonpypypi@gmail.com" },
+]
+license = {text = "MIT"}
+keywords = ["mastodon", "api", "microblogging"]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Communications',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 2',
+    'Programming Language :: Python :: 3',
+]
+dependencies = [
+    'requests>=2.4.2',
+    'python-dateutil',
+    'python-magic-bin ; platform_system=="Windows"',
+    'python-magic ; platform_system!="Windows"',
+    'decorator>=4.0.0',
+    'blurhash>=1.1.4',
+]
+
+[project.optional-dependencies]
+webpush = [
+    'http_ece>=1.0.5',
+    'cryptography>=1.6.0',
+]
+blurhash = [
+    'blurhash>=1.1.4',
+]
+test = [
+    'pytest',
+    'pytest-cov',
+    'vcrpy',
+    'pytest-vcr',
+    'pytest-mock',
+    'requests-mock',
+    'pytz',
+    'pytest-retry'
+]
+test_old = [
+    'pytest',
+    'pytest-cov',
+    'vcrpy',
+    'pytest-vcr',
+    'pytest-mock',
+    'requests-mock',
+    'pytz',
+]
+docs = [
+    'sphinx-rtd-theme',
+]
+
+[project.urls]
+Repository="https://github.com/halcy/Mastodon.py"
+Documentation="https://mastodonpy.readthedocs.io/"
+
+[tool.pytest.ini_options]
+addopts = "--cov=mastodon"
+
+# Workaround for some "autodiscovery" issue in setuptools? maybe? I don't know. 
+# setuptools and pyproject.toml docs seem to be intent on making everyone continue
+# the proud lineage of everyone just cargo-culting their makefiles.
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["mastodon*"]  # package names should match these glob patterns (["*"] by default)

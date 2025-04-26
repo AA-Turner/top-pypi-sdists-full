@@ -1,0 +1,63 @@
+[project]
+name = "corner"
+description = "Make some beautiful corner plots"
+authors = [{ name = "Dan Foreman-Mackey", email = "foreman.mackey@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD 2-Clause License" }
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: BSD License",
+]
+dynamic = ["version"]
+dependencies = ["matplotlib>=2.1"]
+
+[project.urls]
+"Homepage" = "https://corner.readthedocs.io"
+"Source" = "https://github.com/dfm/corner.py"
+"Bug Tracker" = "https://github.com/dfm/corner.py/issues"
+
+[project.optional-dependencies]
+test = ["pytest", "arviz>=0.9", "scipy"]
+arviz = ["arviz>=0.9"]
+docs = ["arviz>=0.9", "sphinx>=1.7.5", "pandoc", "myst-nb", "sphinx-book-theme", "ipython"]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/corner/version.py"
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+skip_glob = []
+line_length = 79
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+known_first_party = ["corner"]
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["corner"]
+omit = [
+    "docs/*",
+    "tests/*",
+    "*/corner/version.py",
+]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true

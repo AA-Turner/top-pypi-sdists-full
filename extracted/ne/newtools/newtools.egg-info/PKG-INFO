@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: newtools
+Version: 2.2.489
+Summary: Provides useful libraries for processing large data sets.
+Home-page: https://bitbucket.org/deductive/newtools/
+Author: Deductive
+Author-email: hello@deductive.com
+License: MIT
+Project-URL: Documentation, https://newtools.readthedocs.io/en/latest/
+Project-URL: Source, https://bitbucket.org/deductive/newtools/
+Description: 
+              Provides libraries for processing large data sets on AWS with Pandas.
+              
+              Developed by the team at [deductive.com](https://deductive.com) as we find them useful in our projects.
+              
+              &copy; Deductive 2012-2020, all rights reserved. This code is licensed under MIT license. See [license.txt](https://bitbucket.org/deductive/newtools/src/master/licence.txt) for details.
+        
+              For documentation see [read the docs](http://newtools.readthedocs.io)
+              
+Keywords: deductive
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Provides-Extra: full

@@ -1,0 +1,39 @@
+Metadata-Version: 2.2
+Name: nuclio_sdk
+Version: 0.5.15
+Summary: Client for the Nuclio serverless platform
+Home-page: https://github.com/nuclio/nuclio-sdk-py
+Author: Eran Duchan
+Author-email: erand@iguazio.com
+License: Apache 2
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-python
+Dynamic: summary
+
+![CI](https://github.com/nuclio/nuclio-sdk-py/workflows/CI/badge.svg)
+
+# Nuclio SDK
+
+Python SDK for Nuclio (www.nuclio.io, www.github.com/nuclio/nuclio).

@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: dci-utils
+Version: 0.0.1148
+Summary: A set of utilities for DCI jobs
+Home-page: https://ewegithub.sb.karmalab.net/EWE/dci-data-dci-utils
+Author: Andrew Johnson
+Author-email: andrejohnson@expedia.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent

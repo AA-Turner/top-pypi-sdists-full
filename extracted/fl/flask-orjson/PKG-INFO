@@ -1,0 +1,36 @@
+Metadata-Version: 2.1
+Name: flask-orjson
+Version: 2.0.0
+Summary: A Flask JSON provider using the fast orjson library.
+Maintainer-email: Pallets Community Ecosystem <contact@palletsprojects.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Flask
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Typing :: Typed
+Requires-Dist: flask
+Requires-Dist: orjson
+Project-URL: Changes, https://flask-orjson.readthedocs.io/changes/
+Project-URL: Documentation, https://flask-orjson.readthedocs.io/
+Project-URL: Source, https://github.com/davidism/flask-orjson/
+
+# flask-orjson
+
+A Flask JSON provider using the fast [orjson][] library. Using this provider
+will significantly speed up reading JSON data in requests and generating JSON
+responses.
+
+[orjson]: https://github.com/ijl/orjson
+
+## Example
+
+```python
+from flask import Flask
+from flask_orjson import OrjsonProvider
+
+app = Flask(__name__)
+app.json = OrjsonProvider(app)
+```
+

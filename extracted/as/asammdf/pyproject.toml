@@ -1,0 +1,177 @@
+[build-system]
+requires = ["scikit-build-core", "numpy>=2.0.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "asammdf"
+description = "ASAM MDF measurement data file parser"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "LGPLv3+" }
+authors = [{ name = "Daniel Hrisca", email = "daniel.hrisca@gmail.com" }]
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+keywords = [
+    "read",
+    "reader",
+    "edit",
+    "editor",
+    "parse",
+    "parser",
+    "asam",
+    "mdf",
+    "measurement",
+]
+dependencies = [
+    "canmatrix[arxml,dbc]>=1.2",
+    "isal; platform_machine == 'x86_64' or platform_machine == 'AMD64'",
+    "lxml>=4.9.3",
+    "lz4",
+    "numexpr>=2.10.0",
+    "numpy>=2.0.0",
+    "pandas>=2.2.2",
+    "python-dateutil",
+    "typing-extensions~=4.10",
+]
+
+[project.optional-dependencies]
+decode = ["faust-cchardet==2.1.19", "chardet"]
+export = ["pyarrow>=17.0.0", "h5py>=3.11", "hdf5storage>=0.1.19", "python-snappy", "polars>=1.1.0"]
+export-matlab-v5 = ["scipy>=1.13.0"]
+gui = ["natsort", "PySide6>=6.7.0", "pyqtgraph>=0.13.4", "pyqtlet2[PySide6]", "packaging"]
+encryption = ["cryptography", "keyring"]
+symbolic-math = ["sympy>=1.13.0"]
+filesystem = ["fsspec"]
+
+[project.scripts]
+asammdf = "asammdf.app.asammdfgui:main [gui]"
+
+[project.urls]
+Documentation = "https://asammdf.readthedocs.io/en/master"
+Issues = "https://github.com/danielhrisca/asammdf/issues"
+Source = "https://github.com/danielhrisca/asammdf"
+
+[tool.scikit-build]
+metadata.version.provider = "scikit_build_core.metadata.regex"
+metadata.version.input = "src/asammdf/version.py"
+wheel.packages = ["src/asammdf"]
+wheel.py-api = "cp310"
+
+[tool.black]
+line-length = 120
+required-version = "25"
+target-version = ['py310']
+force-exclude = '''
+(
+    ^/ext |
+    ^/src/asammdf/gui/ui |
+)
+'''
+
+[tool.coverage]
+run.relative_files = true
+run.source_pkgs = ["asammdf"]
+paths.source = ["src", "*/site-packages"]
+report.omit = ["*/asammdf/gui/ui/*"]
+
+[tool.cibuildwheel]
+manylinux-x86_64-image = "manylinux_2_28"
+test-requires = "pytest"
+test-command = "pytest {project}/test"
+build-frontend = "build"
+archs = ["auto64"]                        # only build for 64bit architectures
+# skip pypy and irrelevant architectures
+skip = ["pp*", "*_ppc64le", "*-musllinux*", "*_s390x"]
+
+[tool.mypy]
+files = "."
+exclude = [
+    "benchmarks/",
+    "build/",
+    "ci/",
+    "dist/",
+    "doc/_build/",
+    "examples/",
+    "ext/",
+    "test/",
+]
+python_version = "3.10"
+plugins = ["numpy.typing.mypy_plugin"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "canmatrix.*",
+    "cchardet.*",
+    "cmerg.*",
+    "fsspec.*",
+    "h5py.*",
+    "hdf5storage.*",
+    "mdfreader.*",
+    "mfile.*",
+    "numexpr.*",
+    "pyqtgraph.*",
+    "pyqtlet2.*",
+    "snappy.*",
+    "sympy.*",
+    "xmlrunner.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "asammdf.app.asammdfgui",
+    "asammdf.blocks.bus_logging_utils",
+    "asammdf.blocks.conversion_utils",
+    "asammdf.blocks.mdf_v4",
+    "asammdf.blocks.v4_blocks",
+    "asammdf.gui.*",
+    "asammdf.mdf",
+    "asammdf.signal",
+]
+ignore_errors = true
+
+[tool.ruff]
+target-version = "py310"
+extend-exclude = ["./src/asammdf/gui/ui", "./ext"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "I",   # isort
+    "PIE", # flake8-pie
+    "PL",  # pylint
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "B007",    # unused-loop-control-variable
+    "F841",    # unused-variable
+    "PLC0414", # useless-import-alias
+    "PLR09",   # too-many-this, too-many-that
+    "PLR2004", # magic-value-comparison
+    "PLR5501", # collapsible-else-if
+    "PLW0603", # global-statement
+    "PLW2901", # redefined-loop-name
+    "RUF012",  # mutable-class-default
+    "RUF015",  # unnecessary-iterable-allocation-for-first-element
+    "UP038",   # non-pep604-isinstance
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["asammdf"]
+order-by-type = false
+force-sort-within-sections = true

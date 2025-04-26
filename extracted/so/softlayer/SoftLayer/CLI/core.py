@@ -1,0 +1,211 @@
+"""
+    SoftLayer.CLI.core
+    ~~~~~~~~~~~~~~~~~~
+    Core for the SoftLayer CLI
+
+    :license: MIT, see LICENSE for more details.
+"""
+import logging
+import os
+import sys
+import time
+import traceback
+
+import click
+import requests
+from rich.markup import escape
+
+import SoftLayer
+from SoftLayer.CLI.command import CommandLoader
+from SoftLayer.CLI import environment
+from SoftLayer.CLI import exceptions
+from SoftLayer.CLI import formatting
+from SoftLayer import consts
+
+# pylint: disable=too-many-public-methods, broad-except, unused-argument
+# pylint: disable=redefined-builtin, super-init-not-called, arguments-differ
+
+START_TIME = time.time()
+DEBUG_LOGGING_MAP = {
+    0: logging.CRITICAL,
+    1: logging.WARNING,
+    2: logging.INFO,
+    3: logging.DEBUG
+}
+
+PROG_NAME = "slcli (SoftLayer Command-line)"
+VALID_FORMATS = ['table', 'raw', 'json', 'jsonraw', 'csv']
+DEFAULT_FORMAT = 'raw'
+
+if sys.stdout.isatty():
+    DEFAULT_FORMAT = 'table'
+
+
+def get_latest_version():
+    """Gets the latest version of the Softlayer library."""
+    try:
+        result = requests.get('https://pypi.org/pypi/SoftLayer/json',  timeout=60)
+        json_result = result.json()
+        latest = f"v{json_result['info']['version']}"
+    except Exception:
+        latest = "Unable to get version from pypi."
+    return latest
+
+
+CONTEXT_SETTINGS = {
+    "help_option_names": ['--help', '-h'],
+    "auto_envvar_prefix": 'SLCLI',
+    "max_content_width": 999
+}
+
+
+def get_version_message(ctx, param, value):
+    """Gets current and latest release versions message."""
+    if not value or ctx.resilient_parsing:
+        return
+    current = SoftLayer.consts.VERSION
+    latest = get_latest_version()
+    click.secho(f"Current: {PROG_NAME} {current}\nLatest:  {PROG_NAME} {latest}")
+    ctx.exit()
+
+
+@click.group(help="SoftLayer Command-line Client",
+             epilog="""To use most commands your SoftLayer username and api_key need to be configured.
+The easiest way to do that is to use: 'slcli setup'""",
+             cls=CommandLoader,
+             context_settings=CONTEXT_SETTINGS)
+@click.option('--format', default=DEFAULT_FORMAT, show_default=True,
+              help="Output format",
+              type=click.Choice(VALID_FORMATS))
+@click.option('-C', '--config', required=False, show_default=True,
+              default=click.get_app_dir('softlayer', force_posix=True),
+              help="Config file location",
+              type=click.Path(resolve_path=True))
+@click.option('--verbose', '-v',
+              help="Sets the debug noise level, specify multiple times for more verbosity.",
+              type=click.IntRange(0, 3, clamp=True),
+              count=True)
+@click.option('--proxy', required=False,
+              help="HTTPS or HTTP proxy to be use to make API calls")
+@click.option('--really / --not-really', '-y', is_flag=True, required=False,
+              help="Confirm all prompt actions")
+@click.option('--demo / --no-demo', is_flag=True, required=False,
+              help="Use demo data instead of actually making API calls")
+@click.option('--version', is_flag=True, expose_value=False, is_eager=True, callback=get_version_message,
+              help="Show version information.",  allow_from_autoenv=False,)
+@click.option('--account', '-a', help="Account Id, only needed for some API calls.")
+@click.option('--internal', '-i', is_flag=True, required=False,
+              help="Use the Employee Client instead of the Customer Client.")
+@environment.pass_env
+def cli(env,
+        format='table',
+        config=None,
+        verbose=0,
+        proxy=None,
+        really=False,
+        demo=False,
+        account=None,
+        internal=False,
+        **kwargs):
+    """Main click CLI entry-point."""
+
+    # Populate environment with client and set it as the context object
+    env.skip_confirmations = really
+    env.config_file = config
+    env.format = format
+    env.set_env_theme(config_file=config)
+    if internal:
+        env.ensure_emp_client(config_file=config, is_demo=demo, proxy=proxy)
+    else:
+        env.ensure_client(config_file=config, is_demo=demo, proxy=proxy)
+    env.vars['_start'] = time.time()
+    logger = logging.getLogger()
+
+    if demo is False:
+        logger.addHandler(logging.StreamHandler())
+    else:
+        # This section is for running CLI tests.
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logger.addHandler(logging.NullHandler())
+
+    logger.setLevel(DEBUG_LOGGING_MAP.get(verbose, logging.DEBUG))
+    env.vars['_timings'] = SoftLayer.DebugTransport(env.client.transport)
+    env.vars['verbose'] = verbose
+    env.client.transport = env.vars['_timings']
+    env.client.account_id = account
+
+
+@cli.result_callback()
+@environment.pass_env
+def output_diagnostics(env, result, verbose=0, **kwargs):
+    """Output diagnostic information."""
+
+    if verbose > 0:
+        diagnostic_table = formatting.Table(['name', 'value'])
+        diagnostic_table.add_row(['execution_time', '%fs' % (time.time() - START_TIME)])
+
+        api_call_value = formatting.Table(['API Calls'], title=None, align="left")
+        for call in env.client.transport.get_last_calls():
+            api_call_value.add_row(["%s::%s (%fs)" % (call.service, call.method, call.end_time - call.start_time)])
+
+        diagnostic_table.add_row(['api_calls', api_call_value])
+        diagnostic_table.add_row(['version', consts.USER_AGENT])
+        diagnostic_table.add_row(['python_version', sys.version])
+        diagnostic_table.add_row(['library_location', os.path.dirname(SoftLayer.__file__)])
+
+        env.err(env.fmt(diagnostic_table))
+
+    if verbose > 1:
+        for call in env.client.transport.get_last_calls():
+            call_table = formatting.Table(['', f'{call.service}::{call.method}'], align="left")
+            nice_mask = ''
+            if call.mask is not None:
+                nice_mask = call.mask
+            call_table.add_row(['id', call.identifier])
+            #  Need to escape this so Rich doesn't think the mask is a tag and hide it.
+            call_table.add_row(['mask', escape(nice_mask)])
+            call_table.add_row(['filter', call.filter])
+            call_table.add_row(['limit', call.limit])
+            call_table.add_row(['offset', call.offset])
+            env.err(env.fmt(call_table))
+
+    if verbose > 2:
+        for call in env.client.transport.get_last_calls():
+            env.err(env.client.transport.print_reproduceable(call))
+
+
+def main(reraise_exceptions=False, **kwargs):
+    """Main program. Catches several common errors and displays them nicely."""
+    exit_status = 0
+
+    try:
+        cli.main(**kwargs)
+    except SoftLayer.SoftLayerAPIError as ex:
+        if 'invalid api token' in ex.faultString.lower():
+            print("Authentication Failed: To update your credentials, use 'slcli config setup'")
+            exit_status = 1
+        else:
+            print(str(ex))
+            exit_status = 1
+    except SoftLayer.SoftLayerError as ex:
+        print(str(ex))
+        exit_status = 1
+    except exceptions.CLIAbort as ex:
+        print(str(ex.message))
+        exit_status = ex.code
+    except Exception:
+        if reraise_exceptions:
+            raise
+
+        print("An unexpected error has occured:")
+        print(str(traceback.format_exc()))
+        print("Feel free to report this error as it is likely a bug:")
+        print("    https://github.com/softlayer/softlayer-python/issues")
+        print("The following snippet should be able to reproduce the error")
+        exit_status = 1
+
+    sys.exit(exit_status)
+
+
+if __name__ == '__main__':
+    main()

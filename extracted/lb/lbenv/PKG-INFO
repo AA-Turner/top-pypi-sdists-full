@@ -1,0 +1,27 @@
+Metadata-Version: 2.2
+Name: LbEnv
+Version: 2.2.5
+Summary: LHCb Environment tools
+Author-email: CERN - LHCb Core Software <lhcb-core-soft@cern.ch>
+Project-URL: Homepage, https://gitlab.cern.ch/lhcb-core/LbEnv
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: LbPlatformUtils>=4.2.3
+Requires-Dist: xenv<1.0.0
+Requires-Dist: importlib_resources
+Requires-Dist: importlib_metadata
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: coverage; extra == "testing"
+
+LbEnv
+=====
+
+LbEnv is a python package that contains a set of tools to prepare the LHCb environment to build and run applications.

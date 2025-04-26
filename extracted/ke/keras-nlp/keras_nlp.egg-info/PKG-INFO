@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: keras-nlp
+Version: 0.20.0
+Summary: Industry-strength Natural Language Processing extensions for Keras.
+Home-page: https://github.com/keras-team/keras-nlp
+Author: Keras team
+Author-email: keras-nlp@google.com
+License: Apache License 2.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: keras-hub==0.20.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# KerasNLP: Multi-framework NLP Models
+
+KerasNLP has renamed to KerasHub! Read the announcement
+[here](https://github.com/keras-team/keras-nlp/issues/1831).
+
+This directory contains a shim package for `keras-nlp` so that the old style
+`pip install keras-nlp` and `import keras_nlp` continue to work.

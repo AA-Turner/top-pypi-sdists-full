@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: pyop
+Version: 3.4.1
+Summary: OpenID Connect Provider (OP) library in Python.
+Home-page: https://github.com/IdentityPython/pyop
+Author: Rebecka Gulliksson
+Author-email: satosa-dev@lists.sunet.se
+License: Apache 2.0
+Platform: UNKNOWN
+Provides-Extra: mongo
+Provides-Extra: redis
+License-File: LICENSE
+License-File: NOTICE
+
+UNKNOWN
+

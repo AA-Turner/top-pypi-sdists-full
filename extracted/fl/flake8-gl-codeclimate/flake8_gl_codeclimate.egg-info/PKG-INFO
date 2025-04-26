@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: flake8-gl-codeclimate
+Version: 0.2.1
+Summary: Gitlab Code Quality artifact Flake8 formatter.
+Home-page: https://github.com/awelzel/flake8-gl-codeclimate
+Author: Arne Welzel
+Author-email: arne.welzel@gmail.com
+License: MIT
+License-File: LICENSE

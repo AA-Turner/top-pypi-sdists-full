@@ -1,0 +1,14 @@
+[tool.cibuildwheel]
+before-build = "make clean"
+# Skip PyPy and musllinux for now
+skip = ["pp*", "*-musllinux_*"]
+test-requires = "pytest"
+test-command = "pytest {package}/test.py"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+# Assumes CentOS docker like manylinux2014
+before-all = "yum install -y ncurses-devel"
+
+[tool.cibuildwheel.macos]
+before-all = "brew install ncurses"

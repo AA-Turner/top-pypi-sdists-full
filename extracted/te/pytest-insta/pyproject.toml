@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "pytest-insta"
+version = "0.3.0"
+description = "A practical snapshot testing plugin for pytest"
+authors = ["Valentin Berlier <berlier.v@gmail.com>"]
+license = "MIT"
+
+homepage = "https://github.com/vberlier/pytest-insta"
+repository = "https://github.com/vberlier/pytest-insta"
+documentation = "https://github.com/vberlier/pytest-insta"
+
+readme = "README.md"
+
+keywords = [
+  "pytest-plugin",
+  "pytest",
+  "testing",
+  "snapshot",
+  "snapshot-testing"
+]
+
+classifiers = ["Framework :: Pytest"]
+
+include = ["pytest_insta/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pytest = ">=7.2.0,<9.0.0"
+wrapt = "^1.14.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+isort = "^5.13.2"
+python-semantic-release = "^7.32.1"
+
+[tool.poetry.plugins.pytest11]
+insta = "pytest_insta.plugin"
+
+[tool.pytest.ini_options]
+addopts = "tests --import-mode=importlib"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.black]
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+
+[tool.semantic_release]
+branch = "main"
+version_variable = ["pytest_insta/__init__.py:__version__"]
+version_toml = "pyproject.toml:tool.poetry.version"
+major_on_zero = false
+build_command = "poetry build"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

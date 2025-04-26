@@ -1,0 +1,66 @@
+Metadata-Version: 2.1
+Name: types-sqlalchemy-utils
+Version: 1.1.0
+Summary: Type Stubs for sqlalchemy-utils
+Home-page: https://github.com/cex-solutions/sqlalchemy-utils
+Author: Binovate Labs
+Author-email: cex-dev@binovate.com
+License: GPLv3
+Project-URL: Bug Reports, https://github.com/cex-solutions/types-sqlalchemy-utils/issues
+Project-URL: Source, https://github.com/cex-solutions/types-sqlalchemy-utils
+Keywords: stubs sqlalchemy sqlalchemy-utils
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Typing :: Stubs Only
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.7, <4
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: sqlalchemy-utils==0.41.2; extra == "dev"
+Requires-Dist: sqlalchemy2-stubs==0.0.2a38; extra == "dev"
+Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: pipenv-setup==3.2.0; extra == "dev"
+Requires-Dist: twine==5.0.0; extra == "dev"
+
+# types-sqlalchemy-utils
+
+This is a package containing type annotations
+for [sqlalchemy-utils](https://pypi.org/project/sqlalchemy-utils/).
+
+### Installing:
+
+Simply run the following in the environment in which you want to install this package:
+
+```shell
+# install types-sqlalchemy-utils
+$ python -m pip install types-sqlalchemy-utils
+```
+
+or add it to your requirements file.
+
+### Developing
+
+This is a partial stub package, only covering a part of the functions and objects available in `sqlalchemy-utils`.
+Contributions (both in adding stubs for more functions, or keeping up to date with `sqlalchemy-utils` itself) are
+welcome.
+
+All the formatting is done using [pre-commit](https://pre-commit.com/). To use this, run the following:
+
+```shell
+# install pre-commit
+$ python -m pip install pre-commit
+
+# Set up the hooks (so pre-commit automatically runs when you do a commit)
+$ cd root/directory/of/the/pulled/repository
+$ pre-commit install
+
+# This will run automatically whenever a commit is created
+# To run it manually, use:
+$ pre-commit run --all-files
+```

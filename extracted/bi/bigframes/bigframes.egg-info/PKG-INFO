@@ -1,0 +1,161 @@
+Metadata-Version: 2.1
+Name: bigframes
+Version: 2.1.0
+Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
+Home-page: https://github.com/googleapis/python-bigquery-dataframes
+Author: Google LLC
+Author-email: bigframes-feedback@google.com
+License: Apache 2.0
+Platform: Posix; MacOS X; Windows
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: cloudpickle>=2.0.0
+Requires-Dist: fsspec>=2023.3.0
+Requires-Dist: gcsfs>=2023.3.0
+Requires-Dist: geopandas>=0.12.2
+Requires-Dist: google-auth<3.0dev,>=2.15.0
+Requires-Dist: google-cloud-bigtable>=2.24.0
+Requires-Dist: google-cloud-pubsub>=2.21.4
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.31.0
+Requires-Dist: google-cloud-functions>=1.12.0
+Requires-Dist: google-cloud-bigquery-connection>=1.12.0
+Requires-Dist: google-cloud-iam>=2.12.1
+Requires-Dist: google-cloud-resource-manager>=1.10.3
+Requires-Dist: google-cloud-storage>=2.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pandas>=1.5.3
+Requires-Dist: pandas-gbq>=0.26.1
+Requires-Dist: pyarrow>=15.0.2
+Requires-Dist: pydata-google-auth>=1.8.2
+Requires-Dist: requests>=2.27.1
+Requires-Dist: shapely>=2.0.0
+Requires-Dist: sqlglot>=23.6.3
+Requires-Dist: tabulate>=0.9
+Requires-Dist: ipywidgets>=7.7.1
+Requires-Dist: humanize>=4.6.0
+Requires-Dist: matplotlib>=3.7.1
+Requires-Dist: db-dtypes>=1.4.2
+Requires-Dist: atpublic<6,>=2.3
+Requires-Dist: python-dateutil<3,>=2.8.2
+Requires-Dist: pytz>=2022.7
+Requires-Dist: toolz<2,>=0.11
+Requires-Dist: typing-extensions<5,>=4.5.0
+Requires-Dist: rich<14,>=12.4.4
+Provides-Extra: tests
+Provides-Extra: polars
+Requires-Dist: polars>=1.7.0; extra == "polars"
+Provides-Extra: scikit-learn
+Requires-Dist: scikit-learn>=1.2.2; extra == "scikit-learn"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: nox; extra == "dev"
+Requires-Dist: google-cloud-testutils; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Provides-Extra: all
+Requires-Dist: freezegun; extra == "all"
+Requires-Dist: google-cloud-testutils; extra == "all"
+Requires-Dist: nox; extra == "all"
+Requires-Dist: polars>=1.7.0; extra == "all"
+Requires-Dist: pre-commit; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: scikit-learn>=1.2.2; extra == "all"
+
+BigQuery DataFrames
+===================
+
+|GA| |pypi| |versions|
+
+BigQuery DataFrames provides a Pythonic DataFrame and machine learning (ML) API
+powered by the BigQuery engine.
+
+* ``bigframes.pandas`` provides a pandas-compatible API for analytics.
+* ``bigframes.ml`` provides a scikit-learn-like API for ML.
+
+BigQuery DataFrames is an open-source package. You can run
+``pip install --upgrade bigframes`` to install the latest version.
+
+⚠️ Warning: Breaking Changes in BigQuery DataFrames v2.0
+--------------------------------------------------------
+
+Version 2.0 introduces breaking changes for improved security and performance. Key default behaviors have changed, including
+
+* **Large Results (>10GB):** The default value for ``allow_large_results`` has changed to ``False``.
+  Methods like ``to_pandas()`` will now fail if the query result's compressed data size exceeds 10GB,
+  unless large results are explicitly permitted.
+* **Remote Function Security:** The library no longer automatically lets the Compute Engine default service
+  account become the identity of the Cloud Run functions. If that is desired, it has to be indicated by passing
+  ``cloud_function_service_account="default"``. And network ingress now defaults to ``"internal-only"``.
+* **@remote_function Argument Passing:** Arguments other than ``input_types``, ``output_type``, and ``dataset``
+  to ``remote_function`` must now be passed using keyword syntax, as positional arguments are no longer supported.
+* **@udf Argument Passing:** Arguments ``dataset`` and ``name`` to ``udf`` are now mandatory.
+* **Endpoint Connections:** Automatic fallback to locational endpoints in certain regions is removed.
+* **LLM Updates (Gemini Integration):** Integrations now default to the ``gemini-2.0-flash-001`` model.
+  PaLM2 support has been removed; please migrate any existing PaLM2 usage to Gemini. **Note:** The current default
+  model will be removed in Version 3.0.
+
+**Important:** If you are not ready to adapt to these changes, please pin your dependency to a version less than 2.0
+(e.g., ``bigframes==1.42.0``) to avoid disruption.
+
+To learn about these changes and how to migrate to version 2.0, see the
+`updated introduction guide <https://cloud.google.com/bigquery/docs/bigquery-dataframes-introduction>`_.
+
+.. |GA| image:: https://img.shields.io/badge/support-GA-gold.svg
+   :target: https://github.com/googleapis/google-cloud-python/blob/main/README.rst#general-availability
+.. |pypi| image:: https://img.shields.io/pypi/v/bigframes.svg
+   :target: https://pypi.org/project/bigframes/
+.. |versions| image:: https://img.shields.io/pypi/pyversions/bigframes.svg
+   :target: https://pypi.org/project/bigframes/
+
+Documentation
+-------------
+
+* `BigQuery DataFrames source code (GitHub) <https://github.com/googleapis/python-bigquery-dataframes>`_
+* `BigQuery DataFrames sample notebooks <https://github.com/googleapis/python-bigquery-dataframes/tree/main/notebooks>`_
+* `BigQuery DataFrames API reference <https://cloud.google.com/python/docs/reference/bigframes/latest/summary_overview>`_
+* `BigQuery DataFrames supported pandas APIs <https://cloud.google.com/python/docs/reference/bigframes/latest/supported_pandas_apis>`_
+
+
+Getting started with BigQuery DataFrames
+----------------------------------------
+Read `Introduction to BigQuery DataFrames <https://cloud.google.com/bigquery/docs/bigquery-dataframes-introduction>`_
+and try the `BigQuery DataFrames quickstart <https://cloud.google.com/bigquery/docs/dataframes-quickstart>`_
+to get up and running in just a few minutes.
+
+
+License
+-------
+
+BigQuery DataFrames is distributed with the `Apache-2.0 license
+<https://github.com/googleapis/python-bigquery-dataframes/blob/main/LICENSE>`_.
+
+It also contains code derived from the following third-party packages:
+
+* `Ibis <https://ibis-project.org/>`_
+* `pandas <https://pandas.pydata.org/>`_
+* `Python <https://www.python.org/>`_
+* `scikit-learn <https://scikit-learn.org/>`_
+* `XGBoost <https://xgboost.readthedocs.io/en/stable/>`_
+
+For details, see the `third_party
+<https://github.com/googleapis/python-bigquery-dataframes/tree/main/third_party/bigframes_vendored>`_
+directory.
+
+
+Contact Us
+----------
+
+For further help and provide feedback, you can email us at `bigframes-feedback@google.com <https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=bigframes-feedback@google.com>`_.

@@ -1,0 +1,237 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "superqt"
+description = "Missing widgets and components for PyQt/PySide"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD 3-Clause License" }
+authors = [{ email = "talley.lambert@gmail.com", name = "Talley Lambert" }]
+keywords = [
+    "qt",
+    "pyqt",
+    "pyside",
+    "widgets",
+    "range slider",
+    "components",
+    "gui",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Software Development :: Widget Sets",
+]
+dynamic = ["version"]
+dependencies = [
+    "pygments>=2.4.0",
+    "qtpy>=1.1.0",
+    "typing-extensions >=3.7.4.3,!=3.10.0.0",  # however, pint requires >4.5.0
+]
+
+# extras
+# https://peps.python.org/pep-0621/#dependencies-optional-dependencies
+[project.optional-dependencies]
+test = [
+    "pint",
+    "pytest",
+    "pytest-cov",
+    "pytest-qt",
+    "numpy",
+    "cmap",
+    "pyconify",
+]
+dev = [
+    "ipython",
+    "ruff",
+    "mypy",
+    "pdbpp",
+    "pre-commit",
+    "pydocstyle",
+    "rich",
+    "types-Pygments",
+    "superqt[test,pyqt6]",
+]
+docs = [
+    "mkdocs-macros-plugin ==1.3.7",
+    "mkdocs-material ==9.5.49",
+    "mkdocstrings ==0.27.0",
+    "mkdocstrings-python ==1.13.0",
+    "superqt[font-fa5, cmap, quantity]",
+]
+quantity = ["pint"]
+cmap = ["cmap >=0.1.1"]
+pyside2 = ["pyside2"]
+# see issues surrounding usage of Generics in pyside6.5.x
+# https://github.com/pyapp-kit/superqt/pull/177
+# https://github.com/pyapp-kit/superqt/pull/164
+# https://bugreports.qt.io/browse/PYSIDE-2627
+pyside6 = ["pyside6 !=6.5.0,!=6.5.1,!=6.6.2,<6.8"]
+pyqt5 = ["pyqt5"]
+pyqt6 = ["pyqt6<6.7"]
+font-fa5 = ["fonticon-fontawesome5"]
+font-fa6 = ["fonticon-fontawesome6"]
+font-mi6 = ["fonticon-materialdesignicons6"]
+font-mi7 = ["fonticon-materialdesignicons7"]
+iconify = ["pyconify >=0.1.4"]
+
+[project.urls]
+Documentation = "https://pyapp-kit.github.io/superqt/"
+Source = "https://github.com/pyapp-kit/superqt"
+Tracker = "https://github.com/pyapp-kit/superqt/issues"
+Changelog = "https://github.com/pyapp-kit/superqt/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "CHANGELOG.md"]
+
+# these let you run tests across all backends easily with:
+# hatch run test:test
+[tool.hatch.envs.test]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest"
+
+[[tool.hatch.envs.test.matrix]]
+qt = ["pyside6", "pyqt6"]
+python = ["3.11"]
+
+[[tool.hatch.envs.test.matrix]]
+qt = ["pyside2", "pyqt5", "pyqt5.12"]
+python = ["3.9"]
+
+[tool.hatch.envs.test.overrides]
+matrix.qt.extra-dependencies = [
+    { value = "pyside2", if = [
+        "pyside2",
+    ] },
+    { value = "pyside6", if = [
+        "pyside6",
+    ] },
+    { value = "pyqt5", if = [
+        "pyqt5",
+    ] },
+    { value = "pyqt6", if = [
+        "pyqt6",
+    ] },
+    { value = "pyqt5==5.12", if = [
+        "pyqt5.12",
+    ] },
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["src", "tests"]
+
+# https://docs.astral.sh/ruff/rules
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D104", # Missing docstring in public package
+    "D401", # First line should be in imperative mood (remove to opt in)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S101"]
+"examples/demo_widget.py" = ["E501"]
+"examples/*.py" = ["B", "D"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+
+# https://docs.pytest.org/en/6.2.x/customize.html
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore:Failed to disconnect::pytestqt",
+    "ignore:QPixmapCache.find:DeprecationWarning:",
+    "ignore:SelectableGroups dict interface:DeprecationWarning",
+    "ignore:The distutils package is deprecated:DeprecationWarning",
+    "ignore:.*Skipping callback call set_result",
+]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/*.py"
+strict = true
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+show_error_codes = true
+pretty = true
+exclude = ['tests/**/*']
+
+
+[[tool.mypy.overrides]]
+module = ["superqt.qtcompat.*"]
+ignore_missing_imports = true
+warn_unused_ignores = false
+allow_redefinition = true
+
+# https://coverage.readthedocs.io/en/6.4/config.html
+[tool.coverage.run]
+source = ["superqt"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "\\.\\.\\.",
+    "pass",
+]
+
+# https://github.com/mgedmin/check-manifest#configuration
+[tool.check-manifest]
+ignore = [
+    ".github_changelog_generator",
+    ".pre-commit-config.yaml",
+    "tests/**/*",
+    "src/superqt/_version.py",
+    "mkdocs.yml",
+    "docs/**/*",
+    "examples/**/*",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "codecov.yml",
+    ".ruff_cache/**/*",
+]

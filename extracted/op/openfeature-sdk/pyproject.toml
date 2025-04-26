@@ -1,0 +1,130 @@
+# pyproject.toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openfeature_sdk"
+version = "0.8.1"
+description = "Standardizing Feature Flagging for Everyone"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = [
+    "openfeature",
+    "feature",
+    "flags",
+    "toggles",
+]
+dependencies = []
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk"
+
+[tool.hatch]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "behave",
+    "coverage[toml]>=6.5",
+    "pytest",
+    "pytest-asyncio"
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "coverage xml",
+]
+cov = [
+    "test-cov",
+    "cov-report",
+]
+e2e = [
+    "git submodule update --init --recursive",
+    "cp spec/specification/assets/gherkin/* tests/features/",
+    "behave tests/features/",
+    "rm tests/features/*.feature",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".gitignore",
+    "test-harness",
+    "venv",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["openfeature"]
+
+[tool.mypy]
+files = "openfeature"
+
+python_version = "3.9" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true # will become the new default from version 2
+pretty = true
+strict = true
+disallow_any_generics = false
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "venv",
+]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "B",
+    "C4",
+    "C90",
+    "E",
+    "F",
+    "FLY",
+    "FURB",
+    "I",
+    "LOG",
+    "N",
+    "PERF",
+    "PGH",
+    "PLC",
+    "PLR0913",
+    "PLR0915",
+    "RUF",
+    "S",
+    "SIM",
+    "T10",
+    "T20",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = [
+    "E501", # the formatter will handle any too long line
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["PLR0913", "S101"]
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-statements = 30
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true

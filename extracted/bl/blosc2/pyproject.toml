@@ -1,0 +1,128 @@
+[build-system]
+requires = [
+    "scikit-build-core",
+    "cython>=3",
+    "numpy>=2.0.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "blosc2"
+description = "A fast & compressed ndarray library with a flexible compute engine."
+readme = {file = "README.rst", content-type = "text/x-rst"}
+authors = [{name = "Blosc Development Team", email = "blosc@blosc.org"}]
+maintainers = [{ name = "Blosc Development Team", email = "blosc@blosc.org"}]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.11"
+# Follow guidelines from https://scientific-python.org/specs/spec-0000/
+dependencies = [
+    "numpy>=1.26",
+    #"numpy>=2",
+    "ndindex",
+    "msgpack",
+    "platformdirs",
+    "numexpr; platform_machine != 'wasm32'",
+    "py-cpuinfo; platform_machine != 'wasm32'",
+    "requests",
+]
+version = "3.3.1"
+
+
+[project.optional-dependencies]
+dev = [
+    "dask",
+    "h5py",
+    "hdf5plugin",
+    "jupyterlab",
+    "matplotlib",
+    "pandas",
+    "plotly",
+    "pre-commit",
+    "pyarrow",
+    "ruff",
+    "s3fs",
+    "xarray",
+    "zarr",
+]
+test = [
+    "pytest",
+    "psutil; platform_machine != 'wasm32'",
+    "torch; platform_machine != 'wasm32'",
+]
+doc = [
+    "sphinx>=8",
+    "pydata-sphinx-theme",
+    "numpydoc",
+    "myst-parser",
+    "sphinx-paramlinks",
+    "nbsphinx",
+    "sphinx-panels",
+]
+
+[project.urls]
+homepage = "https://github.com/Blosc/python-blosc2"
+documentation = "https://www.blosc.org/python-blosc2/python-blosc2.html"
+
+[tool.cibuildwheel]
+build-verbosity = 1
+# Skip unsupported python versions as well as 32-bit platforms, which are not supported anymore.
+skip = "*-manylinux_i686 cp*-win32 *_ppc64le *_s390x *musllinux*"
+# We won't require torch when testing wheels to avoid building/running torch on slow platforms
+#test-requires = "pytest psutil"
+test-requires = "pytest"
+#test-command = "pytest {project}/tests"  # default command
+# Use a simpler command here, and let the workflow .yml file to set the command
+test-command = "python -c \"import blosc2; blosc2.print_versions()\""
+# Manylinux 2014 will be the default for x86_64 and aarch64
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+
+[tool.scikit-build.sdist]
+exclude = ["bench*", ".github*"]
+
+[tool.ruff]
+line-length = 109
+extend-exclude = ["bench"]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "C4",
+    "C90",
+    "I",
+    "NPY",
+    "PT",
+    "RET",
+    "RUF",
+    "SIM",
+    "TCH",
+    "UP",
+]
+ignore = [
+    "B028",
+    "PT011",
+    "RET505",
+    "RET508",
+    "RUF005",
+    "RUF015",
+    "SIM108",
+    "UP038",  # https://github.com/astral-sh/ruff/issues/7871
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**" = ["F841"]

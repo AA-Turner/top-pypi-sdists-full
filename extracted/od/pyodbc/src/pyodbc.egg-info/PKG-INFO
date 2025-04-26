@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: pyodbc
+Version: 5.2.0
+Summary: DB API Module for ODBC
+Home-page: https://github.com/mkleehammer/pyodbc
+Maintainer: Michael Kleehammer
+Maintainer-email: michael@kleehammer.com
+License: MIT-0
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT No Attribution License (MIT-0)
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Database
+Requires-Python: >=3.8
+License-File: LICENSE.txt
+
+pyodbc is an open source Python module that makes accessing ODBC databases simple.
+It implements the [DB API 2.0](https://www.python.org/dev/peps/pep-0249)
+specification but is packed with even more Pythonic convenience.
+

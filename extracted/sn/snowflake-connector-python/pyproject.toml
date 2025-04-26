@@ -1,0 +1,25 @@
+[build-system]
+requires = [
+    # The minimum setuptools version is specific to the PEP 517 backend,
+    # and may be stricter than the version required in `setup.py`
+    "setuptools>=40.6.0",
+    "wheel",
+    "cython",
+]
+
+[tool.cibuildwheel]
+test-skip = "*"
+manylinux-x86_64-image = "manylinux2014"
+environment = {AUDITWHEEL_PLAT="manylinux2014_$(uname -m)"}
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+# Don't repair macOS wheels
+repair-wheel-command = ""
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]

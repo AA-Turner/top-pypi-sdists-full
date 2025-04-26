@@ -1,0 +1,92 @@
+Metadata-Version: 2.1
+Name: pytest-pudb
+Version: 0.7.0
+Summary: Pytest PuDB debugger integration
+Home-page: https://github.com/wronglink/pytest-pudb
+Author: Michael Elovskikh
+Author-email: wronglink@gmail.com
+License: MIT
+Description: ===========
+        pytest-pudb
+        ===========
+        
+        .. image:: https://travis-ci.org/wronglink/pytest-pudb.svg?branch=master
+           :target: https://travis-ci.org/wronglink/pytest-pudb
+           :alt: Travis-ci: continuous integration status.
+        
+        Pytest PuDB debugger integration based on pytest `PDB integration`_
+        
+        
+        Use it as ``--pdb`` ``py.test`` command argument:
+        
+        
+        .. code-block:: console
+        
+            py.test --pudb
+        
+        Or simply use ``pudb.set_trace`` inside your python code:
+        
+        .. code-block:: python
+        
+            def test_set_trace_integration():
+                # No --capture=no need
+                import pudb
+                pudb.set_trace()
+                assert 1 == 2
+        
+            def test_pudb_b_integration():
+                # No --capture=no need
+                import pudb.b
+                # traceback is set up here
+                assert 1 == 2
+        
+        
+        See also `pytest`_ and `pudb`_ projects.
+        
+        
+        .. _PDB integration: http://doc.pytest.org/en/latest/usage.html#dropping-to-pdb-python-debugger-on-failures
+        .. _pudb: https://pypi.python.org/pypi/pudb
+        .. _pytest: https://pypi.python.org/pypi/pytest
+        
+        
+        History
+        -------
+        
+        0.7.0 (2018-10-25)
+        ++++++++++++++++++
+        
+        - Added pu.db support
+        - Fixed pytest 3.7.3+ compatibility
+        - Switched to semantic versioning
+        - Build package wheels
+        
+        0.6 (2018-02-13)
+        ++++++++++++++++
+        
+        - Fixed pytest 3.3.1+ compatibility (by `@noirbizarre <https://github.com/noirbizarre>`_)
+        
+        0.5 (2017-02-25)
+        ++++++++++++++++
+        
+        - Fixed pypi package by adding MANIFEST.in
+        
+        0.4 (2017-02-24)
+        ++++++++++++++++
+        
+        - Use post mortem on exception (by `@Wilfred <https://github.com/Wilfred>`_)
+        
+        0.2 (2016-09-24)
+        ++++++++++++++++
+        
+        - Added ``import pytest.b`` support
+        
+        0.1 (2016-07-31)
+        ++++++++++++++++
+        
+        - Public release
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Software Development :: Testing
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Provides-Extra: dev

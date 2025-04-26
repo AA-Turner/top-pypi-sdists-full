@@ -1,0 +1,23 @@
+[something.else]
+opt = "ha"
+
+[tool.doit]
+optx = "6"
+opty = "7"
+
+# [tool.doit.plugins.command]
+# foocmd = "tests.sample_plugin:MyCmd"
+
+[tool.doit.commands.list]
+status = "True"
+
+[tool.doit.tasks.sample]
+param1 = "toml val"
+
+[tool.doit.tasks.subtasks]
+howmany = 4
+
+
+
+
+

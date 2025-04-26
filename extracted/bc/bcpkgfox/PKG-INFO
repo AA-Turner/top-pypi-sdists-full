@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: bcpkgfox
+Version: 0.15.142
+Summary: Biblioteca BCFOX
+Home-page: https://github.com/robotsbcfox/PacotePythonBCFOX
+Author: Guilherme Neri
+Author-email: guilherme.neri@bcfox.com.br
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: setuptools
+Requires-Dist: pyperclip
+Requires-Dist: pyinstaller
+Requires-Dist: selenium
+Provides-Extra: pynput
+Requires-Dist: pynput; extra == "pynput"
+Provides-Extra: screeninfo
+Requires-Dist: screeninfo; extra == "screeninfo"
+Provides-Extra: pywinauto
+Requires-Dist: pywinauto; extra == "pywinauto"
+Provides-Extra: capmonstercloudclient
+Requires-Dist: capmonstercloudclient; extra == "capmonstercloudclient"
+Provides-Extra: twocaptcha
+Requires-Dist: twocaptcha; extra == "twocaptcha"
+Requires-Dist: 2captcha-python; extra == "twocaptcha"
+Provides-Extra: psutil
+Requires-Dist: psutil; extra == "psutil"
+Provides-Extra: full
+Requires-Dist: undetected-chromedriver; extra == "full"
+Requires-Dist: webdriver-manager; extra == "full"
+Requires-Dist: opencv-python; extra == "full"
+Requires-Dist: pygetwindow; extra == "full"
+Requires-Dist: pyinstaller; extra == "full"
+Requires-Dist: screeninfo; extra == "full"
+Requires-Dist: pyscreeze; extra == "full"
+Requires-Dist: pyautogui; extra == "full"
+Requires-Dist: selenium; extra == "full"
+Requires-Dist: requests; extra == "full"
+Requires-Dist: pymupdf; extra == "full"
+Requires-Dist: Pillow; extra == "full"
+Requires-Dist: psutil; extra == "full"
+Requires-Dist: pynput; extra == "full"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

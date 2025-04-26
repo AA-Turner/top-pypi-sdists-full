@@ -1,0 +1,183 @@
+Metadata-Version: 2.1
+Name: nbtoolbelt
+Version: 2024.7.2
+Summary: Tools to work with Jupyter notebooks
+Author-email: "Tom Verhoeff (Eindhoven Univesity of Technology)" <T.Verhoeff@tue.nl>
+License: MIT License
+        
+        Copyright (c) 2017 - Eindhoven University of Technology, The Netherlands
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://gitlab.tue.nl/jupyter-projects/nbtoolbelt
+Project-URL: Documentation, https://nbtoolbelt.readthedocs.io/
+Project-URL: Source, https://gitlab.tue.nl/jupyter-projects/nbtoolbelt/
+Project-URL: Issues, https://gitlab.tue.nl/jupyter-projects/nbtoolbelt/-/issues
+Project-URL: Changelog, https://gitlab.tue.nl/jupyter-projects/nbtoolbelt/-/blob/master/CHANGELOG.rst
+Keywords: Jupyter notebooks,software tools,education
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Education
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Jupyter
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: nbformat~=5.9
+Requires-Dist: nbconvert~=7.10
+Requires-Dist: jupyter-client~=8.6
+Requires-Dist: numpy~=1.26
+Requires-Dist: pandas~=2.1
+Provides-Extra: test
+Requires-Dist: pytest~=6.0; extra == "test"
+Requires-Dist: pytest-mock~=3.5; extra == "test"
+Requires-Dist: pytest-cov~=2.12; extra == "test"
+Requires-Dist: ipykernel~=6.29; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx~=5.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme~=1.0; extra == "docs"
+Requires-Dist: recommonmark~=0.7; extra == "docs"
+
+# [nbtoolbelt](https://gitlab.tue.nl/jupyter-projects/nbtoolbelt) - Tools to Work with Jupyter Notebooks
+
+* `validate`: validate notebooks
+* `head`: show head or tail of notebooks
+* `dump`: dump notebook info and source on terminal
+* `stats`: summarize notebooks with statistics
+* `view`: view notebook, including all embedded images, LaTeX, and HTML in a browser
+* `cat`: concatenate multiple notebooks
+* `clean`: clean notebooks by removing specified elements
+* `run`: execute notebooks, with pre/post cleaning
+* `split`: split notebooks into MarkDown, code, and raw
+* `punch`: punch holes into notebooks and fill them (for creating exercises)
+
+Available as library functions and as configurable command-line scripts.
+
+
+## Installation
+
+```bash
+pip install nbtoolbelt
+```
+
+
+## Documentation
+
+Documentation is available on
+[Read the Docs](https://nbtoolbelt.readthedocs.io).
+
+On the command line,
+you can use the options `-h` or `--help`.
+
+
+## Usage
+
+On the command line:
+```bash
+nbtb [-h] [options] tool [options] nb.ipynb ...
+```
+
+As library: see documentation
+
+
+## Testing
+
+```bash
+pip install nbtoolbelt[test]
+```
+
+`nbtoolbelt` comes with a set of automatic test cases for `pytest`.
+
+
+## Developing
+
+Some useful commands, and where to run them:
+
+* In `nbtoolbelt/docs/`,
+    * clean build directory: `make clean`
+    * create html documentation tree: `make html`
+    * create pdf documentation: `make latexpdf`
+    * determine size of documentation: ```wc `find . -name '*.rst'` ```
+
+* In `nbtoolbelt/test/`,
+    * run all test cases: `pytest .`
+
+* In `nbtoolbelt/`,
+    * test package configuration: `python setup.py check -r -s`
+    * create source distribution and wheel: `python setup.py sdist bdist_wheel`
+
+* In `nbtoolbelt/dist/`
+    * create digital signature: `gpg --detach-sign -a ...`
+    * upload to PyPI: `twine upload ...`
+
+* In `nbtoolbelt/src/`,
+    * determine size of code: ```wc `find . -name '*.py'` ```
+
+Steps to add a feature:
+
+1. Add issue.
+
+1. Design interface.
+
+   1. Add (failing) test cases in `nbtoolbelt/test/`.
+
+   1. Add documentation in `nbtoolbelt/docs/`.
+
+1. Implement feature in `nbtoolbelt/src/nbtoolbelt/`.
+
+1. Update `nbtoolbelt/src/nbtoolbelt/_version.py`.
+
+1. Update `CHANGELOG.rst`.
+
+1. Commit and push changes.
+
+1. Close issue, indicating commit hash.
+
+
+## License
+
+Copyright (c) 2017 - Eindhoven University of Technology, The Netherlands
+
+This software is made available under the terms of the [MIT License](LICENSE.txt).
+
+
+## Resources
+
+* [Python](https://python.org/): Python 3
+* [Jupyter](https://jupyter.org/)
+* [Jupyter notebook format](https://github.com/jupyter/nbformat/)
+    - [Documentation](https://nbformat.readthedocs.io/en/latest/format_description.html)
+    - Includes a format validator based on JSON schemas, such as
+        [nbformat.v4.schema.json](https://github.com/jupyter/nbformat/blob/master/nbformat/v4/nbformat.v4.schema.json)
+* [JSON Schema](http://json-schema.org/)
+* [./jq](https://stedolan.github.io/jq/):
+    a lightweight and flexible command-line JSON processor
+* [Python 3 Patterns, Recipes and Idioms](https://python-3-patterns-idioms-test.readthedocs.io/en/latest/index.html)

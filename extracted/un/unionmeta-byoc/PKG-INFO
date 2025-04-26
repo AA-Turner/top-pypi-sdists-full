@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: unionmeta-byoc
+Version: 0.1.0
+Summary: Adds Union meta library for the Union.ai SDK
+Author-email: unionai <info@union.ai>
+License: Source code in this repository is licensed under the Business Source
+        License 1.1 (BSL) and the Apache License 2.0 (APL). A copy of each
+        license can be found in the licenses directory. Source code in a
+        given file is licensed under the BSL and the copyright belongs to
+        Union Systems, Inc. unless otherwise noted at the beginning of the
+        file.
+        
+Project-URL: Homepage, https://www.union.ai/
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: licenses/APL.txt
+License-File: licenses/BSL.txt
+License-File: LICENSE
+
+# Union.ai Meta Package for BYOC
+
+This is a meta-package for [Union.ai](https://www.union.ai/) specifically for the
+`unionai` SDK. To install the `unionai` with the BYOC defaults run:
+
+```bash
+pip install unionai[byoc]
+```

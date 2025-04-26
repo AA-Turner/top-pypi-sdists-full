@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: pyproject-fmt
+Version: 2.5.1
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: toml-fmt-common==1.0.1
+License-File: LICENSE.txt
+Summary: Format your pyproject.toml file
+Keywords: format,pyproject
+Author-email: Bernat Gabor <gaborjbernat@gmail.com>
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Bug Tracker, https://github.com/tox-dev/toml-fmt/issues
+Project-URL: Changelog, https://github.com/tox-dev/toml-fmt/blob/main/pyproject-fmt/CHANGELOG.md
+Project-URL: Documentation, https://github.com/tox-dev/toml-fmt/
+Project-URL: Source Code, https://github.com/tox-dev/toml-fmt
+
+# pyproject-fmt
+
+[![PyPI](https://img.shields.io/pypi/v/pyproject-fmt?style=flat-square)](https://pypi.org/project/pyproject-fmt)
+[![PyPI - Implementation](https://img.shields.io/pypi/implementation/pyproject-fmt?style=flat-square)](https://pypi.org/project/pyproject-fmt)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyproject-fmt?style=flat-square)](https://pypi.org/project/pyproject-fmt)
+[![Downloads](https://static.pepy.tech/badge/pyproject-fmt/month)](https://pepy.tech/project/pyproject-fmt)
+[![PyPI - License](https://img.shields.io/pypi/l/pyproject-fmt?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Build pyproject-fmt](https://github.com/tox-dev/toml-fmt/actions/workflows/pyproject_fmt_build.yaml/badge.svg)](https://github.com/tox-dev/toml-fmt/actions/workflows/pyproject_fmt_build.yaml)
+[![Test pyproject-fmt](https://github.com/tox-dev/toml-fmt/actions/workflows/pyproject_fmt_test.yaml/badge.svg)](https://github.com/tox-dev/toml-fmt/actions/workflows/pyproject_fmt_test.yaml)
+

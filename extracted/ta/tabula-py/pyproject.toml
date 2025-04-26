@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabula-py"
+description = "Simple wrapper for tabula-java, read tables from PDF into DataFrame"
+authors = [
+  {name = "Aki Ariga", email = "chezou@gmail.com"}
+]
+maintainers = [
+  {name ="Aki Ariga", email = "chezou@gmail.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Topic :: Text Processing :: General",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
+]
+keywords = [
+  "data frame",
+  "pdf",
+  "table",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "pandas >= 0.25.3",
+  "numpy > 1.24.4",
+  "distro",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+jpype = ["jpype1"]
+dev = [
+  "pytest",
+  "ruff",
+  "mypy",
+  "Flake8-pyproject",
+]
+test = ["pytest"]
+doc = [
+  "sphinx==7.1.2",
+  "sphinx_rtd_theme==1.3.0",
+  "Jinja2==3.1.2",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/chezou/tabula-py"
+"Bug Reports" = "https://github.com/chezou/tabula-py/issues"
+"Funding" = "https://github.com/sponsors/chezou"
+
+[tool.setuptools_scm]
+
+
+[tool.ruff]
+line-length = 88
+exclude = [
+  ".git",
+  "__pycache__",
+  "build",
+  "dist",
+  ".venv",
+]
+
+[tool.ruff.lint]
+select = ["E", "W"]
+ignore = ["E203"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+# Disable faulthandler plugin on Windows to prevent spurious console noise
+addopts = "-p no:faulthandler"

@@ -1,0 +1,538 @@
+[tool.poetry]
+name = "GitHubKit"
+version = "0.12.12"
+description = "GitHub SDK for Python"
+authors = ["yanyongyu <yyy@yyydl.top>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/yanyongyu/githubkit"
+repository = "https://github.com/yanyongyu/githubkit"
+documentation = "https://github.com/yanyongyu/githubkit"
+keywords = ["github", "octokit"]
+include = ["githubkit/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+anyio = ">=3.6.1, <5.0.0"
+httpx = ">=0.23.0, <1.0.0"
+hishel = ">=0.0.21, <=0.2.0"
+typing-extensions = "^4.11.0"
+pydantic = ">=1.9.1, <3.0.0, !=2.5.0, !=2.5.1"
+PyJWT = { version = "^2.4.0", extras = ["crypto"], optional = true }
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.11.0"
+redis = "^5.2.0"
+Jinja2 = "^3.1.2"
+nonemoji = "^0.1.2"
+pre-commit = "^4.0.0"
+jsonpointer = "^3.0.0"
+openapi-pydantic = "^0.5.0"
+tomli = { version = "^2.0.1", python = "<3.11" }
+
+[tool.poetry.group.test.dependencies]
+githubkit-test = { path = "./envs/test", develop = false }
+
+[tool.poetry.group.docs.dependencies]
+pygments = "^2.18.0"
+mkdocs-material = "^9.5.39"
+pymdown-extensions = "^10.11.1"
+mkdocs-git-committers-plugin-2 = "^2.4.1"
+mkdocs-git-revision-date-localized-plugin = "^1.2.9"
+
+[tool.poetry.extras]
+jwt = ["PyJWT"]
+auth-app = ["PyJWT"]
+auth-oauth-device = [] # backward compatibility
+auth = ["PyJWT"]
+all = ["PyJWT"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=githubkit --cov-append --cov-report=term-missing"
+filterwarnings = ["error", "ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+plugins = ["coverage_conditional_plugin"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "def __str__",
+  "@(typing\\.)?overload",
+  "if (typing\\.)?TYPE_CHECKING( is True)?:",
+  "@(abc\\.)?abstractmethod",
+  "raise NotImplementedError",
+  "warnings\\.warn",
+  "^\\.\\.\\.$",
+  "pass",
+  "if __name__ == .__main__.:",
+]
+
+[tool.coverage.coverage_conditional_plugin.rules]
+pydantic-v2 = "package_version('pydantic') < (2,)"
+pydantic-v1 = "package_version('pydantic') >= (2,)"
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
+force_sort_within_sections = true
+extra_standard_library = ["typing_extensions"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+  "F",     # Pyflakes
+  "W",     # pycodestyle warnings
+  "E",     # pycodestyle errors
+  "I",     # isort
+  "UP",    # pyupgrade
+  "ASYNC", # flake8-async
+  "C4",    # flake8-comprehensions
+  "T10",   # flake8-debugger
+  "T20",   # flake8-print
+  "PYI",   # flake8-pyi
+  "PT",    # flake8-pytest-style
+  "Q",     # flake8-quotes
+  "TID",   # flake8-tidy-imports
+  "RUF",   # Ruff-specific rules
+]
+ignore = [
+  "E402",   # module-import-not-at-top-of-file
+  "UP037",  # quoted-annotation
+  "RUF001", # ambiguous-unicode-character-string
+  "RUF002", # ambiguous-unicode-character-docstring
+  "RUF003", # ambiguous-unicode-character-comment
+]
+
+[tool.ruff.lint.per-file-ignores]
+"githubkit/rest/**" = ["E501", "PYI016", "TID"]
+"githubkit/versions/**" = ["E501", "PYI016", "TID"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+extra-standard-library = ["typing_extensions"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.pyright]
+typeCheckingMode = "standard"
+reportPrivateImportUsage = false
+reportShadowedImports = false
+disableBytesTypePromotions = true
+
+pythonVersion = "3.9"
+pythonPlatform = "All"
+defineConstant = { PYDANTIC_V2 = true }
+
+executionEnvironments = [
+  # disable overload check for generated version codes
+  { root = "githubkit/versions/", reportOverlappingOverload = false },
+  { root = "codegen", pythonVersion = "3.10" },
+]
+
+exclude = ["codegen/**"]
+
+[tool.codegen]
+output_dir = "githubkit/versions/"
+legacy_rest_models = "githubkit/rest/__init__.py"
+
+[[tool.codegen.descriptions]]
+version = "2022-11-28"
+identifier = "2022-11-28"
+module = "v2022_11_28"
+is_latest = true
+source = "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions-next/api.github.com/api.github.com.2022-11-28.json"
+
+[[tool.codegen.descriptions]]
+version = "2022-11-28"
+identifier = "ghec-2022-11-28"
+module = "ghec_v2022_11_28"
+is_latest = false
+source = "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions-next/ghec/ghec.2022-11-28.json"
+
+
+[[tool.codegen.overrides]]
+# replace invalid key name with valid var name globally
+[tool.codegen.overrides.field_overrides]
+"+1" = "plus_one"
+"-1" = "minus_one"
+
+[[tool.codegen.overrides]]
+# override invalid schemas for 2022-11-28 (current globally)
+# target_descriptions = ["2022-11-28", "ghec-2022-11-28"]
+
+[tool.codegen.overrides.schema_overrides]
+# enhancement: issue timeline discriminator
+"/components/schemas/labeled-issue-event/properties/event" = { const = "labeled" }
+"/components/schemas/unlabeled-issue-event/properties/event" = { const = "unlabeled" }
+"/components/schemas/milestoned-issue-event/properties/event" = { const = "milestoned" }
+"/components/schemas/demilestoned-issue-event/properties/event" = { const = "demilestoned" }
+"/components/schemas/renamed-issue-event/properties/event" = { const = "renamed" }
+"/components/schemas/review-requested-issue-event/properties/event" = { const = "review_requested" }
+"/components/schemas/review-request-removed-issue-event/properties/event" = { const = "review_request_removed" }
+"/components/schemas/review-dismissed-issue-event/properties/event" = { const = "review_dismissed" }
+"/components/schemas/locked-issue-event/properties/event" = { const = "locked" }
+"/components/schemas/added-to-project-issue-event/properties/event" = { const = "added_to_project" }
+"/components/schemas/moved-column-in-project-issue-event/properties/event" = { const = "moved_columns_in_project" }
+"/components/schemas/removed-from-project-issue-event/properties/event" = { const = "removed_from_project" }
+"/components/schemas/converted-note-to-issue-issue-event/properties/event" = { const = "converted_note_to_issue" }
+"/components/schemas/timeline-comment-event/properties/event" = { const = "commented" }
+"/components/schemas/timeline-cross-referenced-event/properties/event" = { const = "cross-referenced" }
+"/components/schemas/timeline-committed-event/properties/event" = { const = "committed" }
+"/components/schemas/timeline-reviewed-event/properties/event" = { const = "reviewed" }
+"/components/schemas/timeline-line-commented-event/properties/event" = { const = "line_commented" }
+"/components/schemas/timeline-commit-commented-event/properties/event" = { const = "commit_commented" }
+"/components/schemas/timeline-assigned-issue-event/properties/event" = { const = "assigned" }
+"/components/schemas/timeline-unassigned-issue-event/properties/event" = { const = "unassigned" }
+
+# https://github.com/github/rest-api-description/issues/1639
+"/components/schemas/issue/properties/body_text" = { type = ["string", "null"] }
+"/components/schemas/issue/properties/body_html" = { type = ["string", "null"] }
+"/components/schemas/timeline-reviewed-event/properties/body_text" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/timeline-reviewed-event/properties/body_html" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/release/properties/body_text" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/release/properties/body_html" = { type = [
+  "string",
+  "null",
+] }
+
+# https://github.com/github/rest-api-description/issues/4492
+# https://github.com/yanyongyu/githubkit/issues/188
+"/components/schemas/issue/properties/state_reason/enum" = { "<add>" = [
+  "duplicate",
+] }
+
+# https://github.com/github/rest-api-description/issues/1811
+# https://github.com/yanyongyu/githubkit/issues/64
+"/components/schemas/pull-request-simple/properties/head/properties/label" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/pull-request-simple/properties/head/properties/repo" = { anyOf = [
+  { type = "null" },
+  { "$ref" = "#/components/schemas/repository" },
+], "$ref" = "<unset>" }
+# https://github.com/yanyongyu/githubkit/issues/56
+"/components/schemas/pull-request/properties/head/properties/label" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/pull-request/properties/head/properties/user" = { anyOf = [
+  { type = "null" },
+  { "$ref" = "#/components/schemas/simple-user" },
+], "$ref" = "<unset>" }
+# https://github.com/yanyongyu/githubkit/issues/200
+"/components/schemas/pull-request/properties/head/properties/repo" = { anyOf = [
+  { type = "null" },
+  { "$ref" = "#/components/schemas/repository" },
+], "$ref" = "<unset>" }
+
+# https://github.com/github/rest-api-description/issues/1812
+"/components/schemas/pull-request-simple/properties/labels/items/properties/description" = { type = [
+  "string",
+  "null",
+] }
+
+# https://github.com/github/rest-api-description/issues/621
+"/components/schemas/repository/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+# "/components/schemas/full-repository/properties/template_repository/properties/temp_clone_token" = { type = [
+#   "string",
+#   "null",
+# ] }
+"/components/schemas/minimal-repository/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-repository/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+# "/components/schemas/pull-request/properties/head/properties/repo/properties/temp_clone_token" = { type = [
+#   "string",
+#   "null",
+# ] }
+# "/components/schemas/pull-request/properties/base/properties/repo/properties/temp_clone_token" = { type = [
+#   "string",
+#   "null",
+# ] }
+"/components/schemas/repo-search-result-item/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/repository-webhooks/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/repository-webhooks/properties/template_repository/properties/temp_clone_token" = { type = [
+  "string",
+  "null",
+] }
+
+# https://github.com/github/rest-api-description/issues/2491
+"/components/schemas/auto-merge/properties/commit_title" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/auto-merge/properties/commit_message" = { type = [
+  "string",
+  "null",
+] }
+
+# https://github.com/github/rest-api-description/issues/2496
+"/paths/~1repos~1{owner}~1{repo}~1releases/post/requestBody/content/application~1json/schema/properties/make_latest" = { default = "true" }
+"/paths/~1repos~1{owner}~1{repo}~1releases~1{release_id}/patch/requestBody/content/application~1json/schema/properties/make_latest" = { default = "true" }
+
+# https://github.com/github/rest-api-description/issues/2507
+"/components/schemas/organization-full/properties/company" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/organization-full/properties/email" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/organization-full/properties/location" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/organization-full/properties/name" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/organization-full/properties/blog" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-organization/properties/company" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-organization/properties/email" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-organization/properties/location" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-organization/properties/name" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/team-organization/properties/blog" = { type = [
+  "string",
+  "null",
+] }
+
+# https://github.com/yanyongyu/githubkit/issues/199
+# https://github.com/github/rest-api-description/issues/4697
+# git user date format should be date-time
+"/components/schemas/git-user/properties/date" = { format = "date-time" }
+
+# https://github.com/yanyongyu/githubkit/pull/134
+# blob_url and raw_url may be null when the diff file is submodule's file
+"/components/schemas/diff-entry/properties/blob_url" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/diff-entry/properties/raw_url" = { type = [
+  "string",
+  "null",
+] }
+# https://github.com/yanyongyu/githubkit/issues/196
+# https://github.com/github/rest-api-description/issues/4652
+# sha may be null when the file only changes permissions
+"/components/schemas/diff-entry/properties/sha" = { type = ["string", "null"] }
+
+# [FIXED] copilot-seat-details/assignee is not valid
+# "/components/schemas/copilot-seat-details/properties/assignee" = { enum = "<unset>", oneOf = [
+#   { "$ref" = "#/components/schemas/simple-user" },
+#   { "$ref" = "#/components/schemas/team" },
+#   { "$ref" = "#/components/schemas/organization" },
+# ] }
+
+# https://github.com/yanyongyu/githubkit/issues/189
+# app installation permissions missing "read"
+"/components/schemas/app-permissions/properties/organization_copilot_seat_management/enum" = { "<add>" = [
+  "read",
+] }
+
+# date-time search syntax should be string
+# https://docs.github.com/search-github/getting-started-with-searching-on-github/understanding-the-search-syntax#query-for-dates
+"/components/parameters/created/schema" = { format = "<unset>" }
+
+# https://github.com/yanyongyu/githubkit/issues/144
+"/components/schemas/simple-classroom-assignment/properties/editor" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/simple-classroom-assignment/properties/language" = { type = [
+  "string",
+  "null",
+] }
+"/components/schemas/simple-classroom-assignment/required" = { "<remove>" = [
+  "submitted",
+] }
+
+# https://github.com/yanyongyu/githubkit/issues/148
+"/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema" = { discriminator = "<unset>" }
+# repo check runs status enum may have more values (missing in oneOf)
+"/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema/oneOf/1/properties/status/enum" = { "<add>" = [
+  "waiting",
+  "requested",
+  "pending",
+] }
+
+# get repo content response discriminator not supported
+"/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
+
+# get authenticated user response discriminator not supported
+"/paths/~1user/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
+# get user by account id response discriminator not supported
+"/paths/~1user~1{account_id}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
+# get user by username response discriminator not supported
+"/paths/~1users~1{username}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
+
+# Webhook schema overrides
+# webhook check run action is required
+"/components/schemas/webhook-check-run-completed/required" = { "<add>" = [
+  "action",
+] }
+"/components/schemas/webhook-check-run-created/required" = { "<add>" = [
+  "action",
+] }
+"/components/schemas/webhook-check-run-rerequested/required" = { "<add>" = [
+  "action",
+] }
+
+# webhook github app events enum schema is not always up to date
+# https://github.com/github/rest-api-description/issues/3775
+"/components/schemas/webhooks_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhooks_issue_2/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-check-suite-completed/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-check-suite-requested/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-check-suite-rerequested/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-deployment-created/properties/deployment/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-deployment-status-created/properties/deployment/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-deployment-status-created/properties/deployment_status/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issue-comment-created/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issue-comment-deleted/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issue-comment-edited/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-closed/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-deleted/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-demilestoned/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-edited/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-labeled/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-locked/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-milestoned/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-opened/properties/changes/properties/old_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-opened/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-reopened/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-transferred/properties/changes/properties/new_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-issues-unlocked/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
+"/components/schemas/webhook-meta-deleted/properties/hook/properties/events/items" = { enum = "<unset>" }
+
+# webhook deployment payload object can contain additional properties
+"/components/schemas/webhook-deployment-status-created/properties/deployment/properties/payload" = { oneOf = [
+  { type = "string" },
+  { type = "object", additionalProperties = true },
+] }
+"/components/schemas/webhook-deployment-created/properties/deployment/properties/payload" = { oneOf = [
+  { type = "string" },
+  { type = "object", additionalProperties = true },
+] }
+
+# webhook deployment protection rule action is required
+"/components/schemas/webhook-deployment-protection-rule-requested" = { required = [
+  "action",
+] }
+# webhook secret scanning alert location action is required
+"/components/schemas/webhook-secret-scanning-alert-location-created/required" = { "<add>" = [
+  "action",
+] }
+
+# webhook fork topics can be null
+"/components/schemas/webhook-fork/properties/forkee/allOf/1/properties/topics/items" = { type = [
+  "string",
+  "null",
+] }
+# webhook project card after_id should be integer
+"/components/schemas/webhook-project-card-moved/properties/project_card/allOf/1/properties/after_id" = { type = [
+  "integer",
+  "null",
+] }
+# webhook workflow job run_id should be integer
+"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/0/properties/run_id" = { type = "integer" }
+"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/0/properties/run_id" = { type = "integer" }
+"/components/schemas/webhook-workflow-job-queued/properties/workflow_job/properties/run_id" = { type = "integer" }
+"/components/schemas/webhook-workflow-job-waiting/properties/workflow_job/properties/run_id" = { type = "integer" }
+# webhook workflow job runner_id should be integer
+"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_id" = { type = [
+  "integer",
+  "null",
+] }
+"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_id" = { type = [
+  "integer",
+  "null",
+] }
+# webhook workflow job runner_group_id should be integer
+"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_group_id" = { type = [
+  "integer",
+  "null",
+] }
+"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_group_id" = { type = [
+  "integer",
+  "null",
+] }
+
+# webhook workflow run pull_requests items id and number should be integers
+# https://github.com/github/rest-api-description/issues/4408
+"/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
+"/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
+"/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
+"/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
+"/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
+"/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
+
+# webhook repository dispatch action can be any string
+"/webhooks/repository-dispatch-sample.collected/post" = { operationId = "repository-dispatch" }
+# "/components/schemas/webhook-repository-dispatch-sample/properties/action" = { enum = "<unset>" }
+
+# https://github.com/yanyongyu/githubkit/issues/205
+# https://github.com/github/rest-api-description/issues/4727
+"/components/schemas/dependabot-alert-with-repository/properties/dependency/properties/relationship/enum" = { "<add>" = [
+  "inconclusive",
+] }
+# https://github.com/github/rest-api-description/issues/4728
+"/components/schemas/code-scanning-alert-classification/enum" = { "<add>" = [
+  "documentation",
+] }
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

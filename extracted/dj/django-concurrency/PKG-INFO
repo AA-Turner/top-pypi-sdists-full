@@ -1,0 +1,126 @@
+Metadata-Version: 2.4
+Name: django-concurrency
+Version: 2.7
+Summary: Optimistic lock implementation for Django. Prevents users from doing concurrent editing
+Project-URL: downloads, https://github.com/saxix/django-concurrency
+Project-URL: homepage, https://github.com/saxix/django-concurrency
+Author-email: sax <s.apostolico@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2010-2016, Stefano Apostolico (s.apostolico@gmail.com)
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: AUTHORS
+License-File: LICENSE
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.1
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+Django Concurrency
+==================
+
+
+[![Pypi](https://badge.fury.io/py/django-concurrency.svg)](https://badge.fury.io/py/django-concurrency)
+[![coverage](https://codecov.io/github/saxix/django-concurrency/coverage.svg?branch=develop)](https://codecov.io/github/saxix/django-concurrency?branch=develop)
+[![Test](https://github.com/saxix/django-concurrency/actions/workflows/tests.yaml/badge.svg)](https://github.com/saxix/django-concurrency/actions/workflows/tests.yaml)
+[![Docs](https://readthedocs.org/projects/django-concurrency/badge/?version=stable)](http://django-concurrency.readthedocs.io/en/stable/)
+[![Django](https://img.shields.io/pypi/frameworkversions/django/django-concurrency)](https://pypi.org/project/django-concurrency/)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/django-concurrency.svg)](https://pypi.org/project/django-concurrency/)
+
+
+django-concurrency is an [optimistic lock][1] implementation for Django.
+
+It prevents users from doing concurrent editing in Django both from UI and from a
+django command.
+
+
+How it works
+------------
+
+```python
+
+from django.db import models
+from concurrency.fields import IntegerVersionField
+
+class ConcurrentModel( models.Model ):
+    version = IntegerVersionField( )
+    name = models.CharField(max_length=100)
+```
+
+Now if you try::
+
+```python
+
+a = ConcurrentModel.objects.get(pk=1)
+a.name = '1'
+
+b = ConcurrentModel.objects.get(pk=1)
+b.name = '2'
+
+a.save()
+b.save()
+
+```
+
+you will get a ``RecordModifiedError`` on ``b.save()``
+
+
+Similar projects
+----------------
+
+Other projects that handle concurrent editing are [django-optimistic-lock][10]
+and [django-locking][11] anyway concurrency is "a batteries included" optimistic
+lock management system, here some features not available elsewhere:
+
+ * can be applied to any model; not only your code (ie. django.contrib.auth.Group)
+ * handle [list-editable][2] ChangeList. (handle `#11313 <https://code.djangoproject.com/ticket/11313>`_)
+ * manage concurrency conflicts in admin's actions
+ * can intercept changes performend out of the django app (ie using pgAdmin, phpMyAdmin, Toads) (using [TriggerVersionField][6])
+ * can be disabled if needed (see [disable_concurrency][3])
+ * [ConditionalVersionField][4] to handle complex business rules
+
+
+
+Project Links
+------------
+
+- Code: https://github.com/saxix/django-concurrency
+- Documentation: https://django-concurrency.readthedocs.org/en/latest/
+- Issue Tracker: https://github.com/saxix/django-concurrency/issues
+- Download Package: http://pypi.python.org/pypi/django-concurrency/
+
+
+[10]:https://github.com/gavinwahl/django-optimistic-lock
+[11]:https://github.com/stdbrouw/django-locking
+[1]:http://en.wikipedia.org/wiki/Optimistic_concurrency_control
+[2]:https://django-concurrency.readthedocs.org/en/latest/admin.html#list-editable
+[3]:https://django-concurrency.readthedocs.org/en/latest/api.html?#disable-concurrency
+[4]:https://django-concurrency.readthedocs.org/en/latest/fields.html#conditionalversionfield
+[6]:https://django-concurrency.readthedocs.org/en/latest/fields.html#triggerversionfield

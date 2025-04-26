@@ -1,0 +1,91 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source =["pathable"]
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"
+
+[tool.mypy]
+files = "pathable"
+strict = true
+
+# files = "pathable"
+# check_untyped_defs = true
+# disallow_subclassing_any = true
+# disallow_untyped_calls = true
+# disallow_untyped_defs = false
+# ignore_missing_imports = false
+# show_column_numbers = true
+# show_none_errors = true
+# strict_optional = true
+# warn_incomplete_stub = true
+# warn_no_return = true
+# warn_redundant_casts = true
+# warn_return_any = true
+# warn_unused_configs = true
+# warn_unused_ignores = true
+# allow_redefinition = true
+# no_implicit_optional = true
+# local_partial_types = true
+# strict_equality = true
+
+[tool.poetry]
+name = "pathable"
+version = "0.4.4"
+description = "Object-oriented paths"
+authors = ["Artur Maciag <maciag.artur@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.rst"
+repository = "https://github.com/p1c2u/pathable"
+keywords = ["dict", "dictionary", "list", "lookup", "path", "pathable"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries"
+]
+
+[tool.poetry.dependencies]
+python = "^3.7.0"
+
+[tool.poetry.extras]
+dev = ["pre-commit"]
+
+[tool.poetry.dev-dependencies]
+pre-commit =  {version = "*", optional = true}
+pytest = "^6.2.5"
+pytest-flake8 = "=1.0.7"
+pytest-cov = "^3.0.0"
+isort = "^5.0.0"
+black = "^22.0.0"
+flynt = "0.76"
+mypy = "^0.971"
+
+[tool.pytest.ini_options]
+addopts = """
+--capture=no
+--verbose
+--showlocals
+--junitxml=reports/junit.xml
+--cov=pathable
+--cov-report=term-missing
+--cov-report=xml
+"""
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+line_length = 79
+force_single_line = true

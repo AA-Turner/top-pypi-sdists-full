@@ -1,0 +1,65 @@
+Metadata-Version: 2.1
+Name: cdk8s-redis
+Version: 0.1.829
+Summary: Basic implementation of a Redis construct for cdk8s.
+Home-page: https://github.com/cdk8s-team/cdk8s-redis.git
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/cdk8s-team/cdk8s-redis.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cdk8s<3.0.0,>=2.68.91
+Requires-Dist: constructs<11.0.0,>=10.3.0
+Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+# cdk8s-redis
+
+> Redis constructs for cdk8s
+
+Basic implementation of a Redis construct for cdk8s. Contributions are welcome!
+
+## Usage
+
+The following will define a Redis cluster with a primary and 2 replicas:
+
+```python
+import { Redis } from 'cdk8s-redis';
+
+// inside your chart:
+const redis = new Redis(this, 'my-redis');
+```
+
+DNS names can be obtained from `redis.primaryHost` and `redis.replicaHost`.
+
+You can specify how many replicas to define:
+
+```python
+new Redis(this, 'my-redis', {
+  replicas: 4
+});
+```
+
+Or, you can specify no replicas:
+
+```python
+new Redis(this, 'my-redis', {
+  replicas: 0
+});
+```
+
+## License
+
+Distributed under the [Apache 2.0](./LICENSE) license.

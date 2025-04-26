@@ -1,0 +1,205 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hist"
+description = "Hist classes and utilities"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [ {name = "Henry Schreiner", email = "henry.schreiner@cern.ch"} ]
+maintainers = [ {name = "The Scikit-HEP admins", email = "scikit-hep-admins@googlegroups.com"} ]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+keywords = [
+    "histogram",
+    "boost-histogram",
+    "dask-histogram",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "boost-histogram>=1.3.1,<1.6",
+    "histoprint>=2.2.0",
+    'numpy>=1.14.5',
+    'typing-extensions>=4;python_version<"3.11"',
+]
+dynamic = ["version"]
+
+[project.scripts]
+hist = "hist.classichist:main"
+
+[project.urls]
+Homepage = "https://github.com/scikit-hep/hist"
+Documentation = "https://hist.readthedocs.io/"
+"Bug Tracker" = "https://github.com/scikit-hep/hist/issues"
+Discussions = "https://github.com/scikit-hep/hist/discussions"
+Changelog = "https://hist.readthedocs.io/en/latest/changelog.html"
+
+[project.optional-dependencies]
+mpl = [
+    "matplotlib >=3.0",
+    "mplhep >=0.2.16",
+]
+plot = [
+    "matplotlib >=3.0",
+    "mplhep >=0.2.16",
+]
+fit = [
+    "scipy >=1.4",
+    "iminuit >=2",
+]
+dask = [
+    "dask[dataframe] >=2022,<2025",
+    "dask_histogram >=2023.1",
+]
+test = [
+    "pytest >=6",
+    "pytest-mpl >=0.12",
+]
+dev = [
+    "hist[mpl,fit,test,dask]",
+    "ipykernel",
+]
+docs = [
+    "hist[test,plot,fit,dask]",
+    "ipython_genutils",
+    "graphviz >=0.20.1",
+    "nbsphinx",
+    "sphinx >=3.0.0",
+    "sphinx_copybutton",
+    "sphinx_book_theme >=0.0.38",
+    "sphinxcontrib-programoutput",
+    "ipython",
+    "ipykernel",
+    "pillow",
+    "uncertainties>=3",
+    "myst_parser>=0.14",
+]
+
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/hist/version.py"
+
+[tool.uv]
+dev-dependencies = ["hist[dev]", "ipython"]
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+testpaths = ["tests"]
+required_plugins = ["pytest-mpl"]
+log_cli_level = "DEBUG"
+filterwarnings = [
+    "error",
+    "ignore::matplotlib._api.deprecation.MatplotlibDeprecationWarning",
+]
+
+[tool.mypy]
+warn_unused_configs = true
+files = "src"
+python_version = "3.8"
+strict = true
+enable_error_code = ["ignore-without-code", "truthy-bool", "redundant-expr"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = [
+    "histoprint.*",
+    "scipy.optimize.*",
+    "uncertainties.*",
+    "matplotlib.*",
+    "scipy.*",
+    "iminuit.*",
+    "mplhep.*",
+    "dask_histogram.*",
+]
+ignore_missing_imports = true
+
+
+[tool.pylint]
+py-version = "3.8"
+extension-pkg-allow-list = ["boost_histogram._core"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+jobs = "0"
+messages_control.enable = [
+  "useless-suppression",
+]
+messages_control.disable = [
+  "fixme",
+  "invalid-name",
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+  "protected-access",
+  "too-few-public-methods",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-lines",
+  "too-many-locals",
+  "too-many-return-statements",
+  "too-many-statements",
+  "too-many-positional-arguments",
+  "wrong-import-position",
+  "duplicate-code",
+  "import-outside-toplevel",
+  "import-error",
+  "disallowed-name",
+  "cyclic-import",
+  "redefined-builtin",
+  "unused-argument",  # Handled better by Ruff
+]
+
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "ICN",         # flake8-import-conventions
+  "ISC",         # flake8-implicit-str-concat
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "PTH",         # flake8-use-pathlib
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+]
+ignore = ["PLR", "E501", "PT011", "PT013", "PT004", "B017", "ISC001"]
+typing-modules = ["hist._compat.typing"]
+isort.required-imports = ["from __future__ import annotations"]
+flake8-unused-arguments.ignore-variadic-names = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_plot.py" = ["B008"]
+"docs/conf.py" = ["ARG001", "PTH"]
+"noxfile.py" = ["T20"]
+"**.ipynb" = ["B008", "T20", "I002", "E402", "E703", "B018"]

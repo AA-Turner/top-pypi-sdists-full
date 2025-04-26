@@ -1,0 +1,208 @@
+[project]
+name            = "poethepoet"
+version         = "0.34.0"
+description     = "A task runner that works well with poetry."
+authors         = [{ name = "Nat Noordanus", email = "n@noordan.us>" }]
+readme          = "README.md"
+license         = "MIT"
+repository      = "https://github.com/nat-n/poethepoet"
+homepage        = "https://github.com/nat-n/poethepoet"
+documentation   = "https://poethepoet.natn.io/"
+keywords        = ["automation", "tasks", "task-runner", "plugin", "poetry", "poe"]
+classifiers     = ["Topic :: Software Development :: Build Tools"]
+requires-python = ">=3.9"
+
+dependencies = [
+  "pastel (>=0.2.1,<0.3.0)",
+  "tomli  (>=1.2.2) ; python_version < '3.11'",
+  "pyyaml (>=6.0.2,<7.0)"
+]
+
+[project.optional-dependencies]
+poetry_plugin = ["poetry (>=1.2.0,<3.0.0) ; python_version < '4.0'"]
+
+[project.entry-points."poetry.application.plugin"]
+poethepoet = "poethepoet.plugin:PoetryPlugin"
+
+[project.scripts]
+poe = "poethepoet:main"
+
+
+[tool.poetry.group.ci.dependencies]
+black        = "^23.3.0"
+mypy         = "^1.1.1"
+pytest       = "^7.1.2"
+pytest-cov   = "^3.0.0"
+rstcheck     = { version = "^6.2.4", python = "<4" }
+ruff         = "^0.8.0"
+types-pyyaml = "^6.0.12.20240808"
+
+virtualenv = "^20.14.1"
+
+poe_test_helpers = { path = "./tests/fixtures/packages/poe_test_helpers" }
+
+[tool.poetry.group.docs.dependencies]
+furo                = "^2023.3.27"
+livereload          = "^2.6.3"
+sphinx              = "^7.4.7"
+sphinx-copybutton   = "^0.5.1"
+sphinxext-opengraph = "^0.9.0"
+
+
+[tool.poe.tasks]
+_clean_docs.script = "shutil:rmtree('docs/_build', ignore_errors=1)"
+
+[tool.poe.tasks.format]
+help     = "Run all formatting tools on the code base"
+sequence = ["format-ruff", "format-black"]
+
+[tool.poe.tasks.format-ruff]
+help = "Run ruff fixer on code base"
+cmd  = "ruff check . --fix-only"
+
+[tool.poe.tasks.format-black]
+help = "Run black on the code base"
+cmd  = "black ."
+
+[tool.poe.tasks.docs]
+help = "Build the docs using Sphinx"
+cmd  = "sphinx-build docs docs/_build"
+deps = ["_clean_docs"]
+
+[tool.poe.tasks.docs-serve]
+help   = "Serves the docs locally with livereload"
+script = "docs:serve"
+cwd    = "./docs"
+deps   = ["docs"]
+
+[tool.poe.tasks.docs-check]
+help = "Validate rst syntax in the docs"
+sequence = [
+  { cmd  = "rstcheck -r docs --ignore-roles bash,toml,sh,python --ignore-substitutions V --ignore-directives autofunction,include" },
+  "docs -b linkcheck"
+]
+
+[tool.poe.tasks.clean]
+help   = "Remove generated files"
+script = """
+  poethepoet.scripts:rm(
+    ".coverage",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    "./**/__pycache__",
+    "dist",
+    "htmlcov",
+    "./docs/_build",
+    "./tests/fixtures/**/.venv",
+    "./tests/fixtures/simple_project/venv",
+    "./tests/fixtures/venv_project/myvenv",
+    "./tests/temp",
+    verbosity=environ.get('POE_VERBOSITY'),
+    dry_run=_dry_run
+  )
+"""
+
+[tool.poe.tasks.test]
+help = "Run unit and feature tests"
+cmd  = "pytest"
+
+[tool.poe.tasks.test-quick]
+help = "Run unit and feature tests, excluding slow ones"
+cmd  = "pytest -m 'not slow'"
+
+[tool.poe.tasks.types]
+help = "Run the type checker"
+cmd  = "mypy poethepoet --ignore-missing-imports"
+
+[tool.poe.tasks.lint]
+help = "Run linting tools on the code base"
+cmd  = "ruff check ."
+
+[tool.poe.tasks.style]
+help = "Validate black code style"
+cmd  = "black . --check --diff"
+
+[tool.poe.tasks.check]
+help     = "Run all checks on the code base"
+sequence = ["docs-check", "style", "types", "lint", "test"]
+
+[tool.poe.tasks.install-poetry-plugin]
+help = "Install or update this project as a plugin in poetry"
+sequence = [
+  { cmd = "poetry --no-plugins self remove poethepoet"},
+  { cmd = "poetry self add \"${POE_ROOT}[poetry_plugin]\""}
+]
+ignore_fail = true
+
+[tool.poe.tasks.poe]
+help   = "Execute poe from this repo (useful for testing)"
+script = "poethepoet:main"
+
+
+[tool.rstcheck]
+ignore_messages  = [
+  "Unknown directive type \"autoclass\"",
+  "Hyperlink target \"shell-completion\" is not referenced.",
+  "Hyperlink target \"envfile-option\" is not referenced.",
+  "Hyperlink target \"ref-env-vars\" is not referenced.",
+  "Hyperlink target \"sequence-composition\" is not referenced.",
+  "Hyperlink target \"graph-composition\" is not referenced.",
+  "No directive entry for \"autoclass\" in module \"docutils.parsers.rst.languages.en\""
+]
+ignore_directives = [
+  "include"
+]
+
+
+[tool.coverage.report]
+omit = ["**/site-packages/**", "poethepoet/completion/*", "poethepoet/plugin.py"]
+
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+
+
+[tool.ruff.lint]
+select  = [
+  "E",     # error
+  "F",     # pyflakes
+  "I",     # isort
+  "W",     # warning
+  "N",     # pep8-naming
+  "UP",    # pyupgrade
+  "YTT",   # flake8-2020
+  "ASYNC", # flake8-async
+  "C4",    # flake8-comprehensions
+  "T10",   # flake8-debugger
+  "G",     # flake8-logging-format
+  "PIE",   # flake8-pie
+  "PYI",   # flake8-pyi
+  "PT",    # flake8-pytest-style
+  "Q",     # flake8-quotes
+  "SIM",   # flake8-simplify
+  "TCH",   # flake8-type-checking
+  "PTH",   # flake8-use-pathlib
+  "PGH",   # pygrep-hooks
+  "PERF",  # perflint
+  "RUF",   # ruff-specific rules
+]
+ignore  = [
+  "C408",   # unnecessary-collection-call
+  "PT015",  # pytest-assert-always-false
+  "SIM118", # in-dict-keys
+  "PTH109", # os-getcwd
+  "PTH123", # builtin-open
+  "RUF012", # mutable-class-default
+]
+fixable = ["E", "F", "I"]
+
+[tool.uv.workspace]
+members = ["tests/fixtures/task_package"]
+
+
+[build-system]
+requires      = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

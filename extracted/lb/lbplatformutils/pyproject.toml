@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "LbPlatformUtils"
+version = "4.4.4" # remember to update LbPlatformUtils/__init__.py
+description = "utilities for platform detection"
+authors = ["CERN - LHCb Core Software <lhcb-core-soft@cern.ch>"]
+license = "GPL-3.0+"
+homepage = "https://gitlab.cern.ch/lhcb-core/LbPlatformUtils"
+classifiers = [
+    "Development Status :: 4 - Beta",
+]
+packages = [
+    { include = "LbPlatformUtils" },
+]
+
+[tool.poetry.scripts]
+lb-describe-platform = "LbPlatformUtils.describe:main"
+lb-host-binary-tag = "LbPlatformUtils.describe:host_binary_tag_script"
+lb-debug-platform = "LbPlatformUtils.debug:main"
+
+[tool.poetry.dependencies]
+python = "^2.7 || ^3.5"
+
+[tool.poetry.dev-dependencies]
+pytest = { version = "*", python = ">=3.7" }
+pytest-cov = { version = "*", python = ">=3.7" }
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

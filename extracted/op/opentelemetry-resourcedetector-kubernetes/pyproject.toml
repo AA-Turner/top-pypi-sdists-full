@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=62", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.black]
+skip-string-normalization = true
+target-version = ['py39']
+
+[tool.coverage.report]
+omit = []
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+namespace_packages = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = """
+    -n 2
+    -W error
+    --cov=src
+    --cov=tests
+    --cov-branch
+    --cov-report=term-missing
+    --cov-fail-under=100
+    --no-cov-on-fail
+"""

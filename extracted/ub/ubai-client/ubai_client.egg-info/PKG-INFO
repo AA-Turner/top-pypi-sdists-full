@@ -1,0 +1,13 @@
+Metadata-Version: 1.2
+Name: ubai-client
+Version: 1.2.0
+Summary: Universal Binary Archiver Service
+Home-page: UNKNOWN
+Author: OpenAPI Generator community
+Author-email: team@openapitools.org
+License: UNKNOWN
+Description:     Universal Binary Archiver Service  # noqa: E501
+            
+Keywords: OpenAPI,OpenAPI-Generator,Universal Binary Archiver Service
+Platform: UNKNOWN
+Requires-Python: >=3.6

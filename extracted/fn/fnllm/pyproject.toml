@@ -1,0 +1,100 @@
+[project]
+name = "fnllm"
+dynamic = ["version"]
+description = "A function-based LLM protocol and wrapper."
+authors = [
+    {name="Chris Trevino", email="chtrevin@microsoft.com"},
+    {name="Rodrigo Racanicci", email="rracanicci@microsoft.com"}
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiolimiter>=1.1.0",
+    "tenacity>=8.5.0",
+    "pydantic>=2.8.2",
+    "httpx>=0.27.0",
+    "json-repair>=0.30.0",
+]
+[project.optional-dependencies]
+# OpenAI is our default provider, but we have it as an optional extra in order to account for future providers.
+openai=[
+    "openai>=1.35.12",
+    "tiktoken>=0.7.0"
+]
+# Azure is optional, you should add it if you want to use Azure OpenAI or Azure Blob Storage caching.
+azure=[
+    "azure-identity>=1.17.1",
+    "azure-storage-blob>=12.20.0"
+]
+# Numpy used by the OpenAI Embeddings Batcher.
+numpy=[
+    "numpy>=1.26.4",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.6.8",
+    "pyright>=1.1.379",
+    "pytest>=8.2.2",
+    "poethepoet>=0.27.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ipykernel>=6.29.5",
+    "hatchling>=1.25.0",
+    # OpenAI Optional
+    "openai>=1.53.0",
+    "tiktoken>=0.8.0",
+    # Azure Optional
+    "azure-identity>=1.17.1",
+    "azure-storage-blob>=12.20.0",
+    # Numpy Optional
+    "numpy>=1.26.4",
+    "polyfactory>=2.19.0",
+    "uv-dynamic-versioning>=0.6.0",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+# This allows us to match project-specific release tags (e.g.. 'fnllm-v0.3.0')
+pattern-prefix = "fnllm-"
+metadata = false
+
+# https://github.com/microsoft/pyright/blob/9f81564a4685ff5c55edd3959f9b39030f590b2f/docs/configuration.md#sample-pyprojecttoml-file
+[tool.pyright]
+include = ["fnllm", "fnllm_tests"]
+exclude = ["**/__pycache__"]
+
+
+[tool.poe.tasks]
+_sort_imports = "ruff check --select I --fix . --preview"
+_ruff_check = 'ruff check . --preview'
+_format_code = "ruff format  . --preview"
+_format_check = 'ruff format . --check --preview'
+
+typecheck = "pyright"
+check_package_types = "pyright --verifytypes fnllm --ignoreexternal"
+check = ['_format_check', '_ruff_check', 'typecheck', 'check_package_types']
+fix = "ruff check --preview --fix ."
+fix_unsafe = "ruff check --preview --fix --unsafe-fixes ."
+format = ['_sort_imports', '_format_code']
+test = "pytest fnllm_tests"
+test_coverage = "pytest fnllm_tests --cov-fail-under=95"
+test_only = "pytest -v -k"
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope="session"
+addopts="--cov-config=.coveragerc --cov=fnllm --cov-report=html --cov-report=xml --cov-report=term-missing --cov-branch"

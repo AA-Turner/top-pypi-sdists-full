@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: lbox-clients
+Version: 1.1.2
+Summary: This module contains client sdk uses to conntect to the Labelbox API and backends
+Project-URL: Homepage, https://labelbox.com/
+Project-URL: Documentation, https://labelbox-python.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/Labelbox/labelbox-python
+Project-URL: Issues, https://github.com/Labelbox/labelbox-python/issues
+Project-URL: Changelog, https://github.com/Labelbox/labelbox-python/blob/develop/libs/labelbox/CHANGELOG.md
+Author-email: Labelbox <engineering@labelbox.com>
+Keywords: ai,edu,labelbox,labeling,llm,machinelearning,ml
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Requires-Dist: google-api-core>=1.22.1
+Requires-Dist: requests>=2.22.0
+Description-Content-Type: text/markdown
+
+# lbox-clients
+
+This is an example module which can be cloned and reused to develop modules under the `lbox` namespace.
+
+## Module Status: Experimental
+
+**TLDR: This module may be removed or altered at any given time and there is no offical support.**
+
+Please see [here](https://docs.labelbox.com/docs/product-release-phases) for the formal definition of `Experimental`.

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "statsig_python_core"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = ["requests"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "py_src"
+include = ["statsig_python_core.pyi"]
+manifest-path = 'statsig-pyo3\Cargo.toml'

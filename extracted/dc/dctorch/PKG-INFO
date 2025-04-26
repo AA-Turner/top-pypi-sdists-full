@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: dctorch
+Version: 0.1.2
+Summary: fast discrete cosine transforms for pytorch
+License: MIT
+Author: jack
+Author-email: jack@gallabytes.com
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: numpy (>=1.22.3,<2.0.0)
+Requires-Dist: scipy (>=1.8.0,<2.0.0)
+Requires-Dist: torch (>=1.11.0,<3.0)

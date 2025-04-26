@@ -1,0 +1,183 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, you can obtain one at http://mozilla.org/MPL/2.0/.
+from __future__ import absolute_import
+
+import json
+import logging
+import socket
+import sys
+import traceback
+import uuid
+from contextvars import ContextVar
+from typing import ClassVar, Optional
+
+
+class SafeJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        return repr(o)
+
+
+class JsonLogFormatter(logging.Formatter):
+    """Log formatter that outputs machine-readable json.
+
+    This log formatter outputs JSON format messages that are compatible with
+    Mozilla's standard heka-based log aggregation infrastructure.
+
+    .. seealso::
+
+        - https://wiki.mozilla.org/Firefox/Services/Logging
+
+    Adapted from:
+    https://github.com/mozilla-services/mozservices/blob/master/mozsvc/util.py#L106
+    """
+
+    LOGGING_FORMAT_VERSION = "2.0"
+
+    # Map from Python logging to Syslog severity levels
+    SYSLOG_LEVEL_MAP: ClassVar = {
+        50: 2,  # CRITICAL
+        40: 3,  # ERROR
+        30: 4,  # WARNING
+        20: 6,  # INFO
+        10: 7,  # DEBUG
+    }
+
+    # Syslog level to use when/if python level isn't found in map
+    DEFAULT_SYSLOG_LEVEL = 7
+
+    EXCLUDED_LOGRECORD_ATTRS: ClassVar = set(
+        (
+            "args",
+            "asctime",
+            "created",
+            "exc_info",
+            "exc_text",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "message",
+            "msg",
+            "name",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "taskName",
+            "thread",
+            "threadName",
+        )
+    )
+
+    def __init__(self, fmt=None, datefmt=None, style="%", logger_name="Dockerflow"):
+        parent_init = logging.Formatter.__init__
+        # The style argument was added in Python 3.1 and since
+        # the logging configuration via config (ini) files uses
+        # positional arguments we have to do a version check here
+        # to decide whether to pass the style argument or not.
+        if sys.version_info[:2] < (3, 1):
+            parent_init(self, fmt, datefmt)
+        else:
+            parent_init(self, fmt=fmt, datefmt=datefmt, style=style)
+        self.logger_name = logger_name
+        self.hostname = socket.gethostname()
+
+    def is_value_jsonlike(self, value):
+        """
+        Return True if the value looks like JSON. Use only on strings.
+        """
+        return value.startswith("{") and value.endswith("}")
+
+    def convert_record(self, record):
+        """
+        Convert a Python LogRecord attribute into a dict that follows MozLog
+        application logging standard.
+
+        * from - https://docs.python.org/3/library/logging.html#logrecord-attributes
+        * to - https://wiki.mozilla.org/Firefox/Services/Logging
+        """
+        out = {
+            "Timestamp": int(record.created * 1e9),
+            "Type": record.name,
+            "Logger": self.logger_name,
+            "Hostname": self.hostname,
+            "EnvVersion": self.LOGGING_FORMAT_VERSION,
+            "Severity": self.SYSLOG_LEVEL_MAP.get(
+                record.levelno, self.DEFAULT_SYSLOG_LEVEL
+            ),
+            "Pid": record.process,
+        }
+
+        # Include any custom attributes set on the record.
+        # These would usually be collected metrics data.
+        fields = {}
+        for key, value in record.__dict__.items():
+            if key not in self.EXCLUDED_LOGRECORD_ATTRS:
+                fields[key] = value
+
+        # Only include the 'msg' key if it has useful content
+        # and is not already a JSON blob.
+        message = record.getMessage()
+        if message and not self.is_value_jsonlike(message):
+            fields["msg"] = message
+
+        # If there is an error, format it for nice output.
+        if record.exc_info:
+            fields["error"] = repr(record.exc_info[1])
+            fields["traceback"] = safer_format_traceback(*record.exc_info)
+
+        out["Fields"] = fields
+        return out
+
+    def format(self, record):
+        """
+        Format a Python LogRecord into a JSON string following MozLog
+        application logging standard.
+        """
+        out = self.convert_record(record)
+        return json.dumps(out, cls=SafeJSONEncoder)
+
+
+def safer_format_traceback(exc_typ, exc_val, exc_tb):
+    """Format an exception traceback into safer string.
+    We don't want to let users write arbitrary data into our logfiles,
+    which could happen if they e.g. managed to trigger a ValueError with
+    a carefully-crafted payload.  This function formats the traceback
+    using "%r" for the actual exception data, which passes it through repr()
+    so that any special chars are safely escaped.
+    """
+    lines = ["Uncaught exception:\n"]
+    lines.extend(traceback.format_tb(exc_tb))
+    lines.append("%r\n" % (exc_typ,))
+    lines.append("%r\n" % (exc_val,))
+    return "".join(lines)
+
+
+request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+
+
+def get_or_generate_request_id(headers: dict, header_name: Optional[str] = None) -> str:
+    """
+    Read the request ID from the headers, and generate one if missing.
+    """
+    header_name = header_name or "x-request-id"
+    rid = headers.get(header_name, "")
+    if not rid:
+        rid = str(uuid.uuid4())
+    return rid
+
+
+class RequestIdLogFilter(logging.Filter):
+    """Logging filter to attach request IDs to log records"""
+
+    def filter(self, record: "logging.LogRecord") -> bool:
+        """
+        Attach the request ID to the log record.
+        """
+        record.rid = request_id_context.get(None)
+        return True

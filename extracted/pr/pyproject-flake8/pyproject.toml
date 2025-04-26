@@ -1,0 +1,41 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+dynamic = ["version", "description"]
+name = "pyproject-flake8"
+authors = [{name = "Christian Sachs", email = "sachs.christian@gmail.com"}]
+readme = "README.md"
+license = { file = "LICENSE" } 
+classifiers = []
+requires-python = ">=3.8.1"
+dependencies = [
+    "tomli; python_version < '3.11'",
+    "flake8 == 7.0.0"
+]
+
+[project.urls]
+Home = "https://github.com/csachs/pyproject-flake8"
+
+[project.scripts]
+pflake8 = "pflake8.__main__:main"
+
+[tool.flit.module]
+name = "pflake8"
+
+[tool.black]
+skip-string-normalization = 1
+force-exclude = [
+    "test/data/dummy.py",
+]
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203"]
+max-complexity = 10
+exclude = ["venv", "test/data/"]

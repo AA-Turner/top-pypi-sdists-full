@@ -1,0 +1,50 @@
+# Python modules
+import hashlib
+
+# 3rd party modules
+import sysv_ipc
+
+# Utils for this demo
+import utils
+
+params = utils.read_params()
+
+# Mrs. Premise has already created the message queue. I just need a handle to it.
+mq = sysv_ipc.MessageQueue(params["KEY"])
+
+what_i_sent = ""
+
+for i in range(0, params["ITERATIONS"]):
+    utils.say("iteration %d" % i)
+
+    s, _ = mq.receive()
+    s = s.decode()
+    utils.say("Received %s" % s)
+
+    while s == what_i_sent:
+        # Nothing new; give Mrs. Premise another chance to respond.
+        mq.send(s)
+
+        s, _ = mq.receive()
+        s = s.decode()
+        utils.say("Received %s" % s)
+
+    if what_i_sent:
+        what_i_sent = what_i_sent.encode()
+        try:
+            assert(s == hashlib.md5(what_i_sent).hexdigest())
+        except AssertionError:
+            raise AssertionError("Message corruption after %d iterations." % i)
+    # else:
+        # When what_i_sent is blank, this is the first message which
+        # I always accept without question.
+
+    # MD5 the reply and write back to Mrs. Premise.
+    s = hashlib.md5(s.encode()).hexdigest()
+    utils.say("Sending %s" % s)
+    mq.send(s)
+    what_i_sent = s
+
+
+utils.say("")
+utils.say("%d iterations complete" % (i + 1))

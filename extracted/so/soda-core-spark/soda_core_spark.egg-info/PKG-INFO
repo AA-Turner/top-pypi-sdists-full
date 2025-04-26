@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: soda-core-spark
+Version: 3.5.2
+License-File: LICENSE
+Requires-Dist: soda-core==3.5.2
+Provides-Extra: hive
+Requires-Dist: PyHive[hive]; extra == "hive"
+Provides-Extra: odbc
+Requires-Dist: pyodbc; extra == "odbc"
+Provides-Extra: databricks
+Requires-Dist: databricks-sql-connector; extra == "databricks"

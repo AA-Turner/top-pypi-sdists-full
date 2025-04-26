@@ -1,0 +1,146 @@
+[project]
+name = "anytree"
+dynamic = []
+description = "Powerful and Lightweight Python Tree Data Structure with various plugins"
+authors = [
+    { name = "c0fec0de", email = "c0fec0de@gmail.com" },
+]
+dependencies = []
+requires-python = ">=3.9.2,<4.0"
+readme = "README.rst"
+license = "Apache-2.0"
+keywords = [
+    "tree",
+    "tree data",
+    "treelib",
+    "tree walk",
+    "tree structure",
+]
+classifiers = [
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+version = "2.13.0"
+
+[project.urls]
+Homepage = "https://github.com/c0fec0de/anytree"
+Documentation = "https://anytree.readthedocs.io/en/stable/"
+"Bug Tracker" = "https://github.com/c0fec0de/anytree/issues"
+
+[dependency-groups]
+dev = [
+    "coveralls>=3.3.1",
+    "mypy>=1.9.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.11.2",
+    "pre-commit>=4.2.0",
+    "sphinx>=5.3.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinxemoji>=0.3.1",
+    "test2ref>=0.4.2",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm.build]
+includes = [
+    "src/anytree",
+]
+
+[tool.pdm.version]
+source = "scm"
+fallback_version = "0.0.0"
+
+[tool.ruff]
+line-length = 120
+fix = true
+target-version = "py37"
+
+[tool.ruff.lint]
+select = [
+    "I",
+    "F",
+    "E",
+    "W",
+    "D",
+    "N",
+    "YTT",
+    "B",
+    "Q",
+    "T10",
+    "INT",
+    "PL",
+    "PIE",
+    "TID",
+    "ISC",
+    "TC",
+    "C4",
+    "PGH",
+    "RUF",
+    "S102",
+    "NPY002",
+    "FLY",
+    "G",
+    "UP",
+    "RET",
+    "RSE",
+]
+ignore = [
+    "PLR0913",
+    "D100",
+    "D101",
+    "D203",
+    "D212",
+    "D402",
+    "D406",
+    "D200",
+    "D107",
+    "D105",
+    "UP038",
+    "S101",
+    "TC001",
+    "D412",
+    "B007",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "PLR2004",
+    "ARG001",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "F841",
+    "PLR0915",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+addopts = "    --cov src/anytree\n    --cov-report term\n    --cov-report html\n    --doctest-glob=docs/*.rst\n    --doctest-modules\n    --ignore-glob=tests/testdata/*\n    --log-level=INFO\n    --junitxml=report.xml\n"
+
+[tool.coverage.report]
+exclude_lines = [
+    "return NotImplemented",
+    "raise NotImplementedError",
+    "pragma: no cover",
+    "assert False",
+]
+
+[tool.mypy]
+disable_error_code = "misc"
+ignore_missing_imports = true

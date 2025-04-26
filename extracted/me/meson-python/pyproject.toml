@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: 2021 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+[build-system]
+build-backend = 'mesonpy'
+backend-path = ['.']
+requires = [
+  'meson >= 0.63.3; python_version < "3.12"',
+  'meson >= 1.2.3; python_version >= "3.12"',
+  'packaging >= 19.0',
+  'pyproject-metadata >= 0.7.1',
+  'tomli >= 1.0.0; python_version < "3.11"',
+]
+
+[project]
+name = 'meson-python'
+description = 'Meson Python build backend (PEP 517)'
+readme = 'README.rst'
+requires-python = '>= 3.7'
+license = { file = 'LICENSES/MIT.txt' }
+keywords = ['meson', 'build', 'backend', 'pep517', 'package']
+maintainers = [
+  { name = 'Ralf Gommers', email = 'ralf.gommers@gmail.com' },
+  { name = 'Daniele Nicolodi', email = 'daniele@grinta.net' },
+  { name = 'Henry Schreiner', email = 'HenrySchreinerIII@gmail.com' },
+  { name = 'Thomas Li', email = '47963215+lithomas1@users.noreply.github.com' },
+]
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Programming Language :: Python',
+  'Topic :: Software Development :: Build Tools',
+]
+
+dependencies = [
+  'meson >= 0.63.3; python_version < "3.12"',
+  'meson >= 1.2.3; python_version >= "3.12"',
+  'packaging >= 19.0',
+  'pyproject-metadata >= 0.7.1',
+  'tomli >= 1.0.0; python_version < "3.11"',
+]
+
+dynamic = [
+  'version',
+]
+
+[project.optional-dependencies]
+test = [
+  'build',
+  'packaging >= 23.1',
+  'pytest >= 6.0',
+  'pytest-cov[toml]',
+  'pytest-mock',
+  'cython >= 3.0.3', # required for Python 3.12 support
+  'wheel',
+  'typing-extensions >= 3.7.4; python_version < "3.11"',
+]
+docs = [
+  'furo >= 2023.5.20',
+  'sphinx ~= 6.2',
+  'sphinx-copybutton >= 0.5.0',
+  'sphinx-design >= 0.1.0',
+  'sphinxext-opengraph >= 0.7.0',
+]
+
+[project.urls]
+homepage = 'https://github.com/mesonbuild/meson-python'
+repository = 'https://github.com/mesonbuild/meson-python'
+documentation = 'https://mesonbuild.com/meson-python/'
+changelog = 'https://mesonbuild.com/meson-python/changelog.html'
+
+
+[tool.mypy]
+show_error_codes = true
+ignore_missing_imports = true
+strict = true
+
+
+[tool.ruff]
+line-length = 127
+lint.extend-ignore = [
+  'B019',
+]
+lint.select = [
+  'B',       # flake8-bugbear
+  'C4',      # flake8-comprehensions
+  'E',       # pycodestyle
+  'F',       # pyflakes
+  'I',       # isort
+  'W',       # pycodestyle
+  'RUF100',  # ruff
+]
+exclude = [
+  'docs/conf.py',
+]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
+lines-after-imports = 2
+known-first-party = [
+  'mesonpy',
+]
+
+
+[tool.coverage.run]
+disable_warnings = [
+  'couldnt-parse',
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+
+[tool.pytest.ini_options]
+minversion = '6.0'
+addopts = ['-ra', '--strict-markers', '--strict-config']
+log_cli_level = 'info'
+norecursedirs = 'tests/packages/*'
+testpaths = ['tests']
+xfail_strict = true
+filterwarnings = [
+  'error',
+]

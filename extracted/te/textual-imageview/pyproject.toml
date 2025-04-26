@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "textual-imageview"
+description = 'A simple terminal-based image viewer.'
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+keywords = []
+authors = [{ name = "Adam Viola", email = "adam@viola.dev" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["Pillow>=9.4.0", "rich>=13.0.0", "textual>=0.9.1"]
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://github.com/adamviola/textual-imageview#readme"
+Issues = "https://github.com/adamviola/textual-imageview/issues"
+Source = "https://github.com/adamviola/textual-imageview"
+
+[project.scripts]
+vimg = "textual_imageview.app:vimg"
+
+[tool.hatch.version]
+path = "textual_imageview/__about__.py"

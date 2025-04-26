@@ -1,0 +1,28 @@
+[project]
+name = "llguidance"
+version = "0.7.19"
+description = "Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{name = "Michal Moskal"}]
+dependencies = []
+readme = "README.md"
+
+[project.urls]
+repository = "https://github.com/microsoft/llguidance"
+issue_tracker = "https://github.com/microsoft/llguidance/issues"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+profile = "release"
+bindings = "pyo3"
+compatibility = "manylinux2014"
+python-source = "python"
+module-name = "llguidance._lib"
+manifest-path = "python_ext/Cargo.toml"
+sdist-generator = "git"
+# strip = true
+# features = ["llguidance/logging"]

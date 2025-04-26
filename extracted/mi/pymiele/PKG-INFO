@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: pymiele
+Version: 0.3.6
+Summary: Python library for Miele integration with Home Assistant
+Author-email: Ake Strandberg <ake@strandberg.eu>
+License: MIT
+Project-URL: Repository, https://github.com/nordicopen/pymiele
+Project-URL: BugTracker, https://github.com/nordicopen/pymiele/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 4 - Beta
+Requires-Python: >=3.12.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Dynamic: license-file
+
+## pymiele
+
+Python library for Miele integration with Home Assistant.
+The library is distributed via pypi.org.
+
+### Installation
+```bash
+$ pip install pymiele
+```

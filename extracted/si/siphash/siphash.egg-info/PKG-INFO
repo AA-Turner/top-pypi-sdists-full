@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: siphash
+Version: 0.0.1
+Summary: siphash - python siphash implementation
+Home-page: http://github.com/majek/pysiphash#readme
+Author: Marek Majkowski
+Author-email: marek@popcount.org
+License: MIT
+Description: UNKNOWN
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.2

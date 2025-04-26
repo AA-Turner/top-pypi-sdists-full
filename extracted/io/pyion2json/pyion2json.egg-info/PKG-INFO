@@ -1,0 +1,82 @@
+Metadata-Version: 2.1
+Name: pyion2json
+Version: 0.0.2
+Summary: Convert an Amazon Ion document(s) to JSON
+Home-page: https://github.com/crouchcd/pyion2json
+Author: crouchcd
+Author-email: cdcsoftdev@gmail.com
+License: MIT
+Download-URL: https://github.com/crouchcd/pyion2json/archive/0.0.2.tar.gz
+Description: # pyion2json
+        
+        Convert an [Amazon Ion](http://amzn.github.io/ion-docs/) document(s) to JSON
+        
+        ## Install
+        
+        ```
+        pip install pyion2json
+        ```
+        
+        ## Usage
+        
+        ### Convert individual Ion values
+        
+        ```
+        import json
+        import amazon.ion.simpleion as ion
+        from pyion2json import ion_to_json
+        
+        ion_doc = ion.loads('{ first: "Tom" , last: "Riddle" }')
+        json_doc = ion_to_json(ion_doc)
+        print(json.dumps(json_doc, indent=' '))
+        
+        ```
+        
+        > Outputs:
+        
+        ```
+        {
+         "first": "Tom",
+         "last": "Riddle"
+        }
+        ```
+        
+        ### Convert a cursor from QLDB
+        
+        ```
+        from pyion2json import ion_cursor_to_json
+        
+        with create_qldb_session() as qldb_session:
+            qldb_cursor = qldb_session.execute_statement('SELECT first,last FROM Users')
+            json_rows = ion_cursor_to_json(qldb_cursor)
+            print(json.dumps(json_rows, indent=' '))
+        
+        ```
+        
+        > Outputs:
+        
+        ```
+        [
+         {
+          "first": "Harry",
+          "last": "Potter"
+         },
+         {
+          "first": "Tom",
+          "last": "Riddle"
+         }
+        ]
+        ```
+        
+        ## TODO:
+        
+        1. Verify BLOB conversion meets expectations
+        2. Verify CLOB conversion meets expectations
+        
+Keywords: Amazon,Ion,JSON
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown

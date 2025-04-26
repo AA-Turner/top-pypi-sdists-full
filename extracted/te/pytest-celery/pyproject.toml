@@ -1,0 +1,239 @@
+[build-system]
+requires = ["poetry-core>=1.8.1"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.tox
+  | \.venv
+  | \.idea
+  | \.vscode
+  | \.github
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+include = '\.pyi?$'
+line-length = 120
+
+[tool.autoflake]
+check = true
+
+[tool.isort]
+line_length = 120
+multi_line_output = 7
+profile = "black"
+force_single_line = true
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.poetry]
+authors = [
+    "Tomer Nosrati <tomer.nosrati@gmail.com>",
+    "Omer Katz <omer.katz@omerkatz.com>",
+    "Thomas Grainger <pytest-celery@graingert.co.uk>",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Software Development :: Testing",
+    "Framework :: Celery",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: OS Independent",
+]
+
+description = "Pytest plugin for Celery"
+homepage = "https://github.com/celery/pytest-celery"
+license = "BSD-3-Clause"
+name = "pytest-celery"
+version = "v1.2.0"
+readme = "README.rst"
+keywords = ["pytest", "celery"]
+
+[tool.poetry_bumpversion.file."src/pytest_celery/__init__.py"]
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[tool.poetry_bumpversion.file."README.rst"]
+search = ':Version: {current_version}'
+replace = ':Version: {new_version}'
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+celery = { version = "*", allow-prereleases = true }
+kombu = { version = "*", allow-prereleases = true }
+redis = { version = "*", optional = true }
+python-memcached = { version = "*", optional = true }
+boto3 = { version = "*", optional = true }
+botocore = { version = "*", optional = true }
+urllib3 = { version = ">=1.26.16,<2.0", optional = true }
+tenacity = ">=9.0.0"
+pytest-docker-tools = ">=3.1.3"
+docker = "^7.1.0"
+psutil = ">=7.0.0"
+setuptools = [
+    { version = ">=60.0.0,<75.0.0", python = ">=3.8,<3.9" },
+    { version = ">=75.8.0", python = ">=3.9,<4.0" },
+]
+debugpy = "^1.8.12"
+
+[tool.poetry.extras]
+all = ["redis", "python-memcached", "boto3", "botocore", "urllib3"]
+redis = ["redis"]
+memcached = ["python-memcached"]
+sqs = ["boto3", "botocore", "urllib3"]
+
+[tool.poetry.group.dev]
+
+[tool.poetry.group.dev.dependencies]
+poetry-bumpversion = [
+    { version = "^0.3.2", python = "<3.9.0" },
+    { version = ">=0.3.3", python = ">=3.9.0,<4.0" },
+]
+black = "*"
+toml-sort = [
+    { version = ">=0.22.0,<0.24.0", python = ">=3.8,<3.9" },
+    { version = ">=0.24.2", python = ">=3.9,<4.0" },
+]
+autoflake = [
+    { version = "^1.7.0", python = "<3.8.1" },
+    { version = ">=2.3.1", python = ">=3.8.1,<4.0" },
+]
+isort = [
+    { version = "^5.11.0", python = "<3.9.0" },
+    { version = ">=6.0.0", python = ">=3.9.0,<4.0" },
+]
+flake8 = [
+    { version = "^5.0.0", python = "<3.8.1" },
+    { version = "^6.0.0", python = ">=3.8.1,<3.9.0" },
+    { version = ">=7.1.2", python = ">=3.9.0,<4.0" },
+]
+pre-commit = [
+    { version = "^2.21.0", python = "<3.8.0" },
+    { version = "^3.1.0", python = ">=3.8.0,<3.9.0" },
+    { version = "^4.1.0", python = ">=3.9.0,<4.0" },
+]
+mypy = [
+    { version = ">=1.12.0", python = "<3.9.0" },
+    { version = ">=1.15.0", python = ">=3.9.0,<4.0" },
+]
+types-redis = ">=4.6.0.20241004"
+cleanpy = [
+    { version = "^0.5.0", python = "<3.9.0" },
+    { version = ">=0.5.1", python = ">=3.9.0,<4.0" },
+]
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+coverage = [
+    { version = "^7.0.0", python = "<3.9" },
+    { version = ">=7.6.12", python = ">=3.9,<4.0" },
+]
+pytest-sugar = { version = ">=1.0.0", python = ">=3.8,<4.0" }
+pytest-cov = [
+    { version = ">=5.0.0,<6.0.0", python = ">=3.8,<3.9" },
+    { version = ">=6.0.0", python = ">=3.9,<4.0" },
+]
+pytest-xdist = ">=3.6.1"
+pytest-subtests = [
+    { version = "*", python = ">=3.8,<3.9" },
+    { version = "^0.14.0", python = ">=3.9,<4.0" },
+]
+pytest-rerunfailures = [
+    { version = ">=14.0,<15.0", python = ">=3.8,<3.9" },
+    { version = ">=15.0", python = ">=3.9,<4.0" },
+]
+
+[tool.poetry.group.ci]
+optional = true
+
+[tool.poetry.group.ci.dependencies]
+tox = [
+    { version = "^3.0.0", python = "<3.8.1" },
+    { version = ">=4.24.1", python = ">=3.8.1,<4.0" },
+]
+tox-gh-actions = [
+    { version = "^2.0.0", python = "<3.8.1" },
+    { version = ">=3.2.0", python = ">=3.8.1,<4.0" },
+]
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx_celery = ">=2.1.3"
+Sphinx = [
+    { version = "^7.1.0", python = "<3.9" },
+    { version = ">=7.0.0", python = ">=3.9,<4.0" },
+]
+sphinx-testing = ">=1.0.1"
+sphinx-click = ">=6.0.0"
+sphinx-autobuild = [
+    { version = ">=2021.3.14", python = "<3.9" },
+    { version = ">=2024.4.16", python = ">=3.9,<4.0" },
+]
+sphinxcontrib-mermaid = ">=1.0.0"
+docutils = [
+    { version = "0.20.1", python = "<3.9.0" },
+    { version = ">=0.20.1", python = ">=3.9.0,<4.0" },
+]
+
+[tool.poetry.plugins.pytest11]
+celery = "pytest_celery.plugin"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--verbose",
+    "--capture=no",
+    "--cov=src",
+    "--cov-report=xml",
+    "--cov-report",
+    "term",
+]
+minversion = "7.0"
+testpaths = "tests"
+python_classes = "test_*"
+xfail_strict = true
+
+[tool.mypy]
+warn_unused_configs = true
+strict = false
+follow_imports = "skip"
+show_error_codes = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src"]
+
+[tool.coverage.run]
+branch = true
+cover_pylib = false
+source = ["src"]
+omit = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "except ImportError:",
+    '__version__ = ".*"',
+]
+omit = ["*/python?.?/*", "*/site-packages/*", "*/pypy/*"]

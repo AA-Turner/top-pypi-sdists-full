@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: types-pysaml2
+Version: 1.0.1
+Summary: Type Stubs for pysaml2
+Home-page: https://github.com/cex-solutions/pysaml2
+Author: Binovate Labs
+Author-email: cex-dev@binovate.com
+License: GPLv3
+Project-URL: Bug Reports, https://github.com/cex-solutions/types-pysaml2/issues
+Project-URL: Source, https://github.com/cex-solutions/types-pysaml2
+Keywords: stubs pysaml2 pysaml saml2 saml
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Typing :: Stubs Only
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.7, <4
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+License-File: LICENSE
+
+# types-pysaml2
+
+This is a package containing type annotations
+for [pysaml2](https://pypi.org/project/pysaml2/).
+
+### Installing:
+
+Simply run the following in the environment in which you want to install this package:
+
+```shell
+# install types-pysaml2
+$ python -m pip install types-pysaml2
+```
+
+or add it to your requirements file.
+
+### Developing
+
+This is a partial stub package, only covering a part of the functions and objects available in `pysaml2`.
+Contributions (both in adding stubs for more functions, or keeping up to date with `pysaml2` itself) are
+welcome.
+
+All the formatting is done using [pre-commit](https://pre-commit.com/). To use this, run the following:
+
+```shell
+# install pre-commit
+$ python -m pip install pre-commit
+
+# Set up the hooks (so pre-commit automatically runs when you do a commit)
+$ cd root/directory/of/the/pulled/repository
+$ pre-commit install
+
+# This will run automatically whenever a commit is created
+# To run it manually, use:
+$ pre-commit run --all-files
+```

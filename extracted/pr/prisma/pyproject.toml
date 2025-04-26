@@ -1,0 +1,118 @@
+[tool.ruff]
+line-length = 120
+output-format = "grouped"
+target-version = "py37"
+extend-exclude = ["typesafety/**.py", "src/prisma/_vendor/**.py"]
+
+[tool.ruff.lint]
+select = [
+  # isort
+  "I",
+  # bugbear rules
+  "B",
+  # remove unused imports
+  "F401",
+  # bare except statements
+  "E722",
+  # unused arguments
+  "ARG",
+  # print statements
+  "T201",
+  "T203",
+  # typing.TYPE_CHECKING misuse
+  "TCH004",
+  "TCH005",
+  # import rules
+  "TID251",
+]
+ignore = [
+  # mutable defaults
+  "B006",
+  # function calls in defaults
+  "B008",
+]
+
+
+[tool.ruff.lint.isort]
+length-sort = true
+length-sort-straight = true
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["prisma", "lib"]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"prisma.http".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.bases".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.enums".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.types".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.client".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.models".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.actions".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.metadata".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.partials".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.engine.http".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.engine.query".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+"prisma.engine.abstract".msg = "This is a generated file, it should only be imported at runtime in other generated files."
+
+"lark".msg = "Lark is only used to bundle a standalone, vendored version of lark. See `lark.nox.py`"
+
+[tool.ruff.lint.per-file-ignores]
+"bin/**.py" = ["T201", "T203"]
+"tests/**.py" = [
+  "T201",
+  "T203",
+  "ARG",
+  # ignore errors about generated imports
+  "TID251"
+]
+"examples/**.py" = ["T201", "T203", "I", "TID251"]
+"databases/**.py" = ["T201", "T203", "TID251"]
+"docs/**.py" = ["T201", "T203"]
+"pipelines/**.py" = ["T201", "T203"]
+
+[tool.pyright]
+include = [
+    "src",
+    "tests",
+    "scripts",
+    "databases",
+    "pipelines",
+]
+ignore = [
+    # these are type checked separately
+    "databases/tests",
+    "databases/sync_tests",
+    # TODO: this should not ignore tests/integrations/conftest.py
+    "tests/integrations/**/*",
+    "src/prisma/_vendor/**.py",
+]
+pythonVersion = "3.9"
+
+# NOTE: whenever you update any of these values you will most likely also have to update `databases/constants.py::PYRIGHT_CONFIG`
+typeCheckingMode = "strict"
+reportUnusedImport = true
+reportPrivateUsage = false
+
+reportImplicitOverride = true
+
+# TODO: pending some major refactoring, enable this
+reportImportCycles = false
+
+# NOTE: these should be periodically enabled and disabled
+# they are too stict for general usage as I don't want
+# pyright disable comments everywhere and I also don't
+# want to have to maintain my own stubs just to mark
+# some types as Any, however they can find potential
+# holes in our type information.
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+
+# very strict errors
+reportUnusedCallResult = false
+reportImplicitStringConcatenation = false
+reportCallInDefaultInitializer = true

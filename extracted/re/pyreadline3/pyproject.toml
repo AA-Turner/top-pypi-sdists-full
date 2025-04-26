@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm", "setuptools-git-versioning"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyreadline3"
+authors = [
+    { name = "Bassem Girgis", email = "brgirgis@gmail.com" },
+    { name = "Jorgen Stenarson", email = "jorgen.stenarson@kroywen.se" },
+    { name = "Gary Bishop", email = "unknwon@unknown.com" },
+    { name = "Jack Trainor", email = "unknwon@unknown.com" },
+]
+maintainers = [{ name = "Bassem Girgis", email = "brgirgis@gmail.com" }]
+description = "A python implementation of GNU readline."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.8"
+keywords = ['readline', 'pyreadline', 'pyreadline3']
+license = { text = "BSD" }
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+
+    'Environment :: Console',
+
+    'Operating System :: Microsoft :: Windows',
+
+    'License :: OSI Approved :: BSD License',
+
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+dependencies = []
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/pyreadline3/pyreadline3"
+Documentation = "https://github.com/pyreadline3/pyreadline3"
+Repository = "https://github.com/pyreadline3/pyreadline3.git"
+Issues = "https://github.com/pyreadline3/pyreadline3/issues"
+Changelog = "https://github.com/pyreadline3/pyreadline3/blob/master/doc/ChangeLog"
+
+[project.optional-dependencies]
+dev = ["build", "flake8", "mypy", "pytest", "twine"]
+
+[tool.setuptools]
+py-modules = ["readline"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed", "pyreadlineconfig.ini"]
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"] }
+
+[tool.setuptools-git-versioning]
+enabled = true
+
+[tool.pytest.ini_options]
+log_cli = 1
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.flake8]
+ignore = ["D", "E1", "E2", "E3", "E5", "W2", "W3", "W5", "E203", "W504", "E712"]
+max-line-length = 80
+exclude = [
+    ".tox",
+    ".nox",
+    ".local",
+    ".git",
+    "__pycache__",
+    ".nox",
+    ".venv",
+    "venv",
+    "env",
+    "build",
+    "dist",
+    ".pytest_cache",
+    "scratch",
+]
+
+[tool.mypy]
+
+# A
+allow_untyped_globals = false
+allow_redefinition = false
+
+# D
+disallow_any_unimported = true
+
+# N
+no_implicit_optional = true
+
+# S
+show_error_codes = true
+show_error_context = true
+show_column_numbers = true
+
+strict = true
+strict_optional = true
+
+# W
+warn_no_return = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["tkinter"]
+ignore_missing_imports = true

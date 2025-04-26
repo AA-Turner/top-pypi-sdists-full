@@ -1,0 +1,20 @@
+Metadata-Version: 2.2
+Name: utf-queue-client
+Version: 1.19.1
+Summary: No description provided
+Author-email: Joe Savage <joe.savage@silabs.com>
+Keywords: UTF
+Requires-Python: >=3.8
+Requires-Dist: pika>=1.2.0
+Requires-Dist: jsonschema>=3.2.0
+Requires-Dist: msgpack>=1.0.2
+Requires-Dist: pydantic
+Requires-Dist: regex
+Requires-Dist: typing_extensions; python_version < "3.8"
+Requires-Dist: click
+Requires-Dist: ubai-client>=1.2.0
+Requires-Dist: opentelemetry-distro[otlp]
+Requires-Dist: otel-extensions>=0.1.2
+Requires-Dist: retry>=0.9.2
+Requires-Dist: requests
+Requires-Dist: ndjson~=0.3

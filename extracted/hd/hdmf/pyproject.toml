@@ -1,0 +1,167 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hdmf"
+authors = [
+  { name="Ryan Ly", email="rly@lbl.gov" },
+  { name="Andrew Tritt", email="ajtritt@lbl.gov" },
+  { name="Oliver Ruebel", email="oruebel@lbl.gov" },
+  { name="Ben Dichter", email="ben.dichter@gmail.com" },
+  { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
+]
+description = "A hierarchical data modeling framework for modern science data standards"
+readme = "README.rst"
+requires-python = ">=3.9"
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "h5py>=3.1.0",
+    "jsonschema>=3.2.0",
+    'numpy>=1.19.3',
+    "pandas>=1.2.0",
+    "ruamel.yaml>=0.16",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tqdm = ["tqdm>=4.41.0"]
+zarr = ["zarr>=2.12.0,<3"]
+sparse = ["scipy>=1.7"]
+termset = [
+    "linkml-runtime>=1.5.5",
+    "schemasheets>=0.1.23",
+    "oaklib>=0.5.12",
+    "pyyaml>=6.0.1",
+]
+
+# development dependencies
+test = [
+    "codespell",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "python-dateutil",
+    "ruff",
+    "tox",
+]
+
+# documentation dependencies
+docs = [
+    "matplotlib",
+    "sphinx>=4",  # improved support for docutils>=0.17
+    "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
+    "sphinx-gallery",
+    "sphinx-copybutton",
+]
+
+# all possible dependencies
+all = ["hdmf[tqdm,zarr,sparse,termset,test,docs]"]
+
+[project.urls]
+"Homepage" = "https://github.com/hdmf-dev/hdmf"
+"Bug Tracker" = "https://github.com/hdmf-dev/hdmf/issues"
+
+[project.scripts]
+validate_hdmf_spec = "hdmf.testing.validate_spec:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+# this file is created/updated when the package is installed and used in
+# src/hdmf/__init__.py to set `hdmf.__version__`
+version-file = "src/hdmf/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".git*",
+    ".codecov.yml",
+    ".readthedocs.yaml",
+    ".mailmap",
+    ".pre-commit-config.yaml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hdmf"]
+exclude = [
+    ".git*",
+    ".codecov.yml",
+    ".readthedocs.yaml",
+    ".mailmap",
+    ".pre-commit-config.yaml",
+]
+
+# [tool.mypy]
+# no_incremental = true  # needed b/c mypy and ruamel.yaml do not play nice. https://github.com/python/mypy/issues/12664
+
+# [tool.interrogate]
+# fail-under = 95
+# verbose = 1
+
+[tool.pytest.ini_options]
+norecursedirs = "tests/unit/helpers"
+
+[tool.codespell]
+skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,hdmf-common-schema,./docs/_build/*,*.ipynb"
+ignore-words-list = "datas,assertIn"
+
+[tool.coverage.run]
+branch = true
+source = ["hdmf"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@abstract"
+]
+omit = [
+    "*/hdmf/_due.py",
+    "*/hdmf/testing/*",
+]
+
+# [tool.black]
+# line-length = 120
+# preview = true
+# exclude = ".git|.mypy_cache|.tox|.venv|venv|.ipynb_checkpoints|_build/|dist/|__pypackages__|.ipynb"
+# force-exclude = "src/hdmf/common/hdmf-common-schema|docs/gallery"
+
+[tool.ruff]
+lint.select = ["E", "F", "T100", "T201", "T203"]
+exclude = [
+  ".git",
+  ".tox",
+  "__pycache__",
+  "build/",
+  "dist/",
+  "src/hdmf/common/hdmf-common-schema",
+  "docs/source/conf.py",
+  "src/hdmf/_due.py",
+  "docs/source/tutorials/",
+  "docs/_build/",
+  "scripts/"
+]
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"docs/gallery/*" = ["E402", "T201"]
+"src/*/__init__.py" = ["F401"]
+"setup.py" = ["T201"]
+"test_gallery.py" = ["T201"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 17

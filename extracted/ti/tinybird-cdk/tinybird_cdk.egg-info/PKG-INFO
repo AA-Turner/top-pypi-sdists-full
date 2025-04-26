@@ -1,0 +1,27 @@
+Metadata-Version: 2.2
+Name: tinybird-cdk
+Version: 0.17.27
+Summary: Tinybird's Connector Development Kit.
+Author-email: "tinybird.co" <support@tinybird.co>
+Project-URL: Repository, https://github.com/tinybirdco/cdk.git
+Requires-Python: <3.12,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: boto3==1.36.21
+Requires-Dist: google-cloud-bigquery==3.5.0
+Requires-Dist: google-cloud-storage==2.10.0
+Requires-Dist: humanize==4.2.3
+Requires-Dist: httpx[http2]==0.27.0
+Requires-Dist: kinesis-python==0.2.1
+Requires-Dist: mysql-connector-python==8.0.29
+Requires-Dist: ndjson==0.3.1
+Requires-Dist: psycopg2-binary==2.9.9
+Requires-Dist: python-dateutil==2.8.2
+Requires-Dist: sentry-sdk
+Requires-Dist: snowflake-connector-python==3.8.1
+Provides-Extra: dev
+Requires-Dist: bump2version==1.0.1; extra == "dev"
+Requires-Dist: faker==15.3.4; extra == "dev"
+Requires-Dist: pytest==7.2.0; extra == "dev"
+Requires-Dist: pytest-httpx==0.30.0; extra == "dev"
+
+This package is under active development and currently meant for internal use only.

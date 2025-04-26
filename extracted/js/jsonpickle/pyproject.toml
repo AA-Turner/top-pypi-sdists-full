@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=61.2", "setuptools_scm[toml]>=6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jsonpickle"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "Theelx" },
+    { name = "David Aguilar", email = "davvid+jsonpickle@gmail.com" },
+]
+description = "jsonpickle encodes/decodes any Python object to/from JSON"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">=3.8"
+dependencies = [
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Documentation = "https://jsonpickle.readthedocs.io/"
+Homepage = "https://jsonpickle.readthedocs.io/"
+Source = "https://github.com/jsonpickle/jsonpickle"
+
+[project.optional-dependencies]
+cov = [
+    "pytest-cov",
+]
+dev = [
+    "black",
+    "pyupgrade",
+]
+testing = [
+    # core
+    "pytest >= 6.0, != 8.1.*",
+    "pytest-benchmark",
+    "pytest-benchmark[histogram]",
+    "pytest-checkdocs >= 1.2.3",
+    "pytest-enabler >= 1.0.1",
+    "pytest-ruff >= 0.2.1",
+    # local
+    "bson",
+    "ecdsa",
+    "feedparser",
+    "gmpy2",
+    "numpy",
+    "pandas",
+    "pymongo",
+    "PyYAML",
+    "scikit-learn",
+    "scipy>=1.9.3; python_version > '3.10'",
+    "scipy; python_version <= '3.10'",
+    "simplejson",
+    "sqlalchemy",
+    "ujson",
+    # fuzzing
+    "atheris ~= 2.3.0; python_version < '3.12'",
+]
+docs = [
+    "furo",
+    "rst.linker >= 1.9",
+    "sphinx >= 3.5",
+]
+packaging = [
+    "build",
+    "setuptools>=61.2",
+    "setuptools_scm[toml]>=6.0",
+    "twine",
+]
+
+[tool.setuptools]
+packages = [
+    "jsonpickle",
+    "jsonpickle.ext",
+]
+include-package-data = true
+
+[tool.black]
+skip-string-normalization = true
+
+[tool.setuptools_scm]
+
+[tool.pytest-enabler.ruff]
+addopts = "--ruff"
+
+[tool.ruff.lint]
+# E721 Do not compare types -> jsonpickle compares types using "is" for performance.
+ignore = ["E721"]

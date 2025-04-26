@@ -1,0 +1,86 @@
+# SPDX-FileCopyrightText: 2024 pydot contributors
+#
+# SPDX-License-Identifier: MIT
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'pydot'
+description = "Python interface to Graphviz's Dot"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">= 3.8"
+dependencies = [
+  'pyparsing>=3.0.9'
+]
+authors = [
+  {name = "Ero Carrera", email = "ero.carrera@gmail.com"},
+  {name = "Peter Nowee", email = "peter@peternowee.com"},
+  {name = "Łukasz", email = "lukaszlapinski7@gmail.com"},
+  {name = "FeRD (Frank Dana)", email = "ferdnyc@gmail.com"},
+]
+maintainers = [
+  {name = "Peter Nowee", email = "peter@peternowee.com"},
+  {name = "Łukasz", email = "lukaszlapinski7@gmail.com"},
+]
+keywords = ["graphviz", "dot", "graphs", "visualization"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Visualization",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = [
+  'version',
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "pydot.__version__"}
+
+[tool.setuptools]
+license-files = [
+   'LICENSES/*',
+]
+
+[project.urls]
+Homepage = "https://github.com/pydot/pydot"
+Changelog = "https://github.com/pydot/pydot/blob/main/ChangeLog"
+"Bug Tracker" = "https://github.com/pydot/pydot/issues"
+
+[project.optional-dependencies]
+dev = [
+  'chardet',
+  'parameterized',
+  'ruff'
+]
+tests = [
+  'chardet',
+  'parameterized',
+  'ruff',
+  'tox',
+  'pytest',
+  'pytest-cov',
+  'pytest-xdist[psutil]',
+]
+release = ['zest.releaser[recommended]']
+
+[tool.ruff]
+line-length = 79
+exclude = [
+    "src/pydot/_vendor",
+]
+
+[tool.ruff.lint]
+select = ['E', 'F', 'W', 'I', 'UP', 'C4']

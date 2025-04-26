@@ -1,0 +1,196 @@
+[build-system]
+requires = [
+    "setuptools>=59.0.0",
+    "cython",
+    "numpy>=1.17.0",
+    "versioneer[toml]==0.29",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytensor"
+dynamic = ['version']
+requires-python = ">=3.10,<3.14"
+authors = [{ name = "pymc-devs", email = "pymc.devs@gmail.com" }]
+description = "Optimizing compiler for evaluating mathematical expressions on CPUs and GPUs."
+readme = "README.rst"
+license = { file = "LICENSE.txt" }
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+keywords = [
+    "pytensor",
+    "math",
+    "numerical",
+    "symbolic",
+    "blas",
+    "numpy",
+    "autodiff",
+    "differentiation",
+]
+dependencies = [
+    "setuptools>=59.0.0",
+    "scipy>=1,<2",
+    "numpy>=1.17.0",
+    "filelock>=3.15",
+    "etuples",
+    "logical-unification",
+    "miniKanren",
+    "cons",
+]
+
+[project.urls]
+homepage = "https://github.com/pymc-devs/pytensor"
+repository = "https://github.com/pymc-devs/pytensor"
+documentation = "https://pytensor.readthedocs.io/en/latest/"
+
+
+[project.scripts]
+pytensor-cache = "pytensor.bin.pytensor_cache:main"
+
+[project.optional-dependencies]
+complete = ["pytensor[jax]", "pytensor[numba]"]
+development = ["pytensor[complete]", "pytensor[tests]", "pytensor[rtd]"]
+tests = [
+    "pytest",
+    "pre-commit",
+    "pytest-cov>=2.6.1",
+    "coverage>=5.1",
+    "pytest-benchmark",
+    "pytest-mock",
+    "pytest-sphinx",
+]
+rtd = ["sphinx>=5.1.0,<6", "pygments", "pydot", "pydot2", "pydot-ng"]
+jax = ["jax", "jaxlib"]
+numba = ["numba>=0.57", "llvmlite"]
+
+[tool.setuptools.packages.find]
+include = ["pytensor*"]
+
+[tool.setuptools.package-data]
+pytensor = ["py.typed"]
+"pytensor.d3viz" = ["html/*", "css/*", "js/*"]
+
+[tool.coverage.run]
+omit = [
+    "pytensor/_version.py",
+    "tests/*",
+    "pytensor/assert_op.py",
+    "pytensor/graph/opt.py",
+    "pytensor/graph/opt_utils.py",
+    "pytensor/graph/optdb.py",
+    "pytensor/graph/kanren.py",
+    "pytensor/graph/unify.py",
+    "pytensor/link/jax/jax_linker.py",
+    "pytensor/link/jax/jax_dispatch.py",
+]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+omit = ["pytensor/_version.py", "tests/"]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+show_missing = true
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "pytensor/_version.py"
+versionfile_build = "pytensor/_version.py"
+tag_prefix = "rel-"
+
+[tool.pytest.ini_options]
+addopts = "--durations=50 --doctest-modules --ignore=pytensor/link --ignore=pytensor/misc/check_duplicate_key.py"
+testpaths = ["pytensor/", "tests/"]
+xfail_strict = true
+
+[tool.ruff]
+line-length = 88
+exclude = ["doc/", "pytensor/_version.py"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["B905", "C", "E", "F", "I", "UP", "W", "RUF", "PERF", "PTH", "ISC", "T20", "NPY201"]
+ignore = ["C408", "C901", "E501", "E741", "RUF012", "PERF203", "ISC001"]
+unfixable = [
+    # zip-strict: the auto-fix adds `strict=False` but we might want `strict=True` instead
+    "B905",
+]
+
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+# TODO: Get rid of these:
+"**/__init__.py" = ["F401", "E402", "F403"]
+"pytensor/tensor/linalg.py" = ["F403"]
+"pytensor/link/c/cmodule.py" = ["PTH", "T201"]
+"pytensor/misc/elemwise_time_test.py" = ["T201"]
+"pytensor/misc/elemwise_openmp_speedup.py" = ["T201"]
+"pytensor/misc/check_duplicate_key.py" = ["T201"]
+"pytensor/misc/check_blas.py" = ["T201"]
+"pytensor/bin/pytensor_cache.py" = ["T201"]
+# For the tests we skip because `pytest.importorskip` is used:
+"tests/link/jax/test_scalar.py" = ["E402"]
+"tests/link/jax/test_tensor_basic.py" = ["E402"]
+"tests/link/numba/test_basic.py" = ["E402"]
+"tests/link/numba/test_cython_support.py" = ["E402"]
+"tests/link/numba/test_performance.py" = ["E402"]
+"tests/link/numba/test_sparse.py" = ["E402"]
+"tests/link/numba/test_tensor_basic.py" = ["E402"]
+"tests/tensor/test_math_scipy.py" = ["E402"]
+"tests/sparse/test_basic.py" = ["E402"]
+"tests/sparse/test_sp2.py" = ["E402"]
+"tests/sparse/test_utils.py" = ["E402"]
+"tests/sparse/sandbox/test_sp.py" = ["E402", "F401"]
+"tests/compile/test_monitormode.py" = ["T201"]
+"scripts/run_mypy.py" = ["T201"]
+
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+files = ["pytensor", "tests"]
+plugins = ["numpy.typing.mypy_plugin"]
+
+[tool.cibuildwheel]
+build = "*"
+# Uncomment to skip builds that compile but fail when trying to test (maybe due to incompatibility with runner)
+# archs = ["auto64"]
+# Disable any-platform (pp*), and 32-bit builds.
+# Additional options to consider: "*musllinux*"
+skip = ["pp*", "*-win32", "*-manylinux_i686"]
+build-frontend = "build"
+test-command = 'python -c "import pytensor; print(pytensor.__version__); from pytensor.scan import scan_perform; print(scan_perform.get_version())"'
+test-skip = ["cp37*", "*musllinux*", "*win32*", "*i686*"]
+
+# Testing seems to be running into issues locating libs where expected
+# test-requires = ["pytest", "numba", "jax", "jaxlib"]
+# test-command = "pytest {package}/tests"

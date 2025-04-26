@@ -1,0 +1,27 @@
+[tool.ruff]
+extend-exclude = [
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E", "W",
+    # flake8
+    "F",
+    # isort
+    "I",
+    # pytest style
+    "PT",
+    # eradicate commented code
+    "ERA",
+    # ruff lint
+    "RUF",
+]
+ignore = [
+    # `format` will wrap lines.
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dockerflow"]

@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: provide_dir
+Version: 0.1.2
+Summary: Provides a directory with all its parent directories, if it does not yet exist
+Home-page: https://github.com/Nagidal/provide_dir
+Author: Sven Siegmund
+Author-email: sven.siegmund@gmail.com
+License: UNKNOWN
+Keywords: mkdir,make dir,make directory,recursive
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Environment :: Console
+Classifier: Topic :: Software Development :: Testing
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# provide_directory
+
+Function to create the given path, including potential parent directories. Writes to the provided sink (e.g. `print`) whether the directory was created or whether it already existed.
+
+## Dependencies
+
+None
+
+## Usage
+
+```python
+from pathlib import Path
+from provide_dir import provide_dir
+
+needed_path = Path("/path/to/directory/with/subdirectories")
+provide_dir(needed_path, print)
+```
+
+## Installation
+
+### Pip
+
+```
+pip install provide_dir
+```
+
+### Developer's Installation
+
+You can clone the repository and install it with `pip install -e /path/to/local/repository`.
+
+## Test dependencies
+
+To run the tests you will need
+
+* [pytest][pytest]
+* [remove_directory][remove_directory]
+* [re_patterns][re_patterns]
+
+[pytest]: https://pypi.org/project/pytest/
+[remove_directory]: https://pypi.org/project/remove-directory/
+[re_patterns]: https://pypi.org/project/re-patterns/
+
+

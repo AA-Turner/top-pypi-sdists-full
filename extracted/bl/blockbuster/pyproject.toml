@@ -1,0 +1,82 @@
+[project]
+name = "blockbuster"
+version = "1.5.24"
+description = "Utility to detect blocking calls in the async event loop"
+readme = "README.md"
+keywords = ["async", "block", "detect", "event loop", "asyncio"]
+authors = [
+    { name = "Christophe Bornet", email = "bornet.chris@gmail.com" },
+]
+requires-python = ">=3.8"
+dependencies = [
+    "forbiddenfruit>=0.1.4; implementation_name== 'cpython'",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Repository = "https://github.com/cbornet/blockbuster.git"
+Issues = "https://github.com/cbornet/blockbuster/issues"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest>=8.3.3",
+    "ruff>=0.8.0,<0.9",
+    "requests>=2.32.3",
+    "types-requests>=2.32.0.20241016",
+    "aiofile>=3.9.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "C90", # Complexity
+    "CPY", # Missing copyright
+    "COM812", # Messes with the formatter
+    "ISC001", # Messes with the formatter
+    "PERF203", # Rarely useful
+    "PLR09", # Too many something (arg, statements, etc)
+]
+pydocstyle.convention = "google"
+flake8-annotations.allow-star-arg-any = true
+flake8-annotations.mypy-init-return = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D1",
+    "S101",
+    "PTH",
+]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+pretty = true
+show_error_codes = true
+show_error_context = true
+
+[[tool.mypy.overrides]]
+module = "forbiddenfruit.*"
+ignore_missing_imports = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["blockbuster"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "django-scim2"
+version = "0.19.1"
+description = "A partial implementation of the SCIM 2.0 provider specification for use with Django."
+license = "MIT"
+authors = ["Paul Logston <paul@15five.com>"]
+maintainers = ["Devs <devs@15five.com>"]
+readme = "README.rst"
+homepage = "https://pypi.org/project/django-scim2/"
+repository = "https://github.com/15five/django-scim2"
+documentation = "https://django-scim2.readthedocs.io/en/stable/"
+keywords = ["django", "scim", "scim2", "2.0"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Internet",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+    { include = "django_scim", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+scim2-filter-parser = ">=0.5.0"
+django = ">=3.2"
+
+[tool.poetry.dev-dependencies]
+mock = "^4.0.2"
+tox = "^3.16.1"
+flake8 = "^3.8.3"
+toml = "^0.10.1"
+flake8-isort = "^3.0.0"
+pytest = ">=5.4.0"
+pytest-django = "4.5.2"
+coverage = "^6.4.2"
+pytest-cov = "3.0.0"
+
+[tool.black]
+line-length = 100
+skip-string-normalization = true
+
+[build-system]
+requires = ["poetry-core>=1.5.2"]
+build-backend = "poetry.core.masonry.api"

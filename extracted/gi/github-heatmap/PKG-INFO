@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: github_heatmap
+Version: 1.2.7
+Summary: Make everything a GitHub svg poster and Skyline!
+Home-page: https://github.com/malinkang/GitHubPoster
+Author: malinkang
+Author-email: linkang.ma@gmail.com
+License: MIT
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: svgwrite
+Requires-Dist: pendulum==3.0.0
+Requires-Dist: colour
+Provides-Extra: garmin
+Requires-Dist: garminconnect; extra == "garmin"
+Provides-Extra: gpx
+Requires-Dist: gpxpy; extra == "gpx"
+Provides-Extra: strava
+Requires-Dist: stravalib; extra == "strava"
+Provides-Extra: github
+Requires-Dist: PyGithub; extra == "github"
+Provides-Extra: skyline
+Requires-Dist: sdf_fork; extra == "skyline"
+Provides-Extra: todoist
+Requires-Dist: pandas; extra == "todoist"
+Provides-Extra: all
+Requires-Dist: twint_fork; extra == "all"
+Requires-Dist: garminconnect; extra == "all"
+Requires-Dist: gpxpy; extra == "all"
+Requires-Dist: stravalib; extra == "all"
+Requires-Dist: PyGithub; extra == "all"
+Requires-Dist: sdf_fork; extra == "all"
+Requires-Dist: pandas; extra == "all"

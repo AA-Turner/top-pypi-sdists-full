@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: rangehttpserver
+Version: 1.4.0
+Summary: SimpleHTTPServer with support for Range requests
+Home-page: https://github.com/danvk/RangeHTTPServer/
+Author: Dan Vanderkam
+Author-email: danvdk@gmail.com
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+SimpleHTTPServer with support for Range requests
+
+Quickstart:
+
+    $ pip install rangehttpserver
+    $ python -m RangeHTTPServer
+    Serving HTTP on 0.0.0.0 port 8000 ...
+
+See the GitHub repo for more information:
+https://github.com/danvk/RangeHTTPServer

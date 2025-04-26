@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: pandas-summary
+Version: 0.2.0
+Summary: An extension to pandas describe function.
+Home-page: https://github.com/mouradmourafiq/pandas-summary
+Maintainer: Mourad Mourafiq
+Maintainer-email: mouradmourafiq@gmail.com
+License: MIT
+Keywords: pandas,data analysis,machine learning
+Platform: any
+Classifier: Programming Language :: Python
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE
+
+UNKNOWN
+

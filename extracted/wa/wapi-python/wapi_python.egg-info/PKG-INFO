@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: wapi-python
+Version: 0.7.15
+Summary: Volue Insight API python library
+Home-page: https://www.volueinsight.com
+Author: Volue Insight
+Author-email: support.insight@volue.com
+License-File: LICENSE
+
+This library is meant as a simple toolkit for working with data from https://api.volueinsight.com/ (or equivalent services).  Note that access is based on some sort of login credentials, this library is not all that useful unless you have a valid Volue Insight account.

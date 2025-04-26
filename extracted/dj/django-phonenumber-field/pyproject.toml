@@ -1,0 +1,87 @@
+[project]
+name = "django-phonenumber-field"
+requires-python = ">=3.9"
+description = "An international phone number field for django models."
+readme = "README.rst"
+authors = [
+    { name="Stefan Foulis", email="stefan@foulis.ch" },
+    { name="François Freitag", email="mail@franek.fr" },
+]
+maintainers = [
+    { name="François Freitag", email="mail@franek.fr" },
+    { name="Stefan Foulis", email="stefan@foulis.ch" },
+]
+license = { text="MIT" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dynamic = ["version"]
+dependencies = ["Django>=4.2"]
+
+[project.optional-dependencies]
+phonenumbers = ["phonenumbers >= 7.0.2"]
+phonenumberslite = ["phonenumberslite >= 7.0.2"]
+
+[project.urls]
+Homepage = "https://github.com/stefanfoulis/django-phonenumber-field"
+Documentation = "https://django-phonenumber-field.readthedocs.io/"
+Source = "https://github.com/stefanfoulis/django-phonenumber-field"
+Tracker = "https://github.com/stefanfoulis/django-phonenumber-field/issues/"
+Changelog = "https://github.com/stefanfoulis/django-phonenumber-field/releases/"
+
+[tool.ruff.lint]
+# see prefixes in https://beta.ruff.rs/docs/rules/
+select = [
+    "F",   # pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehension
+    "U",   # pyupgrade
+]
+
+
+[build-system]
+requires = [
+    "setuptools>=42",
+    "setuptools_scm[toml]>=3.4",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+python_version = "3.9"
+check_untyped_defs = true
+show_error_context = true
+pretty = true
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.setuptools_scm]
+write_to = "phonenumber_field/version.py"

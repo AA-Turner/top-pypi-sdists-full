@@ -1,0 +1,83 @@
+Metadata-Version: 2.2
+Name: LHCbDIRAC
+Version: 11.0.61
+Summary: LHCbDIRAC is the LHCb extension of DIRAC
+Home-page: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/
+License: GPL-3.0-only
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+Requires-Dist: DIRAC~=8.0.0
+Requires-Dist: LbPlatformUtils>=4.4.0
+Requires-Dist: LbEnv
+Requires-Dist: LbProdRun
+Requires-Dist: LbCondaWrappers
+Requires-Dist: requests
+Requires-Dist: six
+Requires-Dist: pydantic>=2
+Requires-Dist: uproot
+Requires-Dist: pyyaml
+Requires-Dist: awkward
+Requires-Dist: xmltodict
+Requires-Dist: rich
+Requires-Dist: beautifulsoup4
+Requires-Dist: python-gitlab
+Requires-Dist: pandas
+Requires-Dist: numpy
+Provides-Extra: server
+Requires-Dist: oracledb<1.3; extra == "server"
+Requires-Dist: DIRAC[server]; extra == "server"
+Requires-Dist: psutil; extra == "server"
+Requires-Dist: stomp.py; extra == "server"
+Requires-Dist: suds; extra == "server"
+Provides-Extra: testing
+Requires-Dist: mock; extra == "testing"
+Requires-Dist: Pillow; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+
+Citations
+  .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.1451768.svg
+   :target: https://doi.org/10.5281/zenodo.1451768
+
+Documentation
+  .. image:: https://readthedocs.org/projects/lhcb-dirac/badge
+      :target: http://lhcb-dirac.readthedocs.io/
+
+Master
+  .. image:: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/badges/master/pipeline.svg
+      :target: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/commits/master
+  .. image:: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/badges/master/coverage.svg
+      :target: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/commits/master
+
+Devel
+  .. image:: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/badges/devel/pipeline.svg
+          :target: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/commits/devel
+  .. image:: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/badges/devel/coverage.svg
+          :target: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC/commits/devel
+
+See the full `coverage output`_.
+  .. _`coverage output`: https://lhcbdirac-cov.web.cern.ch/
+
+
+LHCbDIRAC is the LHCb extension of [DIRAC](https://github.com/DIRACGrid/DIRAC).
+
+Important links
+===============
+
+- Official source code repo: https://gitlab.cern.ch/lhcb-dirac/LHCbDIRAC
+- Issue tracker: https://its.cern.ch/jira/browse/LHCBDIRAC/
+- Developers Mailing list: https://groups.cern.ch/group/lhcb-dirac/default.aspx
+- KB articles about GitLab usage: https://cern.service-now.com/service-portal?id=kb_category&kb_category=5b93207b4f2e02404b4abc511310c75b
+
+Install
+=======
+
+For more detailed installation instructions, see the DIRAC documentation.

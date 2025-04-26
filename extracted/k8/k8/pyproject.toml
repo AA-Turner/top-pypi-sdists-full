@@ -1,0 +1,30 @@
+[project]
+name = "k8"
+version = "29.0.9" # Note, should match kubernetes-client/python in refresh.sh
+authors = [
+  { name="Nick Cooper", email="nick@not.fun" },
+]
+description = "Kubernetes Python Models"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+keywords = ["OpenAPI", "OpenAPI-Generator", "Kubernetes"]
+dependencies = [
+  "pydantic>=2",
+  "aenum>=3.1.11",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/nicknotfun/k8"
+Issues = "https://github.com/nicknotfun/k8/issues"
+
+[tool.setuptools.package-data]
+k8 = ["py.typed"]

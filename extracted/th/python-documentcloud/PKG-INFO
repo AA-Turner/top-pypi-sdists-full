@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: python-documentcloud
+Version: 4.4.1
+Summary: A simple Python wrapper for the DocumentCloud API
+Home-page: https://github.com/muckrock/python-documentcloud
+Author: Mitchell Kotler
+Author-email: mitch@muckrock.com
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Internet :: WWW/HTTP
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: future
+Requires-Dist: listcrunch>=1.0.1
+Requires-Dist: python-dateutil
+Requires-Dist: ratelimit
+Requires-Dist: requests
+Requires-Dist: urllib3
+Requires-Dist: pyyaml
+Requires-Dist: fastjsonschema
+Requires-Dist: python-squarelet
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: pytest-recording; extra == "test"
+Requires-Dist: vcrpy; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+<pre><code>  ____                                        _    ____ _                 _
+ |  _ \  ___   ___ _   _ _ __ ___   ___ _ __ | |_ / ___| | ___  _   _  __| |
+ | | | |/ _ \ / __| | | | '_ ` _ \ / _ \ '_ \| __| |   | |/ _ \| | | |/ _` |
+ | |_| | (_) | (__| |_| | | | | | |  __/ | | | |_| |___| | (_) | |_| | (_| |
+ |____/ \___/ \___|\__,_|_| |_| |_|\___|_| |_|\__|\____|_|\___/ \__,_|\__,_|/  </code></pre>
+
+A simple python wrapper for the DocumentCloud API
+
+- Documentation: [http://documentcloud.readthedocs.org/](http://documentcloud.readthedocs.org/)
+- Issues: [https://github.com/muckrock/python-documentcloud/issues](https://github.com/muckrock/python-documentcloud/issues)
+- Packaging: [https://pypi.python.org/pypi/python-documentcloud](https://pypi.python.org/pypi/python-documentcloud)
+
+## Features
+
+- Retrieve and edit documents and projects, both public and private, from documentcloud.org
+- Upload PDFs into your documentcloud.org account and organize them into projects
+- Download text and images extracted from your PDFs by DocumentCloud
+
+## Getting started
+
+Installation is as easy as...
+
+```bash
+$ pip install python-documentcloud
+```

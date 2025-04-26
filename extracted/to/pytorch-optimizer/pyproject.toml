@@ -1,0 +1,141 @@
+[tool.poetry]
+name = "pytorch_optimizer"
+version = "3.5.1"
+description = "optimizer & lr scheduler & objective function collections in PyTorch"
+license = "Apache-2.0"
+authors = ["kozistr <kozistr@gmail.com>"]
+maintainers = ["kozistr <kozistr@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/kozistr/pytorch_optimizer"
+repository = "https://github.com/kozistr/pytorch_optimizer"
+documentation = "https://pytorch-optimizers.readthedocs.io/en/latest"
+keywords = [
+    "pytorch", "deep-learning", "optimizer", "lr scheduler", "A2Grad", "ASGD", "AccSGD", "AdaBelief", "AdaBound",
+    "AdaDelta", "AdaFactor", "AdaGC", "AdaMax", "AdamG", "AdaMod", "AdaNorm", "AdaPNM", "AdaSmooth", "AdEMAMix",
+    "Simplified-AdEMAMix", "ADOPT", "AdaHessian", "Adai", "Adalite", "AdaLomo", "AdamMini", "AdamP", "AdamS", "Adan",
+    "AggMo", "Aida", "AliG", "Amos", "Apollo", "APOLLO", "AvaGrad", "bSAM", "CAME", "DAdaptAdaGrad", "DAdaptAdam",
+    "DAdaptAdan", "DAdaptSGD", "DAdaptLion", "DeMo", "DiffGrad", "EXAdam", "FAdam", "FOCUS", "Fromage", "FTRL",
+    "GaLore", "Grams", "Gravity", "GrokFast", "GSAM", "Kate", "Lamb", "LaProp", "LARS", "Lion", "LOMO", "Lookahead",
+    "MADGRAD", "MARS", "MSVAG", "Muno", "Nero", "NovoGrad", "OrthoGrad", "PAdam", "PCGrad", "PID", "PNM", "Prodigy",
+    "PSGD", "QHAdam", "QHM", "RAdam", "Ranger", "Ranger21", "RotoGrad", "SAM", "GCSAM", "LookSAM", "ScheduleFreeSGD",
+    "ScheduleFreeAdamW", "ScheduleFreeRAdam", "SCION", "SGDP", "Shampoo", "ScalableShampoo", "SGDW", "SignSGD", "SM3",
+    "SOAP", "SopihaH", "SPAM", "StableSPAM", "SRMM", "StableAdamW", "SWATS", "TAM", "Tiger", "TRAC", "WSAM", "Yogi",
+    "BCE", "BCEFocal", "Focal", "FocalCosine", "SoftF1", "Dice", "LDAM", "Jaccard", "Bi-Tempered", "Tversky",
+    "FocalTversky", "LovaszHinge", "bitsandbytes", "WSD", "QGaLore",
+]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+numpy = [
+    { version = ">1.24.4", python = ">=3.9" },
+    { version = "<=1.24.4", python = "<3.9" },
+]
+torch = [
+    { version = ">=1.10,<2.5", python = "<3.9", source = "torch" },
+    { version = ">=1.10", python = ">=3.9", source = "torch" },
+]
+
+[tool.poetry.group.dev.dependencies]
+isort = [
+    { version = "<6", python = "<3.9" },
+    { version = "^6", python = ">=3.9" },
+]
+black = [
+    { version = "<25", python = "<3.9" },
+    { version = "^25", python = ">=3.9" },
+]
+ruff = "*"
+pytest = "*"
+pytest-cov = "*"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.ruff]
+src = ["pytorch_optimizer", "tests", "examples"]
+target-version = "py312"
+line-length = 119
+exclude = [
+    ".git",
+    ".github",
+    ".idea",
+    ".ipynb_checkpoints",
+    ".pytest_cache",
+    ".ruff_cache",
+    "assets",
+    "dist",
+    "docs",
+    ".venv",
+    "__pypackages__",
+]
+
+[tool.ruff.lint]
+select = [
+    "A", "B", "C4", "D", "E", "F", "G", "I", "N", "S", "T", "ISC", "ICN", "W", "INP", "PIE", "T20", "RET", "SIM",
+    "TID", "ARG", "ERA", "RUF", "YTT", "PL", "Q"
+]
+ignore = [
+    "B905",
+    "D100", "D102", "D104", "D105", "D107", "D203", "D213", "D413",
+    "PLR0912", "PLR0913", "PLR0915", "PLR2004",
+    "Q003", "ARG002",
+]
+fixable = ["ALL"]
+unfixable = ["F401"]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+flake8-quotes.docstring-quotes = "double"
+flake8-quotes.inline-quotes = "single"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"examples/visualize_optimizers.py" = ["D103", "D400", "D415"]
+"{tests,examples}/*.py" = ["D", "S101"]
+"**/__init__.py" = ["F401"]
+"hubconf.py" = ["D", "INP001"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = false
+detect-same-package = true
+force-sort-within-sections = false
+known-first-party = ["pytorch_optimizer"]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+
+[tool.coverage.run]
+omit = [
+    "./pytorch_optimizer/optimizer/adam_mini.py",
+    "./pytorch_optimizer/optimizer/demo.py",
+    "./pytorch_optimizer/optimizer/rotograd.py",
+]
+
+[build-system]
+requires = ["poetry-core>=1.4.0"]
+build-backend = "poetry.core.masonry.api"

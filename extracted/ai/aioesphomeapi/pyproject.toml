@@ -1,0 +1,54 @@
+[tool.ruff]
+required-version = ">=0.5.0"
+exclude = [
+  "aioesphomeapi/api_pb2.py",
+  "aioesphomeapi/api_options_pb2.py",
+]
+
+[tool.ruff.lint]
+select = [
+  "ASYNC", # async rules
+  "E", # pycodestyle
+  "F", # pyflakes/autoflake
+  "FLY", # flynt
+  "FURB", # refurb
+  "G", # flake8-logging-format
+  "I", # isort
+  "PERF", # Perflint
+  "PIE", # flake8-pie
+  "PL", # pylint
+  "UP", # pyupgrade
+  "RUF", # ruff
+  "SIM", # flake8-SIM
+  "SLOT", # flake8-slots
+  "TID", # Tidy imports
+  "TRY", # try rules
+  "PERF", # performance
+]
+
+ignore = [
+  "E501", # line too long
+  "E721", # We want type() check for protobuf messages
+  "PLR0911", # Too many return statements ({returns} > {max_returns})
+  "PLR0912", # Too many branches ({branches} > {max_branches})
+  "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
+  "PLR0915", # Too many statements ({statements} > {max_statements})
+  "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+  "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
+  "TRY003", # Too many to fix - Avoid specifying long messages outside the exception class
+  "TID252", # Prefer absolute imports over relative imports from parent modules
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+  "aioesphomeapi", "tests"
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[build-system]
+requires = ['setuptools>=65.4.1', 'wheel', 'Cython>=3.0.2']
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

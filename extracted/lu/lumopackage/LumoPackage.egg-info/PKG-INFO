@@ -1,0 +1,17 @@
+Metadata-Version: 1.2
+Name: LumoPackage
+Version: 2.2022.10.13
+Summary: Lumo example package
+Home-page: UNKNOWN
+Author: Lumo group
+Author-email: LuMatch@checkmarx.onmicrosoft.com
+License: UNKNOWN
+Description-Content-Type: text/markdown
+Description: **Lumo Packages!**
+        *Don't use this package in production!!*
+        This is an auto-corralation package used in Lumatch system
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6

@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: treelite-runtime
+Version: 3.9.1
+Summary: Treelite runtime
+Home-page: https://github.com/dmlc/treelite
+Author: DMLC
+Maintainer: Hyunsu Cho
+Maintainer-email: chohyu01@cs.washington.edu
+License: Apache-2.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.7
+Requires-Dist: numpy
+Requires-Dist: scipy

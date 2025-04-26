@@ -1,0 +1,73 @@
+# objsize
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "objsize"
+version = "0.7.1"
+description = "Traversal over Python's objects subtree and calculate the total size of the subtree in bytes (deep size)."
+readme = "README.md"
+authors = [{ name = "Liran Funaro", email = "liran.funaro@gmail.com" }]
+license = { text = "BSD-3-Clause" }
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+keywords = ["object-size", "recursive", "deep", "traversal", "object", "size", "debug", "deep-object-size"]
+dependencies = []
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = [
+    "bumpver", "black", "isort", "flake8", "pylint", "mypy", "pip-tools", "pytest", "pytest-cov", "coveralls", "pyyaml"
+]
+docs = [
+    "sphinx", "sphinx-rtd-theme", "sphinx_rtd_dark_mode", "myst_parser", "sphinx-markdown-builder>=0.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/liran-funaro/objsize"
+
+[tool.bumpver]
+current_version = "0.7.1"
+version_pattern = "MAJOR.MINOR.PATCH[-TAG]"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    "current_version = \"{version}\"",
+    "version = \"{version}\"",
+]
+"README.md" = [
+    "objsize=={version}",
+    "Copyright (c) 2006-YYYY, Liran Funaro.",
+]
+"LICENSE" = [
+    "Copyright (c) 2006-YYYY, Liran Funaro.",
+]
+"objsize/__init__.py" = [
+    "^__version__ = \"{version}\"$",
+]
+"docs/conf.py" = [
+    "^version = \"{version}\"$",
+    "Copyright (c) 2006-YYYY, Liran Funaro.",
+]
+"docs/index.rst" = [
+    "objsize=={version}",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.pylint.format]
+max-line-length = 120
+max-args = 6
+max-positional-arguments = 6

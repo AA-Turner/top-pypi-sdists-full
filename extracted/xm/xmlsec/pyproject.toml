@@ -1,0 +1,90 @@
+[tool.mypy]
+files = ['src']
+ignore_missing_imports = false
+warn_unused_configs = true
+disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_any_unimported = true
+strict_optional = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_no_return = true
+no_implicit_reexport = true
+show_error_codes = true
+
+[tool.black]
+line_length = 130
+skip-string-normalization = true
+target_version = ['py39']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.mypy_cache
+    | \.tox
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.isort]
+profile = 'black'
+known_first_party = ['xmlsec']
+known_third_party = ['lxml', 'pytest', '_pytest', 'hypothesis']
+
+[build-system]
+requires = ['setuptools>=42', 'wheel', 'setuptools_scm[toml]>=3.4', "pkgconfig>=1.5.1", "lxml>=3.8, !=4.7.0"]
+
+[tool.cibuildwheel]
+build-verbosity = 1
+build-frontend = "build"
+skip = [
+    "pp*",
+    "*-musllinux_i686",
+    # LXML doesn't publish wheels for these platforms, which makes it
+    # difficult for us to build wheels, so we exclude them.
+    "cp36-manylinux_aarch64",
+    "cp37-manylinux_aarch64",
+    "cp36-musllinux_aarch64",
+    "cp37-musllinux_aarch64",
+    "cp36-macosx*",
+    "cp37-macosx*",
+    "cp38-macosx*",
+]
+test-command = "pytest -v --color=yes {package}/tests"
+before-test = "pip install -r requirements-test.txt"
+test-skip = "*-macosx_arm64"
+
+[tool.cibuildwheel.environment]
+PYXMLSEC_STATIC_DEPS = "true"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64", "i686"]
+environment-pass = [
+    "PYXMLSEC_LIBXML2_VERSION",
+    "PYXMLSEC_LIBXSLT_VERSION",
+    "PYXMLSEC_STATIC_DEPS",
+    "GH_TOKEN"
+]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+before-all = "brew install perl"
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64", "x86"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux*"
+before-all = "yum install -y perl-core"

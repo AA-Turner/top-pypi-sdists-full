@@ -1,0 +1,70 @@
+[project]
+name = "readme_renderer"
+version = "44.0"
+description = "readme_renderer is a library for rendering readme descriptions for Warehouse"
+authors = [
+  {name = "The Python Packaging Authority", email = "admin@mail.pypi.org"}
+]
+readme = "README.rst"
+license = {text = "Apache License, Version 2.0"}
+dependencies = [
+  "nh3>=0.2.14",
+  "docutils>=0.21.2",
+  "Pygments>=2.5.1",
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Natural Language :: English",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX",
+  "Operating System :: POSIX :: BSD",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Typing :: Typed"
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+md = ["cmarkgfm>=0.8.0"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[project.urls]
+Home-page = "https://github.com/pypa/readme_renderer"
+
+[build-system]
+requires = ["setuptools>=40.8.0"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.coverage.run]
+branch = true
+
+[tool.mypy]
+strict = true
+warn_unused_configs = true
+show_error_codes = true
+enable_error_code = [
+    "ignore-without-code"
+]
+
+[[tool.mypy.overrides]]
+# These modules do not yet have types available.
+module = [
+    "cmarkgfm.*"
+]
+ignore_missing_imports = true

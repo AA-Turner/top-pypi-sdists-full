@@ -1,0 +1,40 @@
+[build-system]
+requires = [
+    "setuptools>=61.2",
+    "setuptools_scm",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "xenv"
+authors = [{name = "CERN - LHCb Core Software", email = "lhcb-core-soft@cern.ch"}]
+license = {text = "GPLv3+"}
+description = "run commands in modified environment"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+]
+urls = {Homepage = "https://gitlab.cern.ch/gaudi/xenv"}
+requires-python = ">=3.7"
+dependencies = []
+dynamic = ["version"]
+
+[project.scripts]
+xenv = "xenv:main"
+
+[project.optional-dependencies]
+testing = ["coverage"]
+
+[tool.setuptools]
+zip-safe = true
+include-package-data = false
+
+[tool.setuptools.packages.find]
+exclude = []
+namespaces = false

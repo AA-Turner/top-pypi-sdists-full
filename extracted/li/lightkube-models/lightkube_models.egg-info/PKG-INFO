@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: lightkube-models
+Version: 1.32.0.8
+Summary: Models and Resources for lightkube module
+Home-page: https://github.com/gtsystem/lightkube-models
+Author: Giuseppe Tribulato
+Author-email: gtsystem@gmail.com
+License: Apache Software License
+Description: # lightkube-models
+        
+        This is a python module containing definitions of kubernetes
+        models and resources to be used by [lightkube](https://lightkube.readthedocs.io/en/latest/).
+        
+        The version of this package (first 3 parts `major.minor.micro`), match 
+        the kubernetes schema version used to generate the models.
+        
+        You should install the module version matching your kubernetes installation or just
+        use compatible resources.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Description-Content-Type: text/markdown

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: versioneer-518
+Version: 0.19
+Summary: Just the vendored file
+Home-page: https://github.com/warner/python-versioneer
+Author: Nathan Buckner
+Author-email: bucknerns@gmail.com
+License: public domain
+Description: UNKNOWN
+Platform: UNKNOWN

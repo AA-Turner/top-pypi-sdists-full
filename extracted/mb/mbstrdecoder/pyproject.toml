@@ -1,0 +1,60 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=64",
+  "setuptools_scm>=8",
+]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+
+[tool.isort]
+known_third_party = [
+    'pytest',
+]
+include_trailing_comma = true
+line_length = 100
+lines_after_imports = 2
+multi_line_output = 3
+skip_glob = [
+    '*/.eggs/*',
+    '*/.pytype/*',
+    '*/.tox/*',
+]
+
+[tool.coverage.run]
+source = ["mbstrdecoder"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+exclude_lines = [
+    'except ImportError',
+    'raise NotImplementedError',
+    'pass',
+    'ABCmeta',
+    'abstractmethod',
+    'warnings.warn',
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "test",
+]
+
+md_report = true
+md_report_verbose = 0
+md_report_color = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+exclude = [
+    ".eggs/",
+    ".tox/",
+    "_sandbox/*",
+    "build/",
+    "docs/conf.py",
+]

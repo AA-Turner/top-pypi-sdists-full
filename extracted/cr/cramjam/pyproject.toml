@@ -1,0 +1,28 @@
+[project]
+name = "cramjam"
+version = "2.10.0"
+keywords = ["compression", "decompression", "snappy", "zstd", "bz2", "gzip", "lz4", "brotli", "deflate", "blosc2"]
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+
+[project.urls]
+homepage = "https://github.com/milesgranger/pyrus-cramjam"
+documentation = "https://docs.rs/cramjam/latest/cramjam"
+repository = "https://github.com/milesgranger/pyrus-cramjam"
+
+[build-system]
+requires = ["maturin>=0.14"]
+build-backend = "maturin"
+
+[tool.maturin]
+strip = true
+
+[project.optional-dependencies]
+dev = [
+  "black==22.3.0",
+  "numpy",
+  "pytest>=5.30",
+  "pytest-xdist",
+  "pytest-benchmark",
+  "hypothesis<6.123.0"
+]

@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: pytest-parametrization
+Version: 2022.2.1
+Summary: Simpler PyTest parametrization
+Home-page: https://github.com/singular-labs/parametrization
+Author: Singular Labs, Inc
+Author-email: devs@singular.net
+License: MIT License
+Description: # pytest-parametrization
+        Simpler PyTest parametrization
+        
+        ## How to install
+        ```bash
+        pip install pytest-parametrization
+        ```
+        
+        
+        ## How to use
+        ### Explicit parameters
+        ```python
+        from parametrization import Parametrization
+         
+        @Parametrization.parameters("actual", "expected")
+        @Parametrization.case(name="some_case_0", actual=1, expected=2)
+        @Parametrization.case("some_case_1", actual=1, expected=2)
+        @Parametrization.case("some_case_2", 1, expected=1)
+        @Parametrization.case("some_case_3", 2, 2)
+        @Parametrization.case("some_case_4", 3, 3)
+        def test_somthing(actual, expected):
+            assert actual == expected
+        ```
+        ### Auto-detect parameters
+        ```python
+        from parametrization import Parametrization
+         
+        @Parametrization.autodetect_parameters()
+        @Parametrization.case(name="some_case_0", actual=1, expected=2)
+        @Parametrization.case("some_case_1", actual=1, expected=2)
+        @Parametrization.case("some_case_2", actual=1, expected=1)
+        def test_somthing(actual, expected):
+            assert actual == expected
+        ```
+        ### Auto-detect parameters with default parameter
+        ```python
+        from parametrization import Parametrization
+         
+        @Parametrization.autodetect_parameters()
+        @Parametrization.default_parameters(expected=None)
+        @Parametrization.case(name="some_case_0", actual=1, expected=2)
+        @Parametrization.case("some_case_1", actual=1, expected=2)
+        @Parametrization.case("some_case_2", actual=1, expected=1)
+        @Parametrization.case("some_case_2", actual=1)
+        def test_somthing(actual, expected):
+            assert actual == expected
+        ```
+        ### Generate name based on arguments
+        ```python
+        from parametrization import Parametrization
+        
+        @Parametrization.name_factory(lambda actual, expected: '{}=={}'.format(actual, expected))
+        @Parametrization.case(actual=1, expected=1)
+        @Parametrization.case(actual=2, expected=2)
+        @Parametrization.case('special-name', actual=3, expected=3)
+        def test_somthing(actual, expected):
+            assert actual == expected
+        ```
+        
+        As can be seen from the example, you can also give explicit name for a case
+        even if you are using name factory.
+        
+Keywords: pytest,parametrize,parametrization,singular
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Provides: parametrization
+Requires-Python: >=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*
+Description-Content-Type: text/markdown

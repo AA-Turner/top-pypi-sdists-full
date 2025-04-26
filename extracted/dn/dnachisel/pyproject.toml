@@ -1,0 +1,58 @@
+[project]
+name = "dnachisel"
+version = "3.2.15"
+license = "MIT"
+authors = [{ name = "Zulko" }]
+description = "Optimize DNA sequences under constraints."
+readme = "pypi-readme.rst"
+keywords = [
+  "DNA",
+  "gene",
+  "design",
+  "codon",
+  "optimization",
+  "constraints",
+  "synthetic biology",
+]
+dependencies = [
+  "numpy",
+  "biopython",
+  "proglog",
+  "docopt",
+  "flametree",
+  "python_codon_tables",
+]
+
+[project.optional-dependencies]
+reports = [
+  "pdf_reports",
+  "sequenticon",
+  "matplotlib",
+  "dna_features_viewer",
+  "pandas",
+]
+tests = [
+  "pytest",
+  "pytest-cov",
+  "coveralls",
+  "geneblocks",
+  "genome_collector",
+  "matplotlib",
+  "primer3-py",
+]
+
+[project.scripts]
+dnachisel = "dnachisel.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Edinburgh-Genome-Foundry/dnachisel"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["docs"]

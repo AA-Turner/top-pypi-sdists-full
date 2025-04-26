@@ -1,0 +1,55 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cachebox"
+requires-python = ">=3.8"
+keywords = ["caching", "cached", "cachebox", "cache", "in-memory-caching", "memoizing"]
+authors = [
+  {name = "awolverp", email = "awolverp@gmail.com"}
+]
+
+classifiers = [
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python",
+    "Programming Language :: Rust",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Typing :: Typed",
+]
+
+dynamic = [
+    'description',
+    'license',
+    'readme',
+    'version'
+]
+
+[project.urls]
+Homepage = 'https://github.com/awolverp/cachebox'
+
+[project.optional-dependencies]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.maturin]
+python-source = "python"
+features = ["pyo3/extension-module"]
+module-name = "cachebox._core"
+
+[tool.mypy]
+disable_error_code = "attr-defined, type-arg, no-untyped-def, no-any-return"

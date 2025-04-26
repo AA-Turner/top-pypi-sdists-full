@@ -1,0 +1,102 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flynt"
+dynamic = ["version"]
+description = "CLI tool to convert a python project's %-formatted strings to f-strings."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.7"
+authors = [
+    { name = "Ilya Kamenshchikov" },
+]
+keywords = [
+    "strings",
+    "utility",
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "astor",
+    "tomli>=1.1.0; python_version < '3.11'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "twine",
+]
+
+[project.scripts]
+flynt = "flynt:main"
+
+[project.urls]
+Homepage = "https://github.com/ikamensh/flynt"
+
+[tool.hatch.version]
+path = "src/flynt/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+]
+
+[tool.mypy]
+exclude = "test/integration/(actual|expected|samples).*"
+
+[[tool.mypy.overrides]]
+module = "astor"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 141
+target-version = "py39"
+exclude = ["build/**"]
+
+[tool.ruff.lint]
+extend-select = [
+    "C9",
+    "I",
+    "PLR091",
+    "S",
+]
+extend-ignore = [
+    "S101",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 22
+
+[tool.ruff.lint.pylint]
+max-args = 7
+max-branches = 18
+max-statements = 67
+
+[tool.ruff.lint.per-file-ignores]
+"test/*" = ["I", "S"]
+"test/integration/*" = [
+    "F523",
+    "F821",
+    "F841",
+    "I",
+ ]
+"test/test_lexer.py" = ["F841"]
+"test/test_pyproject.py" = ["E712"]
+"test/test_styles.py" = ["S311"]
+"**/tests/*" = ["S101", "ANN"]
+"**/__init__.py" = ["F401"]

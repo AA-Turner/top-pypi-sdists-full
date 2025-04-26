@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyrepl"
+description = "A library for building flexible command line interfaces"
+readme = "README.md"
+license = {text = "MIT X11 style"}
+authors = [{name = "Michael Hudson-Doyle", email = "micahel@gmail.com"}]
+maintainers = [{name = "bretello", email = "bretello@distruzione.org"}]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Intended Audience :: Developers",
+  "Operating System :: POSIX",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Utilities"
+]
+keywords = ["readline", "shell"]
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/bretello/pyrepl"
+issues = "https://github.com/bretello/pyrepl/issues"
+
+[project.scripts]
+pythoni = "pyrepl.pythoni:main"
+pythoni1 = "pyrepl.python1:main"
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-coverage",
+    "pytest-timeout",
+    "pexpect",
+]
+dev = [
+    "ruff==0.9.3",
+    "pyrepl[tests]"
+]
+
+[tool.setuptools]
+packages = ["pyrepl"]
+
+[tool.setuptools_scm]
+write_to = "pyrepl/_version.py"
+
+[tool.ruff]
+target-version = "py38"
+exclude = ["pyrepl/_version.py",]
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  # Pyflakes
+  "F",
+  # pyupgrade
+  "UP",
+  # flake8-bugbear
+  "B",
+  # flake8-simplify
+  "SIM",
+  # isort
+  "I",
+]
+ignore = ["F401", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"pyrepl/console.py" = ["B027"]
+
+[tool.pytest]
+testpaths = ["tests"]
+addopts = ["-ra", "--timeout=10"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+include = ["pyrepl/*", "tests/*"]
+parallel = true
+branch = true
+
+[tool.coverage.paths]
+source = [
+    "pyrepl",
+    "pyrepl/",
+    "*/lib/python*/site-packages/pyrepl/",
+    "*/pypy*/site-packages/pyrepl/",
+]
+
+[tool.coverage.report]
+show_missing = true

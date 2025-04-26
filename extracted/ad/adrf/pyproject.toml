@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "adrf"
+version = "0.1.9"
+description = "Async support for Django REST framework"
+authors = ["Enrico Massa <enrico.massa@gmail.com>"]
+keywords = ["async", "django", "rest", "framework", "drf"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/em1208/adrf"
+repository = "https://github.com/em1208/adrf"
+include = ["LICENSE"]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+django = ">=4.1"
+djangorestframework = ">=3.14.0"
+async-property = ">=0.2.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.2"
+pytest-cov = "^5.0.0"
+pytest-django = "^4.8.0"
+tox = "^4.16.0"
+faker = "^26.1.0"
+ruff = "^0.5.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.coverage.run]
+source = ["adrf"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError"
+]
+
+[tool.pytest]
+addopts="--tb=short --strict-markers -ra"

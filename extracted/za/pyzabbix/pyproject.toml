@@ -1,0 +1,25 @@
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+
+[tool.pylint.messages_control]
+disable = [
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+]
+
+[tool.mypy]
+allow_redefinition = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.coverage.run]
+omit = ["tests/*", "e2e/*"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

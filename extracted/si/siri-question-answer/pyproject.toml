@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "siri_question_answer"
+description = "Python bindings for the siri_question_awnser Rust crate"
+readme = "readme.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 4 - Beta",
+]
+dynamic = ["version"]
+keywords = ["siri", "question", "awnser"]
+
+authors = [
+    {name = "Prince Merveil ONDONDA",email = "prince.ondonda@hove.com"}
+]
+
+maintainers = [
+    {name = "Prince Merveil ONDONDA",email = "prince.ondonda@hove.com"}
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "python_siri_question_awnser/Cargo.toml"

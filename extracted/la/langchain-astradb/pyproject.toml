@@ -1,0 +1,130 @@
+[tool.poetry]
+name = "langchain-astradb"
+version = "0.6.0"
+description = "An integration package connecting Astra DB and LangChain"
+authors = []
+readme = "README.md"
+repository = "https://github.com/langchain-ai/langchain-datastax"
+license = "MIT"
+
+[tool.poetry.urls]
+"Source Code" = "https://github.com/langchain-ai/langchain-datastax/tree/main/libs/astradb"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+langchain-community = ">=0.3.1"
+numpy = "^1.26.0"
+astrapy = ">=2.0.1,<3.0.0"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.3.0"
+pytest-httpserver = "~1.0.8"
+pytest-dotenv = "^0.5.2"
+freezegun = "^1.2.2"
+pytest-mock = "^3.10.0"
+syrupy = "^4.0.2"
+pytest-watcher = "^0.3.4"
+pytest-asyncio = "^0.21.1"
+langchain = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/langchain" }
+langchain-text-splitters = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/text-splitters" }
+langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+langchain-community = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/community" }
+blockbuster = "^1.2.0"
+
+[tool.poetry.group.codespell]
+optional = true
+
+[tool.poetry.group.codespell.dependencies]
+codespell = "^2.2.0"
+
+[tool.poetry.group.test_integration]
+optional = true
+
+[tool.poetry.group.test_integration.dependencies]
+
+[tool.poetry.group.lint]
+optional = true
+
+[tool.poetry.group.lint.dependencies]
+ruff = "^0.6"
+
+[tool.poetry.group.typing.dependencies]
+mypy = "^0.991"
+langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+
+[tool.ruff.lint]
+pydocstyle.convention = "google"
+pep8-naming.classmethod-decorators = [
+    "langchain_core.pydantic_v1.validator",
+]
+flake8-annotations.allow-star-arg-any = true
+flake8-annotations.mypy-init-return = true
+select = ["ALL"]
+ignore = [
+    "COM812", # Messes with the formatter
+    "CPY", # No copyright
+    "D101", # We prefer using the __init__ docstring to document the class
+    "ERA001", # Do we want to activate (no commented code) ?
+    "FIX002", # Accept TODOs
+    "ISC001", # Messes with the formatter
+    "PLR09", # TODO: do we enforce these ones (complexity) ?
+    "TD002", # We have TODOs authors by git
+    "TD003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D",
+    "DOC201",
+    "DOC402",
+    "S101",
+    "SLF001",
+    "T201",
+    "PLC2701",
+    "PLR2004",
+    "PLR6301",
+]
+"scripts/*" = [
+    "D",
+    "T201",
+]
+
+[tool.mypy]
+disallow_untyped_defs = "True"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+# --strict-markers will raise errors on unknown marks.
+# https://docs.pytest.org/en/7.1.x/how-to/mark.html#raising-errors-on-unknown-marks
+#
+# https://docs.pytest.org/en/7.1.x/reference/reference.html
+# --strict-config       any warnings encountered while parsing the `pytest`
+#                       section of the configuration file raise errors.
+#
+# https://github.com/tophat/syrupy
+# --snapshot-warn-unused    Prints a warning on unused snapshots rather than fail the test suite.
+addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5 -vv"
+# Registering custom markers.
+# https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
+markers = [
+  "requires: mark tests as requiring a specific library",
+  "asyncio: mark tests as requiring asyncio",
+  "compile: mark placeholder test used to compile integration tests without running them",
+]
+asyncio_mode = "auto"
+filterwarnings = "ignore::pytest.PytestUnraisableExceptionWarning"

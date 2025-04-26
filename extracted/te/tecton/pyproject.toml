@@ -1,0 +1,117 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tecton"
+
+authors = [
+    { name = "Tecton, Inc.", email = "support@tecton.ai" },
+]
+description = "Tecton Python SDK"
+requires-python = ">=3.7"
+license = { text = "Tecton Proprietary" }
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: Other/Proprietary License",
+]
+
+
+dependencies = [
+    "attrs>=21.3.0",
+    "boto3",
+    'deltalake==0.18.2; python_version > "3.7"',
+    "jinja2~=3.0",
+    "numpy~=1.16",
+    "pathspec",
+    "pendulum~=2.1; python_version < '3.12'",
+    "pendulum==3.0.0; python_version >= '3.12'",
+    "protobuf>=4.21.12,<5", # Update in coordination with protoc. See tecton_proto/README.md.
+    "pypika~=0.48.9",
+    "pytimeparse",
+    "pandas>=1.0",
+    "texttable",
+    "requests",
+    "colorama~=0.4",
+    "tqdm~=4.41",
+    "yaspin<3,>=0.16",
+    "typing-extensions~=4.1",
+    "pygments>=2.7.4",
+    "pytest",
+    "click~=8.0",
+    "typeguard~=2.0",
+    "sqlparse",
+    "semantic_version",
+    "pyarrow<16,>=8",
+    "pydantic<3,>=1.10.13",
+    "pyyaml",
+    "setuptools",
+    "pip",
+    "pex~=2.1",
+    'uv~=0.4.1; python_version > "3.7"',
+]
+
+# NOTE: `version` is dynamic but set in the setup.py since we read from
+# a bazel generated file.
+dynamic = ["version", "readme"]
+
+[project.urls]
+Homepage = "https://tecton.ai"
+Documentation = "https://docs.tecton.ai"
+
+
+[project.scripts]
+tecton = "tecton.cli.cli:main"
+
+[project.entry-points.pytest11]
+pytest_tecton = "tecton.pytest_tecton"
+
+
+[project.optional-dependencies]
+databricks-connect = ["databricks-connect[sql]~=10.4.12"]
+databricks-connect9 = ["databricks-connect[sql]~=9.1.23"]
+databricks-connect10 = ["databricks-connect[sql]~=10.4.12"]
+databricks-connect11 = ["databricks-connect[sql]~=11.3.12"]
+pyspark = ["pyspark[sql]~=3.2"]
+pyspark3 = ["pyspark[sql]~=3.2"]
+
+'pyspark3.1' = ["pyspark[sql]~=3.1.2"]
+'pyspark3.2' = ["pyspark[sql]~=3.2.1"]
+'pyspark3.3' = ["pyspark[sql]~=3.3.2"]
+
+rift = [
+    "duckdb==1.1.2",
+    "pyarrow>=11.0.0",
+    "pandas>=1.5",
+]
+rift-materialization = [
+    "duckdb==1.1.2",
+    "pyarrow~=15.0.0",
+    "pandas>=1.5",
+    "snowflake-connector-python[pandas]~=3.10",
+    "snowflake-snowpark-python[pandas]~=1.0",
+    "google-cloud-bigquery[pandas]~=3.16",
+    "google-cloud-bigquery-storage~=2.25",
+    "google-cloud-storage~=2.8",
+    "redshift-connector~=2.1",
+    # Rift materialization requires IMDSv2 support. Older versions of boto3 do not support this metadata server mode:
+    # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html#use-a-supported-sdk-version-for-imdsv2
+    "boto3>=1.12.6",
+    # Extra data source libraries
+    "pyiceberg[glue]~=0.7",
+    "psycopg[binary]~=3.2",
+]
+snowflake = ["snowflake-snowpark-python[pandas]~=1.0"]
+athena = ["awswrangler~=3.0"]
+materialization = ["statsd==3.3.0", "urllib3<2.0.0"]
+ml-extras = ["torch>=2.0.0", "transformers>=4.40.0"]
+
+
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"], content-type = "text/markdown" }
+
+[tool.setuptools.packages.find]
+where = ["."]

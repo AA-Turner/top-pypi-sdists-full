@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: firebase-functions
+Version: 0.4.2
+Summary: Firebase Functions Python SDK
+Home-page: https://github.com/firebase/firebase-functions-python
+Author: Firebase Team
+License: Apache License 2.0
+Keywords: firebase,functions,google,cloud
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.10
+Provides-Extra: dev
+License-File: LICENSE
+
+The Firebase Functions Python SDK provides an SDK for defining Cloud Functions for Firebase.

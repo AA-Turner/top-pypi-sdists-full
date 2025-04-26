@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: tensorflow-lattice
+Version: 2.1.1
+Summary: A library that implements optionally monotonic lattice based models.
+Home-page: https://github.com/tensorflow/lattice
+Author: Google Inc.
+Author-email: no-reply@google.com
+License: Apache 2.0
+Keywords: tensorflow lattice calibration machine learning
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+Provides-Extra: tensorflow
+License-File: LICENSE
+License-File: AUTHORS
+
+TensorFlow Lattice is a library that implements fast-to-evaluate and
+interpretable (optionally monotonic) lattice based models, which are also known
+as *interpolated look-up tables*. The library includes a collection of Keras
+layers for lattices and feature calibration that can be composed into custom
+models or used inside generic premade models.

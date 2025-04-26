@@ -1,0 +1,182 @@
+[project]
+name = "robotframework-robocop"
+description = "Static code analysis tool (linter) and code formatter for Robot Framework"
+readme = "README.md"
+authors = [
+  { name = "Bartlomiej Hirsz", email = "bartek.hirsz@gmail.com" },
+  { name = "Mateusz Nojek", email = "matnojek@gmail.com" },
+]
+maintainers = [
+    { name = "Bartlomiej Hirsz", email = "bartek.hirsz@gmail.com" },
+]
+requires-python = ">=3.9"
+dependencies = [
+    "jinja2>=3.1.4",
+    "robotframework>=4.0,<7.3",
+    "typer>=0.12.5",
+    "tomli==2.0.2; python_version < '3.11'",
+    "tomli-w>=1.0",
+    "pathspec>=0.12",
+    "platformdirs>=4.3",
+    "pytz>=2022.7",
+]
+
+keywords = ["robotframework", "automation", "testautomation", "testing", "linter", "qa", "formatting", "formatter"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Robot Framework",
+    "Framework :: Robot Framework :: Tool",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Utilities",
+    "Intended Audience :: Developers"
+]
+
+dynamic = ["version"]
+
+[project.scripts]
+robocop = "robocop.run:main"
+
+[project.urls]
+"Bug tracker" = "https://github.com/MarketSquare/robotframework-robocop/issues"
+"Source code" = "https://github.com/MarketSquare/robotframework-robocop"
+Documentation = "https://robocop.readthedocs.io/"
+Homepage = "https://robocop.readthedocs.io/"
+
+[build-system]
+requires = ["hatchling>=1.26.1"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/robocop"]
+
+[tool.hatch.version]
+path = "src/robocop/__init__.py"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.4",
+    "pytest>=8.3.3",
+    "pytest-xdist>=3.6.1",
+    "ruff==0.9.7",
+]
+doc = [
+    "furo>=2024.8.6",
+    "pygments>=2.18.0",
+    "sphinx>=7.4.7",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
+    "sphinxemoji>=0.3.1",
+]
+
+[tool.ruff]
+line-length = 120
+show-fixes = true
+target-version = "py39"
+lint.select = [
+    "ALL", # include all the rules, including new ones
+]
+lint.ignore = [
+    #### modules
+    "DJ",  # django
+    "PD", # pandas
+    #"C90", # mccabe complexity
+
+    #"EXE", # flake8-executable
+    "PTH", # flake8-use-pathlib
+    #"TID", # flake8-tidy-imports
+    #### specific rules
+    "D100", # missing docstring in public module
+    "D101", # missing docstring in public class
+    "D102", # missing docstring in public method
+    "D103", # missing docstring in public function
+    "D104", # missing docstring in public package
+    "D105", # missing docstring in magic method
+    "D107", # missing docstring in __init__
+    "D203", # blank line before class
+    "D212", # multi-line docstring summary should start at the first line
+    "D400", # first line should end with a period
+    "D415", # first line should end with period, question mark or exlamation point
+    "ANN204", # missing type annotation for __init__
+    "EM102", # exception with fstring
+    "TD002", # 'to do' without author
+    "PT011", # pytest.raises is too broad
+    "S101", # use of assert
+    "COM812", # trailing commas
+    "FIX002", # code with to do - check all of them later
+    "PERF203", # try except in for loop - check all of them for possible refactors
+    "C901", # code too complex (duplicate with other rules)
+    "EM101", # exception with string literal
+    "SIM108", # ternary operator - reconsider, sometimes the code readability is lower with ternary
+    "ISC001", # potential conflict with formatter
+    "TD003", # missing issue link with TODO
+    "FBT001", # Boolean-typed positional argument in function definition
+    "FBT002", # Boolean-typed positional argument in function definition
+    "PLR2004", # magic value in comparison
+    "TRY003", # long message outside the exception class
+    "A005", # formatter shadows a Python standard-library module
+    # Temporarily ignored
+    "ERA001",  # commented-out code
+    "TD005",  # empty TODO
+    "FIX001",  # line with fixme
+    "TD001",  # invalid todo tag fixme
+    "ANN001",  # annotations in method
+    "ANN002",  # annotations in return type
+    "ANN201",  # annotations in return type
+    "ANN205",  # annotations in return type
+    "RUF012",  # mutable class attributes should be annotated with `typing.ClassVar`
+    "TD004",  # missing colon in TODO
+    "N999",  # invalid module names (CamelCase instead of snake_case) - Robot compatibility
+    "T201",  # print in code
+    "PLR0913",  # too many arguments in function definition
+    "PLW2901",  # for loop variable overwritten
+    "INP001",  # part of namespace package
+    "PLR0912",  # too many branches TODO
+    "ANN003",  # missing type kwargs
+    "FA100",  # replace Optional -> not yet possible because of the issue with robot framework
+    "SIM105",  # contexlib.supress
+    "ANN401",  # typing.Any
+    "B028",  # no implicit stacklevel
+    "N818",  # exception with Error suffix
+    "TRY301",  # abstract raise to an inner function
+]
+lint.unfixable = [
+    # PT022 replace empty `yield` to empty `return`. Might be fixed with a combination of PLR1711
+    # In addition, it can't do anything with invalid typing annotations, protected by mypy.
+    "PT022",
+]
+extend-exclude = [
+    "tests/linter/test_data/",
+    "docs/"
+]
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*" = [
+    "ANN",  # no typing for tests for now
+    "PLR0913"  # too many arguments in function definition
+]
+# html code embedded
+"docs/conf.py" = ["E501"]
+# temporary because of the rules description
+"src/robocop/linter/rules/*" = ["D205"]
+# bug in typer where | None can't be used
+"src/robocop/run.py" = ["RUF013"]
+
+[tool.coverage.run]
+omit = ["*tests*"]
+source = ["robocop"]
+
+[tool.coverage.report]
+exclude_lines = [
+        "pragma: no cover",
+        "if __name__ == .__main__.:",
+        "raise NotImplementedError"
+]
+fail_under = 5

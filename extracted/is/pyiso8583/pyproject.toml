@@ -1,0 +1,35 @@
+[build-system]
+requires = [
+    "setuptools >= 40.6.2",
+    "wheel >= 0.30.0",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra --doctest-modules"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+testpaths = [
+    "tests",
+    "iso8583",
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+    "iso8583"
+]
+omit = [
+    "tests/*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.mypy]
+strict = true
+files = [
+    "iso8583/**/*.py",
+    "tests/**/*.py",
+]

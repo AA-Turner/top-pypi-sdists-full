@@ -1,0 +1,233 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling>=1.8.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "psygnal"
+description = "Fast python callback/event system modeled after Qt Signals"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD 3-Clause License" }
+authors = [{ name = "Talley Lambert", email = "talley.lambert@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = [
+    # typing-extensions is in the source code, but not actually required
+    # at runtime. All uses are guarded by if TYPE_CHECKING
+]
+
+# extras
+# https://peps.python.org/pep-0621/#dependencies-optional-dependencies
+[project.optional-dependencies]
+docs = [
+    "griffe==0.25.5",
+    "mkdocs-material==8.5.10",
+    "mkdocs-minify-plugin",
+    "mkdocs==1.4.2",
+    "mkdocstrings-python==0.8.3",
+    "mkdocstrings==0.20.0",
+    "mkdocs-spellcheck[all]",
+]
+proxy = ["wrapt"]
+pydantic = ["pydantic"]
+test = [
+    "dask[array]>=2024.0.0",
+    "attrs",
+    "numpy >1.21.6",
+    "pydantic",
+    "pyinstaller>=4.0",
+    "pytest>=6.0",
+    "pytest-cov",
+    "wrapt",
+    "msgspec",
+    "toolz",
+]
+testqt = ["pytest-qt", "qtpy"]
+
+dev = [
+    "psygnal[test, testqt]",
+    "PyQt6",
+    "ipython",
+    "mypy",
+    "mypy_extensions",
+    "pre-commit",
+    "pytest-mypy-plugins",
+    "rich",
+    "ruff",
+    "typing-extensions",
+]
+
+[project.urls]
+homepage = "https://github.com/pyapp-kit/psygnal"
+repository = "https://github.com/pyapp-kit/psygnal"
+documentation = "https://psygnal.readthedocs.io"
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "psygnal._pyinstaller_util._pyinstaller_hook:get_hook_dirs"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "CHANGELOG.md"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+
+[tool.hatch.build.targets.wheel.hooks.mypyc]
+mypy-args = ["--ignore-missing-imports"]
+enable-by-default = false
+require-runtime-dependencies = true
+dependencies = [
+    "hatch-mypyc>=0.13.0",
+    # FIXME: something happened in 1.14.0 that broke the build
+    # https://github.com/pyapp-kit/psygnal/issues/350
+    "mypy==1.13.0",
+    "mypy_extensions >=0.4.2",
+    "pydantic!=2.10.0",
+    "types-attrs",
+    "msgspec",
+]
+exclude = [
+    "src/psygnal/__init__.py",
+    "src/psygnal/_evented_model.py",
+    "src/psygnal/utils.py",
+    "src/psygnal/containers",
+    "src/psygnal/qt.py",
+    "src/psygnal/_pyinstaller_util",
+    "src/psygnal/_throttler.py",
+]
+
+[tool.cibuildwheel]
+# Skip 32-bit builds & PyPy wheels on all platforms
+skip = ["*-manylinux_i686", "*-musllinux_i686", "*-win32", "pp*"]
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*"]
+test-extras = ["test"]
+test-command = "pytest {project}/tests -v"
+test-skip = ["*-musllinux*", "cp312-win*", "*-macosx_arm64"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_i686*"
+before-all = "yum install -y python3-devel"
+
+[tool.cibuildwheel.environment]
+HATCH_BUILD_HOOKS_ENABLE = "1"
+
+# https://docs.astral.sh/ruff/
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "F",    # flakes
+    "W",    # warnings
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "TC",  # flake8-typecheck
+    "TID",  # flake8-tidy-imports
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "D401", # First line should be in imperative mood
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S", "RUF012"]
+"benchmarks/*.py" = ["D", "RUF012"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+
+# https://docs.pytest.org/en/6.2.x/customize.html
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore:The distutils package is deprecated:DeprecationWarning:",
+    "ignore:.*BackendFinder.find_spec()",                                            # pyinstaller import
+    "ignore:.*not using a cooperative constructor:pytest.PytestDeprecationWarning:",
+    "ignore:Failed to disconnect::pytestqt",
+]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/*.py"
+strict = true
+disallow_any_generics = false
+disallow_subclassing_any = false
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["numpy.*", "wrapt", "pydantic.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["wrapt"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+# https://coverage.readthedocs.io/en/6.4/config.html
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "\\.\\.\\.",
+    "raise NotImplementedError()",
+]
+show_missing = true
+
+[tool.coverage.run]
+source = ["psygnal"]
+omit = ["*/_pyinstaller_util/*"]
+
+# https://github.com/mgedmin/check-manifest#configuration
+[tool.check-manifest]
+ignore = [
+    ".ruff_cache/**/*",
+    ".github_changelog_generator",
+    ".pre-commit-config.yaml",
+    "tests/**/*",
+    "typesafety/*",
+    ".devcontainer/*",
+    ".readthedocs.yaml",
+    "Makefile",
+    "asv.conf.json",
+    "benchmarks/*",
+    "docs/**/*",
+    "mkdocs.yml",
+    "src/**/*.c",
+    "codecov.yml",
+    "CHANGELOG.md",
+]

@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "agilicus"
+version = "1.287.1"
+description = "Agilicus SDK"
+license = "MIT"
+homepage = "https://www.agilicus.com/"
+repository = "https://github.com/Agilicus"
+authors = ["Agilicus Devs <dev@agilicus.com>"]
+readme = "README.md"
+include = [ "agilicus_README.md" ]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+certifi = ">=14.05.14"
+python_dateutil = ">2.5.3"
+PyJWT = "^2.8.0"
+requests = ">=2.23.0,<3.0.0"
+prettytable = "^3.9.0"
+oauth2client = ">=4.1.3,<4.2.0"
+click = "^8.0.0"
+six = "^1.14.0"
+cryptography = ">=39.0.0"
+keyring = ">=23.0.0"
+pyyaml = "6.0.2"
+stripe = { version = ">=2.60,<13.0", optional = true }
+prometheus_client = { version = "0.21.1", optional = true }
+paho-mqtt = ">=1.6.1,<3.0.0"
+colorama = "^0.4.3"
+xdg = "^5.1.1"
+#"stomp.py" = "^8.1.0"
+# removed until upstream has been merged
+#"stomp.py" = { git = "https://github.com/mfmarche/stomp.py", branch = "fix_ws_shutdown" }
+
+"keyrings.alt" = ">=4.2,<6.0"
+dateparser = "1.2.0"
+pem = "^23.1.0"
+babel = "^2.13.1"
+click-shell = "^2.1"
+appdirs = "^1.4.4"
+shortuuid = "^1.0.13"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.5"
+flake8 = "^5.0.4"
+markdown = "^3.2.1"
+ptvsd = "^4.3.2"
+pre-commit = "^3.5.0"
+safety = "^3.4.0"
+black = "24.8.0"
+
+[tool.poetry.extras]
+billing = ["stripe", "prometheus_client"]
+
+[tool.poetry.scripts]
+agilicus-cli = 'agilicus.main:main'
+
+[tool.isort]
+line_length = 89
+# force_single_line = true
+atomic = true
+include_trailing_comma = true
+lines_after_imports = 2
+lines_between_types = 1
+multi_line_output = 3
+force_grid_wrap = 0
+use_parentheses = true
+not_skip = "__init__.py"
+filter_files = true
+exclude = 'agilicus/agilicus_api/**'
+
+
+[tool.black]
+line-length = 89
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+    \.git
+  | \.tox
+  | \.venv
+  | agilicus_api
+  | build
+  | dist
+'''
+
+# ignore = # E203, E266, E501, W503, F403, F401
+[tool.flake8]
+max-line-length = 89
+exclude = 'agilicus/agilicus_api/**'
+[build-system]
+requires = ["poetry-core>=1.0.8"]
+build-backend = "poetry.core.masonry.api"

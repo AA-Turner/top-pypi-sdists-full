@@ -1,0 +1,115 @@
+Metadata-Version: 2.2
+Name: pylint_junit
+Version: 0.3.5
+Summary: pylint reporter for junit format.
+Home-page: https://github.com/rasjani/pylint_junit
+Author: Jani Mikkonen
+Author-email: jani.mikkonen@gmail.com
+License: MIT
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: POSIX :: Other
+Requires-Dist: pylint
+Requires-Dist: junit-xml-2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
+
+
+pylint_junit
+============
+
+Pylint plugin that generates JUnit based report that can be consumed
+by CI environments like Jenkins, Azure Devops and such.
+
+Why ?
+=====
+
+At the time of writing, few tools existed that where able to generate
+JUnit format from pylint output. Both of these projects where not
+handling "empty" results scenario well, eg both cases generated an empty
+file and that caused issues in ci as the resulting document was not
+proper xml file. Another issue was that issues found by pylint where
+marked under single testcase failure and this caused atleast Azure to
+report a single item per file even thought there could have been multiple.
+
+Thus, pylint_junit was written.
+
+Installation
+============
+
+Install the package with
+
+.. code-block::
+
+   pip install pylint_junit
+
+or add it to your requirements.
+
+Usage
+=====
+
+After the plugin has been installed there are few options to take it into use.
+
+Add following lines into your .pylintrc:
+
+.. code-block::
+
+   [MASTER]
+   load-plugins=pylint_junit
+   [REPORTS]
+   output-format=junit
+
+This does set the default output to junit, so if still want to run pylint and get
+normal output, you might want to consider omitting the "output-format=junit"
+portion and only when junit format is needed, provide it via command line like this:
+
+.. code-block::
+
+   pylint --output-format=junit src/
+
+
+
+Or, without making any changes to your pylint configuration, you can just pass the class
+as report formatter like this:
+
+.. code-block::
+
+   pylint --output-format=pylint_junit.JUnitReporter src/
+
+Dependencies
+============
+
+
+* junit_xml__
+
+__ https://github.com/kyrus/python-junit-xml
+
+Bugs / Feedback
+===============
+
+Use Github Issues Tracker @ https://github.com/rasjani/pylint_junit/issues

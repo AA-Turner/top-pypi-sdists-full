@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools >= 61.0", "pytest", "ruff", "twine"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdifflib"
+version = "1.2.9"
+authors = [
+  { name="Matthew Duggan", email="mgithub@guarana.org" },
+]
+description = "C implementation of parts of difflib"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.4"
+keywords=["difflib", "c", "diff"]
+classifiers = [
+      "Development Status :: 5 - Production/Stable",
+      "Environment :: Console",
+      "Intended Audience :: Developers",
+      "License :: OSI Approved :: BSD License",
+      "Operating System :: MacOS :: MacOS X",
+      "Operating System :: Microsoft :: Windows",
+      "Operating System :: POSIX",
+      "Programming Language :: Python",
+      "Topic :: Software Development",
+      "Topic :: Text Processing :: General",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mduggan/cdifflib"
+"Bug Tracker" = "https://github.com/mduggan/cdifflib/issues"
+
+#
+# TODO: Switch to this method for building instead of using setup.py.
+# This requires setuptools >= 74.1 which is a bit too new as of 2025
+#
+#[tool.setuptools]
+#ext-modules = [
+#  {name = "cdifflib", sources = ["_cdifflib.c", "_cdifflib3.c"]}
+#]

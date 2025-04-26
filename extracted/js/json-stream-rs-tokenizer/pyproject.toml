@@ -1,0 +1,2 @@
+[build-system]
+requires = ["setuptools", "wheel", "setuptools-rust>=1,<2"]

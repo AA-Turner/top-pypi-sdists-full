@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: neo4j-rust-ext
+Version: 5.28.1.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development
+Requires-Dist: neo4j==5.28.1
+Requires-Dist: neo4j[numpy] ; extra == 'numpy'
+Requires-Dist: neo4j[pandas] ; extra == 'pandas'
+Requires-Dist: neo4j[pyarrow] ; extra == 'pyarrow'
+Provides-Extra: numpy
+Provides-Extra: pandas
+Provides-Extra: pyarrow
+License-File: LICENSE.txt
+Summary: Rust Extensions for a Faster Neo4j Bolt Driver for Python
+Keywords: neo4j,graph,database
+Author-email: "Neo4j, Inc." <drivers@neo4j.com>
+License: Apache License, Version 2.0
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://neo4j.com/
+Project-URL: Repository, https://github.com/neo4j/neo4j-python-driver-rust-ext
+Project-URL: Issue Tracker, https://github.com/neo4j/neo4j-python-driver-rust-ext/issues
+Project-URL: Changelog, https://github.com/neo4j/neo4j-python-driver-rust-ext/blob/HEAD/CHANGELOG.md
+Project-URL: Forum, https://community.neo4j.com/c/drivers-stacks/python/
+Project-URL: Discord, https://discord.com/invite/neo4j
+
+# Rust Extensions for a Faster Neo4j Bolt Driver for Python
+
+This project contains Rust extensions to speed up the [official Python driver for Neo4j](https://github.com/neo4j/neo4j-python-driver).
+
+The exact speedup depends on the use-case but has been measured to be up to 10x faster.
+Use-cases moving only few but big records out of the DBMS tend to benefit the most.
+
+
+## Installation
+Adjust your dependencies (`requirements.txt`, `pyproject.toml` or similar) like so:
+```
+# remove:
+# neo4j == X.Y.Z  # needs to be at least 5.14.1 for a matching Rust extension to exist
+# add:
+neo4j-rust-ext == X.Y.Z.*
+```
+
+I.e., install the same version of `neo4j-rust-ext` as you would install of `neo4j` (except for the last segment which is used for patches of this library).  
+That's it!
+You don't have to change your code but can use the driver as you normally would.
+This package will install the driver as its dependency and then inject itself in a place where the driver can find it and pick it up.
+
+N.B., since the driver is a simple Python dependency of this package, you can also manually install/specify both packages at the same time without issues.
+However, make sure the versions match if you do so or leave the version of one of the two unspecified to let the package manager pick a compatible version for you (resolution might be slow, however).
+
+If you experience issues with the driver, consider troubleshooting without the Rust extension first.
+For that, simply make sure you haven't installed `neo4j-rust-ext` but *only* `neo4j`.
+
+
+## Requirements
+For many operating systems and architectures, the pre-built wheels will work out of the box.
+If they don't, pip (or any other Python packaging front-end) will try to build the extension from source.
+Here's what you'll need for this:
+ * Rust 1.67.0 or later:  
+   https://www.rust-lang.org/tools/install
+ * Further build tools (depending on the platform).  
+   E.g., `gcc` on Ubuntu: `sudo apt install gcc`
+

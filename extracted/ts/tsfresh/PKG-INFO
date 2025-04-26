@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: tsfresh
+Version: 0.21.0
+Summary: tsfresh extracts relevant characteristics from time series
+Home-page: https://github.com/blue-yonder/tsfresh
+Author: Maximilian Christ, Nils Braun, Julius Neuffer, Andreas W. Kempa-Liehr
+Author-email: max.christ@me.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
+Requires-Python: >=3.9
+Provides-Extra: dask
+Provides-Extra: matrixprofile
+Provides-Extra: docs
+Provides-Extra: testing

@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: torch_ema
+Version: 0.3
+Summary: PyTorch library for computing moving averages of model parameters.
+Home-page: https://github.com/fadel/pytorch_ema
+Author: Samuel G. Fadel
+Author-email: samuelfadel@gmail.com
+License: UNKNOWN
+Download-URL: https://github.com/fadel/pytorch_ema/archive/0.3.tar.gz
+Description: UNKNOWN
+Keywords: pytorch,parameters,deep-learning
+Platform: UNKNOWN

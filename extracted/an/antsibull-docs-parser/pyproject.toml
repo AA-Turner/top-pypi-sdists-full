@@ -1,0 +1,89 @@
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2023, Ansible Project
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "antsibull-docs-parser"
+dynamic = ["version"]
+description = "Python library for processing Ansible documentation markup"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-3.0-or-later AND BSD-2-Clause"
+license-files.globs = ["LICENSES/*.txt"]
+authors = [
+  { name = "Felix Fontein", email = "felix@fontein.de" },
+]
+maintainers = [
+  { name = "Felix Fontein", email = "felix@fontein.de" },
+  { name = "Maxwell G", email = "maxwell@gtmx.me" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Ansible",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[project.urls]
+"Source code" = "https://github.com/ansible-community/antsibull-docs-parser/"
+"Code of Conduct" = "https://docs.ansible.com/ansible/latest/community/code_of_conduct.html"
+"Bug tracker" = "https://github.com/ansible-community/antsibull-docs-parser/issues"
+"Changelog" = "https://github.com/ansible-community/antsibull-docs-parser/tree/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+codeqa = [
+    "antsibull-changelog",
+    "flake8",
+    "pylint",
+    "reuse",
+]
+coverage = [
+    "coverage[toml]",
+]
+formatters = [
+    "black",
+    "isort",
+]
+test = [
+    "pyyaml",
+    "pytest",
+    "pytest-cov",
+    "pytest-error-for-skips",
+]
+typing = [
+    "mypy",
+    # https://github.com/facebook/pyre-check/issues/398
+    "pyre-check >= 0.9.17",
+]
+dev = [
+    # Used by nox sessions
+    "antsibull-docs-parser[codeqa]",
+    "antsibull-docs-parser[coverage]",
+    "antsibull-docs-parser[formatters]",
+    "antsibull-docs-parser[test]",
+    "antsibull-docs-parser[typing]",
+    # misc
+    "nox",
+]
+
+[tool.hatch.version]
+path = "src/antsibull_docs_parser/__init__.py"
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.paths]
+source = [
+    "src",
+   "*/site-packages",
+]

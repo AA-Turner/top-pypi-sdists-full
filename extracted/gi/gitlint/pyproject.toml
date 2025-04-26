@@ -1,0 +1,203 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gitlint"
+dynamic = ["version", "dependencies", "urls"]
+description = "Git commit message linter written in python, checks your commit messages for style."
+readme = "README.md"
+
+license = "MIT"
+requires-python = ">=3.7"
+authors = [{ name = "Joris Roovers" }]
+keywords = [
+    "git",
+    "gitlint",
+    "lint",    #
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+exclude = ["*"]
+
+[tool.hatch.metadata.hooks.vcs.urls]
+Homepage = "https://jorisroovers.github.io/gitlint"
+Documentation = "https://jorisroovers.github.io/gitlint"
+Source = "https://github.com/jorisroovers/gitlint"
+Changelog = "https://github.com/jorisroovers/gitlint/blob/main/CHANGELOG.md"
+# TODO(jorisroovers): Temporary disable until fixed in hatch-vcs (see #460)
+# 'Source Archive' = "https://github.com/jorisroovers/gitlint/archive/{commit_hash}.zip"
+# 'Source Commit' = "https://github.com/jorisroovers/gitlint/tree/{commit_hash}"
+
+# Use metadata hooks specified in 'hatch_build.py'
+# (this line is critical when building wheels, when building sdist it seems optional)
+[tool.hatch.metadata.hooks.custom]
+
+# Environments #########################################################################################################
+# NOTE: By default all environments inherit from the 'default' environment
+
+# DEV
+# Workaround for editable install:
+# https://github.com/pypa/hatch/issues/588
+[tool.hatch.envs.dev]
+description = """
+Dev environment (running gitlint itself from source)
+"""
+pre-install-commands = [
+    "pip install -e ./gitlint-core", #
+]
+
+[tool.hatch.envs.dev.scripts]
+fullclean = [
+    "rm .coverage .coverage.lcov",
+    "rm -rf site dist .pytest_cache",
+    "rm -rf gitlint-core/dist gitlint-core/build gitlint-core/.pytest_cache",
+    "rm -rf qa/__pycache__ qa/.pytest_cache",
+]
+
+# TEST
+[tool.hatch.envs.test]
+description = """
+Test environment (unit tests, formatting, lint)
+"""
+skip-install = true
+dependencies = [
+    "gitlint-core[trusted-deps] @ {root:uri}/gitlint-core",
+    "black==23.1.0",
+    "pytest==7.2.1",
+    "pytest-cov==4.0.0",
+    "python-coveralls==2.9.3",
+    "ruff==0.0.252",
+    "radon==5.1.0",
+    "pdbr==0.8.2; sys_platform != \"win32\"",
+]
+
+[tool.hatch.envs.test.scripts]
+unit-tests = [
+    "pytest --cov=gitlint-core --cov-report=term --cov-report=lcov:.coverage.lcov -rw -s {args:gitlint-core}",
+]
+u = "unit-tests"
+unit-tests-no-cov = "pytest -rw -s {args:gitlint-core}"
+format = "black --check --diff {args:.}"
+lint = "ruff {args:gitlint-core/gitlint qa}"
+autoformat = "black {args:.}"
+autofix = [
+    "ruff --fix {args:gitlint-core/gitlint qa}",
+    "autoformat",                                #
+]
+
+all = [
+    "unit-tests",
+    "format",
+    "lint",       #
+]
+stats = ["./tools/stats.sh"]
+
+# QA
+[tool.hatch.envs.qa]
+description = """
+Integration test environment.
+Run a set of integration tests against any gitlint binary (not just the one from local source).
+"""
+detached = true
+dependencies = [
+    "pytest==7.2.1",
+    "arrow==1.2.3",
+    "sh==1.14.3; sys_platform != \"win32\"",
+    "pdbr==0.8.2; sys_platform != \"win32\"",
+]
+
+[tool.hatch.envs.qa.scripts]
+# The integration tests can be ran against any gitlint binary, e.g. one installed from pypi (for post-release testing)
+# This is why by default we don't install the local dev version of gitlint in the qa environment
+# To run integration tests against the dev version of gitlint, use install-local first
+install-local = "pip install -e ./gitlint-core[trusted-deps]"
+integration-tests = "pytest -rw -s {args:qa}"
+i = "integration-tests"
+
+
+# DOCS
+[tool.hatch.envs.docs]
+description = """
+Documentation environment. Run docs build and serve commands.
+"""
+detached = true
+dependencies = [
+    "mkdocs==1.4.2", #
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --clean --strict"
+serve = "mkdocs serve"
+
+# Tool config ##########################################################################################################
+
+[tool.black]
+target_version = ['py37', 'py38', 'py39', 'py310']
+line-length = 120
+# extend-exclude: keep excluding files from .gitignore in addition to the ones specified
+extend-exclude = "gitlint-core/gitlint/tests/samples/user_rules/import_exception/invalid_python.py"
+
+[tool.ruff]
+target-version = "py37"
+extend-exclude = [
+    "gitlint-core/gitlint/tests/samples/user_rules/import_exception/invalid_python.py",
+]
+
+ignore = [
+    "E501",    # Never enforce `E501` (line length violations) - taken care of by black
+    "SIM108",  # Use ternary operator instead of if-else-block
+    "PLR0913", # Too many arguments to function call
+]
+
+select = [
+    "F",   # PyFlakes
+    "E",   # Pycodestyle
+    "W",   # Pycodestyle
+    "I",   # isort (import order)
+    "YTT", # flake8-2020 (misuse of sys.version)
+    "S",   # flake8-bandit (security)
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions (correct use of comprehensions)
+    "T10", # flake8-debugger (no debug statements)
+    "T20", # flake8-print (no print statements)
+    "SIM", # flake8-simplify (use simple code)
+    "TID", # flake8-tidy-imports (correct import syntax)
+    "ARG", # flake8-unused-arguments (no unused function arguments)
+    "DTZ", # flake8-datetimez (correct datetime usage)
+    "ERA", # eradicate (no commented out code)
+    "UP",  # pyupgrade (modern python syntax)
+    "PLC", # pylint 
+    "PLE", # pylint
+    "PLR", # pylint
+    "PLW", # pylint
+    "PIE", # flake8-pie
+    "RUF", # ruff specific
+]
+
+[tool.coverage.run]
+branch = true # measure branch coverage in addition to statement coverage
+
+[tool.coverage.report]
+fail_under = 97
+show_missing = true

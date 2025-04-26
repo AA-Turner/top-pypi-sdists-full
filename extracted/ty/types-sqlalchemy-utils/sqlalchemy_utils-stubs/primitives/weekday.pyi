@@ -1,0 +1,13 @@
+from .. import i18n as i18n
+from ..utils import str_coercible as str_coercible
+
+@str_coercible
+class WeekDay:
+    NUM_WEEK_DAYS: int
+
+    def __init__(self, index: int) -> None: ...
+    def get_name(self, width: str = ..., context: str = ...) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def position(self) -> int: ...

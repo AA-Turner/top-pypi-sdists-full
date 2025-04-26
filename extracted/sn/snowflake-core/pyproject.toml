@@ -1,0 +1,231 @@
+[project]
+name = 'snowflake.core'
+authors = [
+    {name = 'Snowflake, Inc.', email = 'snowflake-python-libraries-dl@snowflake.com' },
+]
+description = 'Snowflake Python API for Resource Management'
+readme = 'README.md'
+requires-python = '>=3.9'
+license = {text = 'Apache-2.0'}
+keywords = [
+    'Snowflake',
+    'analytics',
+    'cloud',
+    'database',
+    'db',
+    'warehouse',
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'Environment :: Other Environment',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Education',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: OS Independent',
+    'Programming Language :: SQL',
+    'Programming Language :: Python :: 3',
+    'Topic :: Database',
+    'Topic :: Software Development',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Application Frameworks',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Scientific/Engineering :: Information Analysis',
+]
+dependencies = [
+    'pydantic>=2',
+    'python-dateutil>=2.8.2',
+    'requests',
+    'snowflake-connector-python',
+    'pyyaml',
+    'urllib3',
+]
+dynamic = ['version']
+
+# [project.urls]
+# 'Home Page' = 'https://docs.snowflake.com/en/developer-guide/snowpark/index'
+# 'Documentation' = 'https://docs.snowflake.com/en/developer-guide/snowpark/python/index.html'
+# 'Source' = 'https://github.com/snowflakedb/snowpark-python'
+# 'Issues' = 'https://github.com/snowflakedb/snowpark-python/issues'
+# 'Changelog' = 'https://github.com/snowflakedb/snowpark-python/blob/main/CHANGELOG.md'
+
+[tool.hatch.version]
+path = 'src/snowflake/core/version.py'
+
+[tool.hatch.build]
+directory = '../../dist/snowflake.core'
+dev-mode-dirs = ['src']
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    'src/snowflake',
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    'src/snowflake',
+    'README.md',
+    'tests/',
+    'docs/',
+    'CHANGELOG.md',
+    'pyproject.toml',
+]
+
+[tool.hatch.envs.default.scripts]
+cleanup = [
+    'python scripts/cleanup.py'
+]
+
+[tool.hatch.envs.test_all]
+template = 'test'
+
+[[tool.hatch.envs.test_all.matrix]]
+python = ['3.9', '3.10', '3.11']
+
+[tool.hatch.envs.test_no_snowpark]
+dependencies = [
+    'coverage[toml]',
+    'diff-cover',
+    'pytest',
+    'pytest-cov',
+    'sybil',
+    'protobuf'
+]
+
+[project.optional-dependencies]
+dev = [
+    "grpcio_tools",
+    "mypy-protobuf",
+    'pytest',
+    'pytest-cov',
+    'protobuf'
+]
+
+[tool.hatch.envs.test_no_snowpark.scripts]
+check = [
+    'pytest --cov-report=xml:coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml -m "not snowpark and not flaky" {args:tests}',
+    # The following is only useful in a git repository; thus errors are ignored.
+    '- diff-cover coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
+]
+
+[tool.hatch.envs.test]
+template = 'test_no_snowpark'
+# Our minimum supported version.
+python = '3.9'
+
+extra-dependencies = [
+    'snowflake-snowpark-python>=1.5.0,<2.0.0',
+]
+
+[tool.hatch.envs.test.scripts]
+check = [
+    'pytest -m "not flaky" {args:tests}',
+    # The following is only useful in a git repository; thus errors are ignored.
+    '- diff-cover coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
+]
+check_notebook = [
+    "python -u -m 'tests.integ.notebook.run_notebook'",
+]
+check_storedproc = [
+    "python -u -m 'tests.integ.storedproc.run_storedproc'",
+]
+check_flaky = [
+    'pytest -m "flaky" {args:tests}',
+]
+check_unit = [
+    "pytest tests/unit"
+]
+report = [
+    # 'coverage  xml -o coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
+    'coverage report --fail-under=80'
+]
+
+[tool.hatch.envs.test_only_snowpark]
+template = 'test'
+
+[tool.hatch.envs.test_only_snowpark.scripts]
+check = [
+    'pytest -m "snowpark and not flaky" {args:tests}',
+    # The following is only useful in a git repository; thus errors are ignored.
+    '- diff-cover coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
+]
+
+[[tool.hatch.envs.precommit.matrix]]
+python = ['3.10']
+
+[tool.hatch.envs.precommit]
+dependencies = [
+    'black',                    # 2023-08-08(bwarsaw): Change to `blue` in followup PR
+    'mypy',  # mpyp 1.7.0 was released and broke us.
+    'ruff',
+    'snowflake-snowpark-python',
+]
+
+[tool.hatch.envs.precommit.env-vars]
+MYPYPATH = '{root}/src'
+
+[tool.hatch.envs.precommit.scripts]
+check = [
+    'ruff check src/snowflake tests',
+    'mypy --install-types --non-interactive -p snowflake.core',
+]
+fix = [
+    'ruff check --fix src/snowflake tests',
+    'mypy --install-types --non-interactive -p snowflake.core',
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+    'sphinx',
+    'furo',
+    'tomli; python_version < "3.11"',
+]
+[tool.hatch.envs.docs.scripts]
+build = [
+    'cd ../../docs && make clean',
+    'cd ../../docs && make html SPHINXOPTS="--keep-going"'
+]
+
+build_pretty = [
+    'cd ../../docs && make clean',
+    'cd ../../docs && sphinx-build -M html ./source ./build -D html_theme=furo',
+]
+
+
+[tool.pytest.ini_options]
+addopts = '--cov=snowflake --cov-report='
+testpaths = 'tests/integ tests/unit'
+filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20"]
+pythonpath = 'src'
+markers = [
+    "env(name): mark test to run only on named environment",
+    "internal_only: test that should only run in internal (non-prod) deployments",
+    "skip_notebook: test that should not be run on Notebook",
+    "skip_storedproc: test that should not be run on Storedproc",
+    "min_sf_ver: mark test to only run after and including a specific version",
+    "use_accountadmin: use accountadmin role to test",
+    "snowpark: tests that need snowpark installed to run successfully",
+    "flaky: tests that are known to be flaky",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source_pkgs = [
+    'snowflake.core',
+]
+omit = [
+    '.hatch/*',
+    '*/_generated/*',
+]
+
+[tool.coverage.report]
+exclude_also = [
+    'if TYPE_CHECKING:',
+]
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'

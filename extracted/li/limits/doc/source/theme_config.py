@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+colors = {
+    "bg0": " #fbf1c7",
+    "bg1": " #ebdbb2",
+    "bg2": " #d5c4a1",
+    "bg3": " #bdae93",
+    "bg4": " #a89984",
+    "gry": " #928374",
+    "fg4": " #7c6f64",
+    "fg3": " #665c54",
+    "fg2": " #504945",
+    "fg1": " #3c3836",
+    "fg0": " #282828",
+    "red": " #cc241d",
+    "red2": " #9d0006",
+    "orange": " #d65d0e",
+    "orange2": " #af3a03",
+    "yellow": " #d79921",
+    "yellow2": " #b57614",
+    "green": " #98971a",
+    "green2": " #79740e",
+    "aqua": " #689d6a",
+    "aqua2": " #427b58",
+    "blue": " #458588",
+    "blue2": " #076678",
+    "purple": " #b16286",
+    "purple2": " #8f3f71",
+    "redis": "#D82C20",
+    "mongodb": "#00ED64",
+    "memcached": "",
+
+}
+
+html_theme = "furo"
+html_theme_options = {
+    "light_css_variables": {
+        "font-stack": "Fira Sans, sans-serif",
+        "font-stack--monospace": "Fira Code, monospace",
+        "color-brand-primary": colors["purple2"],
+        "color-brand-content": colors["blue2"],
+        "color-bg": colors["bg2"],
+        "color-fg": colors["fg2"],
+        "color-red": colors["red2"],
+        "color-orange": colors["orange2"],
+        "color-yellow": colors["yellow2"],
+        "color-green": colors["green2"],
+        "color-aqua": colors["aqua2"],
+        "color-blue": colors["blue2"],
+        "color-purple": colors["purple2"],
+        "color-redis": colors["redis"],
+        "color-mongodb": colors["mongodb"],
+        "color-memcached": colors["memcached"],
+    },
+    "dark_css_variables": {
+        "color-brand-primary": colors["purple"],
+        "color-brand-content": colors["blue"],
+        "color-background-primary": colors["fg1"],
+        "color-background-secondary": colors["fg0"],
+        "color-foreground-primary": colors["bg0"],
+        "color-foreground-secondary": colors["bg1"],
+        "color-highlighted-background": colors["yellow"],
+        "color-highlight-on-target": colors["fg2"],
+        "color-bg": colors["fg1"],
+        "color-fg": colors["bg0"],
+        "color-red": colors["red"],
+        "color-orange": colors["orange"],
+        "color-yellow": colors["yellow"],
+        "color-green": colors["green"],
+        "color-aqua": colors["aqua"],
+        "color-blue": colors["blue"],
+        "color-purple": colors["purple"],
+        "color-redis": colors["redis"],
+        "color-mongodb": colors["mongodb"],
+        "color-memcached": colors["memcached"],
+    },
+}
+
+highlight_language = "python3"
+pygments_style = "gruvbox-light"
+pygments_dark_style = "gruvbox-dark"

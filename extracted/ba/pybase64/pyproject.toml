@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+enable = ["cpython-freethreading", "pypy"]
+test-requires = "-r requirements-test.txt"
+test-command = "pytest {project}/tests"
+test-skip = "*-win_arm64"  # silence warnings for windows ARM64
+build-verbosity = 1
+manylinux-i686-image = "manylinux2014"
+manylinux-pypy_i686-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-pypy_x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+manylinux-pypy_aarch64-image = "manylinux_2_28"
+manylinux-ppc64le-image = "manylinux_2_28"
+manylinux-s390x-image = "manylinux_2_28"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux*"
+environment = { AUDITWHEEL_PLAT="manylinux2014_${AUDITWHEEL_ARCH}" }
+
+[tool.coverage.run]
+branch = true
+omit = [
+  "tests/conftest.py",
+  "tests/test_benchmark.py",
+]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "class .*\\(Protocol\\):", "if TYPE_CHECKING:"]
+
+[tool.mypy]
+python_version = "3.8"
+files = [
+  "src/**/*.py",
+  "test/**/*.py",
+  "noxfile.py",
+  "setup.py",
+]
+warn_unused_configs = true
+show_error_codes = true
+
+warn_redundant_casts = true
+no_implicit_reexport = true
+strict_equality = true
+warn_unused_ignores = true
+check_untyped_defs = true
+ignore_missing_imports = false
+
+disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_any_explicit = true
+warn_return_any = true
+
+no_implicit_optional = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["pybase64.__main__", "tests.test_pybase64", "tests.utils"]
+disallow_any_explicit = false
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-p", "no:legacypath"]
+markers = ["benchmark"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "ISC",         # flake8-implicit-str-concat
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "TID251",      # flake8-tidy-imports.banned-api
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+]
+ignore = [
+  "PLR",    # Design related pylint codes
+]
+typing-modules = ["pybase64._typing"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.Callable".msg = "Use collections.abc.Callable instead."
+"typing.Iterator".msg = "Use collections.abc.Iterator instead."
+"typing.Sequence".msg = "Use collections.abc.Sequence instead."

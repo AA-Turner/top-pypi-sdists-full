@@ -1,0 +1,79 @@
+[tool.black]
+line-length = 110
+target-version = ["py39"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict = true
+
+[tool.poetry]
+name = "sphinx-prompt"
+version = "1.9.0"
+description = "Sphinx directive to add unselectable prompt"
+readme = "README.md"
+authors = ["Stéphane Brunner <stephane.brunner@gmail.com>"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Plugins",
+    "Environment :: Web Environment",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+    "Typing :: Typed",
+]
+homepage = "https://github.com/sbrunner/sphinx-prompt"
+repository = "https://github.com/sbrunner/sphinx-prompt"
+license = "BSD-3-Clause"
+keywords = ["sphinx", "shell", "prompt"]
+packages = [
+    { include = "sphinx-prompt" },
+    { include = "sphinx-prompt/py.typed" },
+    { include = "sphinx_prompt" },
+    { include = "sphinx_prompt/py.typed" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+Sphinx = "8.0.2"
+pygments = "2.18.0"
+docutils = "0.21.2"
+idna = "3.7"
+urllib3 = "2.2.2"
+certifi = "2024.7.4"
+
+[tool.poetry.group.dev.dependencies]
+prospector = { version = "1.10.3", extras = ["with_bandit", "with_mypy", "with_pyroma"] }
+pytest = "8.3.2"
+types-docutils = "0.21.0.20240724"
+prospector-profile-duplicated = "1.5.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-plugin-tweak-dependencies-version", "poetry-dynamic-versioning", "poetry-plugin-drop-python-upper-constraint"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry-plugin-tweak-dependencies-version]
+default = "present"
+sphinx = "major"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+pattern = "^((?P<epoch>\\d+)!)?(?P<base>\\d+(\\.\\d+)*)"
+format-jinja = """
+{%- if env.get("VERSION_TYPE") == "version_branch" -%}
+{{serialize_pep440(bump_version(base, 1 if env.get("IS_MASTER") == "TRUE" else 2), dev=distance)}}
+{%- elif distance == 0 -%}
+{{serialize_pep440(base)}}
+{%- else -%}
+{{serialize_pep440(bump_version(base), dev=distance)}}
+{%- endif -%}
+"""

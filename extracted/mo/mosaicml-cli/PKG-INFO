@@ -1,0 +1,103 @@
+Metadata-Version: 2.1
+Name: mosaicml-cli
+Version: 0.7.2
+Summary: Interact with Databricks Mosaic AI training from python or a command line interface
+Home-page: https://github.com/mosaicml/mosaicml-cli
+Author: MosaicML
+Author-email: team@mosaicml.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: argcomplete>=2.0.0
+Requires-Dist: arrow>=1.2.2
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: gql[websockets]>=3.4.0
+Requires-Dist: prompt_toolkit>=3.0.29
+Requires-Dist: protobuf>=3.20.0
+Requires-Dist: pyyaml>=5.4.1
+Requires-Dist: questionary>=1.10.0
+Requires-Dist: rich>=12.6.0
+Requires-Dist: ruamel.yaml>=0.17.21
+Requires-Dist: typing_extensions>=4.0.1
+Requires-Dist: validators>=0.20.0
+Requires-Dist: requests<3,>=2.26.0
+Requires-Dist: urllib3>=1.23
+Requires-Dist: termcolor>=1.1.0
+Provides-Extra: dev
+Requires-Dist: build>=0.10.0; extra == "dev"
+Requires-Dist: isort>=5.9.3; extra == "dev"
+Requires-Dist: pre-commit>=2.17.0; extra == "dev"
+Requires-Dist: pylint>=2.12.2; extra == "dev"
+Requires-Dist: pyright==1.1.256; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.7.0; extra == "dev"
+Requires-Dist: pytest>=6.2.5; extra == "dev"
+Requires-Dist: radon>=5.1.0; extra == "dev"
+Requires-Dist: twine>=4.0.2; extra == "dev"
+Requires-Dist: toml>=0.10.2; extra == "dev"
+Requires-Dist: yapf>=0.33.0; extra == "dev"
+Provides-Extra: sphinx
+Requires-Dist: furo==2022.9.29; extra == "sphinx"
+Requires-Dist: sphinx==4.4.0; extra == "sphinx"
+Requires-Dist: sphinx-argparse==0.4.0; extra == "sphinx"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "sphinx"
+Requires-Dist: sphinx-markdown-tables==0.0.17; extra == "sphinx"
+Requires-Dist: sphinx-panels==0.6.0; extra == "sphinx"
+Requires-Dist: sphinx-rtd-theme==1.0.0; extra == "sphinx"
+Requires-Dist: sphinx_external_toc==0.3.0; extra == "sphinx"
+Requires-Dist: sphinxcontrib-applehelp==1.0.2; extra == "sphinx"
+Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "sphinx"
+Requires-Dist: sphinxcontrib-htmlhelp==2.0.0; extra == "sphinx"
+Requires-Dist: sphinxcontrib-images>=0.9.4; extra == "sphinx"
+Requires-Dist: sphinxcontrib-jsmath>=1.0.1; extra == "sphinx"
+Requires-Dist: sphinxcontrib-katex==0.9.4; extra == "sphinx"
+Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "sphinx"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "sphinx"
+Requires-Dist: sphinxemoji==0.2.0; extra == "sphinx"
+Requires-Dist: sphinxext-opengraph==0.8.2; extra == "sphinx"
+Requires-Dist: myst-parser>=0.16.1; extra == "sphinx"
+Requires-Dist: docutils>=0.17.0; extra == "sphinx"
+Requires-Dist: sphinx-design; extra == "sphinx"
+Provides-Extra: all
+Requires-Dist: pyright==1.1.256; extra == "all"
+Requires-Dist: furo==2022.9.29; extra == "all"
+Requires-Dist: yapf>=0.33.0; extra == "all"
+Requires-Dist: sphinxcontrib-jsmath>=1.0.1; extra == "all"
+Requires-Dist: sphinx-panels==0.6.0; extra == "all"
+Requires-Dist: sphinx-markdown-tables==0.0.17; extra == "all"
+Requires-Dist: sphinx_external_toc==0.3.0; extra == "all"
+Requires-Dist: pytest>=6.2.5; extra == "all"
+Requires-Dist: sphinxcontrib-applehelp==1.0.2; extra == "all"
+Requires-Dist: docutils>=0.17.0; extra == "all"
+Requires-Dist: build>=0.10.0; extra == "all"
+Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "all"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "all"
+Requires-Dist: toml>=0.10.2; extra == "all"
+Requires-Dist: sphinxcontrib-katex==0.9.4; extra == "all"
+Requires-Dist: myst-parser>=0.16.1; extra == "all"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "all"
+Requires-Dist: sphinx-argparse==0.4.0; extra == "all"
+Requires-Dist: radon>=5.1.0; extra == "all"
+Requires-Dist: sphinxemoji==0.2.0; extra == "all"
+Requires-Dist: sphinxcontrib-htmlhelp==2.0.0; extra == "all"
+Requires-Dist: pytest-cov>=4.0.0; extra == "all"
+Requires-Dist: sphinx-design; extra == "all"
+Requires-Dist: pytest-mock>=3.7.0; extra == "all"
+Requires-Dist: isort>=5.9.3; extra == "all"
+Requires-Dist: pylint>=2.12.2; extra == "all"
+Requires-Dist: sphinxext-opengraph==0.8.2; extra == "all"
+Requires-Dist: twine>=4.0.2; extra == "all"
+Requires-Dist: sphinxcontrib-images>=0.9.4; extra == "all"
+Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "all"
+Requires-Dist: sphinx-rtd-theme==1.0.0; extra == "all"
+Requires-Dist: pre-commit>=2.17.0; extra == "all"
+Requires-Dist: sphinx==4.4.0; extra == "all"
+
+
+#  MosaicML CLI (MCLI)
+
+### MCLI is the interface for interacting with Databricks Mosaic AI Training
+
+To get started with MCLI, read the [documentation](https://mcli.docs.mosaicml.com/)

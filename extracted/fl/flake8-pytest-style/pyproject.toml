@@ -1,0 +1,58 @@
+[project]
+name = "flake8-pytest-style"
+version = "2.1.0"
+description = "A flake8 plugin checking common style issues or inconsistencies with pytest-based tests."
+authors = [
+  { name = "Mikhail Burshteyn", email = "mdburshteyn@gmail.com" },
+]
+license = "MIT"
+readme = "README-pypi.md"
+keywords = ["flake8", "pytest"]
+dynamic = [
+  "classifiers",
+  "dependencies",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+repository = "https://github.com/m-burst/flake8-pytest-style"
+homepage = "https://pypi.org/project/flake8-pytest-style"
+
+[tool.poetry]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: Plugins",
+  "Framework :: Flake8",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Testing :: Unit",
+]
+
+[project.entry-points."flake8.extension"]
+PT = 'flake8_pytest_style.plugin:PytestStylePlugin'
+
+[tool.poetry.dependencies]
+python = "^3.9"
+flake8-plugin-utils = "^1.3.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.3.0"
+bump2version = "^1.0.1"
+flake8-awesome = ">=0.2.0"
+mypy = "^1.4"
+pylint = "^3.1.0"
+pytest = "^8.1.1"
+pytest-cov = "^6.0.0"
+pytest-deadfixtures = "^2.1"
+flake8 = "^7.0.0"
+pytest-mock = "^3.11.1"
+unify = "^0.5.0"
+tomlkit = ">=0.12.1,<0.14.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

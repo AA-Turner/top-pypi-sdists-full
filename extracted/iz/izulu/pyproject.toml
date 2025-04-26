@@ -1,0 +1,298 @@
+[project]
+name = "izulu"
+dynamic = ["version"]
+authors = [{ name = "Dima Burmistrov", email = "pyctrl.dev@gmail.com" }]
+description = "The exceptional library"
+readme = "README.rst"
+license = { file = "LICENSE" }
+
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+keywords = ["error", "exception", "oop", "izulu"]
+
+[project.urls]
+homepage = "https://github.com/pyctrl/izulu"
+source = "https://github.com/pyctrl/izulu"
+documentation = "https://izulu.readthedocs.io/en/latest/"
+issues = "https://github.com/pyctrl/izulu/issues"
+
+
+[dependency-groups]
+# development
+dev = ["ipython"]
+test = ["pytest", "coverage", "typing-extensions"]
+pep8 = ["hacking", "pyproject-flake8"]
+rst = ["restructuredtext_lint", "Pygments"]
+# readme:
+#   rst
+#   rst-include = `rst_include include <in> <out>`
+#   docutils = `docutils README.rst README.html`
+mypy = ["mypy", "typing-extensions"]
+fmt = ["ruff"]
+doc = ["sphinx", "pydata-sphinx-theme", "sphinx-autobuild"]
+# release
+build = ["rst-include", "build", "twine"]
+upload = ["twine"]
+# extras
+# aliases
+contributor = [
+  { include-group = "dev" },
+  { include-group = "test" },
+  { include-group = "pep8" },
+  { include-group = "rst" },
+  { include-group = "mypy" },
+  { include-group = "fmt" },
+  { include-group = "build" },
+  { include-group = "upload" },
+]
+# taplo - toml toolbox
+
+[project.optional-dependencies]
+compatibility = ["typing-extensions>=4.5.0"]
+
+[build-system]
+requires = ["setuptools>=61.2", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+
+[tool.ruff]
+target-version = "py312"
+line-length = 79  # 88
+extend-exclude = [".git", ".venv"]
+
+[tool.ruff.lint]
+preview = true
+extend-select = ["ALL"]
+extend-ignore = [
+  "D10",     # missing documentation
+  "D203",    # 1 of conflicting code-styles
+  "D212",    # 1 of conflicting code-styles
+  "C408",    # allow `dict()` instead of literal
+  "TD003",   # don't require issue link
+  # Completely disable
+  "FIX",
+  "CPY",
+  # formatter conflict rules
+  "W191",
+  "E111",
+  "E114",
+  "E117",
+  "D206",
+  "D300",
+  "Q000",
+  "Q001",
+  "Q002",
+  "Q003",
+  "COM812",
+  "COM819",
+  "ISC001",
+  "ISC002",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/tests/*" = [
+  "S101",   # allow assert
+  "SLF001", # allow private member access
+  "ANN",    # annotations not required in tests
+]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+"constants" = "c"
+"exceptions" = "excs"
+"typing" = "t"
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = [
+  "constants",
+  "exceptions",
+  "typing",
+]
+
+# [tool.ruff.lint.isort]
+# force-single-line = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = ["id"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+include_namespace_packages = true
+# Regexes for lines to exclude from consideration
+omit = ["*/.venv/*"]
+exclude_also = [
+  # Don't complain about missing debug-only code:
+  "def __repr__",
+
+  # Don't complain if tests don't hit defensive assertion code:
+  "raise NotImplementedError",
+
+  # Don't complain if non-runnable code isn't run:
+  "if __name__ == .__main__.:",
+
+  # Don't complain about abstract methods, they aren't run:
+  "@(abc\\.)?abstractmethod",
+
+  "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+strict = true
+exclude = ["tests", ".venv"]
+
+
+[tool.flake8]
+show-source = true
+ignore = ["H404", "H405"]
+
+
+[tool.tox]
+# requires = ["tox>4.23", "tox-uv>=1.13"]
+# runner = "uv-venv-lock-runner"
+requires = ["tox>4.23"]
+env_list = ["pep8", "rst", "py312", "mypy"]
+use_develop = true
+
+[tool.tox.env_run_base]
+use_develop = true
+dependency_groups = ["test"]
+commands = [
+  [
+    "coverage",
+    "run",
+    "--source={toxinidir}{/}{[project]name}{/}",
+    "-m",
+    "pytest",
+    "{toxinidir}{/}tests{/}",
+    "-v",
+    { replace = "posargs", extend = true },
+  ],
+  [
+    "coverage",
+    "report",
+    "-m",
+  ],
+  [
+    "coverage",
+    "xml",
+  ],
+]
+
+[tool.tox.env.dev]
+use_develop = true
+dependency_groups = ["contributor"]
+
+[tool.tox.env.pep8]
+skip_install = true
+dependency_groups = ["pep8"]
+commands = [
+  [
+    "flake8",
+    "--extend-ignore=H404,H405",
+    { replace = "posargs", default = [
+      "{toxinidir}{/}{[project]name}{/}",
+      "{toxinidir}{/}tests{/}",
+    ], extend = true },
+  ],
+]
+
+[tool.tox.env.rst]
+skip_install = true
+dependency_groups = ["rst"]
+commands = [
+  [
+    "rst-lint",
+    { replace = "posargs", extend = true },
+    "{toxinidir}{/}README.rst",
+  ],
+]
+
+[tool.tox.env.mypy]
+dependency_groups = ["mypy"]
+skip_install = true
+commands = [
+  [
+    "mypy",
+    { replace = "posargs", default = [
+      "{toxinidir}{/}{[project]name}{/}",
+    ], extend = true },
+  ],
+]
+
+[tool.tox.env.build]
+skip_install = true
+dependency_groups = ["build"]
+commands = [
+  [
+    "rst_include",
+    "include",
+    "README.tpl.rst",
+    "README.rst",
+  ],
+  [
+    "python3",
+    "-m",
+    "build",
+    { replace = "posargs", extend = true },
+  ],
+  [
+    "python3",
+    "-m",
+    "twine",
+    "check",
+    { replace = "posargs", extend = true },
+    "dist{/}*",
+  ],
+]
+
+[tool.tox.env.upload_test]
+skip_install = true
+dependency_groups = ["upload"]
+commands = [
+  [
+    "python3",
+    "-m",
+    "twine",
+    "upload",
+    { replace = "posargs", extend = true },
+    "--repository",
+    "{env:PYPI_REPOSITORY:testpypi}",
+    "dist{/}*",
+  ],
+]
+
+[tool.tox.env.upload_prod]
+base = ["tool.tox.env.upload_test"]
+set_env.PYPI_REPOSITORY = "pypi"
+
+[tool.tox.env.clean]
+skip_install = true
+dependency_groups = []
+allowlist_externals = ["rm"]
+commands = [
+  [
+    "rm",
+    "-rf",
+    "{toxinidir}/dist/",
+    "{toxinidir}/{[project]name}.egg-info/",
+  ],
+]

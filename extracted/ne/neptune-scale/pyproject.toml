@@ -1,0 +1,103 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+style = "semver"
+pattern = "default-unprefixed"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+neptune-api = "^0.13.0"
+more-itertools = "^10.0.0"
+psutil = "^5.0.0"
+backoff = "^2.0.0"
+click = ">=7.0"
+tqdm = "^4.21.0"
+
+[tool.poetry]
+name = "neptune-scale"
+version = "0.11.3"
+description = "A minimal client library"
+authors = ["neptune.ai <contact@neptune.ai>"]
+repository = "https://github.com/neptune-ai/neptune-client-scale"
+readme = "README.md"
+license = "Apache License 2.0"
+packages = [{ include = "neptune_scale", from = "src" }]
+include = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = [
+    "MLOps",
+    "ML Experiment Tracking",
+    "ML Model Registry",
+    "ML Model Store",
+    "ML Metadata Store",
+]
+
+[tool.poetry.urls]
+"Tracker" = "https://github.com/neptune-ai/neptune-client-scale/issues"
+"Documentation" = "https://docs.neptune.ai/"
+
+[tool.black]
+line-length = 120
+target_version = ['py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$,\_pb2\.py$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+force_grid_wrap = 2
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["F", "UP"]
+ignore = ["UP006", "UP007"]
+
+[tool.mypy]
+mypy_path = "src/"
+packages = "neptune_scale"
+follow_imports = "silent"
+install_types = "True"
+non_interactive = "True"
+disallow_untyped_defs = "True"
+no_implicit_optional = "True"
+check_untyped_defs = "True"
+warn_return_any = "True"
+show_error_codes = "True"
+warn_unused_ignores = "True"
+ignore_missing_imports = "True"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules -n auto"
+
+[tool.poetry.scripts]
+neptune = "neptune_scale.cli.commands:main"

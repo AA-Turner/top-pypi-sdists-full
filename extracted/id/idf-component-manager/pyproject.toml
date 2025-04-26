@@ -1,0 +1,198 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = [
+    "idf_component_manager*",
+    "idf_component_tools*",
+]
+
+[project]
+name = "idf-component-manager"
+version = "2.1.2"
+authors = [
+    { name = "Sergei Silnov", email = "sergei.silnov@espressif.com" },
+    { name = "Fu Hanxi", email = "fuhanxi@espressif.com" },
+]
+description = "Espressif IDF Component Manager"
+readme = "README.md"
+requires-python = ">=3.7,<4.0"
+license = { text = "Apache-2.0" }
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: Implementation :: CPython',
+]
+dependencies = [
+    "click",
+    "colorama",
+    "pyparsing",
+    "pyyaml",
+    "ruamel.yaml",
+    "requests",
+    "requests-file",
+    "requests-toolbelt",
+    "tqdm",
+    "jsonref",
+    "pydantic",
+    "pydantic-core",
+    "pydantic-settings",
+    "typing-extensions; python_version < '3.12'",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx-click",
+    "sphinx-copybutton",
+    "sphinx-rtd-theme",
+    "sphinx-tabs",
+    "sphinx_collapse",
+]
+
+test = [
+    "jinja2",
+    "jsonschema",
+    "pexpect",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-split",
+    "requests-mock",
+    "vcrpy",
+    "urllib3<2.3", # While is not merged and released https://github.com/kevin1024/vcrpy/pull/889
+]
+
+# for dev please use python >3.8
+dev = [
+    'commitizen',
+    'deptry',
+    'pre-commit'
+]
+
+all = ["idf-component-manager[docs,test,dev]"]
+
+[project.scripts]
+compote = "idf_component_manager.cli:safe_cli"
+
+[project.urls]
+Repository = "https://github.com/espressif/idf-component-manager.git"
+Documentation = "https://docs.espressif.com/projects/idf-component-manager/en/latest/"
+Issues = "https://github.com/espressif/idf-component-manager/issues"
+Changelog = "https://github.com/espressif/idf-component-manager/blob/main/CHANGELOG.md"
+
+#########
+# Tools #
+#########
+[tool.mypy]
+python_version = "3.7"
+plugins = [
+    "pydantic.mypy"
+]
+
+[[tool.mypy.overrides]]
+module = "idf_component_manager.version_solver.mixology.*"
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "enable_request_cache: Enable in-memory cache for HTTP requests",
+]
+
+[tool.deptry]
+extend_exclude = [
+    "ci",
+    "docs",
+    "integration_tests",
+    "idf_component_tools/file_cache.py", # Tries a number of ways to detect paths on Windows
+]
+pep621_dev_dependency_groups = ["test", "docs", "dev", "all"]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["idf_py_actions"]
+DEP002 = ["colorama"]
+
+[tool.deptry.package_module_name_map]
+pyyaml = ["yaml"]
+"ruamel.yaml" = ["ruamel"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+version_files = [
+    "idf_component_tools/__version__.py:__version__",
+    "pyproject.toml:project.version",
+]
+update_changelog_on_bump = true
+bump_message = "change: bump version from v$current_version to v$new_version"
+
+[tool.ruff]
+line-length = 100
+target-version = "py37"
+
+[tool.ruff.lint]
+extend-select = [
+    "S", # flake8-bandit
+    "I", # isort
+    'ARG',  # flake8-unused-arguments
+    "ERA", # eradicate
+    "ICN", # flake8-import-conventions
+    "RUF100", # unused noqa
+    "PLW1514",  # unspecified-encoding
+]
+typing-modules = [
+    "idf_component_tools.utils",
+]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = ["typing"]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+"typing" = "t"
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.lint.per-file-ignores]
+"ci/*" = [
+    "S", # flake8-bandit
+    "PLW1514",  # unspecified-encoding
+]
+
+"integration_tests/*" = [
+    "S", # flake8-bandit
+    "E712", # comparison to False/True
+    "PLW1514",  # unspecified-encoding
+]
+
+"tests/*" = [
+    "S", # flake8-bandit
+    "E712", # comparison to False/True
+    "PLW1514",  # unspecified-encoding
+]
+
+"idf_component_tools/semver/base.py" = [
+    "S101", # use of assert
+]
+
+"idf_component_manager/version_solver/mixology/*" = [
+    "S101", # use of assert
+]

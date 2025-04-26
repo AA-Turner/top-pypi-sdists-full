@@ -1,0 +1,89 @@
+[tool.poetry]
+name = "django-ses"
+version = "4.4.0"
+description = "A Django email backend for Amazon's Simple Email Service (SES)"
+authors = [
+    "Harry Marr <harry@hmarr.com>",
+    "Wes Winham <winhamwr@gmail.com>",
+    "Ross Lawley <ross.lawley@gmail.com>",
+    "Paul Craciunoiu <paul@craciunoiu.net>",
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Framework :: Django',
+    'Framework :: Django :: 3.2',
+    'Framework :: Django :: 4.2',
+    'Framework :: Django :: 5.0',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+license = "MIT"
+readme = "README.rst"
+repository = "https://github.com/django-ses/django-ses"
+homepage = "https://github.com/django-ses/django-ses"
+documentation = "https://github.com/django-ses/django-ses/blob/main/README.rst"
+include = ["example", "tests"]
+
+[tool.poetry.urls]
+"Bugtracker" = "https://github.com/django-ses/django-ses/issues"
+"Changelog" = "https://github.com/django-ses/django-ses/blob/main/CHANGES.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+boto3 = ">=1.0.0"
+django = ">=3.2"
+importlib-metadata = {version = ">=1", python = "<3.8"}
+backports-zoneinfo = {version = ">=0.2.1", python = "<3.9"}
+cryptography = {version = ">=36.0.2", optional = true}
+requests = {version = ">=2.32.1", optional = true}
+
+[tool.poetry.extras]
+bounce =  ["requests", "cryptography"]
+events = ["requests", "cryptography"]
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.3.7"
+tox = "^3.24.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+select = [
+    "E",       # pycodestyle errors
+    "W",       # pycodestyle warnings
+    "F",       # Pyflakes
+    "N",       # pep8-naming
+    "I",       # isort
+]
+
+ignore = [
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = [
+    "E",       # pycodestyle errors
+    "W",       # pycodestyle warnings
+    "F",       # Pyflakes
+    "N",       # pep8-naming
+    "I",       # isort
+]
+unfixable = []
+
+# Same as Black.
+line-length = 120
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.12
+target-version = "py312"

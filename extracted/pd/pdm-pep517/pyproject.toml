@@ -1,0 +1,130 @@
+[project]
+name = "pdm-pep517"
+description = "A PEP 517 backend for PDM that supports PEP 621 metadata"
+authors = [
+    { name = "Frost Ming", email = "mianghong@gmail.com" },
+]
+requires-python = ">=3.7"
+readme = "README.md"
+keywords = [
+    "packaging",
+    "PEP 517",
+    "build",
+]
+dynamic = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = []
+version = "1.1.4"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+homepage = "https://pdm.fming.dev"
+repository = "https://github.com/pdm-project/pdm-pep517"
+
+[tool.pdm.version]
+source = "file"
+path = "pdm/pep517/__init__.py"
+
+[tool.pdm.build]
+includes = [
+    "pdm",
+]
+source-includes = [
+    "tests",
+]
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "towncrier",
+    "pytest-xdist",
+    "vendoring; python_version ~= '3.8'",
+    "parver~=0.3",
+    "setuptools",
+]
+
+[tool.pdm.scripts]
+build = "python scripts/build.py"
+release = "python scripts/release.py"
+
+[tool.black]
+line-length = 88
+exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.mypy_cache\n  | build\n  | dist\n  | __pypackages__\n  | pdm/pep517/_vendor\n)/\n"
+
+[tool.vendoring]
+destination = "pdm/pep517/_vendor/"
+requirements = "pdm/pep517/_vendor/vendor.txt"
+namespace = "pdm.pep517._vendor"
+protected-files = [
+    "__init__.py",
+    "README.md",
+    "vendor.txt",
+]
+patches-dir = "scripts/patches"
+
+[tool.vendoring.transformations]
+substitute = []
+drop = [
+    "bin/",
+    "*.so",
+    "typing.*",
+    "*/tests/",
+    "spdx/data/*.txt",
+    "cerberus/benchmarks/",
+    "**/test_*.py",
+    "**/*_test.py",
+]
+
+[tool.vendoring.typing-stubs]
+
+[tool.vendoring.license.directories]
+
+[tool.vendoring.license.fallback-urls]
+
+[tool.towncrier]
+package = "pdm"
+filename = "CHANGELOG.md"
+issue_format = "[#{issue}](https://github.com/pdm-project/pdm-pep517/issues/{issue})"
+directory = "news/"
+template = "news/towncrier_template.md"
+underlines = "-~^"
+type = [
+    { directory = "feature", name = "Features & Improvements", showcontent = true },
+    { directory = "bugfix", name = "Bug Fixes", showcontent = true },
+    { directory = "doc", name = "Improved Documentation", showcontent = true },
+    { directory = "dep", name = "Dependencies", showcontent = true },
+    { directory = "removal", name = "Removals and Deprecations", showcontent = true },
+    { directory = "misc", name = "Miscellany", showcontent = true },
+]
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    "fixtures",
+    "__pypackages__",
+]
+markers = [
+    "deprecation: Test old features are deprecated",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::RuntimeWarning",
+]
+
+[build-system]
+requires = []
+build-backend = "pdm.pep517.api"
+backend-path = [
+    ".",
+]

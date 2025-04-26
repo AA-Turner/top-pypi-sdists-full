@@ -1,0 +1,87 @@
+[tool.poetry]
+name = "Perception"
+version = "0.7.7"
+description = "Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use."
+authors = ["Thorn <info@wearethorn.org>"]
+license = "Apache License 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+Cython = "^3"
+numpy = "^1.26"
+opencv-contrib-python-headless = "^4.10"
+pandas = "*"
+pdqhash = "*"
+Pillow = "*"
+pywavelets = "^1.5.0"
+tqdm = "*"
+validators = ">=0.22, <1.0"
+
+# Benchmarking Extras
+matplotlib = { version = "*", optional = true }
+scipy = { version = "*", optional = true }
+imgaug = { version = "*", optional = true }
+tabulate = { version = "*", optional = true }
+scikit-learn = { version = "*", optional = true }
+ffmpeg-python = { version = "*", optional = true }
+
+# Matching Extras
+aiohttp = { version = "*", optional = true }
+python-json-logger = { version = "*", optional = true }
+rich = "^13.7.0"
+
+# Experimental Extras
+networkit = { version = "^11", optional = true }
+faiss-cpu = { version = "^1.8.0.post1", optional = true }
+
+[tool.poetry.extras]
+benchmarking = [
+  "matplotlib",
+  "scipy",
+  "imgaug",
+  "tabulate",
+  "scikit-learn",
+  "ffmpeg-python",
+]
+matching = ["aiohttp", "python-json-logger"]
+experimental = ["networkit", "faiss-cpu"]
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24"
+coverage = "*"
+ipython = "*"
+mypy = "*"
+pandas-stubs = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+types-pillow = "*"
+types-tqdm = "*"
+twine = "*"
+
+
+[tool.poetry.build]
+script = "build.py"
+generate-setup-file = true
+
+[tool.mypy]
+exclude = ["/tests/"]
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.poetry-dynamic-versioning]
+enable = false
+
+[build-system]
+requires = [
+  "poetry-core",
+  "poetry-dynamic-versioning",
+  "numpy",
+  "Cython",
+  "setuptools",
+  "wheel",
+]
+build-backend = "poetry_dynamic_versioning.backend"

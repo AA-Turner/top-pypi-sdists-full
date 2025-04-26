@@ -1,0 +1,223 @@
+[build-system]
+requires = [ "whey",]
+build-backend = "whey"
+
+[project]
+name = "sphinx-toolbox"
+version = "3.9.0"
+description = "Box of handy tools for Sphinx 🧰 📔"
+readme = "README.rst"
+keywords = [ "documentation", "sphinx", "sphinx-extension",]
+dynamic = []
+dependencies = [
+    "apeye>=0.4.0",
+    "autodocsumm>=0.2.0",
+    "beautifulsoup4>=4.9.1",
+    "cachecontrol[filecache]>=0.13.0",
+    "dict2css>=0.2.3",
+    "docutils>=0.16",
+    "domdf-python-tools>=2.9.0",
+    "filelock>=3.8.0",
+    "html5lib>=1.1",
+    "ruamel.yaml>=0.16.12",
+    "sphinx>=3.2.0",
+    "sphinx-autodoc-typehints>=1.11.1",
+    "sphinx-jinja2-compat>=0.1.0",
+    "sphinx-prompt>=1.1.0",
+    "sphinx-tabs<3.4.7,>=1.2.1",
+    "tabulate>=0.8.7",
+    "typing-extensions!=3.10.0.1,>=3.7.4.3",
+    'typing-inspect>=0.6.0; python_version < "3.8"',
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+requires-python = ">=3.7"
+
+[project.license]
+file = "LICENSE"
+
+[[project.authors]]
+name = "Dominic Davis-Foster"
+email = "dominic@davis-foster.co.uk"
+
+[project.urls]
+Homepage = "https://github.com/sphinx-toolbox/sphinx-toolbox"
+"Issue Tracker" = "https://github.com/sphinx-toolbox/sphinx-toolbox/issues"
+"Source Code" = "https://github.com/sphinx-toolbox/sphinx-toolbox"
+Documentation = "https://sphinx-toolbox.readthedocs.io/en/latest"
+
+[project.optional-dependencies]
+testing = [ "coincidence>=0.4.3", "pygments<=2.13.0,>=2.7.4",]
+all = [ "coincidence>=0.4.3", "pygments<=2.13.0,>=2.7.4",]
+
+[tool.whey]
+base-classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
+python-implementations = [ "CPython", "PyPy",]
+platforms = [ "Windows", "macOS", "Linux",]
+license-key = "MIT"
+package = "sphinx_toolbox"
+
+[tool.dep_checker]
+allowed_unused = [ "html5lib", "sphinx_prompt", "sphinx_tabs", "filelock", "cachecontrol", "sphinx_jinja2_compat",]
+namespace_packages = [ "ruamel.yaml",]
+
+[tool.dep_checker.name_mapping]
+beautifulsoup4 = "bs4"
+ruamel-yaml = "ruamel.yaml"
+
+[tool.mkrecipe]
+conda-channels = [ "conda-forge", "domdfcoding",]
+extras = "all"
+
+[tool.sphinx-pyproject]
+github_username = "sphinx-toolbox"
+github_repository = "sphinx-toolbox"
+author = "Dominic Davis-Foster"
+project = "sphinx-toolbox"
+copyright = "2020-2022 Dominic Davis-Foster"
+language = "en"
+package_root = "sphinx_toolbox"
+extensions = [
+    "sphinx_toolbox",
+    "sphinx_toolbox.more_autodoc",
+    "sphinx_toolbox.more_autosummary",
+    "sphinx_toolbox.documentation_summary",
+    "sphinx_toolbox.tweaks.param_dash",
+    "sphinxcontrib.toctree_plus",
+    "sphinx_toolbox.tweaks.latex_layout",
+    "sphinx_toolbox.tweaks.latex_toc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "sphinxcontrib.extras_require",
+    "sphinx.ext.todo",
+    "notfound.extension",
+    "sphinx_copybutton",
+    "sphinxcontrib.default_values",
+    "sphinx_debuginfo",
+    "sphinx_licenseinfo",
+    "seed_intersphinx_mapping",
+    "html_section",
+    "sphinx_toolbox.pre_commit",
+    "sphinx_toolbox.flake8",
+    "sphinx_autofixture",
+    "sphinx_event_role",
+    "_internal_extension",
+    "sphinxcontrib.email",
+    "ignore_missing_xref",
+    "sphinx_toolbox.latex.succinct_seealso",
+    "sphinx_toolbox.more_autosummary.column_widths",
+]
+gitstamp_fmt = "%d %b %Y"
+templates_path = [ "_templates",]
+html_static_path = [ "_static",]
+source_suffix = ".rst"
+master_doc = "index"
+suppress_warnings = [ "image.nonlocal_uri",]
+pygments_style = "default"
+html_theme = "domdf_sphinx_theme"
+html_theme_path = [ "../..",]
+html_show_sourcelink = true
+toctree_plus_types = [
+    "class",
+    "confval",
+    "data",
+    "directive",
+    "enum",
+    "exception",
+    "flag",
+    "function",
+    "namedtuple",
+    "protocol",
+    "role",
+    "typeddict",
+]
+add_module_names = false
+hide_none_rtype = true
+all_typevars = true
+overloads_location = "bottom"
+html_codeblock_linenos_style = "table"
+autodoc_exclude_members = [
+    "__dict__",
+    "__class__",
+    "__dir__",
+    "__weakref__",
+    "__module__",
+    "__annotations__",
+    "__orig_bases__",
+    "__parameters__",
+    "__subclasshook__",
+    "__init_subclass__",
+    "__attrs_attrs__",
+    "__init__",
+    "__new__",
+    "__getnewargs__",
+    "__abstractmethods__",
+    "__hash__",
+]
+
+[tool.mypy]
+python_version = "3.8"
+namespace_packages = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+incremental = false
+exclude = "^tests/.*?/[^/]*doc-test/.*"
+show_error_codes = true
+
+[tool.snippet-fmt]
+directives = [ "code-block",]
+
+[tool.snippet-fmt.languages.python]
+reformat = true
+
+[tool.snippet-fmt.languages.TOML]
+reformat = true
+
+[tool.snippet-fmt.languages.ini]
+
+[tool.snippet-fmt.languages.json]
+
+[tool.dependency-dash."requirements.txt"]
+order = 10
+
+[tool.dependency-dash."tests/requirements.txt"]
+order = 20
+include = false
+
+[tool.dependency-dash."doc-source/requirements.txt"]
+order = 30
+include = false

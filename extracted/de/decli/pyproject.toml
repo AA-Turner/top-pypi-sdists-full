@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "decli"
+version = "0.6.2"
+description = "Minimal, easy-to-use, declarative cli tool"
+authors = ["Santiago Fraire <santiwilly@gmail.com>"]
+license = "MIT"
+readme = 'README.rst'
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^7.16"
+ipdb = "^0.13.13"
+pytest = "^7.3.1"
+pytest-cov = "^4.0.0"
+black = "^23.3.0"
+mypy = "^1.2.0"
+codecov = "^2.1.13"
+ruff = "^0.0.263"
+
+[tool.ruff]
+line-length = 88
+ignore = [
+    "E501",
+    "D1",
+    "D415",
+]
+
+[tool.ruff.isort]
+known-first-party = ["decli", "tests"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_type = "pep440"
+version_provider = "poetry"
+update_changelog_on_bump = true
+major_version_zero = true
+version_files = [
+    "decli/__init__.py:__version__",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

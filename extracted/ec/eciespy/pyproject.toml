@@ -1,0 +1,73 @@
+[tool.poetry]
+name = "eciespy"
+packages = [
+  {include = "ecies"},
+]
+version = "0.4.4"
+# docs
+authors = ["Weiliang Li <to.be.impressive@gmail.com>"]
+description = "Elliptic Curve Integrated Encryption Scheme for secp256k1 in Python"
+license = "MIT"
+maintainers = ["Weiliang Li <to.be.impressive@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/ecies/py"
+# tags
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Operating System :: OS Independent",
+  "Topic :: Security :: Cryptography",
+]
+keywords = [
+  "secp256k1",
+  "crypto",
+  "elliptic curves",
+  "ecies",
+  "bitcoin",
+  "ethereum",
+  "cryptocurrency",
+]
+# package data
+include = ["ecies/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+# 3rd party
+coincurve = ">=13,<22"
+pycryptodome = "^3.19.1"
+
+# optional
+eth-keys = {version = ">=0.4,<0.7", optional = true}
+
+[tool.poetry.extras]
+eth = ["eth-keys"]
+
+[tool.poetry.group.dev.dependencies]
+ipython = {version = "^9.0.2", python = "^3.11"}
+mypy = {version = "^1.15.0", python = "^3.9"}
+ruff = "^0.9.10"
+
+eth-typing = "^5.2.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.3"
+pytest-cov = {version = "^6.0.0", python = "^3.9"}
+
+[tool.poetry.scripts]
+eciespy = "ecies.__main__:main"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --cov=ecies"
+
+[tool.coverage.run]
+omit = ["ecies/__main__.py"]
+
+[tool.coverage.report]
+exclude_also = ["raise NotImplementedError"]

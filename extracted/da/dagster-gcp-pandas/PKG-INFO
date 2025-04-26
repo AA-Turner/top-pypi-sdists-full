@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: dagster-gcp-pandas
+Version: 0.26.12
+Summary: Package for storing Pandas DataFrames in GCP.
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-gcp-pandas
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9,<3.13
+Provides-Extra: test
+License-File: LICENSE

@@ -1,0 +1,239 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "setuptools-scm[toml]>=6.2",
+    "Cython",
+    "py-cpuinfo",
+    "numpy>2",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "numcodecs"
+description = """
+A Python package providing buffer compression and transformation codecs \
+for use in data storage and communication applications."""
+readme = "README.rst"
+dependencies = ["numpy>=1.24", "typing_extensions"]
+requires-python = ">=3.11"
+dynamic = [
+  "version",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+maintainers = [
+    { name = "Alistair Miles", email = "alimanfoo@googlemail.com" },
+]
+license = { text = "MIT" }
+
+[project.urls]
+"Bug Tracker" = "https://github.com/zarr-developers/numcodecs/issues"
+Changelog = "https://numcodecs.readthedocs.io/en/stable/release.html"
+Documentation = "https://numcodecs.readthedocs.io/"
+Homepage = "https://github.com/zarr-developers/numcodecs"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx-issues",
+    "pydata-sphinx-theme",
+    "numpydoc",
+]
+test = [
+    "coverage",
+    "pytest",
+    "pytest-cov",
+]
+test_extras = [
+    "importlib_metadata",
+]
+msgpack = [
+    "msgpack",
+]
+zfpy = [
+    "zfpy>=1.0.0"
+]
+pcodec = [
+    "pcodec>=0.3,<0.4",
+]
+crc32c = [
+    "crc32c>=2.7",
+]
+
+[project.entry-points."zarr.codecs"]
+"numcodecs.blosc" = "numcodecs.zarr3:Blosc"
+"numcodecs.lz4" = "numcodecs.zarr3:LZ4"
+"numcodecs.zstd" = "numcodecs.zarr3:Zstd"
+"numcodecs.zlib" = "numcodecs.zarr3:Zlib"
+"numcodecs.gzip" = "numcodecs.zarr3:GZip"
+"numcodecs.bz2" = "numcodecs.zarr3:BZ2"
+"numcodecs.lzma" = "numcodecs.zarr3:LZMA"
+"numcodecs.shuffle" = "numcodecs.zarr3:Shuffle"
+"numcodecs.delta" = "numcodecs.zarr3:Delta"
+"numcodecs.bitround" = "numcodecs.zarr3:BitRound"
+"numcodecs.fixedscaleoffset" = "numcodecs.zarr3:FixedScaleOffset"
+"numcodecs.quantize" = "numcodecs.zarr3:Quantize"
+"numcodecs.packbits" = "numcodecs.zarr3:PackBits"
+"numcodecs.astype" = "numcodecs.zarr3:AsType"
+"numcodecs.crc32" = "numcodecs.zarr3:CRC32"
+"numcodecs.crc32c" = "numcodecs.zarr3:CRC32C"
+"numcodecs.adler32" = "numcodecs.zarr3:Adler32"
+"numcodecs.fletcher32" = "numcodecs.zarr3:Fletcher32"
+"numcodecs.jenkins_lookup3" = "numcodecs.zarr3:JenkinsLookup3"
+"numcodecs.pcodec" = "numcodecs.zarr3:PCodec"
+"numcodecs.zfpy" = "numcodecs.zarr3:ZFPY"
+
+[tool.setuptools]
+license-files = ["LICENSE.txt"]
+package-dir = {"" = "."}
+packages = ["numcodecs", "numcodecs.tests"]
+zip-safe = false
+
+[tool.setuptools.package-data]
+numcodecs = [
+    "tests/package_with_entrypoint/__init__.py",
+    "tests/package_with_entrypoint-0.1.dist-info/entry_points.txt"
+]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "dirty-tag"
+write_to = "numcodecs/version.py"
+
+[tool.codespell]
+skip = "./.git,fixture"
+ignore-words-list = "ba, compiletime, hist, nd, unparseable"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "pragma: ${PY_MAJOR_VERSION} no cover",
+]
+
+[tool.repo-review]
+ignore = ["PY005", "PY007", "PP302", "PP308", "PP309", "GH103", "GH212", "PC111", "PC140", "PC160", "PC170", "PC180", "MY100", "RF103"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers --cov=numcodecs --cov-report xml --doctest-modules --doctest-glob=*.pyx"
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+]
+testpaths = [
+    "numcodecs/tests",
+]
+norecursedirs = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    "adhoc",
+    "build",
+    "c-blosc",
+    "docs",
+    "fixture",
+    "notebooks",
+    "numcodecs.egg-info",
+]
+log_cli_level = "INFO"
+xfail_strict = true
+filterwarnings = [
+    "error",
+]
+
+[tool.cibuildwheel]
+environment = { DISABLE_NUMCODECS_AVX2=1 }
+[tool.cibuildwheel.macos]
+# cibuildwheel uses 3.12 for the Python driver, which supports High Sierra and later
+# https://github.com/pypa/cibuildwheel/blob/ee63bf16da6cddfb925f542f2c7b59ad50e93969/action.yml#L31
+environment = { MACOSX_DEPLOYMENT_TARGET=10.13, DISABLE_NUMCODECS_AVX2=1, CFLAGS="$CFLAGS -Wno-implicit-function-declaration" }
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_arm64"
+environment = { DISABLE_NUMCODECS_AVX2=1, DISABLE_NUMCODECS_SSE2=1 }
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["c-blosc"]
+src = ["numcodecs"]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "C4",
+    "EXE",
+    "FA",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ISC",
+    "LOG",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PT",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLOT",
+    "TID",
+    "TRY",
+    "UP",
+]
+ignore = [
+    "FURB101",
+    "FURB103",
+    "PT001",
+    "PT011",
+    "PT012",
+    "RET505",
+    "RET506",
+    "SIM108",
+    "TRY003",
+    "TRY301",
+    "UP007",
+    "UP038",  # https://github.com/astral-sh/ruff/issues/7871
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"numcodecs/tests/**" = ["SIM201", "SIM202", "SIM300", "TRY002"]
+"notebooks/**" = ["W391"]  # https://github.com/astral-sh/ruff/issues/13763
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.mypy]
+ignore_errors = false
+ignore_missing_imports = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+# TODO: set options below to true
+strict = false
+warn_unreachable = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true

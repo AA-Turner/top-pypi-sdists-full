@@ -1,0 +1,4 @@
+
+from setuptools import setup
+
+setup(package_data={'shapely-stubs': ['__init__.pyi', '_enum.pyi', '_geometry.pyi', '_ragged_array.pyi', '_typing.pyi', '_version.pyi', 'affinity.pyi', 'algorithms/__init__.pyi', 'algorithms/cga.pyi', 'algorithms/polylabel.pyi', 'constructive.pyi', 'coordinates.pyi', 'coords.pyi', 'creation.pyi', 'decorators.pyi', 'errors.pyi', 'geometry/__init__.pyi', 'geometry/base.pyi', 'geometry/collection.pyi', 'geometry/geo.pyi', 'geometry/linestring.pyi', 'geometry/multilinestring.pyi', 'geometry/multipoint.pyi', 'geometry/multipolygon.pyi', 'geometry/point.pyi', 'geometry/polygon.pyi', 'geos.pyi', 'io.pyi', 'lib.pyi', 'linear.pyi', 'measurement.pyi', 'ops.pyi', 'plotting.pyi', 'predicates.pyi', 'prepared.pyi', 'set_operations.pyi', 'speedups.pyi', 'strtree.pyi', 'testing.pyi', 'validation.pyi', 'vectorized/__init__.pyi', 'wkb.pyi', 'wkt.pyi', 'METADATA.toml', 'py.typed']})

@@ -1,0 +1,270 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=62.3",
+]
+
+[project]
+authors = [
+    { name = "The Home Assistant Authors", email = "hello@home-assistant.io" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "aiohttp",
+    "aiorun",
+    "async-timeout",
+    "coloredlogs",
+    "orjson",
+    "home-assistant-chip-clusters==2024.11.4",
+]
+description = "Open Home Foundation Matter Server"
+name = "python-matter-server"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "7.0.1"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.optional-dependencies]
+server = [
+    "aiohttp==3.11.11",
+    "aiorun==2024.8.1",
+    "async-timeout==5.0.1",
+    "atomicwrites==1.4.1",
+    "coloredlogs==15.0.1",
+    "cryptography==44.0.0",
+    "orjson==3.10.13",
+    "zeroconf==0.136.2",
+    "home-assistant-chip-core==2024.11.4",
+]
+test = [
+    "aioresponses==0.7.7",
+    "codespell==2.3.0",
+    "isort==5.13.2",
+    "mypy==1.14.0",
+    "pre-commit==4.0.1",
+    "pre-commit-hooks==5.0.0",
+    "pylint==3.3.3",
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+    "pytest-aiohttp==1.0.5",
+    "pytest-cov==6.0.0",
+    "ruff==0.8.4",
+    "tomli==2.2.1",
+]
+
+[project.scripts]
+matter-server = "matter_server.server.__main__:main"
+
+[tool.codespell]
+ignore-words-list = "requestor"
+skip = "dashboard/package-lock.json,tests/fixtures/nodes/lighting-example-app.json,dashboard/src/client/models/descriptions.ts"
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+    "any",
+]
+zip-safe = false
+
+[tool.setuptools.package-data]
+matter_server = [
+    "py.typed",
+    "dashboard/**",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "matter_server*",
+]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "normal"
+ignore_missing_imports = true
+no_implicit_optional = true
+no_implicit_reexport = true
+platform = "linux"
+python_version = "3.11"
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pylint.MAIN]
+extension-pkg-allow-list = [
+    "chip.*",
+    "orjson",
+]
+ignore-paths = [
+    "scripts/beautify_diagnostics.py",
+    "scripts/generate_devices.py",
+]
+
+[tool.pylint.BASIC]
+good-names = [
+    "_",
+    "T",
+]
+
+[tool.pylint.DESIGN]
+max-args = 10
+max-attributes = 12
+max-positional-arguments = 10
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "duplicate-code",
+    "format",
+    "unsubscriptable-object",
+    "unused-argument",
+    "unspecified-encoding",
+    "isinstance-second-argument-not-valid-type",
+    "fixme",
+    "too-few-public-methods",
+]
+
+[tool.pylint.SIMILARITIES]
+ignore-imports = true
+
+[tool.pylint.FORMAT]
+max-line-length = 88
+
+[tool.pytest.ini_options]
+addopts = "--cov"
+asyncio_mode = "auto"
+
+[tool.ruff]
+fix = true
+line-length = 88
+show-fixes = true
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN401",
+    "D203",
+    "D213",
+    "D417",
+    "EM102",
+    "FIX002",
+    "PLR2004",
+    "PD011",
+    "S101",
+    "TD002",
+    "TD003",
+    "TD004",
+    "COM812",
+    "ISC001",
+    "TID252",
+    "N805",
+    "EXE002",
+    "T201",
+    "ANN201",
+    "UP032",
+    "E711",
+    "E501",
+    "D104",
+    "B018",
+    "FBT003",
+    "PT012",
+    "UP007",
+    "D400",
+    "D204",
+    "PLW2901",
+    "RET507",
+    "INP001",
+    "ARG001",
+    "RUF006",
+    "SIM108",
+    "ANN001",
+    "SIM117",
+    "TRY003",
+    "UP037",
+    "UP006",
+    "UP041",
+    "D202",
+    "FBT002",
+    "FBT001",
+    "PTH123",
+    "ANN204",
+    "EM102",
+    "PLR0915",
+    "EM101",
+    "EM102",
+    "ERA001",
+    "PYI036",
+    "ANN204",
+    "N818",
+    "N815",
+    "N801",
+    "N813",
+    "RUF012",
+    "B007",
+    "SIM102",
+    "C901",
+    "PLR0911",
+    "PLR0912",
+    "SLF001",
+    "RUF010",
+    "TRY300",
+    "UP038",
+    "PTH118",
+    "PTH112",
+    "PTH102",
+    "TRY400",
+    "DTZ001",
+    "TRY201",
+    "A002",
+    "DTZ003",
+    "N803",
+    "ARG002",
+    "S104",
+    "UP015",
+]
+select = [
+    "ALL",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = [
+    "matter_server",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 25
+max-returns = 15
+max-statements = 50

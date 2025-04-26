@@ -1,0 +1,145 @@
+[tool.poetry]
+name = "aiohttp-client-cache"
+version="0.13.0"
+description = "Persistent cache for aiohttp requests"
+authors = ["Jordan Cook"]
+license = "MIT License"
+readme = "README.md"
+homepage = "https://github.com/requests-cache/aiohttp-client-cache"
+repository = "https://github.com/requests-cache/aiohttp-client-cache"
+keywords = ["aiohttp", "async", "asyncio", "cache", "cache-backends", "client", "http",
+            "persistence", "requests", "sqlite", "redis", "mongodb", "dynamodb", "dragonflydb"]
+include = [
+    { path = "*.md", format = "sdist" },
+    { path = "*.yml", format = "sdist" },
+    { path = "aiohttp_client_cache/py.typed" },
+    { path = "docs", format = "sdist" },
+    { path = "examples", format = "sdist" },
+    { path = "test", format = "sdist" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    'Framework :: AsyncIO',
+    'Framework :: aiohttp',
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[tool.poetry.urls]
+"Documentation" = "https://aiohttp-client-cache.readthedocs.io"
+
+[tool.poetry.dependencies]
+python          = "^3.9"
+aiohttp         = "^3.8"
+attrs           = ">=21.2"
+itsdangerous    = ">=2.0"
+url-normalize   = "^2.2"
+
+# Optional backend dependencies
+aioboto3        = {optional=true, version=">=9.0"}
+aiobotocore     = {optional=true, version=">=2.0"}
+aiofiles        = {optional=true, version=">=0.6.0"}
+aiosqlite       = {optional=true, version=">=0.20"}
+motor           = {optional=true, version=">=3.1"}
+redis           = {optional=true, version=">=4.2"}
+
+[tool.poetry.extras]
+all         = ["aioboto3", "aiobotocore", "aiofiles", "aiosqlite", "motor", "redis"]
+dynamodb    = ["aioboto3", "aiobotocore"]
+filesystem  = ["aiofiles", "aiosqlite"]
+mongodb     = ["motor"]
+redis       = ["redis"]
+sqlite      = ["aiosqlite"]
+
+[tool.poetry.group.dev.dependencies]
+# For unit + integration tests
+async-timeout   = ">=4.0"
+brotli          = ">=1.0"
+faker           = ">=30.0"
+pytest          = ">=6.2"
+pytest-aiohttp  = ">=0.3,<1.2"
+pytest-asyncio  = ">=0.14,<0.26"
+pytest-clarity  = ">=1.0"
+pytest-cov      = ">=2.11,<7.0"
+pytest-xdist    = "^3.6"
+
+# For convenience in local development; additional tools are managed by pre-commit
+nox             = ">=2022.11"
+nox-poetry      = ">=1.0"
+pre-commit      = ">=4.2"
+types-aiofiles  = ">=0.1.7"
+
+# Documentation dependencies needed for Readthedocs builds
+[tool.poetry.group.docs.dependencies]
+furo                        = {python=">=3.10", version="^2024.8"}
+linkify-it-py               = {python=">=3.10", version=">=2.0"}
+markdown-it-py              = {python=">=3.10", version=">=2.2"}
+myst-parser                 = {python=">=3.10", version=">=3.0"}
+python-forge                = {python=">=3.10", version="^18.6"}
+sphinx                      = {python=">=3.10", version="8.0.2"}
+sphinx-automodapi           = {python=">=3.10", version="^0.18.0"}
+sphinx-autodoc-typehints    = {python=">=3.10", version="^2.4"}
+sphinx-copybutton           = {python=">=3.10", version="^0.5"}
+sphinx-inline-tabs          = {python=">=3.10", version=">=2023.4"}
+sphinxcontrib-apidoc        = {python=">=3.10", version=">=0.3"}
+
+[tool.poetry.group.test-server.dependencies]
+flask = ">=2.0"
+gunicorn = ">=21.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.html]
+directory = 'test-reports'
+
+[tool.coverage.run]
+branch = true
+source = ['aiohttp_client_cache']
+omit = [
+    'aiohttp_client_cache/__init__.py',
+    'aiohttp_client_cache/backends/__init__.py',
+    'aiohttp_client_cache/signatures.py',
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'if TYPE_CHECKING:',
+]
+
+[tool.mypy]
+python_version = 3.9
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+show_error_codes = true
+show_column_numbers = true
+check_untyped_defs=true
+pretty = true
+exclude = "dist|build"
+
+[tool.ruff]
+line-length = 100
+output-format = 'grouped'
+target-version = 'py39'
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint]
+select = ['B', 'C4', 'C90', 'E', 'F', 'I', 'UP']
+ignore = ['B023', 'B027']
+
+[tool.ruff.lint.isort]
+known-first-party = ['test']
+
+# Wrap lines to 100 chars, but don't error on unwrappable lines until 120 chars
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
+[tool.typos]
+files.extend-exclude = ["CONTRIBUTORS.md"]

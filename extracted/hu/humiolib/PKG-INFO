@@ -1,0 +1,222 @@
+Metadata-Version: 2.1
+Name: humiolib
+Version: 0.2.6
+Summary: Python SDK for connecting to Humio
+Home-page: https://github.com/humio/python-humio
+Author: Humio ApS
+Author-email: integrations@humio.com
+License: Apache-2.0
+Project-URL: Documentation, https://python-humio.readthedocs.io/
+Project-URL: Changelog, https://python-humio.readthedocs.io/en/latest/changelog.html
+Project-URL: Issue Tracker, https://github.com/humio/python-humio/issues
+Keywords: humio,log management
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: System :: Monitoring
+Requires-Python: >=3.5
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS.rst
+
+======================
+Humiolib
+======================
+ 
+
+ 
+The `humiolib` library is a wrapper for Humio's web API, supporting easy interaction with Humio directly from Python.
+Full documentation for this repository can be found at https://python-humio.readthedocs.io/en/latest/readme.html.
+ 
+Vision
+======
+The vision for `humiolib` is to create an opinionated wrapper around the Humio web API, supporting log ingestion and log queries.
+The project does not simply expose web endpoints as Python methods, but attempts to improve upon the usability experience of the API.
+In addition the project seeks to add non-intrusive quality of life features, so that users can focus on their primary goals during development.
+ 
+Governance
+==========
+This project is maintained by employees at Humio ApS.
+As a general rule, only employees at Humio can become maintainers and have commit privileges to this repository.
+Therefore, if you want to contribute to the project, which we very much encourage, you must first fork the repository.
+Maintainers will have the final say on accepting or rejecting pull requests.
+As a rule of thumb, pull requests will be accepted if:
+ 
+   * The contribution fits with the project's vision
+   * All automated tests have passed
+   * The contribution is of a quality comparable to the rest of the project
+ 
+The maintainers will attempt to react to issues and pull requests quickly, but their ability to do so can vary.
+If you haven't heard back from a maintainer within 7 days of creating an issue or making a pull request, please feel free to ping them on the relevant post.
+ 
+The active maintainers involved with this project include:
+  
+   * `Alexander Brandborg <https://github.com/AlexanderBrandborg>`_
+ 
+Installation
+============
+The `humiolib` library has been published on PyPI, so you can use `pip` to install it:
+::
+  
+   pip install humiolib
+ 
+ 
+Usage
+========
+The examples below seek to get you going with `humiolib`.
+For further documentation have a look at the code itself.
+ 
+HumioClient
+***********
+The HumioClient class is used for general interaction with Humio.
+It is mainly used for performing queries, as well as managing different aspects of your Humio instance.
+ 
+.. code-block:: python
+ 
+  from humiolib.HumioClient import HumioClient
+ 
+  # Creating the client
+  client = HumioClient(
+       base_url= "https://cloud.humio.com",
+       repository= "sandbox",
+       user_token="*****")
+ 
+  # Using a streaming query 
+  webStream = client.streaming_query("Login Attempt Failed", is_live=True)
+  for event in webStream:
+      print(event)
+ 
+  # Using a queryjob 
+  queryjob = client.create_queryjob("Login Attempt Failed", is_live=True)
+  poll_result = queryjob.poll()
+  for event in poll_result.events:
+      print(event)
+
+  # With a static queryjob you can poll it iterativly until it has been exhausted
+  queryjob = client.create_queryjob("Login Attempt Failed", is_live=False)
+  for poll_result in queryjob.poll_until_done():
+      print(poll_result.metadata)
+      for event in poll_result.events:
+              print(event)
+ 
+HumioIngestClient
+*****************
+The HumioIngestClient class is used for ingesting data into Humio.
+While the HumioClient can also be used for ingesting data, this is mainly meant for debugging.
+ 
+.. code-block:: python
+
+   from humiolib.HumioClient import HumioIngestClient
+ 
+   # Creating the client
+   client = HumioIngestClient(
+      base_url= "https://cloud.humio.com",
+      ingest_token="*****")
+   
+   # Ingesting Unstructured Data
+   messages = [
+         "192.168.1.21 - user1 [02/Nov/2017:13:48:26 +0000] \"POST /humio/api/v1/ingest/elastic-bulk HTTP/1.1\" 200 0 \"-\" \"useragent\" 0.015 664 0.015",
+         "192.168.1..21 - user2 [02/Nov/2017:13:49:09 +0000] \"POST /humio/api/v1/ingest/elastic-bulk HTTP/1.1\" 200 0 \"-\" \"useragent\" 0.013 565 0.013"
+      ]
+   
+   client.ingest_messages(messages) 
+   
+   # Ingesting Structured Data
+   structured_data = [
+         {
+            "tags": {"host": "server1" },
+            "events": [
+                  {
+                     "timestamp": "2020-03-23T00:00:00+00:00",
+                     "attributes": {"key1": "value1", "key2": "value2"}      
+                  }
+            ]
+         }
+      ]
+   
+   client.ingest_json_data(structured_data)
+ 
+
+
+Changelog
+=========
+
+0.2.0 (2020-03-30)
+******************
+Initial real release to PyPI
+
+Added:
+
+    * Tests, mocking out API calls with vcr.py 
+    * Custom error handling to completly wrap url library used
+    * QueryJob class
+
+Changed:
+
+    * Whole API interface has been updated
+    * Updated Sphinx documentation
+
+Removed:
+
+    * A few configuration files left over from earlier versions
+
+
+0.2.2 (2020-05-19)
+******************
+Bugfixing to ensure that static queryjobs can be polled for all their results
+
+Added:
+
+    * Static queryjobs can now be queried for more than one segment
+    
+
+Changed:
+
+    * Upon polling from a QueryJob it will now stall until it can poll data from Humio, ensuring that an empty result is not returned prematurely.
+
+Removed:
+
+    * The poll_until_done method has been removed from live query jobs, as this does not make conceptual sense to do, in the same manner as a static query job.
+
+0.2.3 (2021-08-13)
+******************
+Smaller bugfixes
+Changed:
+
+    * Fix urls in docstrings in HumioClient.py
+    * Propagate kwargs to poll functions in QueryJob.py
+
+0.2.4 (2022-08-15)
+******************
+Smaller file related bugfixes
+Changed:
+
+    * upload_file function no longer attempts a cast to json 
+    * list_files function now works on newer versions of humio
+
+0.2.5 (2023-04-17)
+******************
+Expand file functionality
+Changed:
+
+    * Added additional endpoints for manipulating files via GraphQL
+
+
+0.2.6 (2023-10-05)
+******************
+Add 'Saved Query' Support
+Changed:
+
+    * Added additional endpoints for managing saved queries

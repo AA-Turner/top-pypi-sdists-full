@@ -1,0 +1,116 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=61.2",
+]
+
+
+[project]
+name = "alembic"
+description = "A database migration tool for SQLAlchemy."
+authors = [{name = "Mike Bayer", email = "mike_mp@zzzcomputing.com"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Database :: Front-Ends",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "SQLAlchemy>=1.4.0",
+    "Mako",
+    "typing-extensions>=4.12",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://alembic.sqlalchemy.org"
+Documentation = "https://alembic.sqlalchemy.org/en/latest/"
+Changelog = "https://alembic.sqlalchemy.org/en/latest/changelog.html"
+Source = "https://github.com/sqlalchemy/alembic/"
+"Issue Tracker" = "https://github.com/sqlalchemy/alembic/issues/"
+
+[project.optional-dependencies]
+tz = ["tzdata"]
+
+[project.scripts]
+alembic = "alembic.config:main"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+package-dir = {"" = "."}
+license-files = ["LICENSE"]
+
+[tool.setuptools.package-data]
+"*" = ["*.pyi", "py.typed", "*.mako", "README"]
+
+
+[tool.setuptools.packages.find]
+include = ["alembic*"]
+exclude = [
+    "test*",
+    "examples*",
+]
+namespaces = true
+
+
+[tool.setuptools.dynamic]
+version = {attr = "alembic.__version__"}
+
+
+[tool.black]
+line-length = 79
+target-version = ['py39']
+
+[tool.pytest.ini_options]
+addopts = "--tb native -v -r sfxX -p no:warnings -p no:logging --maxfail=100"
+python_files = "tests/test_*.py"
+markers = [
+    "backend: tests that should run on all backends; typically dialect-sensitive",
+    "mypy: mypy integration / plugin tests (not used by Alembic currently)",
+]
+
+
+
+[tool.mypy]
+
+exclude = [
+    'alembic/template',
+    'alembic.testing.*',
+]
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+
+module = [
+    "alembic.*"
+]
+
+warn_unused_ignores = true
+strict = true
+
+
+
+[[tool.mypy.overrides]]
+module = [
+    'mako.*',
+    'sqlalchemy.testing.*'
+]
+ignore_missing_imports = true

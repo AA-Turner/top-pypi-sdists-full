@@ -1,0 +1,121 @@
+[build-system]
+build-backend = "mesonpy"
+requires = [
+    "cython",
+    "wheel",
+    "meson-python",
+    "ninja"
+]
+
+[project]
+name = "python-rtmidi"
+dynamic = ['version']
+description = "A Python binding for the RtMidi C++ library implemented using Cython."
+authors = [
+    { name="Christopher Arndt", email="info@chrisarndt.de" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "MIDI",
+    "multimedia",
+    "music",
+    "rtmidi",
+]
+
+[tool.meson-python.args]
+setup = [
+    "-Dwheel=true",
+    "-Dverbose=false",
+    "-Dbuildtype=plain"
+]
+
+[project.license]
+file = "LICENSE.md"
+
+[project.urls]
+"Bug Tracker" = "https://github.com/SpotlightKid/python-rtmidi/issues"
+"Documentation" = "https://spotlightkid.github.io/python-rtmidi/"
+"Download" = "https://pypi.python.org/pypi/python-rtmidi"
+"Homepage" = "https://github.com/SpotlightKid/python-rtmidi"
+"Source" = "https://gitlab.com/SpotlightKid/python-rtmidi/"
+
+[tool.black]
+line-length = 99
+target-version = [
+    "py38",
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+]
+
+[tool.isort]
+line_length = 99
+profile = "black"
+
+[tool.pydocstyle]
+match = '(?!test_).*\.pyx?'
+match_dir = '(src|rtmidi)'
+add_ignore = [
+    "D412"
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "ci: marks tests to run as part of the CI builds",
+    "jack: marks tests requiring a running JACK server",
+]
+
+[tool.cibuildwheel]
+# Switch to using build
+build-frontend = "build"
+skip = "pp*"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# Run the package tests using `pytest`
+test-requires = "pytest"
+test-command = "pytest -v -m ci {package}/tests"
+
+# Install system library
+[tool.cibuildwheel.linux]
+build = "cp3{8,9,10,11,12}-manylinux*"
+archs = ["auto64"]
+before-all = [
+    "dnf -y install alsa-lib-devel alsa-utils",
+    "curl -o jack2-1.9.22.tar.gz https://codeload.github.com/jackaudio/jack2/tar.gz/refs/tags/v1.9.22",
+    "tar -xzf jack2-1.9.22.tar.gz",
+    "cd jack2-1.9.22",
+    "python3 waf configure --prefix=/usr --autostart=none --classic --pkgconfigdir=/usr/lib64/pkgconfig",
+    "python3 waf build",
+    "python3 waf install",
+]
+repair-wheel-command = "auditwheel repair --exclude libasound.so.2 --lib-sdir . -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.macos]
+build = "cp3{8,9,10,11,12}-macosx*"
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+build = "cp3{8,9,10,11,12}-win*"
+archs = ["AMD64"]

@@ -1,0 +1,168 @@
+[build-system]
+requires = ["hatchling>1.24","hatch-requirements-txt>=0.4.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "motor"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = "Non-blocking MongoDB driver for Tornado or asyncio"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [
+    { name = "A. Jesse Jiryu Davis", email = "jesse@mongodb.com" },
+]
+keywords = [
+    "asyncio",
+    "bson",
+    "gridfs",
+    "mongo",
+    "mongodb",
+    "motor",
+    "pymongo",
+    "tornado",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Typing :: Typed",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://www.mongodb.org"
+Documentation = "https://motor.readthedocs.io"
+Source = "https://github.com/mongodb/motor"
+Tracker = "https://jira.mongodb.org/projects/MOTOR/issues"
+
+[tool.hatch.version]
+path = "motor/_version.py"
+validate-bump = false
+
+[tool.hatch.metadata.hooks.requirements_txt]
+files = ["requirements.txt"]
+
+[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
+aws = ["requirements/aws.txt"]
+docs = ["requirements/docs.txt"]
+encryption = ["requirements/encryption.txt"]
+gssapi = ["requirements/gssapi.txt"]
+ocsp = ["requirements/ocsp.txt"]
+snappy = ["requirements/snappy.txt"]
+test = ["requirements/test.txt"]
+zstd = ["requirements/zstd.txt"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+pretty = true
+show_error_context = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unreachable = true
+disable_error_code = ["type-arg"]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[tool.pytest.ini_options]
+minversion = "7"
+testpaths = ["test"]
+xfail_strict = true
+log_cli_level = "INFO"
+addopts = ["-ra", "--strict-config", "--strict-markers",
+    "--maxfail=10", "--durations=5", "--junitxml=xunit-results/TEST-results.xml"]
+faulthandler_timeout = 1500
+filterwarnings = [
+    "error",
+    "ignore:Bare functions are deprecated, use async ones:DeprecationWarning",
+    "ignore:Application.make_handler:DeprecationWarning",
+    "ignore:unclosed <socket.socket:ResourceWarning",
+    "ignore:unclosed event loop:ResourceWarning",
+    "ignore: The fetch_next property is deprecated:DeprecationWarning",
+    "ignore:The next_object method is deprecated:DeprecationWarning",
+    "ignore:unclosed <ssl.SSLSocket:ResourceWarning",
+    "ignore:datetime.datetime.utc:DeprecationWarning",
+    "ignore:GridOut property 'contentType' is deprecated and will be removed in PyMongo 5.0:DeprecationWarning",
+    "ignore:GridIn property 'contentType' is deprecated and will be removed in PyMongo 5.0:DeprecationWarning",
+    "ignore:GridOut property 'aliases' is deprecated and will be removed in PyMongo 5.0:DeprecationWarning",
+    # From older versions aiohttp.
+    "ignore:\"@coroutine\" decorator is deprecated since Python 3.8:DeprecationWarning",
+    "ignore:The loop argument is deprecated since Python 3.8:DeprecationWarning",
+    # TODO: Remove both of these in https://jira.mongodb.org/browse/PYTHON-4731
+    "ignore:Unclosed AsyncMongoClient*",
+    "ignore:Unclosed MongoClient*",
+]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W", # flake8
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PYI",         # flake8-pyi
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "PTH",         # flake8-use-pathlib
+  "RUF",         # Ruff-specific
+  "S",           # flake8-bandit
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+]
+ignore = [
+  "ARG001", # Unused function argument
+  "UP007",  # Use `X | Y` for type annotation
+  "EM101",  # Exception must not use a string literal, assign to variable first
+  "EM102",  # Exception must not use an f-string literal, assign to variable first
+  "G004",   # Logging statement uses f-string"
+  "PLR",    # Too many arguments to function call, etc.
+  "SIM108", # Use ternary operator"
+  "SIM105", # Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`
+  "ARG002", # Unused method argument:
+  "S101",   # Use of `assert` detected
+  "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+  "PYI034", #  `__aenter__` methods in classes like `AgnosticGridIn` usually return `self` at runtime
+]
+unfixable = [
+  "RUF100", # Unused noqa
+  "T20",  # Removes print statements
+  "F841", # Removes unused variables
+  "F401"
+]
+exclude = []
+flake8-unused-arguments.ignore-variadic-names = true
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|dummy.*)$"
+
+[tool.ruff.lint.per-file-ignores]
+"test/*.py" = ["PT009", "ARG", "E402", "PT027", "UP031",
+               "B904", "C405", "SIM", "PLR", "PTH", "B018", "C4",
+               "S", "E501", "T201", "E731", "F841", "F811",
+               "B011", "PT015", "E721", "PYI"]
+"synchro/__init__.py" = ["F403", "B904", "F401"]
+"doc/*.py" = [ "T201", "PTH"]
+"motor/docstrings.py" = [ "E501", ]
+"doc/examples/*.py" = [ "E402", ]

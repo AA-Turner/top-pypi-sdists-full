@@ -1,0 +1,94 @@
+import typing as t
+
+import ry
+from ry.http import Headers, HttpStatus
+from ry.ryo3 import URL, Duration
+
+class HttpClient:
+    def __init__(
+        self,
+        *,
+        headers: dict[str, str] | None = None,
+        user_agent: str | None = None,  # default ~ 'ry-reqwest/<VERSION> ...'
+        timeout: Duration | None = None,
+        connect_timeout: Duration | None = None,
+        read_timeout: Duration | None = None,
+        gzip: bool = True,
+        brotli: bool = True,
+        deflate: bool = True,
+    ) -> None: ...
+    async def get(
+        self, url: str | URL, *, headers: dict[str, str] | None = None
+    ) -> Response: ...
+    async def post(
+        self,
+        url: str | URL,
+        *,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Response: ...
+    async def put(
+        self,
+        url: str | URL,
+        *,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Response: ...
+    async def delete(
+        self, url: str | URL, *, headers: dict[str, str] | None = None
+    ) -> Response: ...
+    async def patch(
+        self,
+        url: str | URL,
+        *,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Response: ...
+    async def head(
+        self, url: str | URL, *, headers: dict[str, str] | None = None
+    ) -> Response: ...
+    async def fetch(
+        self,
+        url: str | URL,
+        *,
+        method: str = "GET",
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Response: ...
+
+class ReqwestError(Exception):
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None: ...
+    def __dbg__(self) -> str: ...
+    def is_body(self) -> bool: ...
+    def is_builder(self) -> bool: ...
+    def is_connect(self) -> bool: ...
+    def is_decode(self) -> bool: ...
+    def is_redirect(self) -> bool: ...
+    def is_request(self) -> bool: ...
+    def is_status(self) -> bool: ...
+    def is_timeout(self) -> bool: ...
+    def status(self) -> HttpStatus | None: ...
+    def url(self) -> URL | None: ...
+
+class Response:
+    status_code: int
+
+    @property
+    def headers(self) -> Headers: ...
+    async def text(self) -> str: ...
+    async def json(self) -> t.Any: ...
+    async def bytes(self) -> ry.Bytes: ...
+    def bytes_stream(self) -> ResponseStream: ...
+
+class ResponseStream:
+    def __aiter__(self) -> ResponseStream: ...
+    async def __anext__(self) -> ry.Bytes: ...
+
+async def fetch(
+    url: str | URL,
+    *,
+    client: HttpClient | None = None,
+    method: str = "GET",
+    body: bytes | None = None,
+    headers: dict[str, str] | None = None,
+) -> Response: ...

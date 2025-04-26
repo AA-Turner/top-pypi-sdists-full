@@ -1,0 +1,221 @@
+########## Project ##########
+[project]
+name = "mizani"
+description = "Scales for Python"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Hassan Kibirige", email = "has2k1@gmail.com"},
+]
+dynamic = ["version"]
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Visualization"
+]
+dependencies = [
+    "numpy>=1.23.5",
+    "scipy>=1.8.0",
+    "pandas>=2.2.0",
+    "tzdata;platform_system=='Windows' or platform_system=='Emscripten'"
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+all = [
+    "mizani[doc]",
+    "mizani[build]",
+    "mizani[lint]",
+    "mizani[test]",
+    "mizani[dev]",
+]
+
+doc = [
+    "sphinx>=7.2.0",
+    "numpydoc>=1.7.0",
+]
+
+rtd = [
+    "mock",
+]
+
+build = [
+    "build",
+    "wheel",
+]
+
+lint = [
+    "ruff",
+]
+
+test = [
+    "pytest-cov>=4.0.0"
+]
+
+dev = [
+    "notebook",
+    "twine",
+    "pre-commit",
+    "mizani[typing]",
+]
+
+typing = [
+    "pyright==1.1.398",
+    "pandas-stubs",
+]
+
+[project.urls]
+homepage = "https://mizani.readthedocs.io/en/stable"
+repository = "https://github.com/has2k1/mizani"
+changelog = "https://mizani.readthedocs.io/en/stable/changelog.html"
+ci = "https://github.com/has2k1/mizani/actions"
+
+########## Build System ##########
+[build-system]
+requires = [
+    "setuptools>=61",
+    "setuptools_scm[toml]>=6.2",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+########## Tool - Setuptools ##########
+# If you only specify the top-level package (=mizani) setuptools complains
+# about not listing the sub-packages. Since we want every sub-package in the
+# mizani package, it is easier to use find directive.
+[tool.setuptools.packages.find]
+include = ["mizani*"]
+
+[tool.setuptools_scm]
+fallback_version = "999"
+version_scheme = 'post-release'
+
+########## Tool - pytest ##########
+# https://docs.pytest.org/en/stable/reference/customize.html
+# https://docs.pytest.org/en/stable/reference/reference.html#ini-options-ref
+[tool.pytest.ini_options]
+testpaths = [
+    "mizani",
+    "tests"
+]
+addopts = "--pyargs --cov=mizani --cov-report=xml --doctest-modules --doctest-ignore-import-errors"
+doctest_optionflags = "ALLOW_BYTES NORMALIZE_WHITESPACE"
+
+########## Tool - Coverage ##########
+# Coverage.py
+[tool.coverage.run]
+branch = true
+source = ["mizani"]
+include = [
+   "mizani/*"
+]
+omit = [
+   "setup.py",
+   "mizani/_version.py",
+   "mizani/external/*",
+   "mizani/tests/*",
+   "mizani/typing.py",
+]
+disable_warnings = ["include-ignored"]
+
+[tool.coverage.report]
+exclude_also = [
+   "pragma: no cover",
+   "^def test_",
+   "if __name__ == .__main__.:",
+   "while k < float\\('inf'\\):",
+   "if TYPE_CHECKING:",
+   "if typing.TYPE_CHECKING:",
+   "except ImportError:",
+   "except PackageNotFoundError:",
+   "@overload",
+   "\\s{4,}\\.\\.\\.",
+   ": lambda x: .+?,$",
+   "^def trans_new"
+]
+precision = 1
+
+########## Tool - Pyright ##########
+[tool.pyright]
+# Paths of directories or files that should be included. If no paths
+# are specified, pyright defaults to the directory that contains the
+# config file. Paths may contain wildcard characters ** (a directory or
+# multiple levels of directories), * (a sequence of zero or more
+# characters), or ? (a single character). If no include paths are
+# specified, the root path for the workspace is assumed.
+include = [
+    "mizani/"
+]
+
+# Paths of directories or files whose diagnostic output (errors and
+# warnings) should be suppressed even if they are an included file or
+# within the transitive closure of an included file. Paths may contain
+# wildcard characters ** (a directory or multiple levels of
+# directories), * (a sequence of zero or more characters), or ? (a
+# single character).
+ignore = []
+
+# Set of identifiers that should be assumed to contain a constant
+# value wherever used within this program. For example, { "DEBUG": true
+# } indicates that pyright should assume that the identifier DEBUG will
+# always be equal to True. If this identifier is used within a
+# conditional expression (such as if not DEBUG:) pyright will use the
+# indicated value to determine whether the guarded block is reachable
+# or not. Member expressions that reference one of these constants
+# (e.g. my_module.DEBUG) are also supported.
+defineConstant = { DEBUG = true }
+
+# typeCheckingMode = "strict"
+useLibraryCodeForTypes = true
+reportUnnecessaryTypeIgnoreComment = true
+# reportUnsupportedDunderAll = false
+
+
+# Specifies a list of execution environments (see below). Execution
+# environments are searched from start to finish by comparing the path
+# of a source file with the root path specified in the execution
+# environment.
+executionEnvironments = []
+
+stubPath = ""
+
+########## Tool - Ruff ##########
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+   "E",
+   "F",
+   "C",
+   "I",
+   "Q",
+   "PIE",
+   "PTH",
+   "PD",
+   "PYI",
+   "RSE",
+   "SIM",
+   "B904",
+   "FLY",
+   "NPY",
+   "PERF102"
+]
+ignore = [
+    "E741",  # Ambiguous l
+    "C901",  # Function is too complex
+]
+# Allow autofix for all enabled rules (when `--fix`) is provided
+fixable = ["ALL"]
+unfixable = []
+exclude = [
+    "mizani/external/*"
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

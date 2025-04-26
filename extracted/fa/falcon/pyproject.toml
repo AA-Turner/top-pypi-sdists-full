@@ -1,0 +1,237 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=61",
+    "cython>=3.0.8; python_implementation == 'CPython'", # Skip cython when using pypy
+]
+
+[project]
+name = "falcon"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+dynamic = ["version"]
+dependencies = []
+requires-python = ">=3.8"
+description = "The ultra-reliable, fast ASGI+WSGI framework for building data plane APIs at scale."
+authors = [
+  {name = "Kurt Griffiths", email = "mail@kgriffs.com"},
+]
+license = {text = "Apache 2.0"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Natural Language :: English",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Topic :: Internet :: WWW/HTTP :: WSGI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Cython",
+    "Typing :: Typed",
+]
+keywords = [
+    "asgi",
+    "wsgi",
+    "web",
+    "api",
+    "framework",
+    "rest",
+    "http",
+    "cloud",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+falcon-bench = "falcon.cmd.bench:main"
+falcon-inspect-app = "falcon.cmd.inspect_app:main"
+falcon-print-routes = "falcon.cmd.inspect_app:route_main"
+
+[project.urls]
+Homepage = "https://falconframework.org"
+Documentation = "https://falcon.readthedocs.io/en/stable/"
+"Release Notes" = "https://falcon.readthedocs.io/en/stable/changes/"
+"Source" = "https://github.com/falconry/falcon"
+"Issue Tracker" = "https://github.com/falconry/falcon/issues"
+Funding = "https://opencollective.com/falcon"
+Chat = "https://gitter.im/falconry/user"
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+zip-safe = false
+
+[tool.setuptools.dynamic]
+version = {attr = "falcon.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["falcon*"]
+
+[tool.mypy]
+    exclude = [
+        "falcon/bench",
+        "falcon/cmd",
+    ]
+    disallow_untyped_defs = true
+    warn_unused_ignores = true
+
+    [[tool.mypy.overrides]]
+        module = [
+            "cbor2",
+            "cython",
+            "daphne",
+            "gunicorn",
+            "hypercorn",
+            "meinheld",
+            "msgpack",
+            "mujson",
+            "pyximport",
+            "testtools",
+            "uvicorn"
+        ]
+        ignore_missing_imports = true
+
+    [[tool.mypy.overrides]]
+        # Pure Cython modules
+        module = [
+            "falcon.cyutil.misc",
+            "falcon.cyutil.reader",
+            "falcon.cyutil.uri"
+        ]
+        ignore_missing_imports = true
+
+[tool.towncrier]
+    package = "falcon"
+    package_dir = ""
+    filename = "docs/changes/4.0.2.rst"
+    directory = "docs/_newsfragments"
+    issue_format = "`#{issue} <https://github.com/falconry/falcon/issues/{issue}>`__"
+
+    # TODO(vytas): title_format = false seems to have no effect in towncrier==21.3.0.
+    #   For now, we just have to remember to check the rendered changelog, and,
+    #   if needed, remove the unwanted auto-generated title.
+    #   See also: https://github.com/twisted/towncrier/issues/345.
+    title_format = false
+
+    [[tool.towncrier.type]]
+        directory = "breakingchange"
+        name = "Breaking Changes"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "newandimproved"
+        name = "New & Improved"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "bugfix"
+        name = "Fixed"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "misc"
+        name = "Misc"
+        showcontent = true
+
+[tool.black]
+    # this is kept to avoid reformatting all the code if one were to
+    # inadvertently run black on the project
+    target-version = ["py38"]
+    skip-string-normalization = true
+    line-length = 88
+
+[tool.blue]
+    # NOTE(vytas): Before switching to Ruff, Falcon used the Blue formatter.
+    #   With the below settings, accidentally running blue should yield
+    #   only minor cosmetic changes in a handful of files.
+    target-version = ["py38"]
+    line-length = 88
+
+[tool.ruff]
+    target-version = "py38"
+    format.quote-style = "single"
+    line-length = 88
+    builtins = [
+        "ignore",
+        "attr",
+        "defined",
+    ]
+    exclude = [
+        ".ecosystem",
+        ".eggs",
+        ".git",
+        ".tox",
+        ".venv",
+        "build",
+        "dist",
+        "docs",
+        "falcon/bench/nuts",
+    ]
+
+[tool.ruff.lint]
+    select = [
+        "C9",
+        "E",
+        "F",
+        "W",
+        "I",
+        "FA"
+    ]
+
+[tool.ruff.lint.mccabe]
+    max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+    "**/__init__.py" = [
+        "F401",
+        "E402",
+        "F403"
+    ]
+    "falcon/uri.py" = ["F401"]
+    "examples/*" = ["FA"]
+
+[tool.ruff.lint.isort]
+    case-sensitive = false
+    force-single-line = true
+    order-by-type = false
+    single-line-exclusions = [
+        "typing"
+    ]
+    force-sort-within-sections = true
+    known-local-folder = ["asgilook", "look"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:Unknown REQUEST_METHOD. '(CONNECT|DELETE|GET|HEAD|OPTIONS|PATCH|POST|PUT|TRACE|CHECKIN|CHECKOUT|COPY|LOCK|MKCOL|MOVE|PROPFIND|PROPPATCH|REPORT|UNCHECKIN|UNLOCK|UPDATE|VERSION-CONTROL)':wsgiref.validate.WSGIWarning",
+    "ignore:Unknown REQUEST_METHOD. '(FOO|BAR|BREW|SETECASTRONOMY)':wsgiref.validate.WSGIWarning",
+    "ignore:\"@coroutine\" decorator is deprecated:DeprecationWarning",
+    "ignore:Using or importing the ABCs:DeprecationWarning",
+    "ignore:cannot collect test class 'TestClient':pytest.PytestCollectionWarning",
+    "ignore:inspect.getargspec\\(\\) is deprecated:DeprecationWarning",
+    "ignore:path is deprecated\\. Use files\\(\\) instead:DeprecationWarning",
+    "ignore:This process \\(.+\\) is multi-threaded",
+]
+markers = [
+    "slow: mark Falcon tests as slower (potentially taking more than ~500ms).",
+]
+testpaths = [
+    "tests"
+]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+test-requires = ["-r requirements/cibwtest"]
+test-command = "pytest {project}/tests"

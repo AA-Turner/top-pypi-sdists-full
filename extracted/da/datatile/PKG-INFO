@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: datatile
+Version: 1.0.3
+Summary: A library for managing, summarizing, and visualizing data.
+Home-page: https://github.com/polyaxon/datatile
+Author: Polyaxon, Inc.
+Author-email: contact@polyaxon.com
+Maintainer: Polyaxon, Inc.
+Maintainer-email: contact@polyaxon.com
+License: Apache 2.0
+Keywords: polyaxon,aws,s3,microsoft,azure,google cloud storage,gcs,deep-learning,machine-learning,data-science,neural-networks,artificial-intelligence,ai,reinforcement-learning,kubernetes,aws,microsoft,azure,google cloud,tensorFlow,pytorch,matplotlib,plotly,visualization,analytics,pandas,data-checks,data-analysis
+Platform: any
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.5
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+
+UNKNOWN
+

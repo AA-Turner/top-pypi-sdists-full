@@ -1,0 +1,81 @@
+[tool.poetry]
+name = "graphql-core"
+version = "3.2.6"
+description = """
+GraphQL-core is a Python port of GraphQL.js,\
+ the JavaScript reference implementation for GraphQL."""
+license = "MIT"
+authors = [
+    "Christoph Zwerschke <cito@online.de>"
+]
+readme = "README.md"
+homepage = "https://github.com/graphql-python/graphql-core"
+repository = "https://github.com/graphql-python/graphql-core"
+documentation = "https://graphql-core-3.readthedocs.io/"
+keywords = ["graphql"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
+]
+packages = [
+    { include = "graphql", from = "src" },
+    { include = "tests", format = "sdist" },
+    { include = "docs", format = "sdist" },
+    { include = '.bumpversion.cfg', format = "sdist" },
+    { include = '.coveragerc', format = "sdist" },
+    { include = '.editorconfig', format = "sdist" },
+    { include = '.flake8', format = "sdist" },
+    { include = '.mypy.ini', format = "sdist" },
+    { include = '.readthedocs.yaml', format = "sdist" },
+    { include = 'poetry.lock', format = "sdist" },
+    { include = 'tox.ini', format = "sdist" },
+    { include = 'setup.cfg', format = "sdist" },
+    { include = 'setup.py', format = "sdist" },
+    { include = 'CODEOWNERS', format = "sdist" },
+    { include = 'MANIFEST.in', format = "sdist" },
+    { include = 'SECURITY.md', format = "sdist" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+typing-extensions = [
+    { version = ">=4.1,<5", python = "<3.10" }
+]
+
+[tool.black]
+target-version = ['py36', 'py37', 'py38', 'py39', 'py310', 'py311', 'py312', 'py313']
+
+[tool.pyright]
+reportIncompatibleVariableOverride = false
+reportMissingTypeArgument = false
+reportUnknownArgumentType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnnecessaryIsInstance = false
+reportUnknownVariableType = false
+ignore = ["**/test_*"]  # test functions
+
+[tool.pylint.basic]
+max-module-lines = 2000
+
+[tool.pylint.messages_control]
+disable = [
+    "method-hidden",
+    "missing-module-docstring",  # test modules
+    "redefined-outer-name",
+    "unused-variable",  # test functions
+]
+
+[build-system]
+requires = ["poetry_core>=1,<3", "setuptools>=59,<76"]
+build-backend = "poetry.core.masonry.api"

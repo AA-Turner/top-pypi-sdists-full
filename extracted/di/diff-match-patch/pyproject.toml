@@ -1,0 +1,54 @@
+[build-system]
+requires = ["flit-core >= 3.8, <4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "diff-match-patch"
+readme = "README.md"
+license = {file="LICENSE"}
+dynamic = ["version", "description"]
+authors = [
+    {name="Neil Fraser", email="fraser@google.com"},
+]
+maintainers = [
+    {name="Amethyst Reese", email="amethyst@n7.gg"},
+]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing",
+]
+requires-python = ">=3.7"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "attribution==1.8.0",
+    "build>=1",
+    "black==24.8.0",
+    "flit==3.9.0",
+    "mypy==1.12.1",
+    "ufmt==2.7.3",
+    "usort==1.0.8.post1",
+]
+
+[project.urls]
+Github = "https://github.com/diff-match-patch-python/diff-match-patch"
+Changelog = "https://github.com/diff-match-patch-python/diff-match-patch/blob/main/CHANGELOG.md"
+
+[tool.flit.sdist]
+exclude = [
+    ".github/",
+]
+
+[tool.attribution]
+name = "diff-match-patch"
+package = "diff_match_patch"
+ignored_authors = ["dependabot"]
+signed_tags = true
+version_file = true
+
+[tool.mypy]
+python_version = "3.7"

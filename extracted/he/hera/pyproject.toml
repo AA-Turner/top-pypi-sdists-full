@@ -1,0 +1,155 @@
+[tool.poetry]
+name = "hera"  # project-name
+# The version is automatically substituted by the CI
+version = "5.20.1"
+description = "Hera makes Python code easy to orchestrate on Argo Workflows through native Python integrations. It lets you construct and submit your Workflows entirely in Python."
+authors = ["Flaviu Vadan <flaviuvadan@gmail.com>", "Sambhav Kothari <sambhavs.email@gmail.com>", "Elliot Gunton <elliotgunton@gmail.com>"]
+maintainers = ["Sambhav Kothari <sambhavs.email@gmail.com>", "Elliot Gunton <elliotgunton@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/argoproj-labs/hera"
+repository = "https://github.com/argoproj-labs/hera"
+documentation = "https://hera.readthedocs.io/en/stable/"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: Apache Software License",
+]
+packages = [
+    { include = "hera", from = "src" }
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/argoproj-labs/hera/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
+pyyaml = { version = ">=6.0", optional = true }
+requests = "*"
+pydantic = { extras = ["email"], version = ">=1.7,<3.0" }
+cappa = {version = ">=0.22.1,<0.27.0", optional = true}
+varname = {version = ">=0.13.1,<0.15.0", optional = true}
+
+[tool.poetry.extras]
+yaml = ["PyYAML"]
+cli = ["cappa", "PyYAML"]
+experimental = ["varname"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "<9.0.0"
+pytest-cov = "*"
+mypy = "*"
+build = "*"
+ruff = "*"
+types-PyYAML = "*"
+jsonpath-ng = "^1.5.3"
+datamodel-code-generator = { extras = ["http"], version = "^0.25" }
+types-requests = "^2.32.0.20240914"
+pytest-clarity = "^1.0.1"
+pytest-sugar = ">=0.9.6,<1.1.0"
+
+[tool.poetry.scripts]
+hera = "hera.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "-vv --cov=hera --cov-report=xml --cov-config=pyproject.toml"
+filterwarnings = [
+    # Hide the hera.host_config deprecations
+    'ignore:.*is deprecated in favor of `global_config.GlobalConfig',
+]
+markers = [
+    "on_cluster: tests that run on an Argo cluster",
+    "cli: tests that verify CLI functionality",
+]
+
+# Convert the following to config
+[tool.mypy]
+namespace_packages = true
+explicit_package_bases = true
+show_traceback = true
+python_version = "3.9"
+mypy_path = "src"
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = false
+
+plugins = [
+  "pydantic.mypy"
+]
+
+
+[[tool.mypy.overrides]]
+module = "mypy-argo.workflows.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-urllib3.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-pytz.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-pkg_resources.*"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+    "**/models/**",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "pragma: no cover",
+    "raise NotImplementedError()",
+    "except ImportError",
+    "_yaml = None",
+]
+precision = 1
+skip_covered = true
+show_missing = true
+
+[tool.coverage.paths]
+source = [
+    "src/hera",
+]
+
+[tool.ruff]
+line-length = 119
+show-fixes = true
+target-version = "py38"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "D"]
+ignore = [
+  "D418",  # Bans docstrings on overloads, but VS Code displays these to users in tooltips.
+  "E501",  # Line too long.
+]
+extend-select = ["I"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "D107"]
+"examples/**" = ["D"]
+"src/hera/events/models/**" = ["D"]
+"src/hera/workflows/models/**" = ["D"]
+"tests/**" = ["D"]
+"scripts/models.py" = ["D"]
+
+[tool.ruff.lint.isort]
+force-wrap-aliases = true
+combine-as-imports = true
+known-first-party = ["hera"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

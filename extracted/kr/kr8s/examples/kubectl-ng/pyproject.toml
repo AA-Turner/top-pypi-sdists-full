@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "kubectl-ng"
+version = "0.0.0"
+description = ""
+authors = ["Jacob Tomlinson <jacob@tomlinson.email>"]
+readme = "README.md"
+packages = [{ include = "kubectl_ng" }]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typer = ">=0.12"
+rich = "^13.3.2"
+kr8s = "v0.20.5"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.3"
+pytest-kind = "^22.11.1"
+pytest-timeout = "^2.2.0"
+pytest-rerunfailures = "^13.0"
+pytest-cov = "^4.1.0"
+trio = "^0.23.2"
+kubernetes-validate = "^1.28.3"
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
+
+[tool.poetry-dynamic-versioning.substitution]
+files = ["kubectl_ng/__init__.py"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+
+[tool.poetry.scripts]
+kubectl-ng = "kubectl_ng.cli:go"

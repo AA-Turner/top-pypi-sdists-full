@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: aws_packages
+Version: 0.0.25
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# aws-packages
+[![.github/workflows/CI.yml](https://github.com/tomvictor/aws-packages/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/tomvictor/aws-packages/actions/workflows/CI.yml)
+[![](https://img.shields.io/pypi/v/aws-packages?color=%2334D058&label=pypi%20package)](https://pypi.org/project/aws-packages)
+
+Reusable AWS Packages 
+
+```
+pip install aws-packages
+```

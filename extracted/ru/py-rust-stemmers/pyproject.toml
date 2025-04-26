@@ -1,0 +1,14 @@
+[project]
+name = "py_rust_stemmers"
+version = "0.1.5"
+description = "Fast and parallel snowball stemmer"
+
+# Include a long description
+readme = "README.md"
+
+[build-system]
+requires = ["maturin>=0.12"]
+build-backend = "maturin"
+
+
+# Other fields like authors, dependencies, etc.

@@ -1,0 +1,270 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs>=0.4",
+  "hatchling>=1.27",
+]
+
+[project]
+name = "platformdirs"
+description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
+readme = "README.rst"
+keywords = [
+  "appdirs",
+  "application",
+  "cache",
+  "directory",
+  "log",
+  "user",
+]
+license = "MIT"
+maintainers = [
+  { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
+  { name = "Julian Berman", email = "Julian@GrayVines.com" },
+  { name = "Ofek Lev", email = "oss@ofek.dev" },
+  { name = "Ronny Pfannschmidt", email = "opensource@ronnypfannschmidt.de" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = [
+  "version",
+]
+optional-dependencies.docs = [
+  "furo>=2024.8.6",
+  "proselint>=0.14",
+  "sphinx>=8.1.3",
+  "sphinx-autodoc-typehints>=3",
+]
+optional-dependencies.test = [
+  "appdirs==1.4.4",
+  "covdefaults>=2.3",
+  "pytest>=8.3.4",
+  "pytest-cov>=6",
+  "pytest-mock>=3.14",
+]
+optional-dependencies.type = [
+  "mypy>=1.14.1",
+]
+
+urls.Changelog = "https://github.com/tox-dev/platformdirs/releases"
+urls.Documentation = "https://platformdirs.readthedocs.io"
+urls.Homepage = "https://github.com/tox-dev/platformdirs"
+urls.Source = "https://github.com/tox-dev/platformdirs"
+urls.Tracker = "https://github.com/tox-dev/platformdirs/issues"
+
+[tool.hatch]
+build.hooks.vcs.version-file = "src/platformdirs/version.py"
+build.targets.sdist.include = [
+  "/src",
+  "/tests",
+  "/tox.ini",
+]
+version.source = "vcs"
+
+[tool.hatch.envs.default]
+installer = "uv"
+description = "Development environment"
+features = [
+  "test",
+  "docs",
+  "type",
+]
+scripts = { show = [
+  "uv pip tree",
+  'python -c "import sys; print(sys.executable)"',
+] }
+
+[tool.hatch.envs.test]
+template = "test"
+installer = "uv"
+# dev-mode = false # cannot enable this until https://github.com/pypa/hatch/issues/1237
+description = "Run the test suite"
+matrix = [
+  { python = [
+    "3.13",
+    "3.12",
+    "3.11",
+    "3.10",
+    "3.9",
+    "pypy3.10",
+  ] },
+]
+features = [
+  "test",
+]
+env-vars.COVERAGE_FILE = "report/.coverage.{matrix:python}"
+env-vars.COVERAGE_PROCESS_START = "pyproject.toml"
+env-vars._COVERAGE_SRC = "src/platformdirs"
+[tool.hatch.envs.test.scripts]
+run = [
+  """
+    pytest --junitxml report/junit.{matrix:python}.xml --cov src/platformdirs --cov tests \
+      --cov-config=pyproject.toml --no-cov-on-fail --cov-report term-missing:skip-covered --cov-context=test \
+      --cov-report html:report/html{matrix:python} --cov-report xml:report/coverage{matrix:python}.xml \
+      tests
+""",
+]
+
+[tool.hatch.envs.coverage]
+template = "coverage"
+installer = "uv"
+description = "combine coverage files and generate diff"
+dependencies = [
+  "covdefaults>=2.3",
+  "coverage[toml]>=7.6.1",
+  "diff-cover>=9.2",
+]
+env-vars = { COVERAGE_FILE = "report/.coverage" }
+[tool.hatch.envs.coverage.scripts]
+run = [
+  "coverage combine report",
+  "coverage report --skip-covered --show-missing",
+  "coverage xml -o report/coverage.xml",
+  "coverage html -d report/html",
+  "diff-cover --compare-branch {env:DIFF_AGAINST:origin/main} report/coverage.xml",
+]
+
+[tool.hatch.envs.type]
+template = "type"
+installer = "uv"
+description = "Run the type checker"
+python = "3.12"
+dev-mode = false
+features = [
+  "type",
+  "test",
+]
+scripts = { run = [
+  "mypy --strict src",
+  "mypy --strict tests",
+] }
+
+[tool.hatch.envs.fix]
+template = "fix"
+installer = "uv"
+description = "Run the pre-commit tool to lint and autofix issues"
+python = "3.12"
+detached = true
+dependencies = [
+  "pre-commit-uv>=4.1",
+]
+scripts = { "run" = [
+  "pre-commit run --all-files --show-diff-on-failure",
+] }
+
+[tool.hatch.envs.docs]
+template = "docs"
+installer = "uv"
+description = "Build documentation using Sphinx"
+python = "3.12"
+dev-mode = false
+features = [
+  "docs",
+]
+[tool.hatch.envs.docs.scripts]
+build = [
+  """python -c "import glob; import subprocess; subprocess.call(['proselint'] + glob.glob('docs/*.rst'))" """,
+  """python -c "from shutil import rmtree; rmtree('docs/build', ignore_errors=True)" """,
+  "sphinx-build -d docs/build/tree docs docs/build --color -b html",
+  """python -c "from pathlib import Path; p=(Path('docs')/'build'/'index.html').absolute().as_uri(); print('Documentation built under '+p)" """,
+]
+
+[tool.hatch.envs.readme]
+template = "readme"
+installer = "uv"
+description = "check that the long description is valid"
+python = "3.12"
+dependencies = [
+  "build[uv]>=1.2.2",
+  "twine>=5.1.1",
+  "check-wheel-contents>=0.6",
+]
+scripts = { "run" = [
+  "pyproject-build --installer uv -o dist",
+  "twine check dist/*.whl dist/*.tar.gz",
+  "check-wheel-contents dist",
+] }
+
+[tool.ruff]
+line-length = 120
+format.preview = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "COM812", # conflict
+  "CPY",    # no copyright notices
+  "D203",   # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
+  "D205",   # 1 blank line required between summary line and description
+  "D212",   # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible
+  "D301",   # Use `r"""` if any backslashes in a docstring
+  "D401",   # The first line of docstring should be in imperative mood
+  "DOC",    # no support for restructuredtext
+  "S104",   # Possible binding to all interfaces
+]
+lint.per-file-ignores."tests/**/*.py" = [
+  "D",       # don't care about documentation in tests
+  "FBT",     # don't care about booleans as positional arguments in tests
+  "INP001",  # no implicit namespace
+  "PLC2701", # Private name import
+  "PLR0917", # Too many positional arguments
+  "PLR2004", # Magic value used in comparison, consider replacing with a constant variable
+  "S101",    # asserts allowed in tests
+  "S603",    # `subprocess` call: check for execution of untrusted input
+]
+
+lint.isort = { known-first-party = [
+  "platformdirs",
+  "tests",
+], required-imports = [
+  "from __future__ import annotations",
+] }
+lint.preview = true
+
+[tool.codespell]
+builtin = "clear,usage,en-GB_to_en-US"
+count = true
+quiet-level = 3
+
+[tool.pyproject-fmt]
+max_supported_python = "3.13"
+
+[tool.coverage]
+html.show_contexts = true
+html.skip_covered = false
+run.relative_files = true
+paths.source = [
+  "src",
+  "**/site-packages",
+]
+report.fail_under = 76
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+
+[tool.mypy]
+python_version = "3.11"
+show_error_codes = true
+strict = true
+overrides = [
+  { module = [
+    "appdirs.*",
+    "jnius.*",
+  ], ignore_missing_imports = true },
+]

@@ -1,0 +1,41 @@
+Metadata-Version: 2.3
+Name: browsergym-assistantbench
+Version: 0.13.3
+Summary: AssistantBench benchmark for BrowserGym
+Project-URL: homepage, https://github.com/ServiceNow/BrowserGym
+Author: Ori Yoran, Maxime Gasse
+License: Apache-2.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >3.7
+Requires-Dist: browsergym-core==0.13.3
+Requires-Dist: datasets
+Requires-Dist: numpy
+Requires-Dist: scipy
+Description-Content-Type: text/markdown
+
+# AssistantBench <> BrowserGym
+
+This package provides an implementation for using the [AssistantBench](https://assistantbench.github.io/) benchmark in BrowserGym.
+
+Because AssistantBench includes open-ended tasks, setup is extremely easy and simply requires installing the package.
+
+Please note that AssistantBench has a hidden test set, so test set predictions will need to be uploaded to the official [leaderboard](https://huggingface.co/spaces/AssistantBench/leaderboard).
+
+## Setting up
+
+- Install the package (this is still a wip)
+```
+pip install browsergym-assistantbench
+```
+
+- Run inference, e.g., run the following commands for demo on a simple toy task
+```
+python demo_agent/run_demo.py --task_name assistantbench.validation.3
+```
+
+- Test set predictions will be saved to `./assistantbench-predictions-test.jsonl`. To evaluate on the official test set, upload these predictions to the official [leaderboard](https://huggingface.co/spaces/AssistantBench/leaderboard).

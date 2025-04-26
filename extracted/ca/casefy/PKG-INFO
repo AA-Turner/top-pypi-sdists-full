@@ -1,0 +1,202 @@
+Metadata-Version: 2.4
+Name: casefy
+Version: 1.1.0
+Summary: Utilities for string case conversion.
+Project-URL: Homepage, https://github.com/dmlls/python-casefy
+Project-URL: Documentation, https://dmlls.github.io/python-casefy/
+Project-URL: GitHub Issues, https://github.com/dmlls/python-casefy/issues
+Project-URL: GitHub Repo, https://github.com/dmlls/python-casefy/
+Author-email: Diego Miguel Lozano <hello@diegomiguel.me>
+Maintainer-email: Diego Miguel Lozano <hello@diegomiguel.me>
+License: MIT License
+        
+        Copyright (c) 2022-2025 Diego Miguel Lozano
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: case,case-converter,casefy,casing
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+<p align="center"><img width="400" src="https://github.com/dmlls/python-casefy/blob/main/docs/source/_static/images/cover.png" alt="Casefy"/></p>
+<p align="center" display="inline-block">
+  <a href="https://docs.jizt.it">
+    <a href="https://pypi.org/project/casefy/">
+      <img src="https://img.shields.io/pypi/v/casefy"/>
+    </a>
+    <a href="https://deepsource.io/gh/dmlls/python-casefy/?ref=repository-badge}" target="_blank">
+      <img alt="Active Issues" title="DeepSource" src="https://deepsource.io/gh/dmlls/python-casefy.svg/?label=active+issues&token=dbO3UyrUPWvJp6K_PVZpTcnU"/>
+    </a>
+  </a>
+</p>
+
+## Introduction
+
+Casefy (/keɪsfaɪ/) is a lightweight Python package to convert the casing of
+strings. It has no third-party dependencies and supports Unicode.
+
+<br>
+
+## Installation
+
+The latest release can be installed using
+[pip](https://pypi.org/project/casefy/):
+
+```shell
+pip install -U casefy
+```
+
+Casefy is also [available](https://aur.archlinux.org/packages/python-casefy) as
+an Arch Linux AUR package.
+
+<br>
+
+## Examples
+
+Note: for more details, you can check the [API
+Reference](https://dmlls.github.io/python-casefy/api.html).
+
+```python
+import casefy
+
+# Alphanum3ric case (removes non-alphanumeric chars)
+string = casefy.alphanumcase("foo - 123 ; bar!")
+print(string)  # foo123bar
+
+# camelCase
+string = casefy.camelcase("foo_bar")
+print(string)  # fooBar
+
+string = casefy.camelcase("FooBar")
+print(string)  # fooBar
+
+string = casefy.camelcase("FOO BAR")
+print(string)  # fooBar
+
+# Capital Case
+string = casefy.capitalcase("fooBar")
+print(string)  # FooBar
+
+# CONST_CASE
+string = casefy.constcase("fooBar")
+print(string)  # FOO_BAR
+
+# kebab-case
+string = casefy.kebabcase("fooBar")
+print(string)  # foo-bar
+
+# lowercase
+string = casefy.lowercase("fooBar")
+print(string)  # foobar
+
+# PascalCase
+string = casefy.pascalcase("foo_bar")
+print(string)  # FooBar
+
+string = casefy.pascalcase("fooBar")
+print(string)  # FooBar
+
+# Sentence case
+string = casefy.sentencecase("fooBar")
+print(string)  # Foo bar
+
+# Separator case
+string = casefy.separatorcase("fooBar", separator="/")
+print(string)  # foo/bar
+
+string = casefy.separatorcase("fooBARbaz", separator="%", keep_together=["BAR"])
+print(string)  # foo%bar%baz
+
+# snake_case
+string = casefy.snakecase("fooBar")
+print(string)  # foo_bar
+
+string = casefy.snakecase("fooBARbaz", keep_together=["BAR"])
+print(string)  # foo_bar_baz
+
+string = casefy.snakecase("FOO BAR")
+print(string)  # foo_bar
+
+# Title Case
+string = casefy.titlecase("fooBarBaz")
+print(string)  # Foo Bar Baz
+
+# UPPERCASE
+string = casefy.uppercase("fooBar")
+print(string)  # FOOBAR
+
+# UPPER-KEBAB-CASE
+string = casefy.upperkebabcase("fooBar")
+print(string)  # FOO-BAR
+```
+
+<br>
+
+## Contribute
+If you find a bug, please open an issue. Pull Requests are also welcome!
+
+<br>
+
+## Acknowledgements
+
+This project started when I saw that the package
+[`python-stringcase`](https://aur.archlinux.org/pkgbase/python-stringcase) was
+flagged-out-of-date in the Arch AUR Repository. The project
+[stringcase](https://github.com/okunishinishi/python-stringcase) seems not to be
+actively maintained anymore, so I decided to address its issues and pull
+requests and solve them in this new package. I kept the API as similar as
+possible, in order to facilitate any possible migration. I thank [Taka
+Okunishi](https://github.com/okunishinishi) (author of stringcase) and its
+contributors for their work.
+
+<br>
+
+## Related projects
+
+- [`case-conversion`](https://github.com/AlejandroFrias/case-conversion) offers
+  a very similar functionality as this project. I probably wouldn't have written
+  this package if I had known of it before. However, the code of Casefy is more
+  lightweight and just enough for most cases. If you need more functionality,
+  e.g., detecting the case of a string, go with `case-conversion`.
+
+- [Inflection](https://github.com/jpvanhal/inflection) presents some overlap
+  with this project as well, allowing the transformation of strings from
+  CamelCase to underscored_string, but also singularizing and pluralizing
+  English words.
+
+<br>
+
+## License
+Casefy is distributed under the
+[MIT](https://github.com/dmlls/python-casefy/blob/main/LICENSE) license.

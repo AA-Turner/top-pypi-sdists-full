@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: logzio-python-handler
+Version: 4.1.4
+Summary: Logging handler to send logs to your Logz.io account with bulk SSL
+Home-page: https://github.com/logzio/logzio-python-handler/
+Author: roiravhon
+Maintainer: tamir-michaeli
+License: Apache License 2
+Keywords: logging handler logz.io bulk https
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.9
+License-File: LICENSE
+Requires-Dist: requests>=2.27.0
+Requires-Dist: protobuf>=3.20.2
+Provides-Extra: opentelemetry-logging
+Requires-Dist: opentelemetry-instrumentation-logging==0.45b0; extra == "opentelemetry-logging"

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools >= 61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "djangorestframework-dataclasses"
+version = "1.3.1"
+description = "A dataclasses serializer for Django REST Framework"
+readme = "README.rst"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Oxan van Leeuwen", email = "oxan@oxanvanleeuwen.nl" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+requires-python = ">= 3.7"
+dependencies = [
+    "django >= 2.0",
+    "djangorestframework >= 3.9",
+    "typing_extensions >= 3.7.4; python_version < '3.8'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "django-stubs",
+    "djangorestframework-stubs",
+    "mypy ~= 1.5.1",
+]
+test = [
+    "coverage[toml]",
+    "tox",
+]
+
+[project.urls]
+Repository = "https://github.com/oxan/djangorestframework-dataclasses"
+Documentation = "https://github.com/oxan/djangorestframework-dataclasses/blob/master/README.rst"
+Changelog = "https://github.com/oxan/djangorestframework-dataclasses/blob/master/CHANGELOG.rst"
+Sponsor = "https://github.com/sponsors/oxan"
+
+[tool.setuptools.package-data]
+"rest_framework_dataclasses" = ["py.typed"]
+
+[tool.coverage.run]
+branch = true
+source = ["rest_framework_dataclasses"]
+
+[tool.mypy]
+packages = ["rest_framework_dataclasses"]
+plugins = [
+    "mypy_django_plugin.main",
+    "mypy_drf_plugin.main",
+]
+
+[tool.django-stubs]
+django_settings_module = "tests.django_settings"

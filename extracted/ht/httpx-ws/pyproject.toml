@@ -1,0 +1,89 @@
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=httpx_ws/ --cov-report=term-missing"
+
+[tool.hatch]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+source = "regex_commit"
+commit_extra_args = ["-e"]
+path = "httpx_ws/__init__.py"
+
+[tool.hatch.envs.default]
+installer = "uv"
+dependencies = [
+    "mypy",
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "starlette",
+    "uvicorn[standard]",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "trio",
+    "flaky"
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+test-cov-xml = "pytest --cov-report=xml"
+lint = [
+  "ruff format .",
+  "ruff check --fix .",
+  "mypy httpx_ws/",
+]
+lint-check = [
+  "ruff format --check .",
+  "ruff check .",
+  "mypy httpx_ws/",
+]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+
+[tool.hatch.build.targets.sdist]
+support-legacy = true  # Create setup.py
+
+[build-system]
+requires = ["hatchling", "hatch-regex-commit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "httpx-ws"
+authors = [
+  { name = "François Voron", email = "fvoron@gmail.com" }
+]
+description = "WebSockets support for HTTPX"
+readme = "README.md"
+dynamic = ["version"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Internet :: WWW/HTTP :: Session",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "anyio>=4",
+    "httpx>=0.23.1",
+    "httpcore>=1.0.4",
+    "wsproto",
+]
+
+[project.urls]
+Documentation = "https://frankie567.github.io/httpx-ws/"
+Source = "https://github.com/frankie567/httpx-ws"

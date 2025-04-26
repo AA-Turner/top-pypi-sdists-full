@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: pyyaml_env_tag
+Version: 0.1
+Summary: A custom YAML tag for referencing environment variables in YAML files. 
+Home-page: https://github.com/waylan/pyyaml-env-tag
+Author: Waylan Limberg
+Author-email: waylan.limberg@icloud.com

@@ -1,0 +1,81 @@
+Metadata-Version: 2.1
+Name: anyscale
+Version: 0.26.18
+Summary: Command Line Interface for Anyscale
+Author: Anyscale Inc.
+License: AS License
+Requires-Python: >=3.8
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: boto3>=1.26.76
+Requires-Dist: botocore>=1.19.52
+Requires-Dist: aiohttp>=3.7.4.post0
+Requires-Dist: certifi>=2024.8.30
+Requires-Dist: Click>=7.0
+Requires-Dist: colorama
+Requires-Dist: GitPython
+Requires-Dist: google-auth
+Requires-Dist: jsonpatch
+Requires-Dist: jsonschema
+Requires-Dist: oauth2client
+Requires-Dist: packaging
+Requires-Dist: pathspec>=0.8.1
+Requires-Dist: python-dateutil
+Requires-Dist: requests
+Requires-Dist: rich
+Requires-Dist: six>=1.10
+Requires-Dist: tabulate
+Requires-Dist: urllib3>=1.26.17
+Requires-Dist: wrapt
+Requires-Dist: pyyaml
+Requires-Dist: smart_open
+Requires-Dist: tqdm
+Requires-Dist: tzlocal
+Requires-Dist: humanize
+Requires-Dist: typing_extensions
+Requires-Dist: log_symbols>=0.0.14
+Requires-Dist: spinners>=0.0.24
+Requires-Dist: termcolor>=1.1.0
+Requires-Dist: colorama>=0.3.9
+Provides-Extra: backend
+Requires-Dist: terminado==0.10.1; extra == "backend"
+Requires-Dist: tornado; extra == "backend"
+Requires-Dist: ray>=1.4.0; extra == "backend"
+Requires-Dist: protobuf<4; python_version < "3.11" and extra == "backend"
+Requires-Dist: google-api-python-client; extra == "backend"
+Requires-Dist: google-cloud-secret-manager; extra == "backend"
+Requires-Dist: google-cloud-compute; extra == "backend"
+Requires-Dist: google-cloud-resource-manager; extra == "backend"
+Requires-Dist: google-cloud-filestore; extra == "backend"
+Requires-Dist: google-cloud-storage; extra == "backend"
+Requires-Dist: google-cloud-redis; extra == "backend"
+Requires-Dist: google-cloud-certificate-manager; extra == "backend"
+Provides-Extra: gcp
+Requires-Dist: protobuf<4; python_version < "3.11" and extra == "gcp"
+Requires-Dist: google-api-python-client; extra == "gcp"
+Requires-Dist: google-cloud-secret-manager; extra == "gcp"
+Requires-Dist: google-cloud-compute; extra == "gcp"
+Requires-Dist: google-cloud-resource-manager; extra == "gcp"
+Requires-Dist: google-cloud-filestore; extra == "gcp"
+Requires-Dist: google-cloud-storage; extra == "gcp"
+Requires-Dist: google-cloud-redis; extra == "gcp"
+Requires-Dist: google-cloud-certificate-manager; extra == "gcp"
+Provides-Extra: all
+Requires-Dist: ray>=1.4.0; extra == "all"
+Requires-Dist: protobuf<4; python_version < "3.11" and extra == "all"
+Requires-Dist: google-api-python-client; extra == "all"
+Requires-Dist: google-cloud-secret-manager; extra == "all"
+Requires-Dist: google-cloud-compute; extra == "all"
+Requires-Dist: google-cloud-resource-manager; extra == "all"
+Requires-Dist: google-cloud-filestore; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: google-cloud-redis; extra == "all"
+Requires-Dist: google-cloud-certificate-manager; extra == "all"
+
+# Anyscale
+
+This package contains the command line interface and the sdk for the Anyscale platform.
+
+View Anyscale docs [here](https://docs.anyscale.com)
+View CLI docs [here](https://docs.anyscale.com/reference/cli)
+View SDK docs [here](https://docs.anyscale.com/reference/python-sdk/api)

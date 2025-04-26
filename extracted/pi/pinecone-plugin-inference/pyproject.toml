@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "pinecone-plugin-inference"
+version = "3.1.0"
+packages = [{ include = "pinecone_plugins", from = "." }]
+
+description = "Embeddings plugin for Pinecone SDK"
+authors = ["Pinecone Systems, Inc. <support@pinecone.io>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://www.pinecone.io"
+documentation = "https://pinecone.io/docs"
+keywords = []
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pinecone-plugin-interface = "^0.0.7"
+
+[tool.poetry.group.types]
+optional = true
+
+[tool.poetry.group.types.dependencies]
+mypy = "^1.6.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.0.0"
+responses = ">=0.8.1"
+pytest-cov = "^5.0.0"
+pytest-timeout = "^2.3.1"
+pinecone = { version = "^5.4.0", extras = ["grpc"] }
+black = "^24.4.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

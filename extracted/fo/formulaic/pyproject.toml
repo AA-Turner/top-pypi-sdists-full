@@ -1,0 +1,160 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "formulaic"
+description = "An implementation of Wilkinson formulas."
+authors = [{ name = "Matthew Wardrop", email = "mpwardrop@gmail.com" }]
+license = "MIT"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.7.2"
+dependencies = [
+    "astor>=0.8; python_version < \"3.9\"",
+    "cached-property>=1.3.0; python_version < \"3.8\"",
+    "graphlib-backport>=1.0.0; python_version < \"3.9\"",
+    "interface-meta>=1.2.0",
+    "numpy>=1.16.5",
+    "pandas>=1.0",
+    "scipy>=1.6",
+    "wrapt>=1.0; python_version <\"3.13\"",
+    "wrapt>=1.17.0rc1; python_version >=\"3.13\"",
+    "typing-extensions>=4.2.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+repository = "https://github.com/matthewwardrop/formulaic"
+documentation = "https://matthewwardrop.github.io/formulaic"
+
+[project.optional-dependencies]
+arrow = ["pyarrow>=1"]
+calculus = ["sympy>=1.3,!=1.10"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "formulaic/_version.py"
+
+# Build target configuration
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "docsite",
+    "benchmarks",
+    "formulaic",
+    "tests",
+    "LICENSE",
+    "pyproject.toml",
+    "README.md",
+]
+
+# Testing configuration
+
+[tool.hatch.envs.default]
+dependencies = [
+    'formulaic[arrow,calculus]',
+    "pytest==7.4.3",
+    "pytest-cov==4.1.0",
+]
+
+[tool.hatch.envs.default.scripts]
+tests = 'pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=formulaic --cov-report=xml -vv {args:tests}'
+
+[[tool.hatch.envs.test.matrix]]
+python = ["37", "38", "39", "310", "311", "312", "313"]
+
+[[tool.hatch.envs.test_min.matrix]]
+python = ["37"]
+
+[tool.hatch.envs.test_min]
+dependencies = [
+    "formulaic[arrow,calculus]",
+    "pytest==7.2.0",
+    "pytest-cov==4.0.0",
+    "astor==0.8; python_version < \"3.9\"",
+    "cached-property==1.3.0; python_version < \"3.8\"",
+    "graphlib-backport==1.0.0; python_version < \"3.9\"",
+    "interface-meta==1.2.0",
+    "numpy==1.16.5",
+    "pandas==1.0",
+    "scipy==1.6",
+    "wrapt==1.0",
+    "typing-extensions==4.2.0",
+]
+
+[tool.hatch.envs.lint]
+dependencies = ["mypy==1.11.1", "mypy-extensions==1.0.0", "ruff==0.5.6"]
+
+[tool.hatch.envs.lint.scripts]
+check = ["ruff check", "ruff format --check", "mypy formulaic"]
+format = ["ruff check --fix", "ruff format"]
+
+# Coverage configuration
+[tool.coverage.run]
+omit = ["formulaic/_version.py"]
+
+# Linting configuration
+
+[tool.ruff]
+target-version = "py310"
+
+exclude = [
+    "*.egg-info",
+    "*.pyc",
+    ".cache",
+    ".coverage.*",
+    ".gradle",
+    ".tox",
+    "build",
+    "dist",
+    "htmlcov.*",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",    # flake8 rules
+    "E",    # pycodestyle
+    "W",    # pycodestyle
+    "S",    # bandit
+    "I001", # import sorting
+    # "D", # documentation
+]
+
+ignore = [
+    "C901",
+    "E203",
+    "E501",
+    "E712",
+    "E722",
+    "E731",
+    "S307", # Use of ast.literal_eval
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["F", "E", "W", "S"]
+
+[tool.mypy]
+allow_redefinition = true
+disallow_untyped_defs = true
+disallow_any_generics = false
+ignore_missing_imports = true

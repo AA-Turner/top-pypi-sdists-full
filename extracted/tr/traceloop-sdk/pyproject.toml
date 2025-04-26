@@ -1,0 +1,90 @@
+[tool.coverage.run]
+branch = true
+source = ["traceloop/sdk"]
+
+[tool.coverage.report]
+exclude_lines = ["if TYPE_CHECKING:"]
+show_missing = true
+
+[tool.poetry]
+name = "traceloop-sdk"
+version = "0.39.3"
+description = "Traceloop Software Development Kit (SDK) for Python"
+authors = [
+    "Gal Kleinman <gal@traceloop.com>",
+    "Nir Gazit <nir@traceloop.com>",
+    "Tomer Friedman <tomer@traceloop.com>",
+]
+repository = "https://github.com/traceloop/openllmetry"
+documentation = "https://traceloop.com/docs/openllmetry"
+license = "Apache-2.0"
+readme = "README.md"
+
+[[tool.poetry.packages]]
+include = "traceloop/sdk"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4"
+opentelemetry-api = "^1.28.0"
+opentelemetry-sdk = "^1.28.0"
+opentelemetry-exporter-otlp-proto-http = "^1.28.0"
+opentelemetry-exporter-otlp-proto-grpc = "^1.28.0"
+opentelemetry-instrumentation-logging = ">=0.50b0"
+opentelemetry-instrumentation-requests = ">=0.50b0"
+opentelemetry-instrumentation-sqlalchemy = ">=0.50b0"
+opentelemetry-instrumentation-urllib3 = ">=0.50b0"
+opentelemetry-instrumentation-threading = ">=0.50b0"
+opentelemetry-semantic-conventions-ai = "0.4.3"
+opentelemetry-instrumentation-mistralai = "==0.39.3"
+opentelemetry-instrumentation-openai = "==0.39.3"
+opentelemetry-instrumentation-ollama = "==0.39.3"
+opentelemetry-instrumentation-anthropic = "==0.39.3"
+opentelemetry-instrumentation-cohere = "==0.39.3"
+opentelemetry-instrumentation-crewai = "==0.39.3"
+opentelemetry-instrumentation-google-generativeai = "==0.39.3"
+opentelemetry-instrumentation-pinecone = "==0.39.3"
+opentelemetry-instrumentation-qdrant = "==0.39.3"
+opentelemetry-instrumentation-langchain = "==0.39.3"
+opentelemetry-instrumentation-lancedb = "==0.39.3"
+opentelemetry-instrumentation-chromadb = "==0.39.3"
+opentelemetry-instrumentation-transformers = "==0.39.3"
+opentelemetry-instrumentation-together = "==0.39.3"
+opentelemetry-instrumentation-llamaindex = "==0.39.3"
+opentelemetry-instrumentation-milvus = "==0.39.3"
+opentelemetry-instrumentation-haystack = "==0.39.3"
+opentelemetry-instrumentation-bedrock = "==0.39.3"
+opentelemetry-instrumentation-sagemaker = "==0.39.3"
+opentelemetry-instrumentation-replicate = "==0.39.3"
+opentelemetry-instrumentation-vertexai = "==0.39.3"
+opentelemetry-instrumentation-watsonx = "==0.39.3"
+opentelemetry-instrumentation-weaviate = "==0.39.3"
+opentelemetry-instrumentation-alephalpha = "==0.39.3"
+opentelemetry-instrumentation-marqo = "==0.39.3"
+opentelemetry-instrumentation-groq = "==0.39.3"
+colorama = "^0.4.6"
+tenacity = ">=8.2.3, <10.0"
+pydantic = ">=1"
+jinja2 = "^3.1.5"
+deprecated = "^1.2.14"
+posthog = ">3.0.2, <4"
+aiohttp = "^3.11.11"
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.2.0"
+flake8 = "7.0.0"
+pytest = "^8.2.2"
+pytest-sugar = "1.0.0"
+
+[tool.poetry.group.test.dependencies]
+openai = "^1.31.1"
+vcrpy = "^6.0.1"
+pytest-recording = "^0.13.1"
+pydantic = "<3"
+pytest-asyncio = "^0.23.7"
+anthropic = "^0.25.2"
+langchain = "^0.2.5"
+langchain-openai = "^0.1.15"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

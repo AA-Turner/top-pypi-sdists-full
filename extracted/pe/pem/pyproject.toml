@@ -1,0 +1,163 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+
+[project]
+dynamic = ["readme", "version"]
+name = "pem"
+description = "PEM file parsing in Python."
+authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
+requires-python = ">=3.8"
+license = "MIT"
+keywords = ["pyopenssl", "ssl", "tls", "pem", "cryptography", "twisted"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://pem.readthedocs.io/"
+Changelog = "https://pem.readthedocs.io/en/stable/changelog.html"
+"Source Code" = "https://github.com/hynek/pem"
+Funding = "https://github.com/sponsors/hynek"
+Tidelift = "https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek"
+
+
+[project.optional-dependencies]
+tests = ["coverage[toml]>=5.0.2", "pytest", "certifi", "pretend", "pyopenssl"]
+docs = ["sphinx", "furo", "myst-parser", "sphinx-notfound-page", "twisted[tls]"]
+types = ["mypy", "twisted", "types-pyOpenSSL"]
+dev = ["pem[tests,types]", "twisted[tls]"]
+
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+testpaths = "tests"
+xfail_strict = true
+filterwarnings = ["once::Warning"]
+
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["pem"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/py*/**/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    # a more strict default pragma
+    "\\# pragma: no cover\\b",
+
+    # allow defensive code
+    "^\\s*raise AssertionError\\b",
+    "^\\s*raise NotImplementedError\\b",
+    "^\\s*return NotImplemented\\b",
+    "^\\s*raise$",
+
+    # typing-related code
+    "^if (False|TYPE_CHECKING):",
+    ": \\.\\.\\.(\\s*#.*)?$",
+    "^ +\\.\\.\\.$",
+    "-> ['\"]?NoReturn['\"]?:",
+]
+
+[tool.black]
+line-length = 79
+
+
+[tool.mypy]
+strict = true
+
+show_error_codes = true
+enable_error_code = ["ignore-without-code"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tests.typing.*"
+ignore_errors = false
+
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = "# pem: PEM file parsing for Python\n"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+start-after = "<!-- teaser-begin -->"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = """
+
+
+## Release Information
+
+
+"""
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "CHANGELOG.md"
+start-after = "<!-- changelog follows -->"
+pattern = "\n(###.+?\n)## "
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = """
+---
+
+[→ Full Changelog](https://pem.readthedocs.io/en/stable/changelog.html)
+"""
+
+
+[tool.ruff]
+src = ["src", "tests", "docs/conf.py"]
+select = ["ALL"]
+ignore = [
+    "A001",    # shadowing is fine
+    "ANN",     # Mypy is better at this
+    "COM",     # Black takes care of our commas
+    "D",       # We prefer our own docstring style.
+    "E501",    # leave line-length enforcement to Black
+    "FIX",     # Yes, we want XXX as a marker.
+    "INP001",  # sometimes we want Python files outside of packages
+    "PLR2004", # numbers are sometimes fine
+    "RUF001",  # leave my smart characters alone
+    "SLF001",  # private members are accessed by friendly functions
+    "TD",      # we don't follow other people's todo style
+]
+
+[tool.ruff.per-file-ignores]
+"*/*twisted.py" = ["N"] # lol Twisted & PEP 8 names
+"tests/*" = [
+    "ARG005", # we need stub lambdas
+    "S101",   # assert
+    "SIM300", # Yoda rocks in asserts
+    "PT005",  # we always add underscores and explicit name
+    "PT011",  # broad is fine
+]
+
+[tool.ruff.isort]
+lines-between-types = 1
+lines-after-imports = 2

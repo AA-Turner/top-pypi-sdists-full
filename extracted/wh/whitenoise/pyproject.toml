@@ -1,0 +1,85 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools",
+]
+
+[project]
+name = "whitenoise"
+version = "6.9.0"
+description = "Radically simplified static file serving for WSGI applications"
+readme = "README.rst"
+keywords = [
+  "Django",
+]
+maintainers = [
+  { name = "Adam Johnson", email = "me@adamj.eu" },
+  { name = "David Evans" },
+]
+authors = [
+  { name = "David Evans" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Django",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+  "Typing :: Typed",
+]
+optional-dependencies.brotli = [
+  "brotli",
+]
+urls.Changelog = "https://whitenoise.readthedocs.io/en/stable/changelog.html"
+urls.Documentation = "https://whitenoise.readthedocs.io/"
+urls.Repository = "https://github.com/evansd/whitenoise"
+
+[tool.isort]
+add_imports = [
+  "from __future__ import annotations",
+]
+force_single_line = true
+profile = "black"
+
+[tool.pyproject-fmt]
+max_supported_python = "3.13"
+
+[tool.pytest.ini_options]
+addopts = """\
+    --strict-config
+    --strict-markers
+    """
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+  "whitenoise",
+  "tests",
+]
+
+[tool.coverage.paths]
+source = [
+  "src",
+  ".tox/**/site-packages",
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.rstcheck]
+report_level = "ERROR"

@@ -1,0 +1,403 @@
+Metadata-Version: 2.4
+Name: InvokeAI
+Version: 5.10.1
+Summary: An implementation of Stable Diffusion which provides various new features and options to aid the image generation process
+Author-email: The InvokeAI Project <lincoln.stein@gmail.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           
+        
+Project-URL: Homepage, https://invoke-ai.github.io/InvokeAI/
+Project-URL: Documentation, https://invoke-ai.github.io/InvokeAI/
+Project-URL: Source, https://github.com/invoke-ai/InvokeAI/
+Project-URL: Bug Reports, https://github.com/invoke-ai/InvokeAI/issues
+Project-URL: Discord, https://discord.gg/ZmtBAhwWhy
+Keywords: stable-diffusion,AI
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: GPU
+Classifier: Environment :: GPU :: NVIDIA CUDA
+Classifier: Environment :: MacOS X
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Artistic Software
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Server
+Classifier: Topic :: Multimedia :: Graphics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Requires-Python: <3.13,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE-SD1+SD2.txt
+License-File: LICENSE-SDXL.txt
+Requires-Dist: accelerate
+Requires-Dist: bitsandbytes; sys_platform != "darwin"
+Requires-Dist: compel==2.0.2
+Requires-Dist: diffusers[torch]==0.33.0
+Requires-Dist: gguf
+Requires-Dist: invisible-watermark==0.2.0
+Requires-Dist: mediapipe==0.10.14
+Requires-Dist: numpy<2.0.0
+Requires-Dist: onnx==1.16.1
+Requires-Dist: onnxruntime==1.19.2
+Requires-Dist: opencv-python==4.9.0.80
+Requires-Dist: safetensors
+Requires-Dist: sentencepiece
+Requires-Dist: spandrel
+Requires-Dist: torch~=2.6.0
+Requires-Dist: torchsde
+Requires-Dist: torchvision
+Requires-Dist: transformers
+Requires-Dist: fastapi-events
+Requires-Dist: fastapi
+Requires-Dist: huggingface-hub
+Requires-Dist: pydantic-settings
+Requires-Dist: pydantic
+Requires-Dist: python-socketio
+Requires-Dist: uvicorn[standard]
+Requires-Dist: blake3
+Requires-Dist: Deprecated
+Requires-Dist: dnspython
+Requires-Dist: dynamicprompts
+Requires-Dist: einops
+Requires-Dist: picklescan
+Requires-Dist: pillow
+Requires-Dist: prompt-toolkit
+Requires-Dist: pypatchmatch
+Requires-Dist: python-multipart
+Requires-Dist: requests
+Requires-Dist: semver~=3.0.1
+Provides-Extra: xformers
+Requires-Dist: xformers>=0.0.28.post1; sys_platform != "darwin" and extra == "xformers"
+Provides-Extra: onnx
+Requires-Dist: onnxruntime; extra == "onnx"
+Provides-Extra: onnx-cuda
+Requires-Dist: onnxruntime-gpu; extra == "onnx-cuda"
+Provides-Extra: onnx-directml
+Requires-Dist: onnxruntime-directml; extra == "onnx-directml"
+Provides-Extra: dist
+Requires-Dist: pip-tools; extra == "dist"
+Requires-Dist: pipdeptree; extra == "dist"
+Requires-Dist: twine; extra == "dist"
+Provides-Extra: docs
+Requires-Dist: mkdocs-material>=9.5.36; extra == "docs"
+Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == "docs"
+Requires-Dist: mkdocs-redirects; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.26.1; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: jurigged; extra == "dev"
+Requires-Dist: pudb; extra == "dev"
+Requires-Dist: snakeviz; extra == "dev"
+Requires-Dist: gprof2dot; extra == "dev"
+Provides-Extra: test
+Requires-Dist: ruff~=0.11.2; extra == "test"
+Requires-Dist: ruff-lsp~=0.0.62; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: pre-commit; extra == "test"
+Requires-Dist: pytest>6.0.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: pytest-datadir; extra == "test"
+Requires-Dist: requests_testadapter; extra == "test"
+Requires-Dist: httpx; extra == "test"
+Requires-Dist: polyfactory==2.19.0; extra == "test"
+Requires-Dist: humanize==4.12.1; extra == "test"
+Dynamic: license-file
+
+<div align="center">
+
+![project hero](https://github.com/invoke-ai/InvokeAI/assets/31807370/6e3728c7-e90e-4711-905c-3b55844ff5be)
+
+# Invoke - Professional Creative AI Tools for Visual Media
+
+#### To learn more about Invoke, or implement our Business solutions, visit [invoke.com]
+
+[![discord badge]][discord link] [![latest release badge]][latest release link] [![github stars badge]][github stars link] [![github forks badge]][github forks link] [![CI checks on main badge]][CI checks on main link] [![latest commit to main badge]][latest commit to main link] [![github open issues badge]][github open issues link] [![github open prs badge]][github open prs link] [![translation status badge]][translation status link]
+
+</div>
+
+Invoke is a leading creative engine built to empower professionals and enthusiasts alike. Generate and create stunning visual media using the latest AI-driven technologies. Invoke offers an industry leading web-based UI, and serves as the foundation for multiple commercial products.
+
+Invoke is available in two editions:
+
+| **Community Edition**                                                                                                      | **Professional Edition**                                                                            |
+|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| **For users looking for a locally installed, self-hosted and self-managed service**                                         | **For users or teams looking for a cloud-hosted, fully managed service**                            |
+| - Free to use under a commercially-friendly license                                                                         | - Monthly subscription fee with three different plan levels                                         |
+| - Download and install on compatible hardware                                                                               | - Offers additional benefits, including multi-user support, improved model training, and more                          |
+| - Includes all core studio features: generate, refine, iterate on images, and build workflows                               | - Hosted in the cloud for easy, secure model access and scalability                                               |
+| Quick Start -> [Installation and Updates][installation docs]                                                                     | More Information -> [www.invoke.com/pricing](https://www.invoke.com/pricing)                        |
+
+
+![Highlighted Features - Canvas and Workflows](https://github.com/invoke-ai/InvokeAI/assets/31807370/708f7a82-084f-4860-bfbe-e2588c53548d)
+
+# Documentation
+| **Quick Links**                                                                                                      | 
+|----------------------------------------------------------------------------------------------------------------------------|
+|  [Installation and Updates][installation docs] - [Documentation and Tutorials][docs home] - [Bug Reports][github issues] - [Contributing][contributing docs]  | 
+
+# Installation
+
+To get started with Invoke, [Download the Installer](https://www.invoke.com/downloads).
+
+For detailed step by step instructions, or for instructions on manual/docker installations, visit our documentation on [Installation and Updates][installation docs]
+
+
+## Troubleshooting, FAQ and Support
+
+Please review our [FAQ][faq] for solutions to common installation problems and other issues.
+
+For more help, please join our [Discord][discord link].
+
+## Features
+
+Full details on features can be found in [our documentation][features docs].
+
+### Web Server & UI
+
+Invoke runs a locally hosted web server & React UI with an industry-leading user experience.
+
+### Unified Canvas
+
+The Unified Canvas is a fully integrated canvas implementation with support for all core generation capabilities, in/out-painting, brush tools, and more. This creative tool unlocks the capability for artists to create with AI as a creative collaborator, and can be used to augment AI-generated imagery, sketches, photography, renders, and more.
+
+### Workflows & Nodes
+
+Invoke offers a fully featured workflow management solution, enabling users to combine the power of node-based workflows with the easy of a UI. This allows for customizable generation pipelines to be developed and shared by users looking to create specific workflows to support their production use-cases.
+
+### Board & Gallery Management
+
+Invoke features an organized gallery system for easily storing, accessing, and remixing your content in the Invoke workspace. Images can be dragged/dropped onto any Image-base UI element in the application, and rich metadata within the Image allows for easy recall of key prompts or settings used in your workflow.
+
+### Other features
+
+- Support for both ckpt and diffusers models
+- SD1.5, SD2.0, SDXL, and FLUX support
+- Upscaling Tools
+- Embedding Manager & Support
+- Model Manager & Support
+- Workflow creation & management
+- Node-Based Architecture
+
+## Contributing
+
+Anyone who wishes to contribute to this project - whether documentation, features, bug fixes, code cleanup, testing, or code reviews - is very much encouraged to do so.
+
+Get started with contributing by reading our [contribution documentation][contributing docs], joining the [#dev-chat] or the GitHub discussion board.
+
+We hope you enjoy using Invoke as much as we enjoy creating it, and we hope you will elect to become part of our community.
+
+## Thanks
+
+Invoke is a combined effort of [passionate and talented people from across the world][contributors]. We thank them for their time, hard work and effort.
+
+Original portions of the software are Copyright © 2024 by respective contributors.
+
+[features docs]: https://invoke-ai.github.io/InvokeAI/features/database/
+[faq]: https://invoke-ai.github.io/InvokeAI/faq/
+[contributors]: https://invoke-ai.github.io/InvokeAI/contributing/contributors/
+[invoke.com]: https://www.invoke.com/about
+[github issues]: https://github.com/invoke-ai/InvokeAI/issues
+[docs home]: https://invoke-ai.github.io/InvokeAI
+[installation docs]: https://invoke-ai.github.io/InvokeAI/installation/
+[#dev-chat]: https://discord.com/channels/1020123559063990373/1049495067846524939
+[contributing docs]: https://invoke-ai.github.io/InvokeAI/contributing/
+[CI checks on main badge]: https://flat.badgen.net/github/checks/invoke-ai/InvokeAI/main?label=CI%20status%20on%20main&cache=900&icon=github
+[CI checks on main link]: https://github.com/invoke-ai/InvokeAI/actions?query=branch%3Amain
+[discord badge]: https://flat.badgen.net/discord/members/ZmtBAhwWhy?icon=discord
+[discord link]: https://discord.gg/ZmtBAhwWhy
+[github forks badge]: https://flat.badgen.net/github/forks/invoke-ai/InvokeAI?icon=github
+[github forks link]: https://useful-forks.github.io/?repo=invoke-ai%2FInvokeAI
+[github open issues badge]: https://flat.badgen.net/github/open-issues/invoke-ai/InvokeAI?icon=github
+[github open issues link]: https://github.com/invoke-ai/InvokeAI/issues?q=is%3Aissue+is%3Aopen
+[github open prs badge]: https://flat.badgen.net/github/open-prs/invoke-ai/InvokeAI?icon=github
+[github open prs link]: https://github.com/invoke-ai/InvokeAI/pulls?q=is%3Apr+is%3Aopen
+[github stars badge]: https://flat.badgen.net/github/stars/invoke-ai/InvokeAI?icon=github
+[github stars link]: https://github.com/invoke-ai/InvokeAI/stargazers
+[latest commit to main badge]: https://flat.badgen.net/github/last-commit/invoke-ai/InvokeAI/main?icon=github&color=yellow&label=last%20dev%20commit&cache=900
+[latest commit to main link]: https://github.com/invoke-ai/InvokeAI/commits/main
+[latest release badge]: https://flat.badgen.net/github/release/invoke-ai/InvokeAI/development?icon=github
+[latest release link]: https://github.com/invoke-ai/InvokeAI/releases/latest
+[translation status badge]: https://hosted.weblate.org/widgets/invokeai/-/svg-badge.svg
+[translation status link]: https://hosted.weblate.org/engage/invokeai/
+[nvidia docker docs]: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+[amd docker docs]: https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html

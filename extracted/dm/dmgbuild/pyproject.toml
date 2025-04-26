@@ -1,0 +1,102 @@
+[build-system]
+requires = [
+    "setuptools==76.0.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "dmgbuild"
+description = "macOS command line utility to build disk images"
+readme = "README.rst"
+requires-python = ">= 3.9"
+license.text = "New BSD"
+authors = [
+    {name="Alastair Houghton", email="alastair@alastairs-place.net"}
+]
+maintainers = [
+    {name="Russell Keith-Magee", email="russell@keith-magee.com"}
+]
+keywords = [
+    "dmg"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Desktop Environment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "ds_store >= 1.1.0",
+    "mac_alias >= 2.0.1",
+]
+
+[project.urls]
+Documentation = "https://dmgbuild.readthedocs.io/en/latest/"
+Homepage = "https://github.com/dmgbuild/dmgbuild"
+Tracker = "https://github.com/dmgbuild/dmgbuild/issues"
+Source = "https://github.com/dmgbuild/dmgbuild"
+
+[project.scripts]
+dmgbuild = "dmgbuild.__main__:main"
+
+[project.optional-dependencies]
+dev = [
+    "coverage == 7.7.0",
+    "pre-commit == 4.1.0",
+    "pytest == 8.3.5",
+    "tox == 4.24.2",
+]
+# Docs are always built on Py3.12; see RTD and tox config files.
+docs = [
+    "furo == 2024.8.6",
+    "sphinx == 8.2.3",
+    "sphinx-autobuild == 2024.10.3",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "dmgbuild.__version__"}
+
+[tool.setuptools.package-data]
+"*" = ["*.tiff"]
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source_pkgs = ["dmgbuild"]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    "**/site-packages",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
+precision = 1
+exclude_lines = [
+    "pragma: no cover",
+    "@(abc\\.)?abstractmethod",
+    "NotImplementedError\\(\\)",
+    "if TYPE_CHECKING:",
+]
+
+[tool.isort]
+profile = "black"
+split_on_trailing_comma = true
+combine_as_imports = true
+skip_glob = [
+    "docs/conf.py",
+    "venv*",
+    "local",
+]

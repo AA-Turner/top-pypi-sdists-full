@@ -1,0 +1,59 @@
+Metadata-Version: 2.1
+Name: benchling-sdk
+Version: 1.21.2
+Summary: SDK for interacting with the Benchling Platform.
+License: Apache-2.0
+Author: Benchling Support
+Author-email: support@benchling.com
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Provides-Extra: cryptography
+Provides-Extra: python-jose
+Requires-Dist: PyYAML (>=6.0,<7.0)
+Requires-Dist: attrs (>=20.1.0)
+Requires-Dist: backoff (>=1.10.0,<3)
+Requires-Dist: benchling-api-client (==2.0.342)
+Requires-Dist: certifi (>=2022.12.7)
+Requires-Dist: cryptography (>=42.0.0) ; extra == "cryptography"
+Requires-Dist: dataclasses-json (>=0.5.2,<0.6.0)
+Requires-Dist: httpx (>=0.23.0)
+Requires-Dist: jwcrypto (>=1.5.1,<2.0.0)
+Requires-Dist: ordered-set (>=4.1.0,<5.0.0)
+Requires-Dist: psutil (>=5.9.4,<6.0.0) ; python_version >= "3.11" and python_version < "4.0"
+Requires-Dist: python-dateutil (>=2.8.0,<3.0.0)
+Requires-Dist: python-jose[cryptography] (>=3.3.0,<4.0.0) ; extra == "python-jose"
+Description-Content-Type: text/markdown
+
+# Benchling SDK
+
+A Python 3.8+ SDK for the [Benchling](https://www.benchling.com/) platform designed to provide typed, fluent
+interactions with [Benchling APIs](https://docs.benchling.com/reference).
+
+## Installation
+
+Install the dependency via [Poetry](https://python-poetry.org/) (if applicable):
+
+```bash
+poetry add benchling-sdk
+```
+ 
+Or [Pip](https://pypi.org/project/pip/):
+ 
+```bash
+pip install benchling-sdk
+```
+
+## Documentation
+
+Documentation for the SDK is kept up-to-date at [docs.benchling.com](https://docs.benchling.com), and you can get started with
+it using this guide:
+[https://docs.benchling.com/docs/getting-started-with-the-sdk](https://docs.benchling.com/docs/getting-started-with-the-sdk).
+
+## Support
+
+To report issues with using the SDK, contact [support@benchling.com](mailto:support@benchling.com).
+

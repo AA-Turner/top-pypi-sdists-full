@@ -1,0 +1,54 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "advertools"
+version = "0.16.6"
+authors = [
+    {name = "Elias Dabbas", email = "eliasdabbas@gmail.com"}
+]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pandas>=1.1.0",
+    "pyasn1>=0.4",
+    "scrapy>=2.5.0",
+    "twython>=3.8.0",
+    "pyarrow>=5.0.0",
+    "requests>=2.25.0",
+]
+dynamic = ["description"]
+readme = "README.rst"
+keywords = ["seo", "marketing", "advertising", "adwords", "bingads", "search-engine-marketing", "online-marketing", "digital-marketing", "digital-advertising", "keywords"]
+
+[project.scripts]
+advertools = "advertools.cli:main"
+adv = "advertools.cli:main"
+
+[project.urls]
+Homepage = "https://adver.tools"
+Documentation = "https://advertools.readthedocs.io"
+Repository = "https://github.com/eliasdabbas/advertools.git"
+Issues = "https://github.com/eliasdabbas/advertools/issues"
+Changelog = "https://github.com/eliasdabbas/advertools/blob/master/HISTORY.rst"
+
+[tool.flit.external-data]
+directory = "advertools/pkg_data"
+
+[tool.ruff]
+target-version = "py37"
+
+[tool.ruff.lint]
+# Add the `line-too-long` rule to the enforced rule set.
+extend-select = ["E501"]
+select = ["E4", "E7", "E9", "F", "B"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]

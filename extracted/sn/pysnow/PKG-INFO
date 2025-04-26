@@ -1,0 +1,67 @@
+Metadata-Version: 2.1
+Name: pysnow
+Version: 0.7.17
+Summary: ServiceNow HTTP client library
+Home-page: https://github.com/rbw/pysnow
+License: MIT
+Author: Robert Wikman
+Author-email: rbw@vault13.org
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: ijson (>=2.5.1,<3.0.0)
+Requires-Dist: oauthlib (>=3.1.0,<4.0.0)
+Requires-Dist: python-magic (>=0.4.15,<0.5.0)
+Requires-Dist: pytz (>=2019.3,<2020.0)
+Requires-Dist: requests (>=2.21.0,<3.0.0)
+Requires-Dist: requests-oauthlib (>=1.3.0,<2.0.0)
+Requires-Dist: six (>=1.13.0,<2.0.0)
+Description-Content-Type: text/markdown
+
+```
+ ______   __  __    ______    __   __    ______    __     __
+/\  == \ /\ \_\ \  /\  ___\  /\ "-.\ \  /\  __ \  /\ \  _ \ \
+\ \  _-/ \ \____ \ \ \___  \ \ \ \-.  \ \ \ \/\ \ \ \ \/ ".\ \
+ \ \_\    \/\_____\ \/\_____\ \ \_\\"\_\ \ \_____\ \ \__/".~\_\
+  \/_/     \/_____/  \/_____/  \/_/ \/_/  \/_____/  \/_/   \/_/
+		- Python library for ServiceNow
+```
+
+[![image](https://travis-ci.org/rbw/pysnow.svg?branch=master)](https://travis-ci.org/rbw/pysnow)
+[![image](https://coveralls.io/repos/github/rbw0/pysnow/badge.svg?branch=master)](https://coveralls.io/github/rbw0/pysnow?branch=master)
+[![image](https://badge.fury.io/py/pysnow.svg)](https://pypi.python.org/pypi/pysnow)
+[![image](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![image](https://pepy.tech/badge/pysnow/month)](https://pepy.tech/project/pysnow)
+
+
+Documentation
+---
+
+The documentation is available at [https://pysnow.readthedocs.io](https://pysnow.readthedocs.io)
+
+
+Development status
+---
+
+The development status of pysnow is stable; maintenence will be performed, but no new features added.
+
+New features goes into [rbw/aiosnow](https://github.com/rbw/aiosnow): a modern, asynchronous library for interacting with ServiceNow.
+
+Author
+---
+
+Robert Wikman \<rbw@vault13.org\>
+
+Credits
+---
+
+Thank you [@contributors](https://github.com/rbw/pysnow/graphs/contributors), and [Jetbrains](http://www.jetbrains.com) for IDE licenses.
+
+

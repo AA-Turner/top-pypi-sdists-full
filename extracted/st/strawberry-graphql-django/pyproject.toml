@@ -1,0 +1,204 @@
+[tool.poetry]
+name = "strawberry-graphql-django"
+packages = [{ include = "strawberry_django" }]
+version = "0.58.0"
+description = "Strawberry GraphQL Django extension"
+authors = [
+    "Lauri Hintsala <lauri.hintsala@verkkopaja.fi>",
+    "Thiago Bellini Ribeiro <thiago@bellini.dev>",
+]
+maintainers = ["Thiago Bellini Ribeiro <thiago@bellini.dev>"]
+repository = "https://github.com/strawberry-graphql/strawberry-django"
+documentation = "https://strawberry.rocks/docs/django"
+license = "MIT"
+readme = "README.md"
+keywords = ["graphql", "api", "django", "strawberry-graphql"]
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+django = ">=4.2"
+asgiref = ">=3.8"
+django-choices-field = { version = ">=2.2.2", optional = true }
+django-debug-toolbar = { version = ">=3.4", optional = true }
+strawberry-graphql = ">=0.258.0"
+
+[tool.poetry.group.dev.dependencies]
+channels = { version = ">=3.0.5" }
+django-choices-field = "^2.2.2"
+django-debug-toolbar = "^4.4.6"
+django-guardian = "^2.4.0"
+django-types = "^0.20.0"
+factory-boy = "^3.2.1"
+pillow = "^11.0.0"
+pytest = "^8.0.2"
+pytest-asyncio = "^0.25.0"
+pytest-cov = "^6.0.0"
+pytest-django = "^4.1.0"
+pytest-mock = "^3.5.1"
+pytest-snapshot = "^0.9.0"
+pytest-watch = "^4.2.0"
+ruff = "^0.11.2"
+django-polymorphic = "^3.1.0"
+setuptools = "^77.0.3"
+psycopg2 = "^2.9.9"
+psycopg2-binary = "^2.9.9"
+django-tree-queries = "^0.19.0"
+django-model-utils = "^5.0.0"
+
+[tool.poetry.extras]
+debug-toolbar = ["django-debug-toolbar"]
+enum = ["django-choices-field"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "setuptools"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py39"
+preview = true
+
+[tool.ruff.lint]
+extend-select = [
+    "A",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "COM",
+    "D",
+    "D2",
+    "D3",
+    "D4",
+    "DTZ",
+    "E",
+    "ERA",
+    "EXE",
+    "F",
+    "FURB",
+    "G",
+    "I",
+    "ICN001",
+    "INP",
+    "ISC",
+    "N",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PTH",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLF",
+    "SLOT",
+    "T10",
+    "T20",
+    "TCH",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+extend-ignore = [
+    "A005",
+    "D1",
+    "D203",
+    "D213",
+    "D417",
+    "E203",
+    "PGH003",
+    "PLR09",
+    "SLF001",
+    "TRY003",
+    "PLR6301",
+    "PLC0415",
+    "TC002",
+    # ruff formatter recommends to disable those
+    "COM812",
+    "COM819",
+    "D206",
+    "E111",
+    "E114",
+    "E117",
+    "E501",
+    "ISC001",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "W191",
+]
+exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "__pycached__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["A003", "PLW0603", "PLR2004"]
+"examples/*" = ["A003"]
+"**/migrations/*" = ["RUF012"]
+
+[tool.ruff.lint.pylint]
+max-nested-blocks = 7
+
+[tool.ruff.lint.isort]
+
+[tool.ruff.format]
+
+[tool.pyright]
+pythonVersion = "3.9"
+useLibraryCodeForTypes = true
+exclude = [".venv", "**/migrations", "dist", "docs"]
+reportCallInDefaultInitializer = "warning"
+reportMatchNotExhaustive = "warning"
+reportMissingSuperCall = "warning"
+reportOverlappingOverload = "warning"
+reportUninitializedInstanceVariable = "none"
+reportUnnecessaryCast = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportUntypedNamedTuple = "error"
+reportUnusedExpression = "warning"
+reportUnnecessaryComparison = "warning"
+reportUnnecessaryContains = "warning"
+strictDictionaryInference = true
+strictListInference = true
+strictSetInference = true
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.django_settings"
+testpaths = ["tests"]
+filterwarnings = "ignore:.*is deprecated.*:DeprecationWarning"
+addopts = "--nomigrations --cov=./ --cov-report term-missing:skip-covered"
+asyncio_mode = "auto"

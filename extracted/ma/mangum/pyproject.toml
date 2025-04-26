@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mangum"
+version = "0.19.0"
+authors = [
+    { name = "Jordan Eremieff", email = "jordan@eremieff.com" },
+    { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" },
+]
+description = "AWS Lambda support for ASGI applications"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = ["typing_extensions"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "starlette",
+    "quart",
+    "hypercorn<0.15.0; python_version < '3.8'",
+    "hypercorn>=0.15.0; python_version >= '3.8'",
+    "mypy",
+    "brotli",
+    "brotli-asgi",
+    "mkautodoc",
+    "mkdocs>=1.6.0; python_version >= '3.12'",
+    "mkdocs-material; python_version >= '3.12'",
+]
+
+[project.urls]
+Homepage = "https://github.com/Kludex/mangum"
+Documentation = "https://mangum.fastapiexpert.com"
+Changelog = "https://github.com/Kludex/mangum/blob/main/CHANGELOG.md"
+Funding = "https://github.com/sponsors/Kludex"
+Source = "https://github.com/Kludex/mangum"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",      # https://docs.astral.sh/ruff/rules/#error-e
+    "F",      # https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "I",      # https://docs.astral.sh/ruff/rules/#isort-i
+    "FA",     # https://docs.astral.sh/ruff/rules/#flake8-future-annotations-fa
+    "UP",     # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "RUF100", # https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
+]
+ignore = ["UP031"] # https://docs.astral.sh/ruff/rules/printf-string-formatting/
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+addopts = "-rXs --strict-config --strict-markers"
+xfail_strict = true
+filterwarnings = [
+    # Turn warnings that aren't filtered into exceptions
+    "error",
+    "ignore::DeprecationWarning:starlette",
+    "ignore: There is no current event loop:DeprecationWarning",
+    "ignore: 'pkgutil.get_loader' is deprecated.*:DeprecationWarning",
+    "ignore: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead:DeprecationWarning",
+    "ignore: Attribute s is deprecated and will be removed in Python 3.14; use value instead:DeprecationWarning",
+    "ignore: Constant.__init__ got an unexpected keyword argument 's'. Support for arbitrary keyword arguments is deprecated and will be removed in Python 3.15.:DeprecationWarning",
+    "ignore: Constant.__init__ missing 1 required positional argument.*:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source_pkgs = ["mangum", "tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "pragma: nocover",
+    "if typing.TYPE_CHECKING:",
+    "@typing.overload",
+    "raise NotImplementedError",
+]

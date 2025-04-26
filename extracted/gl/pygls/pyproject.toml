@@ -1,0 +1,114 @@
+[tool.poetry]
+name = "pygls"
+version = "1.3.1"
+description = "A pythonic generic language server (pronounced like 'pie glass')"
+authors = ["Open Law Library <info@openlawlib.org>"]
+maintainers = [
+    "Tom BH <tom@tombh.co.uk>",
+    "Alex Carney <alcarneyme@gmail.com>",
+]
+repository = "https://github.com/openlawlibrary/pygls"
+documentation = "https://pygls.readthedocs.io/en/latest"
+license = "Apache-2.0"
+readme = "README.md"
+
+# You may want to use the Poetry "Up" plugin to automatically update all dependencies to
+# their latest major versions. But bear in mind that this is a library, so the non-development
+# dependency versions will be forced on downstream users. Therefore the very latest versions
+# may be too restrictive.
+# See https://github.com/MousaZeidBaker/poetry-plugin-up
+[tool.poetry.dependencies]
+python = ">=3.8"
+cattrs = ">=23.1.2"
+lsprotocol = "2023.0.1"
+websockets = { version = ">=11.0.3", optional = true }
+
+[tool.poetry.extras]
+ws = ["websockets"]
+
+[tool.poetry.group.dev.dependencies]
+# Replaces (amongst many other things) flake8 and bandit
+ruff = ">=0.1.6"
+# TODO `poethepoet>=0.20` needs python 3.8
+poethepoet = ">=0.24.4"
+mypy = ">=1.7.1"
+# TODO `black>=23` needs python 3.8
+black = ">=23.11.0"
+
+[tool.poetry.group.test.dependencies]
+# Note: `coverage` requires that your Python was built with system `sqlite` development files
+coverage = { version = ">=7.3.2", extras = ["toml"] }
+pytest = ">=7.4.3"
+pytest-asyncio = ">=0.21.0"
+
+[tool.poetry.group.docs.dependencies]
+# TODO `sphinx>=7.26` needs python 3.9
+sphinx = ">=7.1.2"
+sphinx-rtd-theme = ">=1.3.0"
+
+[tool.poetry.group.pyodide.dependencies]
+selenium = "^4.15.2"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.poe.tasks]
+test-pyodide = "python tests/pyodide_testrunner/run.py"
+ruff = "ruff check ."
+mypy = "mypy -p pygls"
+check_generated_client = "python scripts/check_client_is_uptodate.py"
+check_commit_style = "npx commitlint --from origin/main --to HEAD --verbose --config commitlintrc.yaml"
+generate_client = "python scripts/generate_client.py --output pygls/lsp/client.py"
+generate_contributors_md = "python scripts/generate_contributors_md.py"
+black_check = "black --check ."
+poetry_lock_check = "poetry check"
+
+[tool.poe.tasks.test]
+env = { COVERAGE_PROCESS_START = "pyproject.toml" }
+sequence = [
+     { cmd = "python -c 'import pathlib,sys; pathlib.Path(f\"{sys.path[-1]}/cov.pth\").write_text(\"import coverage; coverage.process_startup()\");'"},
+     { cmd = "coverage erase" },
+     { cmd = "coverage run -m pytest" },
+     { cmd = "coverage combine" },
+     { cmd = "coverage report" },
+]
+ignore_fail = "return_non_zero"
+
+[tool.poe.tasks.lint]
+sequence = [
+    "ruff",
+    "mypy",
+    "check_generated_client",
+    "check_commit_style",
+    "black_check",
+    "poetry_lock_check"
+]
+ignore_fail = "return_non_zero"
+
+[tool.pyright]
+strict = ["pygls"]
+
+[tool.ruff]
+# Sometimes Black can't reduce line length without breaking more imortant rules.
+# So allow Ruff to be more lenient.
+line-length = 120
+
+[tool.black]
+line-length = 88
+extend-exclude = "pygls/lsp/client.py"
+
+[tool.coverage.run]
+parallel = true
+source_pkgs = ["pygls"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+sort = "Cover"
+
+[tool.mypy]
+check_untyped_defs = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

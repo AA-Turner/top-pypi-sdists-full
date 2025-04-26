@@ -1,0 +1,104 @@
+Metadata-Version: 2.1
+Name: config-formatter
+Version: 1.2.0
+Summary: An automatic formatter for .ini and .cfg configuration files
+Home-page: https://github.com/Delgan/config-formatter
+Author: Delgan
+Author-email: delgan.py@gmail.com
+License: MIT
+Project-URL: Changelog, https://github.com/Delgan/config-formatter/blob/main/CHANGELOG.md
+Keywords: config,formatter,ini,cfg,configuration,configparser
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: configupdater>=3.0
+Provides-Extra: dev
+Requires-Dist: pre-commit>=2.17.0; extra == "dev"
+Requires-Dist: pytest>=6.0.0; extra == "dev"
+
+# config-formatter
+
+[![Pypi version](https://img.shields.io/pypi/v/config-formatter.svg)](https://pypi.python.org/pypi/config-formatter) [![Python version](https://img.shields.io/badge/python-3.6%2B-blue.svg)](https://pypi.python.org/pypi/config-formatter) [![Build status](https://img.shields.io/github/actions/workflow/status/Delgan/config-formatter/tests.yml?branch=main)](https://github.com/Delgan/config-formatter/actions/workflows/tests.yml?query=branch:main) [![License](https://img.shields.io/github/license/delgan/config-formatter.svg)](https://github.com/Delgan/config-formatter/blob/main/LICENSE)
+
+An automatic formatter for .ini and .cfg configuration files.
+
+
+## Installation
+
+```shell
+pip install config-formatter
+```
+
+## Usage
+
+```python
+from config_formatter import ConfigFormatter
+
+with open("config.ini", "r") as file:
+    formatter = ConfigFormatter()
+    formatted = formatter.prettify(file.read())
+    print(formatted)
+```
+
+## Example
+
+Before:
+
+```ini
+[main]        # Comments are preserved.
+
+    # Error-prone indentation is removed.
+    [section1]
+    key1: value1
+    key2=value2  # Value assignment is normalized.
+
+
+[section2]
+lists =
+ are
+ indented
+# including
+ comments
+
+multiline =    text that spans
+ on several lines
+      is properly aligned.
+```
+
+After:
+
+```ini
+[main]  # Comments are preserved.
+
+# Error-prone indentation is removed.
+[section1]
+key1 = value1
+key2 = value2  # Value assignment is normalized.
+
+[section2]
+lists =
+    are
+    indented
+    # including
+    comments
+
+multiline = text that spans
+            on several lines
+            is properly aligned.
+```

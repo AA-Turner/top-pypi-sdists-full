@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: evervault_attestation_bindings
+Version: 0.4.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Summary: A Python library for attesting Nitro Enclaves according to the Evervault Cages attestation protocol.
+Home-Page: https://github.com/evervault/attestation-doc-validation
+License: Apache-2.0
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/evervault/attestation-doc-validation
+
+# Evervault Attestation Bindings
+
+This package contains python bindings to the Evervault attestation doc validation crate.
+

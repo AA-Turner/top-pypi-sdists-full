@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: vaex-core
+Version: 4.17.1
+Summary: Core of vaex
+Home-page: https://www.github.com/maartenbreddels/vaex
+Author: Maarten A. Breddels
+Author-email: maartenbreddels@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Provides-Extra: all

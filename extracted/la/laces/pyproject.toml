@@ -1,0 +1,107 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "laces"
+authors = [
+    {name = "Matt Westcott", email = "matt@west.co.tt"},
+    {name = "Tibor Leupold", email = "tibor@lpld.io"},
+]
+maintainers= [
+    {name = "Tibor Leupold", email = "tibor@lpld.io"},
+]
+description = "Django components that know how to render themselves."
+readme = "README.md"
+classifiers = [
+    # https://pypi.org/classifiers/
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: Django",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+]
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = [
+    "Django>=3.2",
+]
+keywords = [
+    "django",
+    "components",
+    "templates",
+    "render",
+]
+
+[project.optional-dependencies]
+testing = [
+    "dj-database-url==2.1.0",
+    # Running tests with coverage inside the tox test environment.
+    "coverage==7.3.4",
+]
+dev = [
+    "tox==4.12.1",
+    "tox-gh-actions==3.2.0",
+    # Allow use of pyenv for virtual environments. To enable you need to set `VIRTUALENV_DISCOVERY=pyenv` in the shell.
+    # This is useful to help tox find the correct python version when using pyenv.
+    "virtualenv-pyenv==0.4.0",
+    # This is to have coverage available in the development environment.
+    # It's not great that it's duplicated, but I can't find a way to make it work with tox otherwise.
+    "coverage==7.3.4",
+    # Linting etc.
+    "pre-commit==3.4.0",
+    "black==24.1.1",
+    "blacken-docs==1.16.0",
+    "isort==5.13.2",
+    "flake8==7.0.0",
+    "flake8-bugbear",
+    "flake8-comprehensions",
+    "mypy==1.7.1",
+    "django-stubs[compatible-mypy]==4.2.7",
+    "types-requests==2.31.0.20240125",
+]
+
+[project.urls]
+homepage = "https://github.com/tbrlpld/laces"
+source = "https://github.com/tbrlpld/laces"
+documentation = "https://github.com/tbrlpld/laces/blob/main/README.md"
+changelog = "https://github.com/tbrlpld/laces/blob/main/CHANGELOG.md"
+issues = "https://github.com/tbrlpld/laces/issues"
+releasenotes = "https://github.com/tbrlpld/laces/releases"
+download = "https://pypi.org/project/laces/#files"
+
+[tool.flit.module]
+name = "laces"
+
+[tool.flit.sdist]
+exclude = [
+    "laces/static_src",
+    "laces/test",
+    "laces/static/laces/js/.gitignore",
+    "testmanage.py",
+    ".*",
+    "*.js",
+    "*.json",
+    "*.ini",
+    "*.yml"
+]
+
+[tool.mypy]
+files = ["."]
+plugins = ["mypy_django_plugin.main"]
+strict = true
+
+[tool.django-stubs]
+django_settings_module = "laces.test.settings"

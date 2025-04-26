@@ -1,0 +1,44 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry]
+name = "auth0-python"
+version = "4.9.0"                                    # This is replaced by dynamic versioning
+description = ""
+authors = ["Auth0 <support@auth0.com>"]
+license = "MIT"
+repository = "https://github.com/auth0/auth0-python"
+homepage = "https://auth0.com"
+readme = "README.md"
+packages = [{ include = "auth0" }]
+
+[tool.poetry-dynamic-versioning]
+strict = true
+enable = false
+vcs = "git"
+style = "semver"
+format-jinja = "{% if distance == 0 %}{{ base }}{% else %}{{ base }}{% endif %}"
+pattern = "default-unprefixed"
+
+[tool.poetry-dynamic-versioning.substitution]
+files = ["*/__init__.py"]
+folders = [{ path = "auth0" }]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+aiohttp = ">=3.10.11"
+cryptography = ">=43.0.1" # pyjwt has a weak dependency on cryptography
+pyjwt = ">=2.8.0"
+requests = ">=2.32.3"
+urllib3 = ">=2.2.3"       # requests has a weak dependency on urllib3
+
+[tool.poetry.group.dev.dependencies]
+aioresponses = "^0.7.4"
+mock = "^5.1.0"
+pipx = "^1.7.1"
+pytest = "^7.4.0"
+pytest-aiohttp = "^1.0.4"
+pytest-asyncio = ">=0.21.1,<0.24.0"
+pytest-cov = "^4.1.0"
+responses = ">=0.23.3,<0.25.0"

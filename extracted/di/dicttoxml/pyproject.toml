@@ -1,0 +1,17 @@
+# pyproject.toml
+
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dicttoxml"
+version = "1.7.16"
+description = "Converts a Python dictionary or other native data type into a valid XML string."
+readme = "README.md"
+authors = [{ name = "Ryan McGreal", email = "ryan@quandyfactory.com" }]
+license = { file = "LICENCE.txt" }
+requires-python = ">=3.6"
+
+[project.urls]
+Homepage = "https://github.com/quandyfactory/dicttoxml"

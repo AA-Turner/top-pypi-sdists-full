@@ -1,0 +1,38 @@
+[tool.pyright]
+disableBytesTypePromotions = true
+enableTypeIgnoreComments = true
+exclude = [
+  "**/__pycache__",
+  "**/.*",
+  "examples/",
+  "pycarlo/lib/schema.py",
+  "venv/",
+]
+reportMissingParameterType = true
+reportMissingTypeArgument = false
+typeCheckingMode = "basic"
+venv = "venv"
+venvPath = "."
+
+[tool.ruff]
+exclude = [
+  "__pycache__",
+  "/.eggs",
+  "/.git",
+  "/.idea",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/build",
+  "/pycarlo.egg-info",
+  "/venv",
+  "pycarlo/lib/schema.py",
+]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "W", "Q", "I"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 100
+max-line-length = 100

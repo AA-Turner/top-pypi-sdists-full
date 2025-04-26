@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: debugtoolbar_demo
+Version: 0.0
+Summary: A demo application for the debug toolbar
+Home-page: http://pylonsproject.org
+Author: Agendaless Consulting and team
+Author-email: pylons-devel@googlegroups.com
+License: BSD-derived (http://www.repoze.org/LICENSE.txt)
+Keywords: web wsgi pylons pyramid
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Framework :: Pylons
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
+Classifier: License :: Repoze Public License
+Requires-Dist: pyramid>=1.1.1dev
+Requires-Dist: pyramid_debugtoolbar
+Requires-Dist: pyramid_mako
+Requires-Dist: pyramid_jinja2
+Requires-Dist: pyramid_chameleon
+Requires-Dist: selenium
+Requires-Dist: SQLAlchemy
+Requires-Dist: waitress
+
+
+

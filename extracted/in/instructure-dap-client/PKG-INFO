@@ -1,0 +1,44 @@
+Metadata-Version: 2.2
+Name: instructure-dap-client
+Version: 1.4.0
+Summary: Data Access Platform client library
+Maintainer: Instucture, Inc.
+Maintainer-email: dapclient@instructure.com
+License: MIT
+Project-URL: Changelog, https://data-access-platform-api.s3.amazonaws.com/client/RELEASE_NOTES.html
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.4
+Requires-Dist: aiohttp-retry>=2.8.3
+Requires-Dist: aiofiles>=23.1.0
+Requires-Dist: types-aiofiles>=23.1.0
+Requires-Dist: json_strong_typing>=0.3.4
+Requires-Dist: pysqlsync[tsv]>=0.8.2
+Requires-Dist: PyJWT>=2.7.0
+Requires-Dist: tsv2py>=0.7.1
+Provides-Extra: postgresql
+Requires-Dist: pysqlsync[postgresql]>=0.8.2; extra == "postgresql"
+Provides-Extra: mysql
+Requires-Dist: pysqlsync[mysql]>=0.8.2; extra == "mysql"
+Provides-Extra: mssql
+Requires-Dist: pysqlsync[mssql]>=0.8.2; extra == "mssql"
+
+# Data Access Platform Client Library
+
+Data Access Platform (DAP) acts as a single source of data for analytics at Instructure. It provides efficient access to data collected across various educational products in bulk with high fidelity and low latency, adhering to a canonical data model.
+
+## Links to documentation
+
+* [DAP Client Library Documentation](https://developerdocs.instructure.com/services/dap/dap-cli-readme)
+* [API documentation](https://developerdocs.instructure.com/services/dap/query-api)

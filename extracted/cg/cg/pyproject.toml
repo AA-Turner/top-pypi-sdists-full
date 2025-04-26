@@ -1,0 +1,97 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "cg"
+version = "69.6.1"
+description = "Clinical Genomics command center"
+readme = {file = "README.md", content-type = "text/markdown"}
+homepage = "https://github.com/Clinical-Genomics/cg"
+repository = "https://github.com/Clinical-Genomics/cg"
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+include = [
+  "README.md",
+  "cg/**/*",
+  "tests/**/*"
+]
+requires-python = ">=3.9,<3.13"
+dependencies = [
+"alembic",
+"SQLAlchemy",
+"PyMySQL",
+"click",
+"blinker",
+"CacheControl",
+"Flask-Admin",
+"Flask-CORS",
+"Flask-Dance",
+"Flask",
+"Flask-WTF",
+"WTForms == 3.0.0",
+"google-auth",
+"gunicorn",
+"requests",
+"werkzeug",
+"cachetools",
+"cryptography",
+"coloredlogs",
+"Jinja2",
+"lxml",
+"marshmallow",
+"MarkupSafe",
+"openpyxl",
+"packaging",
+"pandas",
+"paramiko",
+"petname",
+"psutil",
+"pydantic == 2.7.4",
+"python-dateutil",
+"PyYAML",
+"tabulate",
+"typing_extensions",
+"urllib3",
+"genologics",
+"housekeeper>=4.11.3",
+"pydantic-settings>=2.3.3",
+"email-validator>=2.2.0",
+"rich-click>=1.8.4",
+  ]
+[project.optional-dependencies]
+coveralls = ["coveralls"]
+mock = ["mock"]
+pre-commit = ["pre-commit"]
+pytest-cov = ["pytest-cov"]
+pytest-mock = ["pytest-mock"]
+pytest = ["pytest"]
+ruff = ["ruff"]
+pytest-xdist = ["pytest-xdist"]
+
+
+
+[project.scripts]
+cg = "cg.cli.base:base"
+
+
+# Configurations
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+include_trailing_comma = "true"
+line_length=100
+multi_line_output=3
+ensure_newline_before_comments = "true"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["alembic"]
+ignore = ["E501"]

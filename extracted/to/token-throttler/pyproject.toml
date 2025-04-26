@@ -1,0 +1,108 @@
+[tool.poetry]
+name = "token-throttler"
+version = "1.5.1"
+description = "Token throttler is an extendable rate-limiting library somewhat based on a token bucket algorithm"
+authors = ["Vojko Pribudić <dmanthing@gmail.com>"]
+maintainers = [
+        "Vojko Pribudić <dmanthing@gmail.com>",
+        "Rino Dugonjić <dugonjic.rino@gmail.com>",
+]
+repository = "https://gitlab.com/vojko.pribudic/token-throttler"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3 :: Only",
+        "Topic :: Software Development :: Libraries",
+]
+include = ["README.md", "LICENSE"]
+exclude = [
+    ".gitignore",
+    ".gitlab-ci.yml",
+]
+
+[tool.poetry.urls]
+"Tracker" = "https://gitlab.com/vojko.pribudic/token-throttler/-/issues"
+"Changelog" = "https://gitlab.com/vojko.pribudic/token-throttler/-/releases"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+redis = { version = ">=4.4", optional = true }
+fastapi = { version = ">=0.102.0", optional = true }
+
+[tool.poetry.extras]
+redis = ["redis"]
+fastapi = ["fastapi"]
+
+[tool.poetry.group.test.dependencies]
+fakeredis = ">=2.18"
+fastapi = ">=0.102.0"
+freezegun = ">=1.2"
+httpx = ">=0.24.1"
+pytest = ">=7.4"
+pytest-asyncio = ">=0.21.1"
+pytest-cov = ">=4.1"
+redis = "4.5.4"
+tox = ">=4.8"
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines=[
+    "def __repr__",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "pass",
+    "pragma: no cover"
+  ]
+sort = "cover"
+precision = 3
+
+[tool.pytest.ini_options]
+addopts = "--cov-fail-under=100 --strict-markers"
+asyncio_mode = "auto"
+filterwarnings = "ignore::DeprecationWarning"
+
+[tool.isort]
+profile = "black"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+envlist = py38, py39, py310, py311, py312
+
+[testenv]
+commands =
+  pytest --cov
+deps =
+  fastapi
+  fakeredis
+  freezegun
+  httpx
+  pytest-asyncio
+  pytest-cov
+  redis==4.5.4
+"""
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

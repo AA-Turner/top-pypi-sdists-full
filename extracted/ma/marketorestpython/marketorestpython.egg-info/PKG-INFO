@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: marketorestpython
+Version: 0.5.24
+Summary: Python Client for the Marketo REST API
+Home-page: https://github.com/jepcastelein/marketo-rest-python
+Author: Jep Castelein
+Author-email: jep@castelein.net
+License: MIT License
+Keywords: Marketo,REST API,Wrapper,Client
+Platform: UNKNOWN
+License-File: LICENSE.txt
+
+
+Marketo Python REST is a Python client that wraps the Marketo Rest API.
+Originally developed by asamat with contributions from sandipsinha and osamakhn
+
+

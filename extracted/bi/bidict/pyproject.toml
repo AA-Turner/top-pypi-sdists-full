@@ -1,0 +1,93 @@
+[project]
+name = "bidict"
+dynamic = ["version"]
+description = "The bidirectional mapping library for Python."
+authors = [{ name = "Joshua Bronson", email = "jabronson@gmail.com" }]
+license = { text = "MPL 2.0" }
+dependencies = []
+requires-python = ">=3.8"
+readme = "README.rst"
+keywords = [
+  "bidict",
+  "bimap",
+  "bidirectional",
+  "dict",
+  "dictionary",
+  "mapping",
+  "collections",
+]
+classifiers = [
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Changelog = "https://bidict.readthedocs.io/changelog.html"
+Documentation = "https://bidict.readthedocs.io"
+Funding = "https://bidict.readthedocs.io/#sponsoring"
+Repository = "https://github.com/jab/bidict"
+
+[build-system]
+requires = ["setuptools >= 40.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["bidict"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bidict.metadata.__version__"}
+
+[tool.mypy]
+strict = true
+show_error_codes = true
+show_error_context = true
+show_column_numbers = true
+pretty = true
+
+[tool.ruff]
+preview = true
+line-length = 121
+
+[tool.ruff.lint]
+# https://beta.ruff.rs/docs/rules/
+extend-select = [
+  "A",
+  "ARG",
+  "B",
+  "BLE",
+  "E",
+  "F",
+  "FA",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PT",
+  "PTH",
+  "RET",
+  "RSE",
+  "RUF",
+  "SLOT",
+  "T20",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+lines-after-imports = 2
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+preview = true
+quote-style = "single"

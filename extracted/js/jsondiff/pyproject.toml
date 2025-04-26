@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "setuptools_scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jsondiff"
+description = "Diff JSON and JSON-like structures in Python"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+readme = "README.md"
+license= {file = "LICENSE" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Zoomer Analytics LLC", email = "eric.reynolds@zoomeranalytics.com"}
+]
+keywords = ['json', 'diff', 'diffing', 'difference', 'patch', 'delta', 'dict', 'LCS']
+classifiers = [
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/xlwings/jsondiff"
+"Bug Tracker" = "https://github.com/xlwings/jsondiff/issues"
+
+[project.scripts]
+jdiff = "jsondiff.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["jsondiff*"]
+exclude = ["tests*"]
+
+[tool.setuptools.dynamic]
+dependencies = {file=["requirements.txt"]}
+
+[tool.setuptools_scm]
+version_file = "jsondiff/_version.py"
+
+[tool.setuptools.dynamic.optional-dependencies]
+dev = {file=["requirements-dev.txt"]}

@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: opentelemetry-exporter-zipkin-json
+Version: 1.32.1
+Summary: Zipkin Span JSON Exporter for OpenTelemetry
+Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-zipkin-json
+Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
+Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
+License: Apache-2.0
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: OpenTelemetry
+Classifier: Framework :: OpenTelemetry :: Exporters
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Requires-Dist: opentelemetry-api~=1.3
+Requires-Dist: opentelemetry-sdk~=1.11
+Requires-Dist: requests~=2.7
+Description-Content-Type: text/x-rst
+
+OpenTelemetry Zipkin JSON Exporter
+==================================
+
+|pypi|
+
+.. |pypi| image:: https://badge.fury.io/py/opentelemetry-exporter-zipkin-json.svg
+   :target: https://pypi.org/project/opentelemetry-exporter-zipkin-json/
+
+This library allows export of tracing data to `Zipkin <https://zipkin.io/>`_ using JSON
+for serialization.
+
+Installation
+------------
+
+::
+
+     pip install opentelemetry-exporter-zipkin-json
+
+
+References
+----------
+
+* `OpenTelemetry Zipkin Exporter <https://opentelemetry-python.readthedocs.io/en/latest/exporter/zipkin/zipkin.html>`_
+* `Zipkin <https://zipkin.io/>`_
+* `OpenTelemetry Project <https://opentelemetry.io/>`_

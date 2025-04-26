@@ -1,0 +1,109 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatch-vcs", "hatchling"]
+
+[project]
+dependencies = [
+    "aiohttp",
+    "backoff",
+    "boto3",
+    "click>=7.1",
+    "dask>=2022.02.1",
+    "distributed>=2022.02.1",
+    "fabric>=3.0",
+    "filelock",
+    "gilknocker>=0.4.1",
+    "httpx[http2]>=0.15",
+    "importlib-metadata",
+    "invoke>=2.0",
+    "ipywidgets",
+    "jmespath",
+    "jsondiff",
+    "packaging",
+    "paramiko>=2.4",
+    "pip-requirements-parser",
+    "pip>=19.3",
+    "prometheus_client",
+    "rich>=11.2.0",
+    "setuptools>=49.3.0",
+    "toml",
+    "typing_extensions",
+    "wheel",
+]
+description = "Python client for coiled.io dask clusters"
+dynamic = ["version"]
+maintainers = [{ name = "Coiled", email = "info@coiled.io" }]
+name = "coiled"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+azure = ["azure-identity", "azure-mgmt-resource", "azure-mgmt-subscription"]
+notebook = ["distributed>=2022.8.1", "jupyter-server-proxy", "jupyterlab"]
+
+[project.scripts]
+coiled = "coiled.cli.core:cli"
+
+[project.urls]
+Homepage = "https://coiled.io"
+
+[tool.hatch.build]
+exclude = ["coiled/cli/tests", "coiled/tests"]
+
+[tool.hatch.version]
+raw-options = { root = "..", local_scheme = "no-local-version" }
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["/coiled"]
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+exclude = ["*.ipynb"]
+explicit-preview-rules = true
+extend-safe-fixes = ["UP045"]
+extend-select = ["UP045"]
+fixable = ["ALL"]
+ignore = ['E4']
+preview = true
+select = [
+    # pycodestyle
+    "E",
+    "W",
+    # Pyflakes
+    "F",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
+    # Use type expressions instead of Optional
+    "UP045",
+    # Ensures we have __future__ annotations imports where needed
+    "FA102",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401", "N801"]
+
+[tool.ruff.format]
+exclude = ["*.ipynb"]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+preview = true
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["coiled"]

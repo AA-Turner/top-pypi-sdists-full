@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools~=75.3.0", "setuptools-scm~=8.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dbt-metabase"
+description = "dbt + Metabase integration."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=5.4.1",
+    "requests>=2.26.0",
+    "click>=8.0.0",
+    "rich>=12.0.0",
+]
+dynamic = ["version"]
+license = { text = "MIT License" }
+authors = [{ name = "Mike Gouline" }]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.scripts]
+dbt-metabase = "dbtmetabase.__main__:cli"
+
+[project.urls]
+Homepage = "https://github.com/gouline/dbt-metabase"
+
+[tool.setuptools]
+packages = ["dbtmetabase"]
+
+[tool.setuptools_scm]
+version_file = "dbtmetabase/_version.py"
+
+[tool.uv]
+dev-dependencies = [
+    "build>=1.0.3",
+    "twine>=4.0.2",
+    "ruff>=0.5.5",
+    "mypy>=1.7.1",
+    "pytest>=8.3.1",
+    "molot~=1.0.0",
+    "dbt-postgres~=1.9.0",
+    "python-dotenv~=1.0.1",
+    "types-requests",
+    "types-PyYAML",
+]
+
+[tool.mypy]
+check_untyped_defs = true
+ignore_missing_imports = true
+python_version = "3.8"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "A",      # flake8-builtins
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "FIX001", # flake8-fixme
+]
+ignore = [
+    "E501", # line-too-long 
+    "F403", # undefined-local-with-import-star
+]

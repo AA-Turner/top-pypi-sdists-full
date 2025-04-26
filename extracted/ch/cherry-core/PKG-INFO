@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: cherry-core
+Version: 0.5.4
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Summary: Core library for cherry blockchain data framework
+Home-Page: https://github.com/steelcake/cherry-core
+Author: Ozgur Akkurt <oezgurmakkurt@gmail.com>
+Author-email: Ozgur Akkurt <oezgurmakkurt@gmail.com>
+License: MIT OR Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/steelcake/cherry-core
+
+# cherry-core python bindings
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
+

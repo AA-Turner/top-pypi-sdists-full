@@ -1,0 +1,98 @@
+Metadata-Version: 2.4
+Name: celery-batches
+Version: 0.10
+Summary: Experimental task class that buffers messages and processes them as a list.
+Home-page: https://github.com/clokep/celery-batches
+Author: Patrick Cloke
+Author-email: clokep@patrick.cloke.us
+License: BSD
+Project-URL: Documentation, https://celery-batches.readthedocs.io
+Project-URL: Release notes, https://github.com/clokep/celery-batches/blob/main/CHANGELOG.rst
+Project-URL: Source, https://github.com/clokep/celery-batches
+Project-URL: Funding, https://github.com/sponsors/clokep
+Project-URL: Tracker, https://github.com/clokep/celery-batches/issues
+Keywords: task,job,queue,distributed,messaging,actor
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: Software Development :: Object Brokering
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: celery<5.6,>=5.0
+Dynamic: license-file
+
+Celery Batches
+==============
+
+.. image:: https://img.shields.io/pypi/v/celery-batches.svg
+    :target: https://pypi.org/project/celery-batches/
+
+.. image:: https://github.com/clokep/celery-batches/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/clokep/celery-batches/actions/workflows/main.yml
+
+.. image:: https://readthedocs.org/projects/celery-batches/badge/?version=latest
+    :target: https://celery-batches.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+Celery Batches provides a ``Task`` class that allows processing of multiple
+Celery task calls together as a list. The buffer of tasks calls is flushed on a
+timer and based on the number of queued tasks.
+
+Some potential use-cases for batching of task calls include:
+
+* De-duplicating tasks.
+* Accumulating / only handling the latest task with similar arguments.
+* Bulk inserting / updating of data.
+* Tasks with expensive setup that can run across a range of arguments.
+
+What do I need?
+===============
+
+celery-batches version runs on,
+
+- Python (3.9, 3.10, 3.11, 3.12, 3.13)
+- PyPy (3.10, 3.11)
+
+And is tested with Celery ~= 5.0.
+
+If you're running an older version of Python, you need to be running
+an older version of celery-batches, the last version supporting each
+Python version is listed below:
+
+- Python 2.7: celery-batches 0.3.
+- Python 3.4: celery-batches 0.2.
+- Python 3.5: celery-batches 0.3.
+- Python 3.6: celery-batches 0.5.
+- Python 3.7: celery-batches 0.7.
+- Python 3.8: celery-batches 0.9.
+
+If you're running an older version of Celery, you need to be running
+an older version of celery-batches:
+
+- Celery < 4.0: Use `celery.contrib.batches` instead.
+- Celery 4.0 - 4.3: celery-batches 0.3.
+- Celery 4.4: celery-batches 0.7.
+- Celery 5.0 - 5.1: celery-batches 0.9.
+
+History
+=======
+
+Celery Batches was distributed as part of Celery (as ``celery.contrib.batches``)
+until Celery 4.0. This project updates the Batches code to maintain compatiblity
+with newer versions of Celery and other fixes. See the Changelog for details.
+
+Additionally, this repository includes the full history of the code from
+``celery.contrib.batches``, but rewritten to the ``celery_batches/__init__.py``
+file.

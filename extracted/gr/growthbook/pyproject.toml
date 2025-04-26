@@ -1,0 +1,44 @@
+# Stick to old setup and keep only pytest config
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = "."
+
+[project]
+dynamic = ["version"]
+name = "growthbook"
+description = "Powerful Feature flagging and A/B testing for Python apps"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {text = "MIT"}
+authors = [
+    {name = "GrowthBook", email = "hello@growthbook.io"}
+]
+keywords = ["growthbook"]
+dependencies = [
+    "cryptography",
+    "typing_extensions",
+    "urllib3",
+    'dataclasses;python_version<"3.7"',
+    'async-generator;python_version<"3.7"',
+    "aiohttp>=3.6.0",
+    'importlib-metadata;python_version<"3.8"'
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[build-system]
+requires = ["setuptools>=45"]
+build-backend = "setuptools.build_meta"

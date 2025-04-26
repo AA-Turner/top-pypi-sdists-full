@@ -1,0 +1,128 @@
+[tool.poetry]
+name = "qianfan"
+version = "0.4.12.3"
+description = "文心千帆大模型平台 Python SDK"
+authors = []
+license = "Apache-2.0"
+readme = "README.pypi.md"
+exclude = [
+    "qianfan/tests",
+    "qianfan/docs",
+]
+homepage = "https://cloud.baidu.com/product/wenxinworkshop"
+repository = "https://github.com/baidubce/bce-qianfan-sdk"
+documentation = "https://qianfan.readthedocs.io/en/stable/README.html"
+keywords = ["baidu", "qianfan"]
+include = [
+    "qianfan/resources/rate_limiter/check_rate_limiter.lua",
+    "qianfan/resources/rate_limiter/reset_rate_limiter.lua",
+    "qianfan/resources/rate_limiter/pulse.lua",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.7,<4"
+requests = ">=2.24"
+aiohttp = ">=3.7.0"
+aiolimiter = ">=1.1.0"
+importlib-metadata = { version = ">=1.4.0", python = "<=3.7" }
+bce-python-sdk = ">=0.8.79"
+typing-extensions = { version = ">=4.0.0", python = "<=3.10" }
+pydantic = ">=1.0"
+python-dotenv = [
+    { version = "<=0.21.1", python = "<3.8" },
+    { version = ">=1.0", python = ">=3.8" }
+]
+tenacity = "^8.2.3"
+multiprocess = ">=0.70.12"
+langchain = { version = ">=0.1.10", python = ">=3.8.1", optional = true }
+langchain-community = { version = ">=0.2.0", python = ">=3.8.1", optional = true }
+numpy = [
+    { version = "<1.22.0", python = ">=3.7 <3.8", optional = true },
+    { version = ">=1.22.0", python = ">=3.8", optional = true }
+]
+pyarrow = [
+    { version = ">=14.0.1", python = ">=3.8", optional = true },
+    { version = "<=12.0.1", python = ">=3.7 <3.8", optional = true }
+]
+locust = { version = ">=2.9.0", optional = true }
+tabulate = { version = ">=0.9.0", optional = true }
+python-dateutil = { version = "^2.8.2", optional = true }
+rich = ">=13.0.0"
+typer = ">=0.9.0"
+pyyaml = "^6.0.1"
+prompt-toolkit = ">=3.0.38"
+torch = [
+    { version = "<=1.13.1", python = "<3.8", optional = true },
+    { version = ">=1.4.0", python = ">=3.8", optional = true }
+]
+ltp = { version = ">=4.2.0", optional = true }
+emoji = { version = ">=2.2.0", optional = true }
+sentencepiece = { version = ">=0.1.98", optional = true }
+diskcache = ">=5.6.3"
+cachetools = ">=5.0.0"
+
+ijson = { version = ">=3.0", optional = true }
+fastapi = { version = ">=0.85.0", optional = true }
+uvicorn = { version = ">=0.15.0", optional = true }
+filelock = { version = ">=3.7.0", optional = true }
+
+[tool.poetry.scripts]
+qianfan = "qianfan.common.cli.main:main"
+
+[tool.poetry.group.dev.dependencies]
+sphinx = ">=5"
+pytest = ">=7.0.0"
+flask = ">=2.0.0"
+pytest-asyncio = ">=0.16.0"
+coverage = ">=7.0.0"
+black = "^23.1.0"
+ruff = ">=0.0.290"
+sphinx-rtd-theme = ">=1.2.0"
+mypy = ">=1.4.0"
+myst-parser = ">=0.19.2"
+pytest-mock = "3.11.1"
+types-protobuf = "4.24.0.4"
+setuptools = "*"
+redis = "*"
+
+[tool.poetry.group.cookbook.dependencies]
+nbformat = {version = "^5.10.3", python = ">=3.8 <4"}
+aiohttp = {version = "^3.9.3", python = ">=3.8 <4"}
+papermill = {version = "*", python = ">=3.8 <4"}
+ipykernel = {version = "^6.29.4", python = ">=3.8 <4"}
+
+[tool.poetry.extras]
+dataset_base = ["numpy", "pyarrow", "locust", "tabulate", "python-dateutil", "ijson", "filelock"]
+local_data_clean = ["numpy", "pyarrow", "locust", "tabulate", "python-dateutil", "ijson", "filelock", "ltp", "emoji", "sentencepiece", "torch"]
+langchain = ["langchain", "langchain-community"]
+openai = ["fastapi", "uvicorn"]
+all = ["numpy", "pyarrow", "locust", "tabulate", "python-dateutil", "ijson", "filelock", "langchain", "langchain-community", "ltp", "emoji", "sentencepiece", "torch", "fastapi", "uvicorn"]
+
+[tool.ruff.lint]
+extend-select = ["PLW1514"]
+preview = true
+select = [
+  "E",  # pycodestyle
+  "F",  # pyflakes
+  "I",  # isort
+]
+typing-modules = ["qianfan.resources.typing"]
+exclude = ["qianfan/__init__.py", "qianfan/extensions/guidance/_qianfan.py"]
+
+[tool.ruff.lint.per-file-ignores]
+"*test*.py" = ["PLW1514"]
+
+[tool.black]
+preview = true
+
+[tool.mypy]
+ignore_missing_imports = "True"
+disallow_untyped_defs = "True"
+exclude = ["qianfan/tests", "qianfan/utils/pydantic", "qianfan/__init__.py", "qianfan/extensions/guidance/_qianfan.py"]
+
+
+[build-system]
+requires = [
+    "poetry-core"
+]
+build-backend = "poetry.core.masonry.api"

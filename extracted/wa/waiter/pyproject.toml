@@ -1,0 +1,40 @@
+[project]
+name = "waiter"
+version = "1.5"
+description = "Delayed iteration for polling and retries."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE.txt"}
+authors = [{name = "Aric Coady", email = "aric.coady@gmail.com"}]
+keywords = ["wait", "retry", "poll", "delay", "sleep", "timeout", "incremental", "exponential", "backoff", "async"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/coady/waiter"
+Documentation = "https://coady.github.io/waiter"
+Changelog = "https://github.com/coady/waiter/blob/main/CHANGELOG.md"
+Issues = "https://github.com/coady/waiter/issues"
+
+[tool.ruff]
+line-length = 100
+extend-include = ["*.ipynb"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.coverage.run]
+source = ["waiter"]
+branch = true

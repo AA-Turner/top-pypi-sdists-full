@@ -1,0 +1,37 @@
+Metadata-Version: 1.1
+Name: ultimate-hosts-blacklist-helpers
+Version: 1.20.1
+Summary: The helpers classes/functions of the Ultimate Hosts Blacklist project.
+Home-page: https://github.com/Ultimate-Hosts-Blacklist/dev-center/tree/helpers
+Author: UNKNOWN
+Author-email: UNKNOWN
+License: MIT
+Description: The Ultimate Hosts Blacklist helpers
+        ====================================
+        
+        This is the branch which contain the helpers which we use while developing submodule for our infrastructure or frontend.
+        
+        Installation
+        ------------
+        
+        ::
+        
+            $ pip3 install --user ultimate-hosts-blacklist-helpers
+        
+        
+        Note
+        ----
+        
+        Most of the classes and methods here comes, are inspired or copied from the `PyFunceble`_ project.
+        
+        .. _PyFunceble: https://pyfunceble.github.io
+        
+Keywords: Python,helpers
+Platform: any
+Classifier: Environment :: Console
+Classifier: Topic :: Internet
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License

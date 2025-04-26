@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: jhashcode
+Version: 0.4
+Summary: Python implemented Java `hashCode` methods.
+Home-page: https://github.com/neuront/pyjhashcode
+Author: Neuron Teckid
+Author-email: lene13@gmail.com
+License: MIT
+Description: Visit https://github.com/neuront/pyjhashcode for details please.
+Keywords: Java hashCode
+Platform: UNKNOWN

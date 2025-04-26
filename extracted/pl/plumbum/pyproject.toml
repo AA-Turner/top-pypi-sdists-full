@@ -1,0 +1,238 @@
+[build-system]
+requires = [
+    "hatchling",
+    "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "plumbum"
+description = "Plumbum: shell combinators library"
+readme = "README.rst"
+authors = [{ name="Tomer Filiba", email="tomerfiliba@gmail.com" }]
+license = { file="LICENSE" }
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = [
+    "pywin32; platform_system=='Windows' and platform_python_implementation!='PyPy'",
+    "importlib_resources; python_version<'3.9'",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
+]
+keywords = [
+    "path",
+    "local",
+    "remote",
+    "ssh",
+    "shell",
+    "pipe",
+    "popen",
+    "process",
+    "execution",
+    "color",
+    "cli",
+]
+
+[project.urls]
+Homepage = "https://github.com/tomerfiliba/plumbum"
+Documentation = "https://plumbum.readthedocs.io/"
+"Bug Tracker" = "https://github.com/tomerfiliba/plumbum/issues"
+Changelog = "https://plumbum.readthedocs.io/en/latest/changelog.html"
+Cheatsheet = "https://plumbum.readthedocs.io/en/latest/quickref.html"
+
+
+[project.optional-dependencies]
+test = [
+    "coverage[toml]",
+    "paramiko",
+    "psutil",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-timeout",
+    "pytest>=6.0",
+]
+dev = [
+    "plumbum[test]",
+]
+docs = [
+    "sphinx>=4.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+]
+ssh = [
+    "paramiko",
+]
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "plumbum/version.py"
+
+
+[tool.mypy]
+files = ["plumbum"]
+python_version = "3.8"
+warn_unused_configs = true
+warn_unused_ignores = true
+show_error_codes = true
+enable_error_code = ["ignore-without-code", "truthy-bool"]
+disallow_any_generics = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = true
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = false
+no_implicit_reexport = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["IPython.*", "pywintypes.*", "win32con.*", "win32file.*", "PIL.*", "plumbum.cmd.*", "ipywidgets.*", "traitlets.*", "plumbum.version"]
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "--cov-config=pyproject.toml" ]
+norecursedirs = ["examples", "experiments"]
+filterwarnings = [
+  "always",
+]
+log_cli_level = "info"
+xfail_strict = true
+required_plugins = ["pytest-timeout", "pytest-mock"]
+timeout = 300
+optional_tests = """
+  ssh: requires self ssh access to run
+  sudo: requires sudo access to run
+"""
+
+
+[tool.pylint]
+py-version = "3.8"
+jobs = "0"
+load-plugins = ["pylint.extensions.no_self_use"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+messages_control.enable = [
+  "useless-suppression",
+]
+messages_control.disable = [
+  "arguments-differ", # TODO: investigate
+  "attribute-defined-outside-init", # TODO: investigate
+  "broad-except", # TODO: investigate
+  "consider-using-with", # TODO: should be handled
+  "cyclic-import",
+  "duplicate-code",  # TODO: check
+  "fixme",
+  "import-error",
+  "import-outside-toplevel",  # TODO: see if this can be limited to certain imports
+  "invalid-name",
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+  "no-member",
+  #"non-parent-init-called", # TODO: should be looked at
+  "protected-access",
+  "too-few-public-methods",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-function-args",
+  "too-many-instance-attributes",
+  "too-many-lines",
+  "too-many-locals",
+  "too-many-nested-blocks",
+  "too-many-public-methods",
+  "too-many-return-statements",
+  "too-many-statements",
+  "too-many-positional-arguments",
+  "unidiomatic-typecheck", # TODO: might be able to remove
+  "unnecessary-lambda-assignment", # TODO: 4 instances
+  "unused-import", # identical to flake8 but has typing false positives
+  "eval-used",  # Needed for Python <3.10 annotations
+  "unused-argument", # Covered by ruff
+  "global-statement", # Covered by ruff
+  "pointless-statement", # Covered by ruff
+]
+
+[tool.ruff]
+exclude = ["docs/conf.py"]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "ICN",         # flake8-import-conventions
+  "ISC",         # flake8-implicit-str-concat
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+]
+ignore = [
+  "E501",
+  "PLR",
+  "PT004",
+  "PT011",   # TODO: add match parameter
+  "RUF012",  # ClassVar required if mutable
+  "ISC001",  # conflicts with formatter
+]
+flake8-unused-arguments.ignore-variadic-names = true
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["T20"]
+"experiments/*" = ["T20"]
+"tests/*" = ["T20"]
+"plumbum/cli/application.py" = ["T20"]
+"plumbum/commands/base.py" = ["SIM115"]
+"plumbum/commands/daemons.py" = ["SIM115"]
+
+[tool.codespell]
+ignore-words-list = "ans,switchs,hart,ot,twoo,fo"
+skip = "*.po"
+
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source_pkgs = ["plumbum"]
+omit = [
+    "*ipython*.py",
+    "*__main__.py",
+    "*_windows.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

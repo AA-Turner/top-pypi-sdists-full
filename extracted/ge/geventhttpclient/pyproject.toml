@@ -1,0 +1,116 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "geventhttpclient"
+version = "2.3.3" # don't forget to update version __init__.py as well
+description = "HTTP client library for gevent"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE-MIT"}
+keywords = ["http", "gevent", "client"]
+authors = [{name = "Antonin Amand", email = "antonin.amand@gmail.com"}]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "gevent",
+    "certifi",
+    "brotli",
+    "urllib3",
+]
+optional-dependencies.dev = [
+    "pytest",
+    "dpkt",
+    "requests",
+]
+optional-dependencies.benchmarks = [
+    "requests",
+    "httpx",
+    "urllib3",
+    "httplib2",
+]
+optional-dependencies.examples = [
+    "oauth2",
+]
+
+
+[project.urls]
+homepage = "http://github.com/geventhttpclient/geventhttpclient"
+issues = "http://github.com/geventhttpclient/geventhttpclient/issues"
+download = "https://pypi.org/project/geventhttpclient/#files"
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["README.md", "release.md", "LICENSE-MIT"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__", "*.pyc", "*.pyo"]
+
+
+[tool.pytest.ini_options]
+markers = [
+    "network: tests which require internet access"
+]
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{39,310,311,312}
+
+[testenv]
+deps =
+    pip
+    pytest
+    build
+allowlist_externals =
+    rm
+    find
+commands =
+    rm -rf build
+    # find errors for windows
+    # find . -name '*.pyc' -delete
+    python -m build
+    pip install -r requirements-dev.txt
+    pip install .
+    pytest
+"""
+
+
+[tool.ruff]
+fix = false
+line-length = 100
+target-version = "py311"
+lint.extend-select = ["UP"]
+lint.ignore = ["F821", "UP038", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["geventhttpclient", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"test_no_module_ssl.py" = ["F401"]
+
+[tool.codespell]
+ignore-regex = ".*codespell-ignore$"

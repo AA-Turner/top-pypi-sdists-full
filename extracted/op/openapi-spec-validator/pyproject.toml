@@ -1,0 +1,107 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source =["openapi_spec_validator"]
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"
+
+[tool.mypy]
+files = "openapi_spec_validator"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "jsonschema.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jsonschema_specifications"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "lazy_object_proxy.*"
+ignore_missing_imports = true
+
+[tool.poetry]
+name = "openapi-spec-validator"
+version = "0.7.1"
+description = "OpenAPI 2.0 (aka Swagger) and OpenAPI 3 spec validator"
+authors = ["Artur Maciag <maciag.artur@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.rst"
+repository = "https://github.com/python-openapi/openapi-spec-validator"
+keywords = ["openapi", "swagger", "schema"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries"
+]
+include = [
+    {path = "tests", format = "sdist"},
+]
+
+[tool.poetry.dependencies]
+jsonschema = "^4.18.0"
+openapi-schema-validator = "^0.6.0"
+python = "^3.8.0"
+importlib-resources = {version = ">=5.8,<7.0", python = "<3.9" }
+jsonschema-path = "^0.3.1"
+lazy-object-proxy = "^1.7.1"
+
+[tool.poetry.extras]
+docs = ["sphinx", "sphinx-immaterial"]
+
+[tool.poetry.dev-dependencies]
+pre-commit =  "*"
+pytest = "^7.4.2"
+pytest-flake8 = "=1.1.1"
+pytest-cov = "^4.1.0"
+tox = "*"
+mypy = "^1.5"
+isort = "^5.11.5"
+black = "^23.9.1"
+flynt = "^1.0"
+deptry = "^0.12.0"
+flake8 = "^5.0.4"
+pyflakes = "^2.5.0"
+bump2version = "^1.0.1"
+
+[tool.poetry.scripts]
+openapi-spec-validator = "openapi_spec_validator.__main__:main"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = ">=5.3,<8.0"
+sphinx-immaterial = "^0.11.0"
+
+[tool.pytest.ini_options]
+addopts = """
+--capture=no
+--verbose
+--showlocals
+--junitxml=reports/junit.xml
+--cov=openapi_spec_validator
+--cov-report=term-missing
+--cov-report=xml
+"""
+markers = [
+    "network: marks tests which do need network-enabled environment",
+]
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+line_length = 79
+force_single_line = true

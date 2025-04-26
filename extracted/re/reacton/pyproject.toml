@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+
+[project]
+name = "reacton"
+authors = [{name = "Maarten A. Breddels", email = "maartenbreddels@gmail.com"}]
+license = {file = "LICENSE"}
+dynamic = ["version", "description"]
+dependencies = [
+    "ipywidgets",
+    "typing_extensions >= 4.1.1",
+]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Jupyter",
+    "Topic :: Software Development :: User Interfaces",
+    "Environment :: Web Environment",
+]
+
+[tool.hatch.version]
+path = "reacton/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["react_ipywidgets", "reacton"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["react_ipywidgets", "reacton"]
+
+
+[project.optional-dependencies]
+dev = [
+    "ruff; python_version > '3.6'",
+    "mypy",
+    "pre-commit",
+    "coverage",
+    "pytest",
+    "pytest-cov",
+    "bqplot",
+    "numpy<2",
+    "ipyvuetify",
+    "bump2version",
+    "jinja2",
+    "pandas",
+    "ipykernel",
+]
+
+generate = [
+    "ruff; python_version > '3.6'",
+    "black",
+    "bqplot",
+    "jinja2",
+    "mypy",
+]
+
+[project.urls]
+Home = "https://www.github.com/widgetti/reacton"
+Documentation = "https://reacton.solara.dev"
+"Source code" = "https://www.github.com/widgetti/reacton"
+
+[tool.ruff]
+line-length = 160
+target-version = "py37"

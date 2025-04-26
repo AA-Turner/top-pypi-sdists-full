@@ -1,0 +1,78 @@
+Metadata-Version: 2.3
+Name: worker-automate-hub
+Version: 0.5.473
+Summary: Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta.
+Author: Joel Paim
+Requires-Python: >=3.12,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Natural Language :: Portuguese (Brazilian)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Utilities
+Requires-Dist: aiohttp (>=3.9.5,<4.0.0)
+Requires-Dist: beautifulsoup4 (>=4.12.3,<5.0.0)
+Requires-Dist: dynaconf (>=3.2.5,<4.0.0)
+Requires-Dist: gitpython (>=3.1.43,<4.0.0)
+Requires-Dist: google-api-python-client (>=2.136.0,<3.0.0)
+Requires-Dist: google-auth (>=2.32.0,<3.0.0)
+Requires-Dist: google-auth-httplib2 (>=0.2.0,<0.3.0)
+Requires-Dist: google-auth-oauthlib (>=1.2.1,<2.0.0)
+Requires-Dist: inquirer (>=3.3.0,<4.0.0)
+Requires-Dist: opencv-python (>=4.10.0.84,<5.0.0.0)
+Requires-Dist: opencv-python-headless (>=4.10.0.84,<5.0.0.0)
+Requires-Dist: openpyxl (>=3.1.4,<4.0.0)
+Requires-Dist: packaging (>=24.1,<25.0)
+Requires-Dist: pandas (>=2.2.2,<3.0.0)
+Requires-Dist: pathlib3x (>=2.0.3,<3.0.0)
+Requires-Dist: pillow (>=10.4.0,<11.0.0)
+Requires-Dist: playwright (>=1.45.1,<2.0.0)
+Requires-Dist: plyer (>=2.1.0,<3.0.0)
+Requires-Dist: prompt-toolkit (>=3.0.47,<4.0.0)
+Requires-Dist: psutil (>=6.0.0,<7.0.0)
+Requires-Dist: pyautogui (>=0.9.54,<0.10.0)
+Requires-Dist: pydantic (>=2.8.2,<3.0.0)
+Requires-Dist: pyfiglet (>=1.0.2,<2.0.0)
+Requires-Dist: pyperclip (>=1.9.0,<2.0.0)
+Requires-Dist: pyqt6 (>=6.7.1,<7.0.0)
+Requires-Dist: pyscreeze (>=0.1.30,<0.2.0)
+Requires-Dist: pytesseract (>=0.3.10,<0.4.0)
+Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
+Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
+Requires-Dist: pywinauto (>=0.6.8,<0.7.0)
+Requires-Dist: pywinauto-recorder (>=0.6.8,<0.7.0)
+Requires-Dist: requests (>=2.32.3,<3.0.0)
+Requires-Dist: rich (>=13.7.1,<14.0.0)
+Requires-Dist: selenium (>=4.27.1,<5.0.0)
+Requires-Dist: timedelta (>=2020.12.3,<2021.0.0)
+Requires-Dist: toml (>=0.10.2,<0.11.0)
+Requires-Dist: torch (>=2.4.0,<3.0.0)
+Requires-Dist: typer (>=0.12.3,<0.13.0)
+Requires-Dist: webdriver-manager (>=4.0.2,<5.0.0)
+Requires-Dist: win10toast (>=0.9,<0.10)
+Requires-Dist: xhtml2pdf (>=0.2.16,<0.3.0)
+Requires-Dist: xlib (>=0.21,<0.22)
+Description-Content-Type: text/markdown
+
+# Worker Automate Hub
+
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/worker-automate-hub)
+[![PyPI version](https://badge.fury.io/py/worker-automate-hub.svg)](https://badge.fury.io/py/worker-automate-hub)
+
+## Installation
+
+Worker Automate Hub is available on PyPI. You can install it through `pip`:
+
+```bash
+    pipx install worker-automate-hub --force
+```
+
+## Requirements and Tested Platforms
+
+- Python:
+  - 3.12 or higher
+- Windows (32bit/64bit/ARM64):
+
+  - Worker Automate Hub should work on Windows 7 or newer, but we only officially support Windows 8+.
+

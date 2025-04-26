@@ -1,0 +1,148 @@
+[tool.poetry]
+name = "benchling-sdk"
+version = "1.21.2"   # NOTE: This version number is ignored and does not correspond to releases (see README)
+description = "SDK for interacting with the Benchling Platform."
+authors = ["Benchling Support <support@benchling.com>"]
+packages = [{include = "benchling_sdk"}]
+include = [
+    "LICENSE", "benchling_sdk/py.typed", "docs"
+]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+backoff = ">=1.10.0, <3"
+dataclasses-json = "^0.5.2"
+httpx = ">=0.23.0"
+attrs = ">=20.1.0"
+python-dateutil = "^2.8.0"
+PyYAML = "^6.0"
+# See issue: https://github.com/giampaolo/psutil/issues/2165
+psutil = {version = "^5.9.4", python = "^3.11" }
+jwcrypto = "^1.5.1"
+benchling-api-client = "2.0.342"
+# Minimum version due to vulnerability in 2022.9.24
+certifi = ">=2022.12.7"
+# Cryptography extras - see ExtrasPackage.CRYPTOGRAPHY
+# Intentionally pin with >= because crytography is updated often for CVEs
+# Accept that we could be affected by breaking changes, but allow customers more freedeom to pin
+cryptography = { version = ">=42.0.0", optional = true }
+# Python jose extras - see ExtrasPackage.PYTHON_JOSE
+python-jose = { version = "^3.3.0", extras=["cryptography"], optional = true }
+ordered-set = "^4.1.0"
+
+[tool.poetry.extras]
+cryptography = ["cryptography"]
+python-jose = ["python-jose"]
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^2.6.0"
+ipython = "^7.16.1"
+mypy = "^1.13"
+ruff = "^0.7.3"
+taskipy = "^1.6.0"
+Jinja2 = "^3.1.2"
+Markdown = "3.3.4" # Errors in Markdown 3.3.5 related to TypeError: entry_points() got an unexpected keyword argument 'group'
+toml = "^0.10.2"
+packaging = "^20.9"
+coverage = "^5.5"
+ddt = "1.4.4"
+pytest = "^7.1.2"
+beautifulsoup4 = "4.10.0"
+sphinx = "^4.4.0"
+types-PyYAML = "^6.0.8"
+# Used by integration tests for retrieving API secrets in SSM
+boto3 = "^1.24.67"
+boto3-stubs = {extras = ["ssm"], version = "1.24.67"}
+types-s3transfer = "0.6.0.post4"
+botocore-stubs = "1.28.4"
+sphinx-multiversion-pre-post-build = "^0.2.4"
+time-machine = "^2.15.0"  # change to >=2.15.0 once we drop Python 3.8 support
+python-jose = "^3.3.0"
+gitpython = "^3.1.31"
+pytest-rerunfailures = "^12.0"
+respx = "^0.20.2"
+
+[tool.taskipy.tasks]
+unit = "pytest -s tests/unit/"
+integration = "pytest -vv --reruns 3 --reruns-delay 1 -s tests/integration/"
+# Separate than unit tests because they intentionally take awhile but still mock Benchling
+retry_strategy_tests = "pytest -vv --reruns 3 --reruns-delay 1 -s tests/retries/"
+format = "ruff check . --fix"
+lint = "ruff check . && mypy ."
+models = "task generate_models && task sort_models && task format_models"
+generate_models = "python3 -m regenerate_models"
+format_models = "black benchling_sdk/models"
+sort_models = "ruff check benchling_sdk/models --fix"
+regenerate_docs = "./scripts/regenerate_docs.sh"
+regenerate_doc_sources = "sphinx-apidoc --module-first -H benchling-sdk -e -f -o sphinx/source . tests* regenerate* > stdout.log 2> stderr.log"
+check_docs = "python3 -m regenerate_docs --check"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 110
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "UP", "B", "PL", "RUF"]
+ignore = [
+    # rules we really don't care about
+    "D100",  # don't require docstring for modules
+    "D104",  # don't require docstring for public packages
+    "D105",  # don't require docstring for magic methods
+    "D203",  # don't require blank line before class docstring
+    "D212",  # don't move first line of multi-line docstring to be immediately after the quotes
+    "E731",  # don't need to rewrite lambdas as inner function defs
+    "PLR0913",  # don't complain about "too many arguments" for methods
+    "PLR2004",  # don't require numbers like 200 to be declared as constants
+    "UP015", # it's ok to pass "r" as the mode to open(), even though that's the default
+
+    # rules that we can unignore once we've made some code updates:
+    "E501",   # line too long - we could fix this in most code, just not generated code
+    "RUF005", # replace "list_expr + [new_value]" with "[*list_expr, new_value]"
+    "UP006",  # use list[], dict[], and type[] as types instead of typing.List etc.
+    "UP007",  # replace Optional & Union with pipe operator - requires __future__.annotations
+    "UP035",  # more unnecessary imports from typing module
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports=true
+default-section="third-party"
+force-sort-within-sections=true
+known-first-party=["benchling_sdk"]
+known-third-party=["attr", "backoff", "benchling_api_client", "benchling_jira_api", "boto3", "bs4", "cryptography", "dataclasses_json", "httpx", "jinja2", "jose", "jwcrypto", "ordered_set", "pytest", "time_machine", "util", "yaml"]
+order-by-type=false
+
+[tool.ruff.lint.per-file-ignores]
+"benchling_sdk/models/*" = [
+    "E501",  # line too long - we always want to disable this for generated models
+]
+"tests/*" = [
+    "D100", "D101", "D102", "D104", "D106", "D107",  # missing docstrings
+    "PLR2004",
+]
+"tests/packaged/run_smoke_test.py" = [
+    "D103",  # missing docstrings
+]
+# Ignore imperative mood for some class docstrings
+"benchling_sdk/benchling.py" = ["D401"]
+"benchling_sdk/services/v2/v2_stable_service.py" = ["D401"]
+"benchling_sdk/services/v2/stable/assay_run_service.py" = ["D401"]
+# Scripts that aren't published
+"regenerate_docs.py" = [ "D103", "D205", "D400", "D415" ]
+
+[build-system]
+requires = ["poetry>=1.2"]
+build-backend = "poetry.masonry.api"

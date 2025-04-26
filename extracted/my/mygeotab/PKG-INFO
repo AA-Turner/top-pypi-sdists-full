@@ -1,0 +1,382 @@
+Metadata-Version: 2.1
+Name: mygeotab
+Version: 0.9.2
+Summary: A Python client for the MyGeotab SDK
+Home-page: https://github.com/geotab/mygeotab-python
+Author: Geotab Inc.
+License: Apache 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: urllib3
+Requires-Dist: click
+Requires-Dist: pytz
+Requires-Dist: arrow
+Requires-Dist: aiohttp<4,>=3.8.1
+Requires-Dist: python-rapidjson
+Provides-Extra: notebook
+Requires-Dist: pandas; extra == "notebook"
+
+MyGeotab
+========
+
+.. image:: https://github.com/Geotab/mygeotab-python/actions/workflows/pythonpackage.yml/badge.svg
+    :target: https://github.com/Geotab/mygeotab-python
+    :alt: Build Status
+
+.. image:: https://readthedocs.org/projects/mygeotab-python/badge/?version=latest
+    :target: https://mygeotab-python.readthedocs.io/en/latest/
+    :alt: Documentation
+
+.. image:: https://img.shields.io/codecov/c/github/Geotab/mygeotab-python/main.svg?style=flat
+    :target: https://codecov.io/gh/Geotab/mygeotab-python
+    :alt: Code Coverage
+
+.. image:: https://img.shields.io/pypi/v/mygeotab.svg?style=flat
+    :target: https://pypi.python.org/pypi/mygeotab
+    :alt: PyPI Version
+
+.. image:: https://img.shields.io/pypi/pyversions/mygeotab.svg
+    :target: https://pypi.python.org/pypi/mygeotab
+    :alt: Python Versions
+
+.. image:: https://img.shields.io/pypi/l/mygeotab.svg
+    :target: https://pypi.python.org/pypi/mygeotab
+    :alt: License
+
+
+A Python client for the `MyGeotab SDK <https://geotab.github.io/sdk/>`_.
+
+Features
+--------
+
+- Automatic serializing and deserializing of API call results
+- Clean, Pythonic API for querying data
+- Cross-platform and compatible with Python 3.7+
+- A `myg` command-line tool for interactively working with data in a terminal
+
+Usage
+-----
+
+It's very easy to get started once you've registered a `MyGeotab <https://www.geotab.com/fleet-management-software/>`__ database:
+
+.. code-block:: python
+
+    import mygeotab
+
+    client = mygeotab.API(username='hello@example.com', password='mypass', database='MyDatabase')
+    client.authenticate()
+
+    devices = client.get('Device', name='%Test Dev%')
+
+    print(devices)
+
+    # [{'maxSecondsBetweenLogs': 200.0,
+    #   'activeTo': '2050-01-01',
+    #   'minAccidentSpeed': 3.0,
+    #   'ignoreDownloadsUntil': '1986-01-01',
+    #   'name': 'Test Device',
+    #   'idleMinutes': 3.0,
+    #   ......
+
+You can also make calls asynchronously via `asyncio <https://docs.python.org/3/library/asyncio.html>`__:
+
+.. code-block:: python
+
+    import asyncio
+    import mygeotab
+
+    client = mygeotab.API(username='hello@example.com', password='mypass', database='MyDatabase')
+    client.authenticate()
+
+    async def get_device():
+      return await client.get_async('Device', name='%Test Dev%')
+    
+    devices = loop.run_until_complete(get_device())
+    print(devices)
+
+    # [{'maxSecondsBetweenLogs': 200.0,
+    #   'activeTo': '2050-01-01',
+    #   'minAccidentSpeed': 3.0,
+    #   'ignoreDownloadsUntil': '1986-01-01',
+    #   'name': 'Test Device',
+    #   'idleMinutes': 3.0,
+    #   ......
+
+Installation
+------------
+
+To install the MyGeotab library and command line tool:
+
+.. code-block:: bash
+
+    $ pip install mygeotab
+
+or for the bleeding-edge version:
+
+.. code-block:: bash
+
+    $ pip install git+https://github.com/geotab/mygeotab-python
+
+Documentation
+-------------
+
+Read the docs at `<http://mygeotab-python.readthedocs.org>`_
+ 
+
+ .. :changelog:
+
+Changes
+-------
+
+0.9.2 (2024-10-08)
+++++++++++++++++++
+
+**Improvements**
+
+- Updates Altitude API call method `#124 <https://github.com/Geotab/mygeotab-python/pull/124>`__.
+
+
+0.9.1 (2024-04-05)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Loads system CA certificates when creating an SSL context `#123 <https://github.com/Geotab/mygeotab-python/pull/123>`__.
+
+0.9.0 (2024-02-23)
+++++++++++++++++++
+
+**Improvements**
+
+- Removed all Python 2 handling code and packages (six).
+- Simplified code based on removing support for Python 2 and Python 3.6 and lower.
+
+**Bug Fixes**
+ls
+- Support results limit in get requests `#11 <https://github.com/Geotab/mygeotab-python/pull/11>`__. 
+- Handles ArgumentException when extending the session `#19 <https://github.com/Geotab/mygeotab-python/issues/19>`__.
+
+**Housecleaning**
+
+- Changed linter to `ruff <https://github.com/charliermarsh/ruff>`__ and enabled additional linters.
+- Ensured proper mypy types installed for 3rd party packages.
+
+0.8.8 (2022-09-14)
+++++++++++++++++++
+
+**Improvements**
+
+- Use the highest TLS version available (at least TLS 1.2) when making calls.
+
+**Bug Fixes**
+
+- Fix for recursive `hasattr` call when serializing objects `#7 <https://github.com/Geotab/mygeotab-python/pull/7>`__.
+
+0.8.7 (2021-11-11)
+++++++++++++++++++
+
+**Improvements**
+
+- Added support for client-side certificates `#1 <https://github.com/Geotab/mygeotab-python/issues/1>`__.
+- Console improvements using ptpython (if installed) and better handling of sessions.
+
+
+0.8.6 (2021-03-15)
+++++++++++++++++++
+
+**Improvements**
+
+- Added new experimental API class (in the `mygeotab.ext` module) for more intuitive ways of using results from `client.get()` like `get_dataframe()` to easily get a Pandas DataFrame from the result set.
+- Adds support for using with proxies `#327 <https://github.com/Geotab/mygeotab-python/pull/327>`__.
+- Calling `authenticate()` on an API instance more than once no longer results in an error `#328 <https://github.com/Geotab/mygeotab-python/issues/328>`__.
+
+**Bug Fixes**
+
+- Handle `ConnectionError` as errors in feed extension rather than crashing `#130 <https://github.com/Geotab/mygeotab-python/issues/130>`__.
+- Remove extraneous "search" parameter from `API.get()`.
+
+
+0.8.5 (2019-10-07)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Fixes issue with warnings from Arrow about date parsing `#306 <https://github.com/Geotab/mygeotab-python/pull/306>`__.
+
+
+0.8.4 (2019-08-22)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Fixes issue with serialization of datetime.date objects `#284 <https://github.com/Geotab/mygeotab-python/pull/284>`__.
+
+
+0.8.3 (2019-08-19)
+++++++++++++++++++
+
+**Improvements**
+
+- Use the high-performance `python-rapidjson <https://github.com/python-rapidjson/python-rapidjson>`__ library to serialize and deserialize JSON parameters and responses in Python 3.5+ `#268 <https://github.com/Geotab/mygeotab-python/pull/268>`__. 
+
+**Bug Fixes**
+
+- Silence warnings from arrow parsing when the library is used interactively or in a Jupyter notebook.
+
+**Housecleaning**
+
+- Added serialization benchmarking in CircleCI tests.
+- Remove PyPy test config.
+
+0.8.2 (2019-06-10)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Remove asyncio-specific default arguments preventing from importing this pacakge in a Python 3.5+ thread `#236 <https://github.com/Geotab/mygeotab-python/issues/236>`__.
+
+0.8.1 (2019-06-03)
+++++++++++++++++++
+
+**Improvements**
+
+- Return content with a non-JSON content type as text
+
+**Bug Fixes**
+
+- Handle serialization of very old dates `#121 <https://github.com/Geotab/mygeotab-python/issues/121>`__.
+
+0.8.0 (2018-06-18)
+++++++++++++++++++
+
+**Improvements**
+
+- Python 3.7 support.
+- Raises an exception when request was not successful.
+- Documentation improvements.
+
+**Bug Fixes**
+
+- Since all MyGeotab servers enforce the use of TLS1.2, Python 2.7.9 or greater is required.
+- Fix issue where the password was not provided when retrying authentication. Should better handle `#92 <https://github.com/Geotab/mygeotab-python/issues/92>`__.
+
+
+0.6.2 (2017-07-04)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Revert the change to stop compilation in setup.cfg.
+
+
+0.6.1 (2017-07-03)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Don't compile to prevent issues when installing via setup.py on Python 2.7.
+
+
+0.6.0 (2017-06-29)
+++++++++++++++++++
+
+**Improvements**
+
+- Configurable timeouts when making calls.
+- Removed `verify` parameter from API objects as SSL is required when calling a MyGeotab server.
+- Removed `run` command from the CLI.
+- Removed deprecated `API.search` and `API.search_async` methods.
+- Refactored setup.py for async API. The async/awaitable methods are now automatically a part of the `API` object if using Python 3.5 or higher
+- Code linting and cleanup
+
+
+0.5.4 (2017-06-05)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Ensure all dates are timezone aware and are always UTC-localized.
+
+
+0.5.3 (2017-05-30)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Fixed intermittent timeout errors due to `upstream changes <https://github.com/requests/requests/blob/master/HISTORY.rst#2161-2017-05-27>`_ in the 'requests' module
+
+
+0.5.2 (2017-02-02)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Switched back to using abstract dependencies in setup.py (recommended by `this guide <https://caremad.io/posts/2013/07/setup-vs-requirement/>`_)
+
+0.5.1 (2017-01-04)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Fix for search parameter not being properly handled in 'get()' call
+
+
+0.5 (2017-01-02)
+++++++++++++++++
+
+**Enhancements**
+
+- Deprecated the 'search()' and 'search_async()' functions. Replaced by folding the previous functionality into 'run()'.
+- Removed 'tzlocal' dependency. Always deal with dates in UTC by default.
+- Prefer functions instead of making static methods in classes.
+- Added helper to run async calls and collect their results
+- Add ability to quickly run simple python scripts from the 'myg' console with no need for any authentication handling. Similar to 'console', but for running scripts rather than creating an interactive console.
+
+
+0.4.4 (2016-07-10)
+++++++++++++++++++
+
+**Enhancements**
+
+- Added the ability to make unauthenticated calls (like "GetVersion") with the static "API.server_call" method
+- Added asyncio-based API query methods (Python 3.5+ only) into the "ext" package
+- Moved the datafeed to the "ext" package, as well
+
+**Bug Fixes**
+
+- MyGeotab never returns 3 digits of milliseconds, so follow that format as well to allow the use of "dates.format_iso_datetime" to create MyGeotab URLs
+
+0.4.2 (2016-03-17)
+++++++++++++++++++
+
+**Bug Fixes**
+
+- Use a custom User-Agent when making requests
+
+0.4 (2016-02-25)
+++++++++++++++++
+
+**Enhancements**
+
+- Extension for facilitating use of the MyGeotab `Data Feed <https://my.geotab.com/sdk/#/dataFeed>`_
+- Allow Pythonic underscore-separated parameters mapped to camelcase ones
+- Force the use of TLS 1.2 for `upcoming strict security requirements <https://www.geotab.com/blog/securing-mygeotab-with-tls/>`_ in MyGeotab
+  (Note that TLS 1.2 is only supported in Python 2.7.9+ and 3.4+)
+
+**Bug Fixes**
+
+- Fixed issue with CLI console startup
+- Use the system's default user location for config files

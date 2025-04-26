@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiocsv"
+readme = "readme.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+authors = [
+    {name = "Mikołaj Kuranowski", email = "mkuranowski+pypackages@gmail.com"},
+]
+keywords = ["async", "asynchronous", "csv", "tsv"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: AsyncIO",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "typing_extensions"
+]
+
+[project.urls]
+Homepage = "https://github.com/MKuranowski/aiocsv"
+
+[tool.setuptools]
+packages = ["aiocsv"]
+zip-safe = false
+
+[tool.setuptools.package-data]
+aiocsv = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "aiocsv.__version__"}
+
+[tool.black]
+line-length = 99
+
+[tool.isort]
+profile = "black"
+line_length = 99
+
+[tool.pyright]
+typeCheckingMode = "strict"

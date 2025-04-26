@@ -1,0 +1,55 @@
+Metadata-Version: 2.3
+Name: yandex-query-client
+Version: 0.1.4
+Summary: The Yandex Query official HTTP client
+Project-URL: Homepage, https://github.com/yandex-cloud/yandex-query-client
+Project-URL: Issues, https://github.com/yandex-cloud/yandex-query-client/issues
+Author-email: cloud@support.yandex.ru
+License-Expression: MIT
+License-File: LICENSE.md
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Requires-Dist: pandas>=1.2.5
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: requests>=2.31.0
+Requires-Dist: urllib3>=1.26.5
+Provides-Extra: test
+Requires-Dist: mypy; extra == 'test'
+Requires-Dist: pytest>=7.4.4; extra == 'test'
+Requires-Dist: responses>=0.23.1; extra == 'test'
+Requires-Dist: ruff==0.3.3; extra == 'test'
+Requires-Dist: types-python-dateutil; extra == 'test'
+Requires-Dist: types-requests; extra == 'test'
+Description-Content-Type: text/markdown
+
+## Installation
+
+Install pip package:
+```
+%pip install yandex-query-client --upgrade --quiet
+```
+
+### Example: simple select
+
+```
+# IAM token to access YandexQuery service
+IAM_TOKEN="...."
+
+# Folder ID to work within
+PROJECT="my_folder_id"
+
+config = YQHttpClientConfig(IAM_TOKEN, PROJECT)
+client = YQHttpClient(config)
+
+# start new query
+query_id = client.create_query(query_text="select 777", name="my sample query")
+
+# wait query to succeed
+result_set_count = client.wait_query_to_succeed(query_id)
+
+# results with column names, types and values in rows
+results = client.get_query_all_result_sets(query_id, result_set_count=result_set_count)
+print(f"results={results}")
+```

@@ -1,0 +1,97 @@
+[build-system]
+requires = ["hatchling>=1.8.0",  "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openxlab"
+dynamic = ["version", "readme"]
+description = "openxlab tools"
+license = {text = "Apache License 2.0"}
+authors = [
+  {name = "Openxlab Contributors"},
+  {email = "openxlab@example.com"}
+]
+keywords = ["openxlab", "ai"]
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+
+dependencies = [
+"requests~=2.28.2",
+"tqdm~=4.65.0",
+"PyYAML~=6.0",
+"oss2~=2.17.0",
+"pytz~=2023.3",
+"setuptools~=60.2.0",
+"rich~=13.4.2",
+"packaging~=24.0",
+"filelock~=3.14.0"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = ">=2.28.2"
+tqdm = ">=4.65.0"
+PyYAML = ">=6.0"
+oss2 = ">=2.17.0"
+pytz = ">=2023.3"
+setuptools = ">=60.2.0"
+rich = ">=13.4.2"
+packaging = ">=24.0"
+filelock = ">=3.14.0"
+
+[project.optional-dependencies]
+test = []
+
+[project.urls]
+repository = "https://github.com/xxx/xxxx"
+
+[project.scripts]
+openxlab = "openxlab.cli:main"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [
+  { path = "README.md" },
+  { path = "CHANGES.md" },
+]
+
+[tool.hatch.version]
+path = 'openxlab/config/version.py'
+
+[tool.hatch.build.targets.sdist]
+exclude = [".venv"]
+
+[tool.hatch.build.targets.wheel]
+exclude = [".venv"]
+
+[tool.black]
+line-length = 99
+target-version = ['py38']
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.isort]
+profile = 'black'
+src_paths = ['openxlab', 'tests']
+line_length = 99
+lines_after_imports = 2
+force_single_line = 'True'
+force_sort_within_sections = 'True'
+order_by_type = 'False'

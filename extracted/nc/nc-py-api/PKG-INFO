@@ -1,0 +1,178 @@
+Metadata-Version: 2.4
+Name: nc-py-api
+Version: 0.19.2
+Summary: Nextcloud Python Framework
+Project-URL: Changelog, https://github.com/cloud-py-api/nc_py_api/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://cloud-py-api.github.io/nc_py_api/
+Project-URL: Source, https://github.com/cloud-py-api/nc_py_api
+Author-email: Alexander Piskun <bigcat88@icloud.com>
+License-Expression: BSD-3-Clause
+License-File: AUTHORS
+License-File: LICENSE.txt
+Keywords: api,client,framework,library,nextcloud
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: fastapi>=0.109.2
+Requires-Dist: httpx>=0.25.2
+Requires-Dist: pydantic>=2.1.1
+Requires-Dist: python-dotenv>=1
+Requires-Dist: truststore==0.10
+Requires-Dist: xmltodict>=0.13
+Provides-Extra: app
+Requires-Dist: uvicorn[standard]>=0.23.2; extra == 'app'
+Provides-Extra: bench
+Requires-Dist: matplotlib; extra == 'bench'
+Requires-Dist: numpy; extra == 'bench'
+Requires-Dist: py-cpuinfo; extra == 'bench'
+Requires-Dist: uvicorn[standard]>=0.23.2; extra == 'bench'
+Provides-Extra: calendar
+Requires-Dist: caldav==1.3.6; extra == 'calendar'
+Provides-Extra: dev
+Requires-Dist: caldav==1.3.6; extra == 'dev'
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: huggingface-hub; extra == 'dev'
+Requires-Dist: matplotlib; extra == 'dev'
+Requires-Dist: numpy; extra == 'dev'
+Requires-Dist: pillow; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: py-cpuinfo; extra == 'dev'
+Requires-Dist: pylint; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: uvicorn[standard]>=0.23.2; extra == 'dev'
+Provides-Extra: dev-min
+Requires-Dist: coverage; extra == 'dev-min'
+Requires-Dist: huggingface-hub; extra == 'dev-min'
+Requires-Dist: pillow; extra == 'dev-min'
+Requires-Dist: pre-commit; extra == 'dev-min'
+Requires-Dist: pylint; extra == 'dev-min'
+Requires-Dist: pytest; extra == 'dev-min'
+Requires-Dist: pytest-asyncio; extra == 'dev-min'
+Provides-Extra: docs
+Requires-Dist: autodoc-pydantic>=2.0.1; extra == 'docs'
+Requires-Dist: caldav==1.3.6; extra == 'docs'
+Requires-Dist: sphinx-copybutton; extra == 'docs'
+Requires-Dist: sphinx-inline-tabs; extra == 'docs'
+Requires-Dist: sphinx-issues>=3.0.1; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme<3; extra == 'docs'
+Requires-Dist: sphinx<8; extra == 'docs'
+Requires-Dist: uvicorn[standard]>=0.23.2; extra == 'docs'
+Description-Content-Type: text/markdown
+
+<p align="center">
+    <img src="https://raw.githubusercontent.com/cloud-py-api/nc_py_api/main/docs/resources/nc_py_api_logo.png" width="250" alt="NcPyApi logo">
+</p>
+
+# Nextcloud Python Framework
+
+[![Analysis & Coverage](https://github.com/cloud-py-api/nc_py_api/actions/workflows/analysis-coverage.yml/badge.svg)](https://github.com/cloud-py-api/nc_py_api/actions/workflows/analysis-coverage.yml)
+[![Docs](https://github.com/cloud-py-api/nc_py_api/actions/workflows/docs.yml/badge.svg)](https://cloud-py-api.github.io/nc_py_api/)
+[![codecov](https://codecov.io/github/cloud-py-api/nc_py_api/branch/main/graph/badge.svg?token=C91PL3FYDQ)](https://codecov.io/github/cloud-py-api/nc_py_api)
+
+![NextcloudVersion](https://img.shields.io/badge/Nextcloud-%2028%20%7C%2029%20%7C%2030%20%7C%2031-blue)
+![PythonVersion](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+![impl](https://img.shields.io/pypi/implementation/nc_py_api)
+![pypi](https://img.shields.io/pypi/v/nc_py_api.svg)
+
+Python library that provides a robust and well-documented API that allows developers to interact with and extend Nextcloud's functionality.
+
+### The key features are:
+
+ * **Fast**: High performance, and as low-latency as possible.
+ * **Intuitive**: Fast to code, easy to use.
+ * **Reliable**: Minimum number of incompatible changes.
+ * **Robust**: All code is covered with tests as much as possible.
+ * **Easy**: Designed to be easy to use with excellent documentation.
+ * **Sync + Async**: Provides both sync and async APIs.
+
+### Differences between the Nextcloud and NextcloudApp classes
+
+The **Nextcloud** class functions as a standard Nextcloud client,
+enabling you to make API requests using a username and password.
+
+On the other hand, the **NextcloudApp** class is designed for creating applications for Nextcloud.<br>
+It uses [AppAPI](https://github.com/cloud-py-api/app_api) to provide additional functionality allowing
+applications have their own graphical interface, fulfill requests from different users,
+and everything else that is necessary to implement full-fledged applications.
+
+Both classes offer most of the same APIs,
+but NextcloudApp has a broader selection since applications typically require access to more APIs.
+
+Any code written for the Nextcloud class can easily be adapted for use with the NextcloudApp class,
+as long as it doesn't involve calls that require user password verification.
+
+### Nextcloud skeleton app in Python
+
+```python3
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from nc_py_api import NextcloudApp
+from nc_py_api.ex_app import AppAPIAuthMiddleware, LogLvl, run_app, set_handlers
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    set_handlers(app, enabled_handler)
+    yield
+
+
+APP = FastAPI(lifespan=lifespan)
+APP.add_middleware(AppAPIAuthMiddleware)
+
+
+def enabled_handler(enabled: bool, nc: NextcloudApp) -> str:
+    if enabled:
+        nc.log(LogLvl.WARNING, "Hello from nc_py_api.")
+    else:
+        nc.log(LogLvl.WARNING, "Bye bye from nc_py_api.")
+    return ""
+
+
+if __name__ == "__main__":
+    run_app("main:APP", log_level="trace")
+```
+
+### Support
+
+You can support us in several ways:
+
+- ⭐️ Star our work (it really motivates)
+- ❗️ Create an Issue or feature request (bring to us an excellent idea)
+- 💁 Resolve some Issue or create a Pull Request (contribute to this project)
+- 🙏 Write an example of its use or correct a typo in the documentation.
+
+## More Information
+
+- [Documentation](https://cloud-py-api.github.io/nc_py_api/)
+  - [First steps](https://cloud-py-api.github.io/nc_py_api/FirstSteps.html)
+  - [More APIs](https://cloud-py-api.github.io/nc_py_api/MoreAPIs.html)
+  - [Writing a simple Nextcloud Application](https://cloud-py-api.github.io/nc_py_api/NextcloudApp.html)
+  - [Using Nextcloud Talk Bot API in Application](https://cloud-py-api.github.io/nc_py_api/NextcloudTalkBot.html)
+  - [Using Language Models In Application](https://cloud-py-api.github.io/nc_py_api/NextcloudTalkBotTransformers.html)
+  - [Writing a Nextcloud System Application](https://cloud-py-api.github.io/nc_py_api/NextcloudSysApp.html)
+- [Examples](https://github.com/cloud-py-api/nc_py_api/tree/main/examples)
+- [Contribute](https://github.com/cloud-py-api/nc_py_api/blob/main/.github/CONTRIBUTING.md)
+  - [Discussions](https://github.com/cloud-py-api/nc_py_api/discussions)
+  - [Issues](https://github.com/cloud-py-api/nc_py_api/issues)
+  - [Setting up dev environment](https://cloud-py-api.github.io/nc_py_api/DevSetup.html)
+- [Changelog](https://github.com/cloud-py-api/nc_py_api/blob/main/CHANGELOG.md)

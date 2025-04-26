@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: girder-large-image
+Version: 1.32.1
+Summary: A Girder plugin to work with large, multiresolution images.
+Home-page: https://github.com/girder/large_image
+Author: Kitware, Inc.
+Author-email: kitware@kitware.com
+License: Apache-2.0
+Keywords: girder-plugin,large_image
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: girder>=3.1.18
+Requires-Dist: girder-jobs>=3.0.3
+Requires-Dist: large_image>=1.32.1
+Provides-Extra: tasks
+Requires-Dist: large-image-tasks[girder]>=1.32.1; extra == "tasks"
+Requires-Dist: girder-worker[girder]>=0.6.0; extra == "tasks"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+A Girder plugin to work with large, multiresolution images.
+
+See the large-image package for more details.

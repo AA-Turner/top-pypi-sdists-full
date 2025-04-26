@@ -1,0 +1,59 @@
+[build-system]
+requires = [
+    "setuptools >= 45.1.0",
+    "setuptools_scm[toml] >= 6.3.2",
+    "wheel >= 0.36.0"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "gdbmongo/_version.py"
+
+[tool.mypy]
+mypy_path = "stubs"
+pretty = true
+python_version = "3.9"
+strict = true
+warn_unreachable = true
+
+[tool.pydocstyle]
+match = ".*\\.pyi?"
+ignore = [
+    "D101",
+    "D102",
+    "D103",
+    "D105",
+    "D106",
+    "D107",
+    "D203",
+    "D205",
+    "D213",
+    "D400",
+    "D415"
+]
+
+[tool.pylint]
+
+    [tool.pylint.basic]
+    ignore = "_version.py"
+
+    [tool.pylint.design]
+    ignored-parents = [
+        "gdbmongo.printer_protocol.PrettyPrinterProtocol",
+        "gdbmongo.printer_protocol.SupportsDisplayHint",
+        "gdbmongo.printer_protocol.SupportsToString",
+        "gdbmongo.printer_protocol.SupportsChildren"
+    ]
+
+    [tool.pylint.similarities]
+    min-similarity-lines = 6
+
+    [tool.pylint.typecheck]
+    ignored-modules = [
+        "gdb"
+    ]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 100
+split_before_named_assigns = false

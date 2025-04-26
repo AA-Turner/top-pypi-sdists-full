@@ -1,0 +1,45 @@
+Metadata-Version: 2.1
+Name: orange-widget-base
+Version: 4.25.1
+Summary: Base Widget for Orange Canvas
+Home-page: http://orange.biolab.si/
+Author: Bioinformatics Laboratory, FRI UL
+Author-email: info@biolab.si
+License: GPLv3+
+Keywords: workflow,widget
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: X11 Applications :: Qt
+Classifier: Environment :: Console
+Classifier: Environment :: Plugins
+Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: matplotlib
+Requires-Dist: pyqtgraph
+Requires-Dist: AnyQt>=0.1.0
+Requires-Dist: typing_extensions>=3.7.4.3
+Requires-Dist: orange-canvas-core<0.3a,>=0.2a.dev0
+Requires-Dist: appnope; sys_platform == "darwin"
+Requires-Dist: importlib_resources; python_version < "3.10"
+
+
+This project implements the base OWBaseWidget class and utilities for use in
+Orange Canvas workflows.
+
+Provides:
+
+    * `OWBaseWidget` class
+    * `gui` module for building GUI
+    * `WidgetsScheme` the workflow execution model/bridge
+    * basic configuration for a workflow based application
+

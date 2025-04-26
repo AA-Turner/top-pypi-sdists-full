@@ -1,0 +1,59 @@
+[tool.poetry]
+name = "warchant_dc_schema"
+version = "0.0.10"
+description = "Generate JSON schema from python dataclasses"
+authors = ["Peter Byfield <byfield554@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/Peter554/dc_schema"
+repository = "https://github.com/Peter554/dc_schema"
+packages = [
+    { include = "dc_schema" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+jsonschema = "^4.4.0"
+types-jsonschema = "^4.4.4"
+pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+dc_schema = 'dc_schema.cli:main'
+
+[tool.mypy]
+python_version = "3.9"
+non_interactive = true
+install_types = true
+pretty = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+strict_equality = true
+no_implicit_reexport = true
+local_partial_types = false
+warn_unused_ignores = true
+color_output = true
+strict_optional = true
+implicit_optional = false
+
+# untyped
+allow_untyped_globals = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = true
+
+[tool.isort]
+line_length = 88
+profile = "black"
+skip_gitignore = true
+
+[tool.black]
+line-length = 88
+target_version = ['py39', 'py310', 'py311']

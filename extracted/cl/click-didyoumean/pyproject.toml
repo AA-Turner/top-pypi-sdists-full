@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "click-didyoumean"
+version = "0.3.1"
+description = "Enables git-like *did-you-mean* feature in click"
+authors = ["Timo Furrer <timo.furrer@roche.com>"]
+license = "MIT"
+homepage = "https://github.com/click-contrib/click-didyoumean"
+repository = "https://github.com/click-contrib/click-didyoumean"
+readme = "README.rst"
+
+[tool.poetry.dependencies]
+python = ">=3.6.2"
+click = ">=7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+black = "^21.9b0"
+isort = {version = "^5.9.3", python = "<4"}
+flake8 = "^3.9.2"
+mypy = "^0.910"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

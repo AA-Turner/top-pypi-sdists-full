@@ -1,0 +1,45 @@
+__all__ = ("add", "get", "has", "clear")
+
+from typing import Optional, Union, Tuple, Dict
+
+from . import config
+
+TranslationType = Union[str, Dict[str, str], Tuple[str, ...], Tuple[Dict[str, str], ...]]
+container: Dict[str, Dict[str, TranslationType]] = {}
+
+
+def add(
+    key: str,
+    value: TranslationType,
+    locale: Optional[str] = None,
+) -> None:
+    """
+    Adds translation to cache
+
+    :param key: Translation key
+    :param value: Translation
+    :param locale: Locale (optional). Uses default if not provided
+    """
+
+    if locale is None:
+        locale = config.get('locale')
+    container.setdefault(locale, {})[key] = value
+
+
+def has(key: str, locale: Optional[str] = None) -> bool:
+    if locale is None:
+        locale = config.get('locale')
+    return key in container.get(locale, {})
+
+
+def get(key: str, locale: Optional[str] = None) -> TranslationType:
+    if locale is None:
+        locale = config.get('locale')
+    return container[locale][key]
+
+
+def clear(locale: Optional[str] = None) -> None:
+    if locale is None:
+        container.clear()
+    elif locale in container:
+        container[locale].clear()

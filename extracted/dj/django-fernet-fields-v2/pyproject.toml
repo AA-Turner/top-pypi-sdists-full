@@ -1,0 +1,18 @@
+[project]
+name = "django_fernet_fields_v2"
+version = "0.9"
+authors = [
+  { name="MichelML", email="michmoreau.l@gmail.com" },
+]
+description = "Fernet-encrypted model fields for Django"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/MichelML/django-fernet-fields"
+"Bug Tracker" = "https://github.com/MichelML/django-fernet-fields/issues"

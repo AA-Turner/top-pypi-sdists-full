@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: os-brick
+Version: 6.11.0
+Summary: OpenStack Cinder brick library for managing local volume attaches
+Home-page: https://docs.openstack.org/os-brick/
+Author: OpenStack
+Author-email: openstack-discuss@lists.openstack.org
+Classifier: Environment :: OpenStack
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: pbr>=5.8.0
+Requires-Dist: oslo.concurrency>=5.0.0
+Requires-Dist: oslo.config>=9.0.0
+Requires-Dist: oslo.context>=4.1.0
+Requires-Dist: oslo.log>=4.8.0
+Requires-Dist: oslo.i18n>=5.1.0
+Requires-Dist: oslo.privsep>=3.0.0
+Requires-Dist: oslo.serialization>=4.3.0
+Requires-Dist: oslo.service>=2.8.0
+Requires-Dist: oslo.utils>=6.0.0
+Requires-Dist: requests>=2.25.1
+Requires-Dist: tenacity>=6.3.1
+Requires-Dist: os-win>=5.7.0
+Requires-Dist: psutil>=5.7.2
+
+OpenStack Cinder brick library for managing local volume attaches

@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: tableau_tools
+Version: 6.0.0
+Summary: A library for programmatically working with Tableau files and Tableau Server, including the REST API
+Home-page: https://github.com/bryanthowell-tableau/tableau_tools
+Author: Bryant Howell
+Author-email: bhowell@tableau.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6

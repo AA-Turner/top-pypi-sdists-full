@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: dagster-polars
+Version: 0.27.1
+Summary: Dagster integration library for Polars
+Author-email: Daniel Gafni <danielgafni16@gmail.com>
+Project-URL: Repository, https://github.com/dagster-io/community-integrations/tree/main/libraries/dagster-polars
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: dagster
+Requires-Dist: polars>=0.20.0
+Requires-Dist: pyarrow>=8.0.0
+Requires-Dist: typing-extensions>=4.7.0
+Requires-Dist: universal-pathlib>=0.1.4
+Provides-Extra: deltalake
+Requires-Dist: deltalake>=0.25.0; extra == "deltalake"
+Provides-Extra: gcp
+Requires-Dist: dagster-gcp>=0.19.5; extra == "gcp"
+Provides-Extra: patito
+Requires-Dist: patito>=0.8.3; extra == "patito"
+
+# dagster-polars
+
+This library provides [Dagster](https://dagster.io/) integration with [Polars](https://pola.rs).
+It allows using Polars DataFrames as inputs and outputs with Dagster's `@asset` and `@op`.
+Type annotations are used to control whether to load an eager or lazy DataFrame, or other types supported by `dagster-polars`.
+Multiple serialization formats (Parquet, Delta Lake, BigQuery) and filesystems (local, S3, GCS, ...) are supported.
+
+The docs for `dagster-polars ` can be found
+[here](https://docs.dagster.io/api/python-api/libraries/dagster-polars).

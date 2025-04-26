@@ -1,0 +1,97 @@
+[project]
+name = "dep-logic"
+description = "Python dependency specifications supporting logical operations"
+authors = [
+    { name = "Frost Ming", email = "me@frostming.com" },
+]
+dependencies = [
+    "packaging>=22",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+dynamic = []
+keywords = [
+    "dependency",
+    "specification",
+    "logic",
+    "packaging",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+]
+version = "0.5.0"
+
+[project.license]
+text = "Apache-2.0"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.ruff]
+line-length = 88
+src = [
+    "src",
+]
+exclude = [
+    "tests/fixtures",
+]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "B",
+    "C4",
+    "PGH",
+    "RUF",
+    "W",
+    "YTT",
+]
+extend-ignore = [
+    "B018",
+    "B019",
+    "B905",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "dep_logic",
+]
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=7.4.3",
+]
+
+[tool.pdm.scripts]
+test = "pytest"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = [
+    "src/",
+    "tests/",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+reportPrivateImportUsage = "none"

@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: wagtail
+Version: 6.4.1
+Summary: A Django content management system.
+Home-page: https://wagtail.org/
+Author: Wagtail core team + contributors
+Author-email: hello@wagtail.org
+License: BSD
+Project-URL: Changelog, https://github.com/wagtail/wagtail/blob/main/CHANGELOG.txt
+Project-URL: Documentation, https://docs.wagtail.org
+Project-URL: Source, https://github.com/wagtail/wagtail
+Project-URL: Tracker, https://github.com/wagtail/wagtail/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Wagtail
+Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
+Requires-Python: >=3.9
+Provides-Extra: testing
+Provides-Extra: docs
+License-File: LICENSE
+
+Wagtail is an open source content management system built on Django, with a strong community and commercial support. It’s focused on user experience, and offers precise control for designers and developers.
+
+For more details, see https://wagtail.org, https://docs.wagtail.org and https://github.com/wagtail/wagtail/.

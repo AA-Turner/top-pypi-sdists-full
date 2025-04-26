@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: databricks-automl-runtime
+Version: 0.2.21
+Summary: Databricks AutoML Runtime Package
+Home-page: https://github.com/databricks/automl
+Author: Databricks
+License: http://www.apache.org/licenses/LICENSE-2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+
+# Databricks AutoML Runtime Package

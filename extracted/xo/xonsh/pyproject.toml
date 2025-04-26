@@ -1,0 +1,262 @@
+[build-system]
+# PEP 518 https://www.python.org/dev/peps/pep-0518/
+# https://discuss.python.org/t/help-testing-experimental-features-in-setuptools/13821
+requires = ["setuptools>=61", "wheel"]
+# PEP 517 https://peps.python.org/pep-0517/
+build-backend = "setuptools.build_meta"
+
+[project]
+# PEP 621 project metadata
+# See https://www.python.org/dev/peps/pep-0621/
+name = "xonsh"
+dynamic = ["version", "readme"]
+description = "Python-powered shell. Full-featured and cross-platform."
+authors = [{ name = "Anthony Scopatz" }, { email = "scopatz@gmail.com" }]
+maintainers = [{ name = "Xonsh Community" }, { email = "xonsh@gil.forsyth.dev" }]
+license = { text = "BSD 2-Clause License" }
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.setuptools.dynamic]
+version = {attr = "xonsh.__version__"}
+readme = {file = ["README.rst"]}
+
+[tool.setuptools]
+packages = [
+    "xonsh",
+    "xonsh.api",
+    "xonsh.shells",
+    "xonsh.shells.ptk_shell",
+    "xonsh.parsers.ply",
+    "xonsh.procs",
+    "xonsh.platforms",
+    "xonsh.parsers",
+    "xonsh.xoreutils",
+    "xontrib",
+    "xonsh.completers",
+    "xonsh.history",
+    "xonsh.prompt",
+    "xonsh.pytest",
+    "xonsh.lib",
+    "xonsh.webconfig",
+    "xonsh.virtualenv",
+    "xompletions",
+]
+platforms = ["Cross Platform"]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+xonsh = "xonsh"
+xontrib = "xontrib"
+xompletions = "xompletions"
+"xonsh.lib" = "xonsh/lib"
+"xonsh.webconfig" = "xonsh/webconfig"
+
+[tool.setuptools.package-data]
+xonsh = [
+    "*.json",
+    "*.githash",
+]
+xontrib = ["*.xsh"]
+"xonsh.lib" = ["*.xsh"]
+"xonsh.virtualenv" = ["*.xsh"]
+"xonsh.webconfig" = [
+    "*.html",
+    "js/app.min.js",
+    "js/bootstrap.min.css",
+    "js/LICENSE-bootstrap",
+    "js/xonsh_sticker_mini.png",
+]
+
+[project.entry-points]
+pytest11 = { xonsh = "xonsh.pytest.plugin" }
+
+[project.entry-points."pygments.lexers"]
+xonsh = "xonsh.pyghooks:XonshLexer"
+xonshcon = "xonsh.pyghooks:XonshConsoleLexer"
+
+[project.entry-points."virtualenv.activate"]
+xonsh = "xonsh.virtualenv:XonshActivator"
+
+[project.urls]
+Homepage = "https://xon.sh"
+documentation = "https://xon.sh/contents.html"
+repository = "https://github.com/xonsh/xonsh"
+changelog = "https://github.com/xonsh/xonsh/blob/main/CHANGELOG.rst"
+"Issue tracker" = "https://github.com/xonsh/xonsh/issues"
+
+[project.optional-dependencies]
+ptk = [
+    "prompt-toolkit>=3.0.29",
+    "pyperclip",
+]
+pygments = ["pygments>=2.2"]
+mac = ["gnureadline"]
+linux = ["distro"]
+proctitle = ["setproctitle"]
+full = [
+    "xonsh[ptk,pygments]",
+    "distro; platform_system=='Linux'",
+    "setproctitle; platform_system=='Windows'",
+    "gnureadline; platform_system=='Darwin'",
+    "ujson",
+]
+bestshell = [
+    "prompt-toolkit>=3.0.29",
+    "pygments>=2.2",
+]
+test = [
+    "xonsh[bestshell]",
+    "pytest>=7",
+    "restructuredtext_lint",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-timeout",
+    "pytest-subprocess",
+    "pytest-rerunfailures",
+    "prompt-toolkit>=3.0.29",
+    "pygments>=2.2",
+    "coverage>=5.3.1",
+    "pyte>=0.8.0",
+    "virtualenv>=20.16.2",
+    "requests",
+]
+dev = [
+    "xonsh[test,doc]",
+    "pre-commit",
+    "re-ver",
+    "tomli",
+]
+doc = [
+    "xonsh[bestshell]",
+    "furo",
+    "numpydoc",
+    "sphinx>=3.1",
+    "psutil",
+    "pyzmq",
+    "matplotlib",
+    "tornado",
+    "runthis-sphinxext",
+    "livereload",
+    "myst-parser",
+]
+
+
+[project.scripts]
+xonsh = "xonsh.main:main"
+xonsh-cat = "xonsh.xoreutils.cat:main"
+xonsh-uname = "xonsh.xoreutils.uname:main"
+xonsh-uptime = "xonsh.xoreutils.uptime:main"
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["xonsh", "xontrib", "xompletions", "tests"]
+known-third-party = ["ply", "pytest"]
+
+[tool.ruff]
+src = [
+    "xonsh", "xontrib", "xompletions", "tests"
+]
+extend-exclude = [
+    "docs/",
+    "*/ply/",
+    "parser*_table.py",
+    "completion_parser_table.py",
+    "build/",
+    "dist/",
+    "setup.py",
+    ".vscode/",
+    "feedstock",
+    "rever",
+    ".venv*/",
+    ".local.out*/",
+]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D200", # One-line docstring should fit on one line with quotes
+    "D202", # No blank lines allowed after function docstring
+    "D205", # 1 blank line required between summary line and description
+    "D207", # Docstring is under-indented
+    "D208", # Docstring is over-indented
+    "D209", # Multi-line docstring closing quotes should be on a separate line
+    "D210", # No whitespaces allowed surrounding docstring text
+    "D301", # Use r""" if any backslashes in a docstring
+    "D400", # First line should end with a period
+    "D401", # First line should be in imperative mood
+    "D403", # First word of the first line should be properly capitalized
+    "D404", # First word of the docstring should not be This
+    "D406", # Section name should end with a newline
+    "D407", # Missing dashed underline after section
+    "D409", # Section underline should be in the line following the section’s name
+    "D411", # Missing blank line before section
+    "D418", # Function decorated with `@overload` shouldn't contain a docstring
+    "E402", # Module level import not at top of file
+    "E501", # line length
+    "E731", # Do not assign a lambda expression, use a def
+    "UP031", # Use format specifiers instead of percent format
+]
+select = [
+    "B", # https://beta.ruff.rs/docs/rules/#flake8-bugbear-b
+    "D", # https://beta.ruff.rs/docs/rules/#pydocstyle-d
+    "E", # https://beta.ruff.rs/docs/rules/#pycodestyle-e-w
+    "F", # https://beta.ruff.rs/docs/rules/#pyflakes-f
+    "I", # https://beta.ruff.rs/docs/rules/#isort-i
+    "T10", # https://beta.ruff.rs/docs/rules/#flake8-debugger-t10
+    "TID", # https://docs.astral.sh/ruff/rules/#flake8-tidy-imports-tid
+    "YTT", # https://beta.ruff.rs/docs/rules/#flake8-2020-ytt
+    "W", # https://beta.ruff.rs/docs/rules/#pycodestyle-e-w
+    "UP", # https://beta.ruff.rs/docs/rules/#pyupgrade-up
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"xonsh/timings.py" = ["F401"]
+"xonsh/history.py" = ["F821"]
+"xonsh/parsers/lexer.py" = ["E741"]
+"xonsh/parsers/completion_context.py" = ["B018"]
+"xonsh/parsers/tokenize.py" = [
+    "F821",
+    "F841",
+    "B904" # Within an `except` clause, raise exceptions with `raise ... from err`
+]
+"xonsh/pyghooks.py" = ["F821"]
+"tests/test_builtins.py" = [
+    "F821",
+    "B011",
+]
+"xonsh/built_ins.py" = [
+    "F821",
+    "E721",
+    "E721",
+]
+"xonsh/style_tools.py" = ["F821"]
+"xonsh/xoreutils/*.py" = ["E722"]
+"xonsh/completers/python.py" = ["E722"]
+"xonsh/parsers/ast.py" = ["F401"]
+"xonsh/shells/ptk_shell/__init__.py" = ["E731"]
+"xonsh/shells/readline_shell.py" = ["F401"]
+"xonsh/commands_cache.py" = ["F841"]
+"xonsh/shells/ptk_shell/key_bindings.py" = ["F841"]
+"xonsh/tools.py" = [
+    "E731",
+]
+"xonsh/xonfig.py" = ["E731"]
+"xontrib/vox.py" = ["F821"]
+"xonsh/inspectors.py" = ["E722"]
+"xonsh/platform.py" = ["F401"]
+"xonsh/parsers/*.py" = [
+    "E741", # E741 Ambiguous variable name
+]
+"tests/test*.py" = [
+    "E741", #  E741 Ambiguous variable name
+]

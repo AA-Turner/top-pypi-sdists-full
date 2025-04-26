@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: streamsets
+Version: 6.5.0
+Summary: A Python SDK for StreamSets
+Author: StreamSets Inc
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.4
+Description-Content-Type: text/x-rst
+Requires-Dist: dpath==1.5.0
+Requires-Dist: inflection
+Requires-Dist: PyYAML
+Requires-Dist: requests

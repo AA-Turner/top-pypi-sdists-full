@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "pixelmatch"
+version = "0.3.0"
+description = "A pixel-level image comparison library."
+authors = ["Wu Haotian <whtsky@gmail.com>"]
+license = "ISC"
+readme = "README.md"
+repository = "https://github.com/whtsky/pixelmatch-py"
+packages = [
+    {include = "pixelmatch"},
+    {include = "pixelmatch/py.typed"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+black = "^21.12b0"
+pytest = "^7.1.1"
+pytest-cov = "^3.0.0"
+pillow = "^7.2.0"
+codecov = "^2.1.12"
+pytest-benchmark = "^3.4.1"
+pytest-mypy = "^0.9.1"
+mypy = "^0.931"
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py36']

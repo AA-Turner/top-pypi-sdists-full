@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+    "hatchling",
+    "incremental",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "example_hatchling"
+dependencies = [
+    "incremental",
+]
+dynamic = ["version"]
+
+[tool.hatch.version]
+source = "incremental"

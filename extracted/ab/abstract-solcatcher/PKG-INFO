@@ -1,0 +1,122 @@
+Metadata-Version: 2.2
+Name: abstract_solcatcher
+Version: 0.0.3.233
+Summary: `abstract_solcatcher` provides a comprehensive solution for making HTTP requests specifically tailored for interacting with Solcatcher.io's APIs. It simplifies complex tasks such as data fetching, data manipulation, and interacting with the Flask backend of Solcatcher.io.
+Home-page: https://github.com/AbstractEndeavors/abstract_solcatcher
+Author: putkoff
+Author-email: partners@abstractendeavors.com
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Typing :: Typed
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: abstract_utilities
+Requires-Dist: abstract_solana
+Requires-Dist: abstract_apis
+Requires-Dist: requests
+Requires-Dist: abstract_security
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+---
+
+# Abstract Solcatcher
+
+The `abstract_solcatcher` package provides a comprehensive solution for making HTTP requests specifically tailored for interacting with Solcatcher.io's APIs. It simplifies complex tasks such as data fetching, data manipulation, and interacting with the Flask backend of Solcatcher.io. This module abstracts API calls and Flask requests, providing utility functions that make it easier to perform these operations.
+
+## Features
+
+- **API Calls**: Facilitates making custom API requests to Solcatcher.io with specific endpoints.
+- **Flask Backend Interaction**: Manages interactions with a Flask backend, including viewing and listing database tables and columns.
+- **Data Handling**: Provides functions to handle and manipulate data before sending it in requests.
+
+## Modules
+
+- **Abstract Call**: Handles direct API interactions with functions that tailor requests for specific Solcatcher.io endpoints.
+- **Abstract Flask**: Manages requests to the Flask backend, providing functions to view and list database tables, as well as retrieve specific table columns.
+- **Utilities**: Contains helper functions that return standard URLs and endpoints, and help in updating data payloads.
+
+## Installation
+
+To install the `abstract_solcatcher` package, use the following pip command:
+
+```bash
+pip install abstract_solcatcher
+```
+
+## Usage
+
+### Making API Calls
+
+To make a custom API call to retrieve metadata:
+
+```python
+from abstract_solcatcher import getCallRequest
+
+response = getCallRequest('getMetaData', signature='your_signature_here')
+print(response)
+```
+
+### Interacting with Flask Backend
+
+To view a specific table in the database:
+
+```python
+from abstract_solcatcher import view_table
+
+response = view_table('your_table_name')
+print(response)
+```
+
+### Listing Database Tables
+
+To list all tables in the database:
+
+```python
+from abstract_solcatcher import list_tables
+
+tables = list_tables()
+print(tables)
+```
+
+## Dependencies
+
+- Python 3.6+
+- `requests` library
+- `abstract_apis`
+- `abstract_utilities`
+
+## Contributions
+
+Contributions to enhance the functionalities of `abstract_solcatcher` are welcome. Please fork the [GitHub repository](https://github.com/AbstractEndeavors/abstract_solcatcher), make your changes, and submit a pull request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contact
+
+For any questions or feedback, please reach out to [partners@abstractendeavors.com](mailto:partners@abstractendeavors.com).
+
+---

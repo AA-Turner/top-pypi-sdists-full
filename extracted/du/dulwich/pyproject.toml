@@ -1,0 +1,126 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dulwich"
+description = "Python Git Library"
+readme = "README.rst"
+authors = [{name = "Jelmer Vernooij", email = "jelmer@jelmer.uk"}]
+license = {text = "Apachev2 or later or GPLv2"}
+keywords = ["vcs", "git"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Software Development :: Version Control",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "urllib3>=1.25",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://www.dulwich.io/"
+Repository = "https://www.dulwich.io/code/"
+GitHub = "https://github.com/dulwich/dulwich"
+"Bug Tracker" = "https://github.com/dulwich/dulwich/issues"
+
+[project.optional-dependencies]
+fastimport = ["fastimport"]
+https = ["urllib3>=1.24.1"]
+pgp = ["gpg"]
+paramiko = ["paramiko"]
+dev = [
+    "ruff==0.9.7",
+    "mypy==1.15.0"
+]
+
+[project.scripts]
+dulwich = "dulwich.cli:main"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.setuptools]
+packages = [
+    "dulwich",
+    "dulwich.cloud",
+    "dulwich.contrib",
+    "dulwich.tests",
+]
+include-package-data = true
+zip-safe = false
+script-files = [
+    "bin/dul-receive-pack",
+    "bin/dul-upload-pack",
+]
+license-files = ["COPYING"]
+
+[tool.setuptools.dynamic]
+version = {attr = "dulwich.__version__"}
+
+[tool.ruff.lint]
+select = [
+    "ANN",
+    "D",
+    "E",
+    "F",
+    "I",
+    "PIE",
+    "UP",
+    "RSE",
+    "RUF",
+]
+ignore = [
+    "ANN001",
+    "ANN002",
+    "ANN003",
+    "ANN201",
+    "ANN202",
+    "ANN204",
+    "ANN205",
+    "ANN206",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D204",
+    "D205",
+    "D417",
+    "E501",  # line too long
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.cibuildwheel]
+environment = {PATH="$HOME/.cargo/bin:$PATH"}
+before-build = "pip install -U setuptools-rust && curl https://sh.rustup.rs -sSf | sh -s -- --profile=minimal -y && rustup show"
+
+[tool.cibuildwheel.linux]
+skip = "*-musllinux_*"
+archs = ["auto", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["auto", "universal2", "x86_64", "arm64"]
+before-all = "rustup target add x86_64-apple-darwin aarch64-apple-darwin"
+skip = """\
+    cp39-macosx_x86_64 cp39-macosx_universal2 \
+    cp310-macosx_x86_64 cp310-macosx_universal2 \
+    cp311-macosx_x86_64 cp311-macosx_universal2 \
+    cp312-macosx_x86_64 cp312-macosx_universal2 \
+    cp313-macosx_x86_64 cp313-macosx_universal2 \
+    """

@@ -1,0 +1,96 @@
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'
+
+[tool.hatch.version]
+path = 'pytest_pretty/__init__.py'
+
+[tool.hatch.build.targets.sdist]
+# limit which files are included in the sdist (.tar.gz) asset,
+# see https://github.com/pydantic/pydantic/pull/4542
+include = [
+    '/README.md',
+    '/Makefile',
+    '/pytest_pretty',
+    '/requirements',
+]
+
+[project]
+name = 'pytest-pretty'
+description = 'pytest plugin for printing summary data as I want it'
+authors = [
+    {name = 'Samuel Colvin', email = 's@muelcolvin.com'},
+]
+license = {file = 'LICENSE'}
+readme = 'README.md'
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: Unix',
+    'Operating System :: POSIX :: Linux',
+    'Environment :: Console',
+    'Environment :: MacOS X',
+    'Framework :: Hypothesis',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Internet',
+]
+requires-python = '>=3.7'
+dynamic = ['version']
+dependencies = [
+    'pytest>=7',
+    'rich>=12',
+]
+
+[project.entry-points.pytest11]
+pretty = 'pytest_pretty'
+
+[project.urls]
+repository = 'https://github.com/samuelcolvin/pytest-pretty'
+
+[tool.pytest.ini_options]
+testpaths = 'tests'
+filterwarnings = 'error'
+xfail_strict = true
+
+[tool.ruff]
+line-length = 120
+extend-select = ['Q']
+flake8-quotes = {inline-quotes = 'single', multiline-quotes = 'double'}
+
+[tool.coverage.run]
+source = ['pytest_pretty']
+branch = true
+
+[tool.coverage.report]
+precision = 2
+exclude_lines = [
+    'pragma: no cover',
+    'raise NotImplementedError',
+    'if TYPE_CHECKING:',
+    '@overload',
+]
+
+[tool.black]
+color = true
+line-length = 120
+target-version = ['py310']
+skip-string-normalization = true
+
+[tool.isort]
+line_length = 120
+known_first_party = 'pydantic'
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true

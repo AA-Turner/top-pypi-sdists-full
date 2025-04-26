@@ -1,0 +1,219 @@
+[project]
+name = 'atpublic'
+authors = [
+    {name = 'Barry Warsaw', email = 'barry@python.org'},
+]
+description = "Keep all y'all's __all__'s in sync"
+readme = 'README.rst'
+requires-python = '>=3.9'
+license = {text = 'Apache-2.0'}
+keywords = [
+    '__all__',
+    'public',
+    'private',
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Development Status :: 6 - Mature',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Utilities',
+]
+dependencies = []
+dynamic = ['version']
+
+[project.urls]
+'Home Page' = 'https://public.readthedocs.io'
+'Documentation' = 'https://public.readthedocs.io'
+'Source' = 'https://gitlab.com/warsaw/public.git'
+'Bug Tracker' = 'https://gitlab.com/warsaw/public/issues'
+
+[tool.hatch.version]
+path = 'src/public/__init__.py'
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    'src/public',
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    'src/public/',
+    'docs/',
+    'tests/',
+    'conftest.py',
+]
+excludes = [
+    '*/.mypy_cache/',
+]
+
+[tool.hatch.envs.default]
+installer = 'uv'
+
+[tool.hatch.envs.default.scripts]
+all = [
+    'hatch test --cover --all',
+    'hatch run qa:qa',
+    'hatch run docs:docs',
+]
+
+[tool.hatch.envs.hatch-test]
+default-args = ['tests', 'docs']
+extra-dependencies = [
+    'diff-cover',
+    'sybil',
+]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = [
+    'coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}',
+    'coverage combine',
+    'coverage report',
+    'coverage xml',
+    '- diff-cover coverage.xml',
+]
+run-cov = 'hatch test'
+cov-combine = ''
+cov-report = ''
+
+[tool.hatch.envs.qa]
+dependencies = [
+    'mypy',
+]
+
+[tool.hatch.envs.qa.env-vars]
+MODULE_NAME = '{env:MODULE_NAME:public}'
+MODULE_PATH = '{env:MODULE_PATH:src/public}'
+
+[tool.hatch.envs.qa.scripts]
+qa = [
+    'hatch fmt --check src',
+    'mypy -p {env:MODULE_NAME}',
+]
+fix = [
+    'hatch fmt src',
+]
+preview = [
+    'hatch fmt --diff src',
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+    'sphinx',
+    'furo',
+]
+
+[tool.hatch.envs.docs.scripts]
+docs = [
+    'sphinx-build docs build/html',
+]
+
+[tool.coverage.run]
+source = ['public']
+branch = true
+parallel = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_also = [
+    'if TYPE_CHECKING:',
+    '^\s*\.{3}$',               # Ignore ... for @overload
+]
+
+[tool.ruff]
+line-length = 79
+src = ['src']
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Essentially, ignore all lint warnings in these configuration files.
+'conftest.py' = [
+    'ARG002',
+    'I001',
+    'S101',
+]
+'docs/conf.py' = [
+    'A',
+    'DTZ',
+    'E',
+    'I',
+    'UP',
+]
+'src/public/**.py' = [
+    'TID',                      # Allow relative imports
+]
+'src/public/public.py' = [
+    'S101',                     # Allow assert
+    'SLF001',                   # Allow sys._getframe()
+]
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint.pydocstyle]
+convention = 'pep257'
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+length-sort-straight = true
+lines-after-imports = 2
+lines-between-types = 1
+order-by-type = true
+section-order = ['standard-library', 'third-party', 'first-party']
+
+[tool.mypy]
+mypy_path = 'src'
+
+# Disallow dynamic typing
+disallow_any_generics = true
+disallow_subclassing_any = true
+
+# Untyped definitions and calls
+disallow_untyped_calls = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+
+# None and Optional handling
+no_implicit_optional = true
+
+# Configuring warnings
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+
+# Miscellaneous strictness flags
+implicit_reexport = false
+strict_equality = true
+
+# Configuring error messages
+show_error_context = true
+show_column_numbers = true
+show_error_codes = true
+pretty = true
+show_absolute_path = true
+
+# Miscellaneous
+warn_unused_configs = true
+verbosity = 0
+
+[[tool.mypy.overrides]]
+module = [
+    'pytest',
+    'sybil.*',
+]
+ignore_missing_imports = true
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'

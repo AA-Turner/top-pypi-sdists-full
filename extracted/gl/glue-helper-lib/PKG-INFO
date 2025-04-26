@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: glue-helper-lib
+Version: 0.5.5
+Summary: A library containing multiple helper and utility functionalities for AWS Glue
+License: MIT
+Author: Martijn Sturm
+Author-email: martijn.sturm@gmail.com
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/markdown
+
+# glue
+
+## Publish
+
+`export POETRY_PYPI_TOKEN_PYPI=my-token`
+

@@ -1,0 +1,98 @@
+import itertools
+from queue import PriorityQueue
+from collections import deque
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures.thread import _WorkItem
+from time import sleep
+from typing import Any, Callable, Iterator, Optional
+
+import attrs
+
+
+class AutoPriorityQueue(PriorityQueue):
+    """Overrides PriorityQueue to automatically get the priority from _WorkItem.kwargs
+
+    We also assign a unique id for each item, to avoid making comparisons on _WorkItem.
+    As a side effect, items with the same priority are returned FIFO.
+    """
+
+    _counter = itertools.count().__next__
+
+    def put(self, item: Optional[_WorkItem], block=True, timeout=None) -> None:
+        priority = item.kwargs.pop("priority") if item is not None else 0
+        super().put((-priority, self._counter(), item), block, timeout)
+
+    def get(self, block=True, timeout=None) -> Optional[_WorkItem]:
+        _p, _c, work_item = super().get(block, timeout)
+        return work_item
+
+
+class PriorityThreadPoolExecutor(ThreadPoolExecutor):
+    """Overrides ThreadPoolExecutor to use AutoPriorityQueue
+
+    XXX WARNING: Might break in future versions of Python
+    """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._work_queue = AutoPriorityQueue()
+
+
+@attrs.define(frozen=False, init=False)
+class ThreadedYielder(Iterable):
+    """Yields results from multiple threads into a single iterator, ordered by priority.
+
+    To add a source iterator, call ``submit()`` with a function that returns an iterator.
+    Priority for the iterator can be provided via the keyword argument 'priority'. (higher runs first)
+    """
+
+    _pool: ThreadPoolExecutor
+    _futures: deque
+    _yield: deque
+    _exception: Optional[None]
+
+    _pool: ThreadPoolExecutor
+    _futures: deque
+    _yield: deque = attrs.field(alias="_yield")  # Python keyword!
+    _exception: Optional[None]
+    yield_list: bool
+
+    def __init__(self, max_workers: Optional[int] = None, yield_list: bool = False) -> None:
+        super().__init__()
+        self._pool = PriorityThreadPoolExecutor(max_workers)
+        self._futures = deque()
+        self._yield = deque()
+        self._exception = None
+        self.yield_list = yield_list
+
+    def _worker(self, fn, *args, **kwargs) -> None:
+        try:
+            res = fn(*args, **kwargs)
+            if res is not None:
+                if self.yield_list:
+                    self._yield.append(res)
+                else:
+                    self._yield += res
+        except Exception as e:
+            self._exception = e
+
+    def submit(self, fn: Callable, *args, priority: int = 0, **kwargs) -> None:
+        self._futures.append(self._pool.submit(self._worker, fn, *args, priority=priority, **kwargs))
+
+    def __iter__(self) -> Iterator[Any]:
+        while True:
+            if self._exception:
+                raise self._exception
+
+            while self._yield:
+                yield self._yield.popleft()
+
+            if not self._futures:
+                # No more tasks
+                return
+
+            if self._futures[0].done():
+                self._futures.popleft()
+            else:
+                sleep(0.001)

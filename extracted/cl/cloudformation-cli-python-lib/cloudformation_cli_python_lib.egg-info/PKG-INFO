@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: cloudformation-cli-python-lib
+Version: 2.1.18
+Summary: Support library to enable Python-based CloudFormation resource types
+Home-page: https://github.com/aws-cloudformation/aws-cloudformation-rpdk-python-plugin/
+Author: Amazon Web Services
+Author-email: aws-cloudformation-developers@amazon.com
+License: Apache License 2.0
+Keywords: Amazon Web Services AWS CloudFormation
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+License-File: LICENSE

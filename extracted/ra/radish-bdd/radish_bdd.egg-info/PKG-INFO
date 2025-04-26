@@ -1,0 +1,143 @@
+Metadata-Version: 2.4
+Name: radish_bdd
+Version: 0.18.2
+Summary: Behaviour-Driven-Development tool for Python
+Home-page: https://radish-bdd.github.io
+Download-URL: https://github.com/radish-bdd/radish
+Author: Timo Furrer
+Author-email: tuxtimo+radish@gmail.com
+Maintainer: Timo Furrer
+Maintainer-email: tuxtimo+radish@gmail.com
+License: MIT
+Platform: Linux
+Platform: Windows
+Platform: MAC OS X
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Other Audience
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation
+Classifier: Topic :: Education :: Testing
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: docopt
+Requires-Dist: pysingleton
+Requires-Dist: colorful>=0.3.11
+Requires-Dist: tag-expressions>=2.0.0
+Requires-Dist: parse_type>0.4.0
+Requires-Dist: humanize
+Provides-Extra: bddxml
+Requires-Dist: lxml; extra == "bddxml"
+Provides-Extra: ipython-debugger
+Requires-Dist: ipython; extra == "ipython-debugger"
+Provides-Extra: coverage
+Requires-Dist: coverage; extra == "coverage"
+Provides-Extra: testing
+Requires-Dist: PyYAML; extra == "testing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<img align="right" src="https://raw.githubusercontent.com/radish-bdd/radish/master/artwork/radish-bdd-logo-trans-bg.png">
+
+# radish - the root from red to green
+> Awesome python BDD tool https://radish-bdd.github.io
+
+***
+
+[![PyPI License](https://img.shields.io/pypi/l/radish-bdd.svg)](https://github.com/radish-bdd/radish/blob/master/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/radish/badge/?version=stable)](https://radish.readthedocs.io/en/stable/?badge=stable)
+<br>
+[![Actions Status](https://github.com/radish-bdd/radish/workflows/CI/badge.svg)](https://github.com/radish-bdd/radish/actions?branch=stable)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+<br>
+[![PyPI version](https://badge.fury.io/py/radish-bdd.svg)](https://badge.fury.io/py/radish-bdd)
+[![PyPI](https://img.shields.io/pypi/pyversions/radish-bdd.svg)](https://pypi.python.org/pypi/radish-bdd)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/radish-bdd)](https://pypi.python.org/pypi/radish-bdd)
+[![PyPI](https://img.shields.io/pypi/wheel/radish-bdd.svg)](https://pypi.python.org/pypi/radish-bdd)
+
+***
+
+# What is radish?
+
+radish is a Behavior Driven Development tool completely written in python.
+It supports all *gherkin* language features.
+In addition to that, radish implements a few *unconventional* BDD features such as **Preconditions**, **Scenario Loops**, **Constants** and **Expressions**.
+
+# Supported platforms
+
+radish is supported on Windows, Mac and Linux
+
+# Installation
+
+radish is available as `pip` package:
+
+```bash
+pip install radish-bdd
+```
+**Note**: Make sure you have enough privileges to install radish on your system.
+
+# Getting started
+
+radish is very easy to use. Take the 5 minutes and follow the *Getting started* instruction on the radish website: https://radish-bdd.github.io/#gettingstarted
+
+# Documentation
+
+The whole documentation of radish is available on [Read The Docs](http://radish.readthedocs.org).
+
+# Contribution
+
+Yes, we are looking for some contributors and people who spread out a word about radish.
+Help us to improve these piece of software. You don't know what to do?
+Just have a look at the Issues or create a new one.
+Please have a look at the [Contributing Guidelines](https://github.com/radish-bdd/radish/blob/master/CONTRIBUTING.md), too.
+
+# Release
+
+```
+vim CHANGELOG.md docs/conf.py radish/__init__.py
+git commit -am "release: vX.X.X" && git tag vX.X.X && git push && git push --tags
+# Create release on Github
+```
+
+# Special Thanks
+
+A special thanks goes to [Hassan Ashraf](mailto:info@cyberavanza.com) from the company [Cyber Avanza](http://www.cyberavanza.com) for creating an awesome logo for free! I really appreciate their work and time!
+
+***
+
+*<p align="center">This project is published under [MIT](LICENSE).<br>A [Timo Furrer](https://tuxtimo.me) project.<br>- :tada: -</p>*

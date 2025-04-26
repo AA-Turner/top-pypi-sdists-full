@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "pypruningradixtrie"
+version = "2.1.0"
+description = "Radix trie for fast prefix search."
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/otto-de/PyPruningRadixTrie"
+authors = ["tomglk"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

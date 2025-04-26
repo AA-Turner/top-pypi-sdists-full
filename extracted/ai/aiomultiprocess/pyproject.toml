@@ -1,0 +1,64 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "aiomultiprocess"
+authors = [
+    {name = "Amethyst Reese", email="amethyst@n7.gg"},
+]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries",
+]
+dynamic = ["version", "description"]
+requires-python = ">=3.8"
+
+[project.urls]
+Documentation = "https://aiomultiprocess.omnilib.dev/en/latest/"
+Github = "https://github.com/omnilib/aiomultiprocess"
+
+[project.optional-dependencies]
+dev = [
+    "attribution==1.7.1",
+    "black==24.4.0",
+    "coverage==7.4.4",
+    "flake8==7.0.0",
+    "flake8-bugbear==24.4.21",
+    "flit==3.9.0",
+    "mypy==1.9.0",
+    "usort==1.0.8.post1",
+    "uvloop==0.19.0; sys_platform != 'win32'",
+]
+docs = [
+    "sphinx==7.3.7",
+    "sphinx-mdinclude==0.6.0",
+]
+
+[tool.flit.sdist]
+exclude = [
+    ".github/",
+]
+
+[tool.attribution]
+name = "aiomultiprocess"
+package = "aiomultiprocess"
+signed_tags = true
+version_file = true
+ignored_authors = ["dependabot", "pyup.io"]
+
+[tool.coverage.run]
+branch = true
+include = ["aiomultiprocess/*"]
+omit = ["aiomultiprocess/tests/*"]
+concurrency = ["multiprocessing"]
+
+[tool.coverage.report]
+fail_under = 95
+precision = 1
+show_missing = true
+skip_covered = true

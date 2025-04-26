@@ -1,0 +1,9 @@
+from .. import i18n as i18n
+from ..utils import str_coercible as str_coercible
+
+@str_coercible
+class Country:
+    def __init__(self, code_or_country: str | Country) -> None: ...
+    def name(self) -> str: ...
+    @classmethod
+    def validate(self, code: str) -> None: ...

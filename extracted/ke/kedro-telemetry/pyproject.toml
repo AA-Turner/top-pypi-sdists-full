@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kedro-telemetry"
+authors = [
+    {name = "Kedro"}
+]
+description = "Kedro-Telemetry"
+requires-python = ">=3.9"
+license = {text = "Apache Software License (Apache 2.0)"}
+dependencies = [
+    "kedro>=0.18.0",
+    "requests~=2.20",
+    "appdirs>=1.4.4",
+]
+dynamic = ["readme", "version"]
+
+[project.urls]
+Source = "https://github.com/kedro-org/kedro-plugins/tree/main/kedro-telemetry"
+Documentation = "https://github.com/kedro-org/kedro-plugins/blob/main/kedro-telemetry/README.md"
+Tracker = "https://github.com/kedro-org/kedro-plugins/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-xdist[psutil]~=2.2.1",
+    "PyYAML==5.3.1", # Temporary fix, to be removed
+    "wheel",
+]
+
+lint = [
+    "bandit>=1.6.2, <2.0",
+    "black~=22.0",
+    "mypy~=1.0",
+    "pre-commit>=2.9.2",
+    "trufflehog>=2.1.0, <3.0",
+    "ruff~=0.0.290",
+    # mypy requirements
+    "types-requests",
+    "types-PyYAML",
+    "types-toml",
+]
+
+[project.entry-points."kedro.cli_hooks"]
+kedro-telemetry = "kedro_telemetry.plugin:telemetry_hook"
+
+[project.entry-points."kedro.hooks"]
+kedro-telemetry = "kedro_telemetry.plugin:telemetry_hook"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["kedro_telemetry"]
+zip-safe = false
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md", content-type = "text/markdown"}
+version = {attr = "kedro_telemetry.__version__"}
+
+[tool.ruff]
+line-length = 88
+show-fixes = true
+select = [
+    "F",   # Pyflakes
+    "W",   # pycodestyle
+    "E",   # pycodestyle
+    "I",   # isort
+    "UP",  # pyupgrade
+    "PL",  # Pylint
+    "T201", # Print Statement
+]
+ignore = ["E501"]  # Black takes care of line-too-long
+
+[tool.ruff.isort]
+known-first-party = ["kedro_telemetry"]

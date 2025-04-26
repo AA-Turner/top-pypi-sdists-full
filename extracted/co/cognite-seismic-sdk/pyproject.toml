@@ -1,0 +1,124 @@
+[tool.poetry]
+name = "cognite-seismic-sdk"
+version = "0.3.21"
+description = ""
+authors = ["cognite <support@cognite.com>"]
+
+packages = [
+    { include="cognite" },
+]
+include = ["cognite/seismic/protos/**/*.py"]
+
+[tool.black]
+line-length = 120
+target_version = ['py37']
+include = '\.py$'
+exclude = '(cognite/seismic/protos/*|\.tox/*)'
+
+[tool.isort]
+line_length=120                # corresponds to -w  flag
+multi_line_output=3            # corresponds to -m  flag
+include_trailing_comma=true    # corresponds to -tc flag
+skip_glob = '*cognite/seismic/protos*'    # this makes sort all Python files
+known_third_party = ["cognite", "google", "grpc", "numpy", "pytest"]
+profile = "black"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+envlist = py38
+
+[testenv]
+deps =
+    pytest
+    pytest-mock
+    pytest-cov
+commands =
+    coverage run -m pytest -v tests
+    coverage xml
+extras =
+    tox_deps
+passenv = COGNITE_API_KEY COGNITE_API_HOST COGNITE_PROJECT AZUREAD_PRIVATE_KEY
+"""
+
+[tool.poetry.dependencies]
+deprecation = "^2.1.0"
+grpcio= "^1.58"
+grpcio-tools = "^1.58"
+numpy = "^1.21"
+oauthlib = "^3.1.1"
+python = "^3.7"
+python-dateutil = "^2.8"
+protobuf = "^4.21"
+requests = "^2.26.0"
+requests_oauthlib = "^1.3.0"
+six = "^1.14"
+urllib3 = "^2.0.0"
+importlib-metadata = {version = "*", python = "<3.8"}
+
+# Extras, because tox ignores dev dependencies.
+msal = {version = "^1.15.0", optional = true}
+shapely = {version = "^2.0", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+# We don't need apache-beam, but keep it here to make sure the sdk can coexist with it.
+# This is required by pgs.
+apache-beam = "2.48.0"
+black = "23.3.0"
+isort = "^5.11"
+nbsphinx = "^0.9.0"
+pytest = "^7.1"
+pytest-mock = "^3.8"
+pytest-cov = "^4.0"
+sphinx = "^5.0"
+pre-commit = "^2.19"
+tox = "^3.25"
+sphinx-pypi-upload = "^0.2.1"
+sphinx-rtd-theme = "^1.0"
+# tox-pyenv disabled for now, since we only test against one python
+# tox-pyenv = "^1.1"
+seed-isort-config = "^2.2"
+mypy = "^1.0"
+flake8 = "^3.8"
+pydantic = "^1.8.1"
+recommonmark = "^0.7.1"
+nbsphinx-link = "^1.3.0"
+ipython = "^7.31"
+twine = "4.0"
+certifi = ">= 2022.06.15"
+grpc-stubs = "^1.24"
+types-protobuf = "^3.19"
+types-oauthlib = "^3.1.1"
+mypy-protobuf = "^3.2"
+msal = "^1.20"
+shapely = "^2.0.0"
+toml = "^0.10"
+types-toml = "^0.10"
+
+[[tool.poetry.source]]
+name = "snakepit"
+url = "https://cognite.jfrog.io/cognite/api/pypi/snakepit/simple"
+priority = "primary"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[build-system]
+requires = ["poetry>=1.2"]
+build-backend = "poetry.masonry.api"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = false
+mypy_path = "stubs"
+exclude = [
+    '^cognite/seismic/proto',
+    '^docs/',
+    '^examples.py$',
+    '^tests/',
+]
+

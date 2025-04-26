@@ -1,0 +1,64 @@
+[tool.pdm.dev-dependencies]
+test = [
+    "tox>=4.4.8",
+    "pytest>=7.2.2",
+    "tox-gh-actions>=3.1.0",
+]
+doc = [
+    "sphinx>=5.3.0",
+    "numpydoc>=1.5.0",
+    "myst-parser>=1.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+]
+lint = [
+    "flake8>=3.9.2",
+]
+
+[tool.pdm.scripts]
+test-quick = "pytest test -v"
+test-matrix = "tox -v --skip-missing-interpreters=true"
+test-all = "tox -v --skip-missing-interpreters=false"
+doc = "sphinx-build doc doc/build -b html"
+lint = "flake8 plyfile.py test/test_plyfile.py"
+
+[project]
+name = "plyfile"
+version = "1.1"
+description = "PLY file reader/writer"
+authors = [
+    { name = "Darsh Ranjan", email = "dranjan@berkeley.edu" },
+]
+dependencies = [
+    "numpy>=1.21",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+keywords = [
+    "ply",
+    "numpy",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.license]
+file = "COPYING"
+
+[project.urls]
+Homepage = "https://github.com/dranjan/python-plyfile"
+Documentation = "https://python-plyfile.readthedocs.io"
+Repository = "https://github.com/dranjan/python-plyfile"
+
+[build-system]
+requires = [
+    "pdm-pep517>=1.0.0",
+]
+build-backend = "pdm.pep517.api"

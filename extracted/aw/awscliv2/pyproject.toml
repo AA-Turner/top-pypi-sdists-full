@@ -1,0 +1,140 @@
+[tool.black]
+line-length = 100
+include = "(awscliv2|tests)/.*\\.pyi?$"
+target-version = ["py37", "py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["awscliv2", "tests"]
+src_paths = []
+
+[tool.poetry]
+name = "awscliv2"
+version = "2.3.1"
+description = "Wrapper for AWS CLI v2"
+authors = ["Vlad Emelianov <vlad.emelianov.nz@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://youtype.github.io/awscliv2/"
+repository = "https://github.com/youtype/awscliv2"
+documentation = "https://youtype.github.io/awscliv2/"
+keywords = ["awscli", "awscliv2", "wrapper"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [{ include = "awscliv2" }]
+include = ["LICENSE", "awscliv2/py.typed"]
+
+[tool.poetry.scripts]
+awscliv2 = 'awscliv2.main:main_cli'
+awsv2 = 'awscliv2.main:main_cli'
+
+[tool.poetry.urls]
+"Documentation" = "https://awscliv2.readthedocs.io/en/latest/"
+"Source" = "https://github.com/youtype/awscliv2"
+"Bug Tracker" = "https://github.com/youtype/awscliv2/issues"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pip = "*"
+importlib-metadata = { version = "*", python = "<3.8" }
+
+[tool.poetry.group.dev.dependencies]
+ruff = { version = "*", python = ">=3.10" }
+pyright = { version = "*", python = ">=3.10" }
+rope = { version = "*", python = ">=3.10" }
+handsdown = { version = "*", python = ">=3.10" }
+pytest = { version = "*", python = ">=3.10" }
+pytest-cov = { version = "*", python = ">=3.10" }
+types-setuptools = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+ignore_errors = true
+omit = ["tests/*"]
+
+[tool.pyright]
+include = ["awscliv2"]
+exclude = ["**/__pycache__", "tests", "typestubs"]
+reportMissingImports = true
+reportMissingTypeStubs = true
+reportMissingTypeArgument = "error"
+reportIncompatibleMethodOverride = "error"
+reportIncompatibleVariableOverride = "error"
+reportUnknownParameterType = "error"
+pythonVersion = "3.7"
+
+[tool.ruff]
+exclude = [
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "build",
+    "dist",
+]
+
+line-length = 100
+indent-width = 4
+target-version = "py37"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "I", "N", "D", "C4", "C90", "RUF"]
+ignore = [
+    "E501",
+    "N803",
+    "N818",
+    "D107",
+    "D200",
+    "D203",
+    "D212",
+    "D406",
+    "D407",
+    "D413",
+    "D417",
+]
+fixable = ["ALL"]
+unfixable = ["B"]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+exclude = ["test_*.py", "*.pyi"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"

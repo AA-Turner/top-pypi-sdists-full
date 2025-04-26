@@ -1,0 +1,114 @@
+[build-system]
+requires = ['flit_core>=3.4,<4']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'kantoku'
+dynamic = ['description', 'version']
+authors = [
+    {name = 'Mozilla Foundation & contributors', email = 'services-dev@lists.mozila.org'},
+    {name = 'BentoML Team', email = 'team@bentoml.com'}
+]
+readme = 'README.md'
+license = {file = 'LICENSE'}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+]
+requires-python = '>=3.7'
+dependencies = [
+    'psutil',
+    'pyzmq>=17.0',
+    'tornado>=5.0.2',
+]
+
+[project.urls]
+Source = 'https://github.com/bentoml/kantoku'
+Documentation = 'https://circus.readthedocs.io'
+
+[project.optional-dependencies]
+test = [
+    'coverage',
+    'flake8',
+    'gevent',
+    'mock',
+    'pytest',
+    'pytest-cov',
+    'pyyaml',
+    'tox',
+]
+
+[project.scripts]
+circusd = 'circus.circusd:main'
+circusd-stats = 'circus.stats:main'
+circusctl = 'circus.circusctl:main'
+circus-top = 'circus.stats.client:main'
+circus-plugin = 'circus.plugins:main'
+
+[tool.flit.module]
+name = 'circus'
+
+[tool.flit.sdist]
+exclude = [
+    '.github/',
+    'docs/',
+    'examples/',
+    'tests/',
+    '.gitignore',
+]
+
+[tool.pytest.ini_options]
+minversion = '6.0'
+testpaths = [
+    'tests',
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+envlist = py39,py310,py311,py312,py313,pypy39,pypy310,flake8,docs
+
+[testenv]
+passenv = PWD
+deps =
+    coverage
+    gevent
+    mock
+    pytest
+    pytest-cov
+    pyyaml
+    pyzmq>=17.0
+    tornado>=5.0.2
+
+setenv =
+    TESTING=1
+    PYTHONUNBUFFERED=1
+
+commands =
+    pytest --verbose -s
+
+
+[testenv:docs]
+whitelist_externals = make
+deps =
+    sphinx
+    mozilla-sphinx-theme
+commands = make -C docs html
+
+
+[testenv:flake8]
+deps = flake8
+commands = flake8 circus
+"""

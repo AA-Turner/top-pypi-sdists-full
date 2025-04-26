@@ -1,0 +1,215 @@
+[build-system]
+requires = [
+    "hatchling>=1.10.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "nbclient"
+dynamic = [
+    "version",
+]
+description = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9.0"
+authors = [
+    { name = "Jupyter Development Team", email = "jupyter@googlegroups.com" },
+]
+keywords = [
+    "executor",
+    "jupyter",
+    "notebook",
+    "pipeline",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "jupyter_client>=6.1.12",
+    "jupyter_core>=4.12,!=5.0.*",
+    "nbformat>=5.1",
+    "traitlets>=5.4",
+]
+
+[project.optional-dependencies]
+test = [
+    "flaky",
+    "ipykernel>=6.19.3",
+    "ipython",
+    "ipywidgets",
+    "nbconvert>=7.1.0",
+    "pytest-asyncio",
+    "pytest-cov>=4.0",
+    "pytest>=7.0,<8",
+    "testpath",
+    "xmltodict",
+]
+docs = [
+    "autodoc-traits",
+    "mock",
+    "moto",
+    "myst-parser",
+    "sphinx-book-theme",
+    "sphinxcontrib_spelling",
+    "sphinx>=1.7",
+    "nbclient[test]",
+]
+dev = [
+    "pre-commit",
+]
+
+[project.scripts]
+jupyter-execute = "nbclient.cli:main"
+
+[project.urls]
+Documentation = "https://nbclient.readthedocs.io"
+Funding = "https://numfocus.org/"
+Homepage = "https://jupyter.org"
+Source = "https://github.com/jupyter/nbclient"
+Tracker = "https://github.com/jupyter/nbclient/issues"
+
+[tool.hatch.version]
+path = "nbclient/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/nbclient",
+    "/tests"
+]
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test"]
+dependencies = ["coverage[toml]", "pytest-cov"]
+[tool.hatch.envs.cov.scripts]
+test = "python -m pytest -vv --cov nbclient --cov-branch --cov-report term-missing:skip-covered {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["pre-commit"]
+[tool.hatch.envs.lint.scripts]
+build = [
+    "pre-commit run --all-files ruff",
+    "pre-commit run --all-files ruff-format"
+]
+
+[tool.hatch.envs.typing]
+dependencies = [ "pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-ra", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
+]
+testpaths = ["tests"]
+filterwarnings= [
+  # Fail on warnings
+  "error",
+  "module:Jupyter is migrating its paths:DeprecationWarning",
+  "module:unclosed <socket.socket:ResourceWarning",
+  "module:There is no current event loop:DeprecationWarning",
+  "module:unclosed event loop:ResourceWarning",
+  "module:Unclosed socket <zmq:ResourceWarning",
+  "module:zmq.eventloop.ioloop is deprecated:DeprecationWarning",
+  "module:subprocess .* is still running:ResourceWarning",
+  "module:Unclosed context <zmq:ResourceWarning",
+  "module:datetime.datetime.utc:DeprecationWarning",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\bProtocol\\):",
+"@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.run]
+relative_files = true
+source = ["nbclient"]
+
+[tool.mypy]
+files = "nbclient"
+python_version = "3.8"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = [
+    "async_generator.*",
+    "testpath",
+    "xmltodict",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "A", "B", "C", "E", "F", "FBT", "I", "N", "Q", "RUF", "S", "T",
+  "UP", "W", "YTT",
+]
+ignore = [
+# Q000 Single quotes found but double quotes preferred
+"Q000",
+# FBT001 Boolean positional arg in function definition
+"FBT001", "FBT002", "FBT003",
+# C901 `async_setup_kernel` is too complex (12)
+"C901",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# S101 Use of `assert` detected
+"tests/*" = ["S101"]
+"nbclient/client.py" = ["S101"]
+"*.ipynb" = ["B", "E402", "T201", "F821", "A001", "E722", "S110", "RUF001"]
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["tests", "docs"]
+
+[tool.repo-review]
+ignore = ["PY005", "PY007", "GH102"]

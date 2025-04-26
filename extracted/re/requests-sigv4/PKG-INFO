@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: requests-sigv4
+Version: 0.1.6
+Summary: Library for making sigv4 requests to AWS API endpoints
+Home-page: https://github.com/cleardataeng/requests-sigv4
+Author: ClearDATA Engineering
+Author-email: support@cleardata.com
+License: Apache License 2.0
+Keywords: aws requests sign sigv4
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+License-File: LICENSE
+
+Library for making sigv4 requests to AWS API endpoints

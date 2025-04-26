@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "warlock"
+version = "2.0.1"
+description = "Python object model built on JSON schema and JSON patch."
+readme = "README.md"
+authors = ["Brian Waldon <bcwaldon@gmail.com>"]
+maintainers = ["Jan Willhaus <mail@janwillhaus.de>"]
+homepage = "http://github.com/bcwaldon/warlock"
+repository = "http://github.com/bcwaldon/warlock"
+license = "Apache-2.0"
+keywords=["JSON schema", "JSON patch", "model validation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+    { include = "warlock" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+jsonschema = "^4"
+jsonpatch = "^1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.0"
+pytest-cov = "^3.0"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+  | \.git
+  | \.venv
+  | venv
+  | __pycache__
+)/
+'''
+
+[tool.isort]
+known_third_party = ["jsonpatch","jsonschema"]
+known_first_party=["warlock"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

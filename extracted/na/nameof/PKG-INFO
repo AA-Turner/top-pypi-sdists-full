@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: nameof
+Version: 0.0.1
+Summary: Get the name of a variable or attribute, as in C#
+Home-page: https://github.com/alexmojaki/nameof
+Author: Alex Hall
+Author-email: alex.mojaki@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8

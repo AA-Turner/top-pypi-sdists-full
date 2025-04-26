@@ -1,0 +1,48 @@
+Metadata-Version: 2.1
+Name: pytest-harvest
+Version: 1.10.5
+Summary: Store data created during your pytest tests execution, and retrieve it at the end of the session, e.g. for applicative benchmarking purposes.
+Home-page: https://github.com/smarie/python-pytest-harvest
+Download-URL: https://github.com/smarie/python-pytest-harvest/tarball/1.10.5
+Author: Sylvain MARIE <sylvain.marie@se.com>
+Maintainer: Sylvain MARIE <sylvain.marie@se.com>
+License: BSD 3-Clause
+Keywords: pytest test result store fixture collect benchmark artifact session data dataframe
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Pytest
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: packaging
+Requires-Dist: decopatch
+Requires-Dist: makefun>=1.5
+Requires-Dist: funcsigs; python_version < "3.3"
+Requires-Dist: six
+Requires-Dist: pathlib2; python_version < "3.2"
+
+# pytest-harvest
+
+[![Python versions](https://img.shields.io/pypi/pyversions/pytest-harvest.svg)](https://pypi.python.org/pypi/pytest-harvest/) [![Build Status](https://github.com/smarie/python-pytest-harvest/actions/workflows/base.yml/badge.svg)](https://github.com/smarie/python-pytest-harvest/actions/workflows/base.yml) [![Tests Status](https://smarie.github.io/python-pytest-harvest/reports/junit/junit-badge.svg?dummy=8484744)](https://smarie.github.io/python-pytest-harvest/reports/junit/report.html) [![codecov](https://codecov.io/gh/smarie/python-pytest-harvest/branch/master/graph/badge.svg)](https://codecov.io/gh/smarie/python-pytest-harvest)
+
+[![Documentation](https://img.shields.io/badge/doc-latest-blue.svg)](https://smarie.github.io/python-pytest-harvest/) [![PyPI](https://img.shields.io/pypi/v/pytest-harvest.svg)](https://pypi.python.org/pypi/pytest-harvest/) [![Downloads](https://pepy.tech/badge/pytest-harvest)](https://pepy.tech/project/pytest-harvest) [![Downloads per week](https://pepy.tech/badge/pytest-harvest/week)](https://pepy.tech/project/pytest-harvest) [![GitHub stars](https://img.shields.io/github/stars/smarie/python-pytest-harvest.svg)](https://github.com/smarie/python-pytest-harvest/stargazers)
+
+Store data created during your `pytest` tests execution, and retrieve it at the end of the session, e.g. for applicative benchmarking purposes.
+
+The documentation for users is available here: [https://smarie.github.io/python-pytest-harvest/](https://smarie.github.io/python-pytest-harvest/)
+
+A readme for developers is available here: [https://github.com/smarie/python-pytest-harvest](https://github.com/smarie/python-pytest-harvest)

@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: ipsos-credibility-interval
+Version: 0.0.3
+Summary: Calculate Bayesian credibility intervals for online polling using the Ipsos method
+Home-page: https://palewi.re/docs/ipsos-credibility-interval/
+Author: your name
+Author-email: your@email.com
+License: MIT
+Project-URL: Maintainer, https://github.com/palewire/
+Project-URL: Source, https://github.com/palewire/ipsos-credibility-interval
+Project-URL: Tracker, https://github.com/palewire/ipsos-credibility-interval/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Typing :: Typed
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: scipy
+
+A Python tool that calculates Bayesian credibility intervals for online polling using [the Ipsos method](https://www.ipsos.com/sites/default/files/2017-03/IpsosPA_CredibilityIntervals.pdf)
+
+## Other resources
+
+- [Ipsos white paper](https://www.ipsos.com/sites/default/files/2017-03/IpsosPA_CredibilityIntervals.pdf)
+- [Documentation](https://palewi.re/docs/ipsos-credibility-interval/)
+- [PyPI package](https://pypi.org/project/ipsos-credibility-interval/)

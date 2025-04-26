@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "slackblocks"
+version = "1.0.15"
+description = "Python wrapper for the Slack Blocks API"
+authors = [
+    "Nicholas Lambourne <dev@ndl.im>",
+]
+maintainers = [
+    "Nicholas Lambourne <dev@ndl.im>",
+]
+homepage = "https://github.com/nicklambourne/slackblocks"
+repository = "https://github.com/nicklambourne/slackblocks"
+license = "MIT"
+readme = "README.md"
+keywords = [
+    "slackblocks", 
+    "slack", 
+    "messaging", 
+    "message generation", 
+    "slack blocks", 
+    "blocks",
+]
+classifiers=[
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD License",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+    "Topic :: Communications :: Chat"
+]
+exclude = ["test/**", "docs/**"]
+
+[tool.poetry.dependencies]
+python = ">=3.8.0"
+
+[tool.poetry.group.dev.dependencies]
+aiohttp = "^3.10.4"
+black = "^24.1.1"
+flake8 = "^5.0.4"
+flake8-pyproject = "^1.2.3"
+pytest = "^8.0.0"
+slack-sdk = "^3.31.0"
+twine = "^4.0.2"
+wheel = "^0.42.0"
+
+[tool.poetry.group.docs.dependencies]
+mike="^2.0.0"
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.6"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
+mkdocstrings-python = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+exclude = [".venv", "./build", "./dist", ".eggs", ".git"]
+max-line-length = 100
+extend-ignore = """
+    BLK100
+"""
+per-file-ignores = [
+    "slackblocks/__init__.py:F401",
+    "slackblocks/rich_text/__init__.py:F401",
+    "slackblocks/rich_text/objects.py:W605",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    #transform warnings into errors so they are not possible to ignore
+    "error",
+    #except when defined explicitly as per example below. See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#controlling-warnings
+    #"ignore::UserWarning",
+]

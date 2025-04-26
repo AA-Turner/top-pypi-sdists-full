@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "evergreen-lint"
+version = "0.1.9"  # Duplicated in the top-level __init__.py.
+description = ""
+authors = [
+    "DevProd Build Team <devprod-build-team@mongodb.com>",
+    "DevProd Correctness Team <devprod-correctness-team@mongodb.com>",
+]
+
+[tool.poetry.scripts]
+main = "evergreen_lint.__main__:main"
+
+[tool.poetry.dependencies]
+# Python version should be set to the minimum supported toolchain version
+python = "^3.9"
+# These dependencies are tied to whatever versions are used by the oldest
+# supported branch of MongoDB server, presently 5.0
+PyYAML = ">=3.0.0"
+typing-extensions = ">=3.10.0"
+click = ">=7.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+flake8 = "<5.0" # https://github.com/tholo/pytest-flake8/issues/87
+isort = "^5.10.1"
+black = "^22.3"
+pytest-black = "^0.3"
+pytest-flake8 = "^1.0"
+pytest-mypy = "^0.8"
+pytest-isort = "^2.0"
+types-PyYAML = "^6.0.11"
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.pytest.ini_options]
+flake8-ignore = "W605 W503 W291 E203 E501 F821"
+addopts = "--flake8 --black --mypy --isort"
+testpaths = [
+    "evergreen_lint",
+    "tests",
+]
+
+[tool.isort]
+profile="black"
+multi_line_output = 3
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

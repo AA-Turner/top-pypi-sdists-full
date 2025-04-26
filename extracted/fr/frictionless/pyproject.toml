@@ -1,0 +1,204 @@
+[project]
+name = "frictionless"
+dynamic = ["version"]
+description = "Data management framework for Python that provides functionality to describe, extract, validate, and transform tabular data"
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.8"
+urls.homepage = "https://github.com/frictionlessdata/frictionless-py"
+urls.changelog = "https://github.com/frictionlessdata/framework/blob/main/CHANGELOG.md"
+authors = [
+    {name = "Open Knowledge Foundation", email = "info@okfn.org"},
+]
+keywords=[
+    "data validation",
+    "frictionless data",
+    "open data",
+    "json schema",
+    "json table schema",
+    "data package",
+    "tabular data package",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "petl>=1.6",
+    "marko>=1.0",
+    "attrs>=22.2.0",
+    "jinja2>=3.0",
+    "pyyaml>=5.3",
+    "isodate>=0.6",
+    "rfc3986>=1.4",
+    "chardet>=3.0",
+    "pydantic>=2.0",
+    "requests>=2.10",
+    "humanize>=4.2",
+    "tabulate>=0.8.10",
+    "jsonschema>=4.20",
+    "simpleeval>=0.9.11",
+    "typer>=0.12",
+    "validators>=0.18",
+    "python-slugify>=1.2",
+    "python-dateutil>=2.8",
+    "typing-extensions>=4.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "moto",
+    "ruff",
+    "httpx",
+    "hatch",
+    "yattag",
+    "neovim",
+    "pytest",
+    "pyright==1.1.317",
+    "ipython",
+    "livemark",
+    "pytest-cov",
+    "pytest-vcr",
+    "pytest-mock",
+    "oauth2client",
+    "requests-mock",
+    "pytest-dotenv",
+    "pytest-timeout",
+    "pytest-lazy-fixtures",
+]
+aws = ["boto3>=1.9"]
+bigquery = ["google-api-python-client>=1.12.1"]
+ckan = ["frictionless-ckan-mapper>=1.0"]
+csv = []
+datasette = ["datasette>=0.64.2"]
+duckdb = ["sqlalchemy>=1.4, <=2.0.35", "duckdb-engine>=0.7", "duckdb>=0.8"]
+excel = ["xlrd>=1.2", "xlwt>=1.2", "openpyxl>=3.0", "tableschema-to-template>=0.0"]
+json = ["ijson>=3.0", "jsonlines>=1.2"]
+github = ["pygithub>=1.50"]
+gsheets = ["pygsheets>=2.0"]
+html = ["pyquery>=1.4"]
+mysql = ["sqlalchemy>=1.4", "pymysql>=1.0"]
+ods = ["ezodf>=0.3", "lxml>=4.0"]
+pandas = ["pyarrow>=14.0", "pandas>=1.0"]
+parquet = ["fastparquet>=0.8"]
+postgresql = ["sqlalchemy>=1.4", "psycopg>=3.0", "psycopg2>=2.9"]
+spss = ["savReaderWriter>=3.0"]
+sql = ["sqlalchemy>=1.4"]
+visidata = ["visidata>=2.10"]
+wkt = ["TatSu>=5.8.3"]
+zenodo = ["pyzenodo3>=1.0"]
+
+[project.scripts]
+frictionless = "frictionless.__main__:console"
+
+[tool.hatch.version]
+path = "frictionless/settings.py"
+
+[tool.hatch.envs.default]
+python = "3.10"
+dependencies = [
+  "frictionless[aws,bigquery,ckan,csv,dev,duckdb,excel,json,github,gsheets,html,mysql,ods,pandas,parquet,postgresql,spss,sql,visidata,wkt,zenodo]",
+]
+
+[tool.hatch.envs.default.scripts]
+coverage = [
+  "sensible-browser coverage/index.html",
+]
+docs = [
+  "livemark serve",
+]
+docs-build = [
+  "livemark build",
+]
+image = [
+  "docker build --rm -t frictionless-dev .",
+]
+format = [
+  "ruff check --fix",
+  "ruff format frictionless",
+]
+lint = [
+  "ruff check frictionless",
+]
+release = [
+  """
+  VERSION=$(hatch run version)
+  git checkout main && git pull origin && git fetch -p
+  git log --pretty=format:"%C(yellow)%h%Creset %s%Cgreen%d" --reverse -20
+  echo "\nReleasing v$VERSION in 10 seconds. Press <CTRL+C> to abort\n" && sleep 10
+  hatch run test && git commit -a -m "v$VERSION" && git tag -a "v$VERSION" -m "v$VERSION"
+  git push --follow-tags
+  """
+]
+spec = [
+  "pytest --cov frictionless --cov-report term-missing --cov-report html:coverage --cov-fail-under 70 --timeout=300",
+]
+test = [
+  "lint",
+  "type",
+  "spec",
+]
+type = [
+  "pyright frictionless",
+]
+version = [
+  "hatch --no-color version"
+]
+
+
+[[tool.hatch.envs.ci.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.ci.scripts]
+spec = [
+  "pytest --cov frictionless --cov-report term-missing --cov-report xml --cov-fail-under 75 --timeout=300 --ci",
+]
+test = [
+  "lint",
+  "type",
+  "spec",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 90
+
+[tool.ruff.lint]
+ignore = ["E501", "E731", "F405"]
+extend-select = ["I"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+
+[tool.pytest.ini_options]
+testpaths = ["frictionless"]
+env_files = [".env"]
+markers = [
+    "ci: integration tests (select with '--ci')",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:boto.*",
+    "ignore::DeprecationWarning:moto.*",
+    "ignore::DeprecationWarning:grako.*",
+    "ignore::DeprecationWarning:savWriter.*",
+    "ignore::Warning:duckdb_engine.*",
+]
+
+[tool.pyright]
+strict = ["frictionless"]
+include = ["frictionless"]
+exclude = ["frictionless/vendors"]
+ignore = ["**/__spec__/**", "**/__init__.py", "**/conftest.py"]

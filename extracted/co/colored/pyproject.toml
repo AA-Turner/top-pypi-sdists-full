@@ -1,0 +1,43 @@
+[build-system]
+requires = ["flit_core>=3.10.1,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "colored"
+version = "2.3.0"
+authors = [
+    {name = "Dimitris Zlatanidis", email = "dslackw@gmail.com"},
+]
+description = "Simple python library for color and formatting to terminal"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = [
+    'xterm',
+    'color',
+    'colour',
+    'vt100',
+    'ansi',
+    'terminal',
+    'text',
+    'rgb',
+    'linux',
+    'windows']
+
+license = {text = "MIT License"}
+
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: POSIX :: Other',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: Microsoft :: Windows :: Windows 10',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Typing :: Typed',
+    'Topic :: Terminals'
+]
+
+[project.urls]
+homepage = "https://dslackw.gitlab.io/colored/"

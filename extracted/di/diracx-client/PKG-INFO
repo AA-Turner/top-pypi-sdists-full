@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: diracx-client
+Version: 0.0.1a43
+Summary: TODO
+License: GPL-3.0-only
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.11
+Requires-Dist: azure-core
+Requires-Dist: diracx-core
+Requires-Dist: httpx
+Requires-Dist: isodate
+Provides-Extra: testing
+Requires-Dist: diracx-testing; extra == 'testing'
+Provides-Extra: types

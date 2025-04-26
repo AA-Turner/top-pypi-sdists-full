@@ -1,0 +1,163 @@
+[project]
+name = "asdf-astropy"
+description = "ASDF serialization support for astropy"
+readme = 'README.rst'
+license = { file = 'LICENSE.rst' }
+authors = [{ name = 'The Astropy Developers', email = 'astropy.team@gmail.com' }]
+requires-python = '>=3.10'
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Programming Language :: Python',
+  "Programming Language :: Python :: 3 :: Only",
+  'Programming Language :: Python :: 3.10',
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dynamic = [
+  'version',
+]
+dependencies = [
+  "asdf>=2.14.4",
+  "asdf-coordinates-schemas>=0.3",
+  "asdf-transform-schemas>=0.5",
+  "asdf-standard>=1.1.0",
+  "astropy>=5.2.0",
+  "numpy>=1.24",
+  "packaging>=19",
+]
+[project.optional-dependencies]
+docs = [
+  "docutils",
+  "graphviz",
+  "matplotlib",
+  "sphinx",
+  "sphinx-asdf",
+  "sphinx-astropy",
+  "sphinx-automodapi",
+  "tomli",
+]
+test = [
+  "coverage",
+  "pytest-astropy",
+  "pytest",
+  "scipy",  # indirect requirement via astropy
+]
+[project.urls]
+'documentation' = 'https://asdf-astropy.readthedocs.io/en/latest/'
+'repository' = 'https://github.com/astropy/asdf-astropy'
+'tracker' = 'https://github.com/astropy/asdf-astropy/issues'
+[project.entry-points]
+'asdf.extensions' = {asdf-astropy = 'asdf_astropy.integration:get_extensions'}
+'asdf.resource_mappings' = {asdf-astropy = 'asdf_astropy.integration:get_resource_mappings'}
+
+[build-system]
+build-backend = 'setuptools.build_meta'
+requires = [
+  "setuptools>=60",
+  "setuptools_scm[toml]>=3.4",
+]
+
+[tool.setuptools]
+packages = ["asdf_astropy", "asdf_astropy.resources"]
+
+[tool.setuptools.package-data]
+"asdf_astropy.resources" = ["asdf_astropy/resources/**/**/*.yaml"]
+
+[tool.setuptools_scm]
+write_to = "asdf_astropy/_version.py"
+
+[tool.black]
+line-length = 120
+force-exclude = '''
+^/(
+  (
+      \.eggs
+    | \.git
+    | \.pytest_cache
+    | \.tox
+  )/
+)
+'''
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+select = ["ALL"]
+extend-ignore = [
+    # Ignore check groups
+    "C90", # mccabe
+    "D", # pydocstyle
+    "ANN", # flake8-annotations
+    "ARG", # flake8-unused-arguments
+    "DTZ", # flake8-datetimez
+    "TD", # flake8-todos
+    "FIX", # flake8-fixme
+    "SIM", # flake8-simplify
+    # Individually ignored checks
+    "SLF001", # private-member-access
+    "FBT001", # boolean positional arguments in function definition
+    "RUF012", # mutable class attributes should be annotated with typing.ClassVar
+    "PTH123", # replace open with Path.open
+]
+extend-exclude = ["docs/*"]
+
+[tool.ruff.per-file-ignores]
+"test_*.py" = ["S101"]
+"asdf_astropy/testing/helpers.py" = ["S101"]
+"scripts/generate_manifest.py" = ["S101", "SLOT000"]
+
+[tool.isort]
+profile = "black"
+filter_files = true
+line_length = 120
+
+[tool.pytest.ini_options]
+testpaths = ['asdf_astropy', 'docs']
+astropy_header = true
+doctest_plus = 'enabled'
+text_file_format = 'rst'
+filterwarnings = [
+    'error',
+    'ignore:numpy.ndarray size changed:RuntimeWarning',
+]
+addopts = '--color=yes --doctest-rst'
+asdf_schema_root = 'asdf_astropy/resources/schemas'
+asdf_schema_tests_enabled = true
+
+[tool.coverage.run]
+omit = [
+    'asdf_astropy/_astropy_init*',
+    'asdf_astropy/conftest.py',
+    'asdf_astropy/*setup_package*',
+    'asdf_astropy/tests/*',
+    'asdf_astropy/*/tests/*',
+    'asdf_astropy/extern/*',
+    'asdf_astropy/version*',
+    '*/asdf_astropy/_astropy_init*',
+    '*/asdf_astropy/conftest.py',
+    '*/asdf_astropy/*setup_package*',
+    '*/asdf_astropy/tests/*',
+    '*/asdf_astropy/*/tests/*',
+    '*/asdf_astropy/extern/*',
+    '*/asdf_astropy/version*',
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    'pragma: no cover',
+    # Don't complain about packages we have installed
+    'except ImportError',
+    # Don't complain if tests don't hit assertions
+    'raise AssertionError',
+    'raise NotImplementedError',
+    # Don't complain about script hooks
+    'def main\(.*\):',
+    # Ignore branches that don't pertain to this version of Python
+    'pragma: py{ignore_python_version}',
+    # Don't complain about IPython completion helper
+    'def _ipython_key_completions_',
+]
+
+[tool.codespell]
+skip="*.pdf,*.fits,*.asdf,*.egg-info,.tox,build,./tags,.git,./docs/_build"

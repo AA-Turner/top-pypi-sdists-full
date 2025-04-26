@@ -1,0 +1,19 @@
+Metadata-Version: 1.2
+Name: yolo
+Version: 0.3.2
+Summary: Manage AWS infrastructure and microservices across multiple stages/accounts
+Home-page: UNKNOWN
+Maintainer: Lars Butler
+Maintainer-email: lars.butler@rackspace.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Software Development :: Build Tools

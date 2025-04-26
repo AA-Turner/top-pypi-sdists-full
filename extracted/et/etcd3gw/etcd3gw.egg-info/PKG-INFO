@@ -1,0 +1,54 @@
+Metadata-Version: 1.2
+Name: etcd3gw
+Version: 2.4.2
+Summary: A python client for etcd3 grpc-gateway v3 API
+Home-page: https://docs.openstack.org/etcd3gw/latest/
+Author: OpenStack
+Author-email: openstack-discuss@lists.openstack.org
+License: UNKNOWN
+Description: ========================
+        Team and repository tags
+        ========================
+        
+        .. image:: https://governance.openstack.org/tc/badges/oslo.config.svg
+            :target: https://governance.openstack.org/tc/reference/tags/index.html
+        
+        .. Change things from this point on
+        
+        ===========================
+        etcd3 gateway Python Client
+        ===========================
+        
+        .. image:: https://img.shields.io/pypi/v/etcd3gw.svg
+             :target: https://pypi.org/project/etcd3gw/
+             :alt: Latest version
+        
+        .. image:: https://img.shields.io/pypi/dm/etcd3gw.svg
+             :target: https://pypi.org/project/etcd3gw/
+             :alt: Downloads
+        
+        The etcd3gw library provides a python client for etcd3 grpc-gateway v3 API.
+        
+        * License: Apache License, Version 2.0
+        * Documentation: https://docs.openstack.org/etcd3gw/latest/
+        * Source: https://opendev.org/openstack/etcd3gw/
+        * Bugs: https://bugs.launchpad.net/python-etcd3gw
+        * Release notes:  https://docs.openstack.org/releasenotes/etcd3gw/
+        
+        
+Platform: UNKNOWN
+Classifier: Environment :: Console
+Classifier: Environment :: OpenStack
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.8

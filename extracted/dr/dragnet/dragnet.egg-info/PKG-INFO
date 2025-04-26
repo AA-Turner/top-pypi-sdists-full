@@ -1,0 +1,25 @@
+Metadata-Version: 1.1
+Name: dragnet
+Version: 2.0.4
+Summary: Extract the main article content (and optionally comments) from a web page
+Home-page: http://github.com/seomoz/dragnet
+Author: Matt Peters, Dan Lecocq
+Author-email: matt@moz.com, dan@moz.com
+License: MIT
+Description: UNKNOWN
+Keywords: automatic content extraction,web page dechroming,HTML parsing
+Platform: Posix; MacOS X
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6

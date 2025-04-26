@@ -1,0 +1,48 @@
+Metadata-Version: 2.3
+Name: haystack-pydoc-tools
+Version: 0.3.2
+Summary: Pydoc custom tools for Haystack docs
+Project-URL: Documentation, https://github.com/unknown/haystack-pydoc-tools#readme
+Project-URL: Issues, https://github.com/unknown/haystack-pydoc-tools/issues
+Project-URL: Source, https://github.com/unknown/haystack-pydoc-tools
+Author-email: Massimiliano Pippi <mpippi@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.8
+Requires-Dist: databind<4.5.0
+Requires-Dist: pydoc-markdown==4.8.2
+Requires-Dist: requests
+Requires-Dist: setuptools
+Description-Content-Type: text/markdown
+
+# haystack-pydoc-tools
+
+[![PyPI - Version](https://img.shields.io/pypi/v/haystack-pydoc-tools.svg)](https://pypi.org/project/haystack-pydoc-tools)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/haystack-pydoc-tools.svg)](https://pypi.org/project/haystack-pydoc-tools)
+
+-----
+
+**Table of Contents**
+
+- [haystack-pydoc-tools](#haystack-pydoc-tools)
+  - [Installation](#installation)
+  - [License](#license)
+
+## Installation
+
+```console
+pip install haystack-pydoc-tools
+```
+
+## License
+
+`haystack-pydoc-tools` is distributed under the terms of the [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license.

@@ -1,0 +1,41 @@
+Metadata-Version: 2.1
+Name: googleapis-common-protos-stubs
+Version: 2.3.1
+Summary: Type stubs for googleapis-common-protos
+Home-page: https://github.com/henribru/googleapis-common-protos-stubs
+License: Apache-2.0
+Author: Henrik Bruåsdal
+Author-email: henrik.bruasdal@gmail.com
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Stubs Only
+Requires-Dist: googleapis-common-protos (>=1.62.0)
+Requires-Dist: grpc-stubs (>=1.53.0.5)
+Requires-Dist: types-protobuf (>=3.20.4.2)
+Requires-Dist: typing-extensions (>=3.10.0)
+Project-URL: Repository, https://github.com/henribru/googleapis-common-protos-stubs
+Description-Content-Type: text/markdown
+
+# Type stubs for googleapis-common-protos
+[![PyPI version](https://badge.fury.io/py/googleapis-common-protos-stubs.svg)](https://badge.fury.io/py/googleapis-common-protos-stubs)
+
+This package provides type stubs for the [googleapis-common-protos](https://pypi.org/project/googleapis-common-protos/) package.
+
+**This is in no way affiliated with Google.**
+
+The stubs were created automatically by [mypy-protobuf](https://github.com/dropbox/mypy-protobuf).
+
+Note that if you're using Mypy you need to use the `--namespace-packages` option as `google` and some of its subpackages are namespace packages.
+
+## Installation
+```shell script
+$ pip install googleapis-common-protos-stubs
+```
+

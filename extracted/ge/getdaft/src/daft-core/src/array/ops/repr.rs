@@ -1,0 +1,527 @@
+use common_display::table_display::StrValue;
+use common_error::DaftResult;
+
+use crate::{
+    array::{DataArray, FixedSizeListArray, ListArray, StructArray},
+    datatypes::{
+        logical::{
+            DateArray, DurationArray, EmbeddingArray, FixedShapeImageArray,
+            FixedShapeSparseTensorArray, FixedShapeTensorArray, ImageArray, MapArray,
+            SparseTensorArray, TensorArray, TimeArray, TimestampArray,
+        },
+        BinaryArray, BooleanArray, DaftNumericType, DataType, Decimal128Array, ExtensionArray,
+        FixedSizeBinaryArray, IntervalArray, IntervalValue, NullArray, UInt64Array, Utf8Array,
+    },
+    series::Series,
+    utils::display::{
+        display_date32, display_decimal128, display_duration, display_time64, display_timestamp,
+    },
+    with_match_daft_types,
+};
+
+// Default implementation of str_value: format the value with the given format string.
+macro_rules! impl_array_str_value {
+    ($ArrayT:ty, $fmt:expr) => {
+        impl $ArrayT {
+            pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+                let val = self.get(idx);
+                match val {
+                    None => Ok("None".to_string()),
+                    Some(v) => Ok(format!($fmt, v)),
+                }
+            }
+        }
+    };
+}
+
+impl_array_str_value!(BooleanArray, "{}");
+impl_array_str_value!(ExtensionArray, "{:?}");
+
+fn pretty_print_bytes(bytes: &[u8], max_len: usize) -> DaftResult<String> {
+    /// influenced by pythons bytes repr
+    /// https://github.com/python/cpython/blob/main/Objects/bytesobject.c#L1336
+    const PREFIX: &str = "b\"";
+    const POSTFIX: &str = "\"";
+    const POSTFIX_TRUNC: &str = "\"...";
+    let ending_bytes = if bytes.len() <= max_len {
+        POSTFIX.len()
+    } else {
+        POSTFIX_TRUNC.len()
+    };
+    let mut builder = String::with_capacity(max_len);
+    builder.push_str(PREFIX);
+    const QUOTE: u8 = b'\"';
+    const SLASH: u8 = b'\\';
+    const TAB: u8 = b'\t';
+    const NEWLINE: u8 = b'\n';
+    const CARRIAGE: u8 = b'\r';
+    const SPACE: u8 = b' ';
+
+    use std::fmt::Write;
+    let chars_to_add = max_len - ending_bytes;
+
+    for c in bytes {
+        if builder.len() >= chars_to_add {
+            break;
+        }
+        match *c {
+            QUOTE | SLASH => write!(builder, "\\{}", *c as char),
+            TAB => write!(builder, "\\t"),
+            NEWLINE => write!(builder, "\\n"),
+            CARRIAGE => write!(builder, "\\r"),
+            v if !(SPACE..0x7f).contains(&v) => write!(builder, "\\x{:02x}", v),
+            v => write!(builder, "{}", v as char),
+        }?;
+    }
+    if bytes.len() <= max_len {
+        builder.push_str(POSTFIX);
+    } else {
+        builder.push_str(POSTFIX_TRUNC);
+    }
+
+    Ok(builder)
+}
+
+impl<T> DataArray<T>
+where
+    T: DaftNumericType,
+{
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => Ok(format!("{v}")),
+        }
+    }
+}
+
+impl Utf8Array {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => Ok(v.to_string()),
+        }
+    }
+}
+impl NullArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        assert!(
+            idx < self.len(),
+            "Out of bounds: {} vs len: {}",
+            idx,
+            self.len()
+        );
+        Ok("None".to_string())
+    }
+}
+impl BinaryArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => {
+                const LEN_TO_TRUNC: usize = 40;
+                pretty_print_bytes(v, LEN_TO_TRUNC)
+            }
+        }
+    }
+}
+
+impl FixedSizeBinaryArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => {
+                const LEN_TO_TRUNC: usize = 40;
+                pretty_print_bytes(v, LEN_TO_TRUNC)
+            }
+        }
+    }
+}
+#[cfg(feature = "python")]
+impl crate::datatypes::PythonArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        use pyo3::prelude::*;
+
+        let val = self.get(idx);
+
+        let call_result =
+            Python::with_gil(|py| val.call_method0(py, pyo3::intern!(py, "__str__")))?;
+
+        let extracted = Python::with_gil(|py| call_result.extract(py))?;
+
+        Ok(extracted)
+    }
+}
+
+impl DateArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => Ok(display_date32(v)),
+        }
+    }
+}
+
+impl TimeArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let res = self.get(idx).map_or_else(
+            || "None".to_string(),
+            |val| -> String {
+                let DataType::Time(unit) = &self.field.dtype else {
+                    panic!("Wrong dtype for TimeArray: {}", self.field.dtype)
+                };
+                display_time64(val, unit)
+            },
+        );
+        Ok(res)
+    }
+}
+
+impl TimestampArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let res = self.get(idx).map_or_else(
+            || "None".to_string(),
+            |val| -> String {
+                let DataType::Timestamp(unit, timezone) = &self.field.dtype else {
+                    panic!("Wrong dtype for TimestampArray: {}", self.field.dtype)
+                };
+                display_timestamp(val, unit, timezone)
+            },
+        );
+        Ok(res)
+    }
+}
+
+impl DurationArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let res = self.get(idx).map_or_else(
+            || "None".to_string(),
+            |val| -> String {
+                let DataType::Duration(time_unit) = &self.field.dtype else {
+                    panic!("Wrong dtype for DurationArray: {}", self.field.dtype)
+                };
+                display_duration(val, time_unit)
+            },
+        );
+        Ok(res)
+    }
+}
+
+impl IntervalArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let res = self.get(idx).map_or_else(
+            || "None".to_string(),
+            |v| -> String {
+                let value: IntervalValue = v.into();
+                format!("{value}")
+            },
+        );
+        Ok(res)
+    }
+}
+
+impl Decimal128Array {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let res = self.get(idx).map_or_else(
+            || "None".to_string(),
+            |val| -> String {
+                use crate::datatypes::DataType::Decimal128;
+                let Decimal128(precision, scale) = &self.field.dtype else {
+                    panic!("Wrong dtype for Decimal128Array: {}", self.field.dtype)
+                };
+                display_decimal128(val, *precision as u8, *scale as i8)
+            },
+        );
+        Ok(res)
+    }
+}
+
+/// Helper that prints a Series as a list ("[e1, e2, e3, ...]")
+fn series_as_list_str(series: &Series) -> DaftResult<String> {
+    with_match_daft_types!(series.data_type(), |$T| {
+        let arr = series.downcast::<<$T as DaftDataType>::ArrayType>()?;
+        let mut s = String::new();
+        s += "[";
+        s += (0..series.len()).map(|i| arr.str_value(i)).collect::<DaftResult<Vec<String>>>()?.join(", ").as_str();
+        s += "]";
+        Ok(s)
+    })
+}
+
+impl ListArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => series_as_list_str(&v),
+        }
+    }
+}
+
+impl FixedSizeListArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => series_as_list_str(&v),
+        }
+    }
+}
+
+impl MapArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let val = self.get(idx);
+        match val {
+            None => Ok("None".to_string()),
+            Some(v) => series_as_list_str(&v),
+        }
+    }
+}
+
+impl EmbeddingArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.physical.is_valid(idx) {
+            Ok("<Embedding>".to_string())
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+impl ImageArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.physical.is_valid(idx) {
+            Ok("<Image>".to_string())
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+impl SparseTensorArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        // Shapes are always valid, use values array validity
+        let is_valid = self
+            .values_array()
+            .validity()
+            .is_none_or(|v| v.get_bit(idx));
+        let shape_element = if is_valid {
+            self.shape_array().get(idx)
+        } else {
+            None
+        };
+        match shape_element {
+            Some(shape) => Ok(format!(
+                "<SparseTensor shape=({})>",
+                shape
+                    .downcast::<UInt64Array>()
+                    .unwrap()
+                    .into_iter()
+                    .map(|dim| match dim {
+                        None => "None".to_string(),
+                        Some(dim) => dim.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )),
+            None => Ok("None".to_string()),
+        }
+    }
+}
+
+impl FixedShapeSparseTensorArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.physical.is_valid(idx) {
+            Ok("<FixedShapeSparseTensor>".to_string())
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+impl FixedShapeImageArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.physical.is_valid(idx) {
+            Ok("<FixedShapeImage>".to_string())
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+impl FixedShapeTensorArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.physical.is_valid(idx) {
+            Ok("<FixedShapeTensor>".to_string())
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+impl TensorArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        let shape_element = self.physical.children[1]
+            .downcast::<ListArray>()
+            .unwrap()
+            .get(idx);
+        match shape_element {
+            Some(shape) => Ok(format!(
+                "<Tensor shape=({})>",
+                shape
+                    .downcast::<UInt64Array>()
+                    .unwrap()
+                    .into_iter()
+                    .map(|dim| match dim {
+                        None => "None".to_string(),
+                        Some(dim) => dim.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )),
+            None => Ok("None".to_string()),
+        }
+    }
+}
+
+impl StructArray {
+    pub fn str_value(&self, idx: usize) -> DaftResult<String> {
+        if self.is_valid(idx) {
+            match &self.field.dtype {
+                DataType::Struct(fields) => {
+                    let fields_to_strs = fields
+                        .iter()
+                        .zip(self.children.iter())
+                        .filter(|(f, _)| !f.name.is_empty() && f.dtype != DataType::Null)
+                        .map(|(f, s)| Ok(format!("{}: {},\n", f.name.as_str(), s.str_value(idx))))
+                        .collect::<DaftResult<Vec<_>>>()?;
+                    let mut result = "{".to_string();
+                    for line in fields_to_strs {
+                        result += &line;
+                    }
+                    result += "}";
+                    Ok(result)
+                }
+                dt => unreachable!("StructArray must have Struct dtype, but found: {}", dt),
+            }
+        } else {
+            Ok("None".to_string())
+        }
+    }
+}
+
+// Default implementation of html_value: html escape the str_value.
+macro_rules! impl_array_html_value {
+    ($ArrayT:ty) => {
+        impl $ArrayT {
+            pub fn html_value(&self, idx: usize) -> String {
+                let str_value = self.str_value(idx).unwrap();
+                html_escape::encode_text(&str_value)
+                    .into_owned()
+                    .replace('\n', "<br />")
+            }
+        }
+    };
+}
+
+impl_array_html_value!(Utf8Array);
+impl_array_html_value!(BooleanArray);
+impl_array_html_value!(NullArray);
+impl_array_html_value!(BinaryArray);
+impl_array_html_value!(FixedSizeBinaryArray);
+impl_array_html_value!(ListArray);
+impl_array_html_value!(FixedSizeListArray);
+impl_array_html_value!(MapArray);
+impl_array_html_value!(StructArray);
+impl_array_html_value!(ExtensionArray);
+impl_array_html_value!(Decimal128Array);
+impl_array_html_value!(DateArray);
+impl_array_html_value!(TimeArray);
+impl_array_html_value!(DurationArray);
+impl_array_html_value!(IntervalArray);
+impl_array_html_value!(TimestampArray);
+impl_array_html_value!(EmbeddingArray);
+
+#[cfg(feature = "python")]
+impl crate::datatypes::PythonArray {
+    pub fn html_value(&self, idx: usize) -> String {
+        use pyo3::prelude::*;
+
+        let val = self.get(idx);
+
+        let custom_viz_hook_result: Option<String> = Python::with_gil(|py| {
+            // Find visualization hooks for this object's class
+            let pyany = val.bind(py);
+            let get_viz_hook = py
+                .import(pyo3::intern!(py, "daft.viz.html_viz_hooks"))?
+                .getattr(pyo3::intern!(py, "get_viz_hook"))?;
+            let hook = get_viz_hook.call1((pyany,))?;
+
+            if hook.is_none() {
+                Ok(None)
+            } else {
+                hook.call1((pyany,))?.extract()
+            }
+        })
+        .unwrap();
+
+        match custom_viz_hook_result {
+            None => html_escape::encode_text(&self.str_value(idx).unwrap())
+                .into_owned()
+                .replace('\n', "<br />"),
+            Some(result) => result,
+        }
+    }
+}
+
+impl<T> DataArray<T>
+where
+    T: DaftNumericType,
+{
+    pub fn html_value(&self, idx: usize) -> String {
+        let str_value = self.str_value(idx).unwrap();
+        html_escape::encode_text(&str_value)
+            .into_owned()
+            .replace('\n', "<br />")
+    }
+}
+
+impl FixedShapeTensorArray {
+    pub fn html_value(&self, idx: usize) -> String {
+        let str_value = self.str_value(idx).unwrap();
+        html_escape::encode_text(&str_value)
+            .into_owned()
+            .replace('\n', "<br />")
+    }
+}
+
+impl TensorArray {
+    pub fn html_value(&self, idx: usize) -> String {
+        let str_value = self.str_value(idx).unwrap();
+        html_escape::encode_text(&str_value)
+            .into_owned()
+            .replace('\n', "<br />")
+    }
+}
+
+impl SparseTensorArray {
+    pub fn html_value(&self, idx: usize) -> String {
+        let str_value = self.str_value(idx).unwrap();
+        html_escape::encode_text(&str_value)
+            .into_owned()
+            .replace('\n', "<br />")
+    }
+}
+
+impl FixedShapeSparseTensorArray {
+    pub fn html_value(&self, idx: usize) -> String {
+        let str_value = self.str_value(idx).unwrap();
+        html_escape::encode_text(&str_value)
+            .into_owned()
+            .replace('\n', "<br />")
+    }
+}

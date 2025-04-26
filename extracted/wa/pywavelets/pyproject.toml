@@ -1,0 +1,96 @@
+# Note that in maintenance branches, all build dependencies should
+# have an upper bound equal to the most recent already-released version
+# of the dependency. This to prevent that a future backwards-incompatible
+# release will break the source build of a PyWavelets release.
+# Do accept micro (bug-fix) releases.
+
+[build-system]
+build-backend = "mesonpy"
+requires = [
+    "meson-python>=0.16.0",
+    "Cython>=3.0.4",
+
+    # numpy requirement for wheel builds for distribution on PyPI - building
+    # against 2.x yields wheels that are also compatible with numpy 1.x at
+    # runtime.
+    # Note that building against numpy 1.x works fine too - users and
+    # redistributors can do this by installing the numpy version they like and
+    # disabling build isolation.
+    "numpy>=2.0.0; python_version<'3.13'",
+    "numpy>=2.1.0; python_version>='3.13'",
+]
+
+[project]
+name = "PyWavelets"
+version = "1.8.0"
+# TODO: add `license-files` once PEP 639 is accepted (see meson-python#88)
+#       at that point, no longer include them in `py3.install_sources()`
+license = {file = "LICENSE"}
+maintainers = [
+    {name = "The PyWavelets Developers", email = "pywavelets@googlegroups.com"}
+]
+description = "PyWavelets, wavelet transform module"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23,<3"]
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[project.optional-dependencies]
+optional = ["scipy>=1.9"]
+
+[project.urls]
+homepage = "https://github.com/PyWavelets/pywt"
+source = "https://github.com/PyWavelets/pywt"
+documentation = "https://pywavelets.readthedocs.io/"
+
+[tool.ruff]
+line-length = 88
+target-version = 'py310'
+select = [
+    "I",
+    "UP",
+    "C4",
+    "E713",
+    "NPY201",
+    "PIE",
+    "PGH003",
+    "PLR0402",
+    "SIM101",
+    "SIM109",
+    "SIM110",
+    "SIM118",
+    "SIM2",
+]
+ignore = [
+     "UP038", # https://github.com/astral-sh/ruff/issues/7871
+]
+
+[tool.spin]
+package = "pywt"
+
+[tool.spin.commands]
+"Build" = [
+  "spin.cmds.meson.build",
+  "spin.cmds.meson.test",
+  "spin.cmds.build.sdist"
+]
+Environments = [
+    'spin.cmds.meson.run',
+    'spin.cmds.meson.ipython',
+    'spin.cmds.meson.python',
+]

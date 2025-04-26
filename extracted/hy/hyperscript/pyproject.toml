@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hyperscript"
+dynamic = ["version"]
+authors = [
+  { name="Vincent Chan", email="vincent@qualdata.io" },
+]
+description = "HyperText with Python"
+readme = "README.md"
+license = { text="MIT License" }
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/vchan/hyperscript"
+"Bug Tracker" = "https://github.com/vchan/hyperscript/issues"
+
+[tool.setuptools_scm]
+version_file = "hyperscript/_version.py"

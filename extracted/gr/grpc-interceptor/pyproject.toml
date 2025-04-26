@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "grpc-interceptor"
+version = "0.15.4"
+description = "Simplifies gRPC interceptors"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/d5h-foss/grpc-interceptor"
+repository = "https://github.com/d5h-foss/grpc-interceptor"
+keywords = ["grpc", "interceptor"]
+authors = ["Dan Hipschman"]
+documentation = "https://grpc-interceptor.readthedocs.io"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+# Earliest version that supports aio w/o deadlock issue: https://github.com/grpc/grpc/pull/23945
+grpcio = "^1.49.1"
+# https://github.com/protocolbuffers/protobuf/issues/10075
+protobuf = {version = ">=4.21.9", optional = true}
+
+[tool.poetry.extras]
+testing = ["protobuf"]
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.1.0"
+grpcio-tools = "^1.49.1"
+coverage = {extras = ["toml"], version = "^7.2.3"}
+pytest-cov = "^2.10.0"
+black = "^23.3.0"
+flake8 = "^5.0.0"
+flake8-bandit = "^4.1.1"  # https://github.com/tylerwince/flake8-bandit/issues/21
+flake8-bugbear = "^20.1.4"
+flake8-import-order = "^0.18.1"
+safety = "^1.9.0"
+mypy = "^1.2.0"
+mypy-protobuf = "^1.23"
+flake8-docstrings = "^1.5.0"
+sphinx = "^3.1.2"
+xdoctest = "^0.13.0"
+pytest-asyncio = {version = "^0.19.0", python = ">=3.7"}
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["grpc_interceptor"]
+omit = ["*_pb2.py", "*_pb2_grpc.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

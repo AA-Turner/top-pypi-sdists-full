@@ -1,0 +1,76 @@
+from unittest import TestCase
+
+from xsdata.codegen.exceptions import CodegenError
+from xsdata.models.enums import Namespace, UseType
+from xsdata.models.xsd import Attribute, Length, Restriction, SimpleType
+
+
+class AttributeTests(TestCase):
+    def test_property_is_property(self) -> None:
+        obj = Attribute()
+        self.assertTrue(obj)
+
+    def test_property_attr_types(self) -> None:
+        obj = Attribute()
+        self.assertEqual([], list(obj.attr_types))
+
+        obj.ref = "foo"
+        self.assertEqual([obj.ref], list(obj.attr_types))
+
+        obj.type = "bar"
+        self.assertEqual([obj.type], list(obj.attr_types))
+
+        obj.simple_type = SimpleType()
+        self.assertEqual([], list(obj.attr_types))
+
+        obj.simple_type.restriction = Restriction(base="thug")
+        self.assertEqual([obj.simple_type.restriction.base], list(obj.attr_types))
+
+    def test_property_real_name(self) -> None:
+        obj = Attribute(ref="bar")
+        self.assertEqual("bar", obj.real_name)
+
+        obj.name = "foo"
+        self.assertEqual("foo", obj.real_name)
+
+        with self.assertRaises(CodegenError):
+            Attribute().real_name
+
+    def test_get_restrictions(self) -> None:
+        obj = Attribute()
+        self.assertEqual({"max_occurs": 1, "min_occurs": 0}, obj.get_restrictions())
+
+        obj.use = UseType.REQUIRED
+        expected = {"max_occurs": 1, "min_occurs": 1}
+        self.assertEqual(expected, obj.get_restrictions())
+
+        obj.use = UseType.PROHIBITED
+        expected = {"max_occurs": 0, "min_occurs": 0}
+        self.assertEqual(expected, obj.get_restrictions())
+
+        obj.simple_type = SimpleType(restriction=Restriction(length=Length(value=1)))
+        expected["length"] = 1
+        self.assertEqual(expected, obj.get_restrictions())
+
+    def test_property_bases(self) -> None:
+        obj = Attribute()
+        obj.ns_map["xs"] = Namespace.XS.uri
+        self.assertEqual(["xs:string"], list(obj.bases))
+
+        obj.simple_type = SimpleType()
+        self.assertEqual([], list(obj.bases))
+
+        obj.type = "foo"
+        obj.simple_type = None
+        self.assertEqual(["foo"], list(obj.bases))
+
+    def test_property_default_type(self) -> None:
+        obj = Attribute()
+        self.assertEqual("anySimpleType", obj.default_type)
+
+        obj = Attribute()
+        obj.ns_map["foo"] = Namespace.XS.uri
+        self.assertEqual("foo:anySimpleType", obj.default_type)
+
+        obj.fixed = "aa"
+        self.assertEqual("foo:string", obj.default_type)

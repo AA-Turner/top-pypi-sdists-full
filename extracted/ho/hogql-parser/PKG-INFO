@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: hogql_parser
+Version: 1.1.1
+Summary: HogQL parser for internal PostHog use
+Home-page: https://github.com/PostHog/posthog/tree/master/common/hogql_parser
+Author: PostHog Inc.
+Author-email: hey@posthog.com
+Maintainer: PostHog Inc.
+Maintainer-email: hey@posthog.com
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# HogQL Parser
+
+Blazing fast HogQL parsing. This package can only work in the context of the PostHog Django app, as it imports from `posthog.hogql`.
+
+You can test changes locally by running `pip install ./hogql_parser`

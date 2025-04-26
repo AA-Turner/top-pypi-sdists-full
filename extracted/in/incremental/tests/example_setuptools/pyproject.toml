@@ -1,0 +1,15 @@
+[build-system]
+requires = [
+    "setuptools",
+    "incremental",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "example_setuptools"
+dependencies = [
+    "incremental",
+]
+dynamic = ["version"]
+
+[tool.incremental]

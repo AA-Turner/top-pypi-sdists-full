@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "versioneer[toml] @ @REPOROOT@"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "demo"
+authors = [
+  { name="Example Author", email="author@example.com" },
+]
+description = "Demo"
+requires-python = ">=3.7"
+dynamic = ["version"]
+
+[tool.versioneer]
+VCS = "@VCS@"
+versionfile_source = "src/demo/_version.py"
+versionfile_build = "demo/_version.py"
+tag_prefix = "demo-"
+parentdir_prefix = "demo-"

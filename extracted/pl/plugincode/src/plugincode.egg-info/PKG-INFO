@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: plugincode
+Version: 32.0.0
+Summary: plugincode is a library that provides plugin functionality for ScanCode toolkit.
+Home-page: https://github.com/nexB/plugincode
+Author: nexB. Inc. and others
+Author-email: info@aboutcode.org
+License: Apache-2.0
+Keywords: open source,utilities,plugincode,scancode,scancode-toolkit,plugins,open source,plugin
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+Provides-Extra: testing
+Provides-Extra: docs
+License-File: apache-2.0.LICENSE
+License-File: NOTICE
+License-File: AUTHORS.rst
+License-File: CHANGELOG.rst
+License-File: CODE_OF_CONDUCT.rst
+
+===========
+PluginCode
+===========
+
+- license: Apache-2.0
+- copyright: copyright (c) nexB. Inc. and others
+- homepage_url: https://github.com/nexB/plugincode
+- keywords: plugins, utilities, scancode-toolkit, plugincode
+
+
+PluginCode is a library that provides plugable functionality with plugins, 
+including Click plugins.
+It is used by ScanCode toolkit and related projects
+
+Visit https://aboutcode.org and https://github.com/nexB/ for support and download.
+
+To set up the development environment::
+
+    source configure
+
+To run unit tests::
+
+    pytest -vvs -n 2
+
+To clean up development environment::
+
+    ./configure --clean
+

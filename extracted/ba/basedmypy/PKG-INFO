@@ -1,0 +1,46 @@
+Metadata-Version: 2.2
+Name: basedmypy
+Version: 2.10.0
+Summary: based static typing for Python
+Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
+License: MIT
+Project-URL: News, https://github.com/KotlinIsland/basedmypy/releases
+Project-URL: Documentation, https://KotlinIsland.github.io/basedmypy
+Project-URL: Repository, https://github.com/KotlinIsland/basedmypy
+Project-URL: Changelog, https://github.com/KotlinIsland/basedmypy/blob/master/CHANGELOG.md
+Project-URL: Discord, https://discord.gg/7y9upqPrk2
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: basedtyping>=0.1.4
+Requires-Dist: typing_extensions>=4.6.0
+Requires-Dist: mypy_extensions>=1.0.0
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
+Provides-Extra: dmypy
+Requires-Dist: psutil>=4.0; extra == "dmypy"
+Provides-Extra: mypyc
+Requires-Dist: setuptools>=50; extra == "mypyc"
+Provides-Extra: reports
+Requires-Dist: lxml; extra == "reports"
+Provides-Extra: install-types
+Requires-Dist: pip; extra == "install-types"
+Provides-Extra: faster-cache
+Requires-Dist: orjson; extra == "faster-cache"
+
+Basedmypy -- Based Static typing for Python
+===========================================
+
+Basedmypy is a type checker that is built on top of the work done by the
+`mypy project <https://github.com/python/mypy>`_.

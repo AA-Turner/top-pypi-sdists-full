@@ -1,0 +1,47 @@
+[tool.ruff]
+# same as our black config
+line-length = 79
+extend-exclude = ["build"]
+
+[tool.ruff.format]
+# currently the default value, but opt-out in the future
+docstring-code-format = false
+
+[tool.pyright]
+include = [
+  "stripe",
+  "tests/test_generated_examples.py",
+  "tests/test_exports.py",
+  "tests/test_http_client.py",
+]
+exclude = ["build", "**/__pycache__"]
+reportMissingTypeArgument = true
+reportUnnecessaryCast = true
+reportUnnecessaryComparison = true
+reportUnnecessaryContains = true
+reportUnnecessaryIsInstance = true
+reportPrivateImportUsage = true
+reportUnnecessaryTypeIgnoreComment = true
+
+[tool.mypy]
+follow_imports = "silent"
+python_version = "3.10"
+files = ["tests/test_generated_examples.py", "tests/test_exports.py"]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+
+[tool.pytest.ini_options]
+# use as many threads as available for tests
+addopts = "-n auto"
+# already the default, but will speed up searching a little, since this is the only place tests live
+testpaths = "tests"
+# these are warnings we show to users; we don't need them in our test logs
+filterwarnings = [
+  # single quotes so we don't have to re-backslack our backslashes
+  'ignore:[\S\s]*stripe-python:DeprecationWarning',
+  'ignore:[\S\s]*stripe\..* package:DeprecationWarning',
+  'ignore:[\S\s]*RecipientTransfer:DeprecationWarning',
+  'ignore:[\S\s]*`save` method is deprecated:DeprecationWarning',
+]

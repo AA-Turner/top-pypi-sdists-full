@@ -1,0 +1,87 @@
+[project]
+name = "aioboto3"
+description = "Async boto3 wrapper"
+authors = [
+    {name = "Terri Cain", email = "terri@dolphincorp.co.uk"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<4.0,>=3.8"
+dependencies = [
+    "aiobotocore[boto3]==2.21.1",
+    "aiofiles>=23.2.1",
+]
+
+readme = "README.rst"
+keywords = [
+    "aioboto3",
+    "boto3",
+    "aws",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/terricain/aioboto3"
+repository = "https://github.com/terricain/aioboto3"
+documentation = "https://readthedocs.org/projects/aioboto3/"
+
+[project.optional-dependencies]
+s3cse = [
+    "cryptography>=44.0.1",
+]
+chalice = [
+    "chalice>=1.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "flake8",
+    "dill",
+    "pygithub",
+    "requests",
+    "aiofiles",
+    "moto[server]",
+    "chalice<2.0.0,>=1.24.0",
+    "pytest-asyncio<1.0.0,>=0.19.0",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme<2.0.0,>=1.3.0rc1",
+    "sphinx-autodoc-typehints",
+]
+
+[tool.uv]
+default-groups = [
+    "docs",
+    "dev",
+]
+required-version = ">=0.6.1"
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
+[build-system]
+requires = ["setuptools>=68.2.0", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.rst", "CHANGELOG.rst"] }
+
+[tool.setuptools.packages.find]
+include = ["aioboto3*"]
+
+[tool.setuptools_scm]
+version_file = "aioboto3/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

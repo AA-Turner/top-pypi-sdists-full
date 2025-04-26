@@ -1,0 +1,204 @@
+Metadata-Version: 2.1
+Name: spafe
+Version: 0.3.3
+Summary: Simplified Python Audio-Features Extraction.
+Home-page: https://github.com/SuperKogito/spafe
+Author: Ayoub Malek
+Author-email: superkogito@gmail.com
+Maintainer: Ayoub Malek
+Maintainer-email: superkogito@gmail.com
+License: BSD
+Keywords: audio processing,features extraction
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Multimedia :: Sound/Audio :: Analysis
+Classifier: Topic :: Multimedia :: Sound/Audio :: Editors
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.21
+Requires-Dist: scipy>=1.7.3
+Requires-Dist: typing_extensions
+Provides-Extra: tests
+Requires-Dist: pytest>=6.2.4; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: coveralls; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: codacy-coverage; extra == "tests"
+Requires-Dist: matplotlib; extra == "tests"
+Requires-Dist: mock==4.0.3; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: sphinxcontrib-napoleon==0.7; extra == "docs"
+Requires-Dist: nbsphinx==0.8.9; extra == "docs"
+Requires-Dist: pydata-sphinx-theme==0.8.1; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
+Provides-Extra: plotting
+Requires-Dist: maplotlib; extra == "plotting"
+
+![](https://github.com/SuperKogito/spafe/blob/master/media/logo.png?raw=true)
+
+# Spafe
+
+Simplified Python Audio Features Extraction
+
+[![Build Status](https://github.com/SuperKogito/spafe/actions/workflows/ci.yml/badge.svg)](https://github.com/SuperKogito/spafe/actions)
+[![docs.rs](https://img.shields.io/docsrs/docs)](https://superkogito.github.io/spafe/)
+[![License](https://img.shields.io/badge/license-BSD%203--Clause%20License%20(Revised)%20-blue)](https://github.com/SuperKogito/spafe/blob/master/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.5%20%7C%203.6%20%7C%203.7%20%7C%203.8%20%7C%203.9%20%7C%203.10-blue)](https://www.python.org/doc/versions/)
+[![codecov](https://codecov.io/gh/SuperKogito/spafe/branch/master/graph/badge.svg)](https://codecov.io/gh/SuperKogito/spafe)
+[![codebeat badge](https://codebeat.co/badges/97f81ec3-b8a3-42ff-a9f5-f6cf165f4448)](https://codebeat.co/projects/github-com-superkogito-spafe-master)
+[![PyPI version](https://badge.fury.io/py/spafe.svg)](https://badge.fury.io/py/spafe)
+[![anaconda](https://anaconda.org/superkogito/spafe/badges/version.svg)](https://anaconda.org/SuperKogito/spafe)
+[![Downloads](https://pepy.tech/badge/spafe)](https://pepy.tech/project/spafe)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7686438.svg)](https://doi.org/10.5281/zenodo.7686438)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.04739/status.svg)](https://doi.org/10.21105/joss.04739)
+
+#  Table of Contents
+
+- [Spafe](#spafe)
+- [Table of Contents](#table-of-contents)
+- [Structure](#structure)
+  - [Filter banks](#filter-banks)
+  - [Spectrograms](#spectrograms)
+  - [Features](#features)
+  - [Frequencies](#frequencies)
+  - [Installation](#installation)
+    - [Dependencies](#dependencies)
+    - [Installation guide](#installation-guide)
+      - [Install from PyPI](#install-from-pypi)
+      - [Install from Anaconda](#install-from-anaconda)
+    - [Install from source](#install-from-source)
+  - [Why use Spafe?](#why-use-spafe)
+  - [How to use](#how-to-use)
+  - [Contributing](#contributing)
+  - [Citing](#citing)
+
+# Structure
+spafe aims to simplify feature extractions from **mono audio** files.
+Spafe includes various computations related to filter banks, spectrograms, frequencies and cepstral features .
+The library has the following structure:
+![](https://github.com/SuperKogito/spafe/raw/master/media/spafe-structure.png)
+
+## Filter banks
+![](https://github.com/SuperKogito/spafe/blob/master/media/bark_fbanks.png?raw=true)
+  - Bark filter banks
+  - Gammatone filter banks
+  - Linear filter banks
+  - Mel filter banks
+
+## Spectrograms
+![](https://github.com/SuperKogito/spafe/blob/master/media/melspectrogram.png?raw=true)  
+  - Bark spectrogram
+  - CQT spectrogram
+  - Erb spectrogram
+  - Mel spectrogram
+
+## Features
+![](https://github.com/SuperKogito/spafe/blob/master/media/gfcc.png?raw=true)
+  - Bark Frequency Cepstral Coefﬁcients (BFCCs)
+  - Constant Q-transform Cepstral Coeﬃcients (CQCCs)
+  - Gammatone Frequency Cepstral Coefﬁcients (GFCCs)
+  - Linear Frequency Cepstral Coefﬁcients (LFCCs)
+  - Linear Prediction Components (LPCs)
+  - Mel Frequency Cepstral Coefﬁcients (MFCCs)
+  - Inverse Mel Frequency Cepstral Coefﬁcients (IMFCCs)
+  - Magnitude based Spectral Root Cepstral Coefficients (MSRCCs)
+  - Normalized Gammachirp Cepstral Coefficients (NGCCs)
+  - Power-Normalized Cepstral Coefficients (PNCCs)
+  - Phase based Spectral Root Cepstral Coefficients (PSRCCs)
+  - Perceptual Linear Prediction Coefficents (PLPs)
+  - Rasta Perceptual Linear Prediction Coefficents (RPLPs)
+
+The theory behind features computed using spafe can be summmarized in the following graph:
+![](https://github.com/SuperKogito/spafe/blob/master/media/features-extraction-algorithms.png?raw=true)
+
+## Frequencies
+![](https://github.com/SuperKogito/spafe/blob/master/media/dominant_frequencies.png?raw=true)
+  - Dominant frequencies
+  - Fundamental frequencies
+
+## Installation
+### Dependencies
+
+spafe requires:
+
+-	[Python](https://www.python.org/) (>= 3.5)
+-	[NumPy](https://numpy.org/) (>= 1.22.0)
+-	[SciPy](https://scipy.org/) (>= 1.8.0)
+
+if you want to use the visualization module/ functions of spafe, you will need to install:
+
+- [Matplotlib](https://matplotlib.org/) (>= 3.5.2)
+
+
+### Installation guide
+Once you have the Dependencies installed, use one of the following install options.
+
+#### Install from PyPI
+- To freshly install spafe:
+```
+pip install spafe
+```
+-  To update an existing installation:
+```
+pip install -U spafe
+```
+
+#### Install from Anaconda
+- Spafe is also available on anaconda:
+```
+conda install spafe
+```
+
+### Install from source
+- You can build spafe from source, by following:
+```
+git clone git@github.com:SuperKogito/spafe.git
+cd spafe
+python setup.py install
+```
+
+## Why use Spafe?
+
+Unlike most existing audio feature extraction libraries ([python_speech_features](https://github.com/jameslyons/python_speech_features), [SpeechPy](https://github.com/astorfi/speechpy), [surfboard](https://github.com/novoic/surfboard) and [Bob](https://gitlab.idiap.ch/bob)), Spafe provides more options for spectral features extraction algorithms, notably:
+- Bark Frequency Cepstral Coefﬁcients (BFCCs)
+- Constant Q-transform Cepstral Coeﬃcients (CQCCs)
+- Gammatone Frequency Cepstral Coefﬁcients (GFCCs)
+- Power-Normalized Cepstral Coefficients (PNCCs)
+- Phase based Spectral Root Cepstral Coefficients (PSRCCs)
+
+Most existing libraries and to their credits provide great implementations for features extraction but are unfortunately limited to the Mel Frequency Features (MFCC) and at best have Bark frequency and linear predictive coefficients additionally. [Librosa](https://github.com/librosa/librosa) for example includes great implementation of various algorithms (only MFCC and LPC are included), based on the **Short Time Fourrier Transform (STFT)**, which is theoretically more accurate but slower than the **Discret Fourrier Transform used in Spafe**'s implementation.
+
+
+## How to use
+
+Various examples on how to use spafe are present in the documentation [https://superkogito.github.io/spafe](https://superkogito.github.io/spafe).
+
+> !Please make sure you are referring to the correct documentation version.
+
+## Contributing
+
+Contributions are welcome and encouraged. To learn more about how to contribute to spafe please refer to the [Contributing guidelines](https://github.com/SuperKogito/spafe/blob/master/CONTRIBUTING.md)
+
+## Citing
+
+-  **If you want to cite spafe as a software, please cite the version used as indexed in** [Zenodo](https://zenodo.org/):
+
+   *Ayoub Malek, Hadrien Titeux, Stefano Borzì, Christian Heider Nielsen, Fabian-Robert Stöter, Hervé Bredin, Eryk Urbański & Kevin Mattheus Moerman. (2023). SuperKogito/spafe: v0.3.3 (v0.3.3). Zenodo.* https://doi.org/10.5281/zenodo.11396240
+  
+   [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11396240.svg)](https://doi.org/10.5281/zenodo.11396240)
+ 
+
+- **You can also site spafe's paper as follows:**
+
+  *Malek, A., (2023). Spafe: Simplified python audio features extraction. Journal of Open Source Software, 8(81), 4739,* https://doi.org/10.21105/joss.04739
+
+  [![DOI](https://joss.theoj.org/papers/10.21105/joss.04739/status.svg)](https://doi.org/10.21105/joss.04739)

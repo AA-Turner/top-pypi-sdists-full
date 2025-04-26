@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: diracx-core
+Version: 0.0.1a43
+Summary: Common code used by all DiracX packages
+License: GPL-3.0-only
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: aiobotocore>=2.15
+Requires-Dist: authlib
+Requires-Dist: botocore>=1.35
+Requires-Dist: cachetools
+Requires-Dist: email_validator
+Requires-Dist: gitpython
+Requires-Dist: pydantic>=2.10
+Requires-Dist: pydantic-settings
+Requires-Dist: pyyaml
+Requires-Dist: sh
+Provides-Extra: testing
+Requires-Dist: diracx-testing; extra == "testing"
+Requires-Dist: moto[server]; extra == "testing"
+Provides-Extra: types
+Requires-Dist: botocore-stubs; extra == "types"
+Requires-Dist: types-aiobotocore[essential]; extra == "types"
+Requires-Dist: types-aiobotocore-s3; extra == "types"
+Requires-Dist: types-cachetools; extra == "types"
+Requires-Dist: types-PyYAML; extra == "types"

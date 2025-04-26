@@ -1,0 +1,4 @@
+
+from setuptools import setup
+
+setup(package_data={'pika-stubs': ['__init__.pyi', 'adapters/__init__.pyi', 'adapters/asyncio_connection.pyi', 'adapters/base_connection.pyi', 'adapters/blocking_connection.pyi', 'adapters/gevent_connection.pyi', 'adapters/select_connection.pyi', 'adapters/tornado_connection.pyi', 'adapters/twisted_connection.pyi', 'adapters/utils/__init__.pyi', 'adapters/utils/connection_workflow.pyi', 'adapters/utils/io_services_utils.pyi', 'adapters/utils/nbio_interface.pyi', 'adapters/utils/selector_ioloop_adapter.pyi', 'amqp_object.pyi', 'callback.pyi', 'channel.pyi', 'compat.pyi', 'connection.pyi', 'credentials.pyi', 'data.pyi', 'delivery_mode.pyi', 'diagnostic_utils.pyi', 'exceptions.pyi', 'exchange_type.pyi', 'frame.pyi', 'heartbeat.pyi', 'spec.pyi', 'tcp_socket_opts.pyi', 'validators.pyi', 'METADATA.toml', 'py.typed']})

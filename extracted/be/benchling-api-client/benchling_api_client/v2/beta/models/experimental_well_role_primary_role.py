@@ -1,0 +1,25 @@
+from enum import Enum
+from functools import lru_cache
+from typing import cast
+
+from ..extensions import Enums
+
+
+class ExperimentalWellRolePrimaryRole(Enums.KnownString):
+    SAMPLE = "SAMPLE"
+    CONTROL = "CONTROL"
+    STANDARD = "STANDARD"
+    BLANK = "BLANK"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def of_unknown(val: str) -> "ExperimentalWellRolePrimaryRole":
+        if not isinstance(val, str):
+            raise ValueError(
+                f"Value of ExperimentalWellRolePrimaryRole must be a string (encountered: {val})"
+            )
+        newcls = Enum("ExperimentalWellRolePrimaryRole", {"_UNKNOWN": val}, type=Enums.UnknownString)  # type: ignore
+        return cast(ExperimentalWellRolePrimaryRole, getattr(newcls, "_UNKNOWN"))

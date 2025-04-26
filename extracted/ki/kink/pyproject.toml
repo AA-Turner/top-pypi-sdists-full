@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "kink"
+version = "0.8.1"
+description = "Dependency injection for python."
+authors = [
+    "Dawid Kraczkowski <dawid.kraczkowski@gmail.com>"
+]
+license = "MIT"
+readme = "README.md"
+
+keywords = ["kink", "dependency injection"]
+
+homepage = "https://github.com/kodemore/kink"
+repository = "https://github.com/kodemore/kink"
+documentation = "https://github.com/kodemore/kink"
+
+classifiers = [
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+include = ["kink/py.typed"]
+
+# Requirements
+[tool.poetry.dependencies]
+python = "^3.8"
+typing_extensions = "^4.9.0"
+
+
+[tool.poetry.dev-dependencies]
+isort = "^5.13.2"
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.5"
+pytest-cov = "^4.1.0"
+requests = "^2.31.0"
+starlette = "^0.37.1"
+httpx = "^0.26.0"
+black = "^24.2.0"
+mypy = "^1.8.0"
+

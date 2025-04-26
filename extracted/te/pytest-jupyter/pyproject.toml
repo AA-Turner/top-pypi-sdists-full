@@ -1,0 +1,211 @@
+[build-system]
+requires = [
+    "hatchling>=1.10.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-jupyter"
+dynamic = [
+    "version",
+]
+description = "A pytest plugin for testing Jupyter libraries and extensions."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Jupyter Development Team", email = "jupyter@googlegroups.com" },
+]
+keywords = [
+    "Jupyter",
+    "pytest",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Jupyter",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pytest>=7.0",
+    "jupyter_core>=5.7"
+]
+requires-python = ">=3.8"
+
+
+[project.optional-dependencies]
+docs = [
+    "myst_parser",
+    "pydata_sphinx_theme",
+    "Sphinx",
+    "sphinxcontrib-spelling"
+]
+client = [
+    "jupyter_client>=7.4.0",
+    "nbformat>=5.3",
+    "ipykernel>=6.14"
+]
+server = [
+    "jupyter_server>=1.21",
+    "jupyter_client>=7.4.0",
+    "nbformat>=5.3",
+    "ipykernel>=6.14"
+]
+test = [
+    "pytest-timeout"
+]
+
+[project.urls]
+Homepage = "http://jupyter.org"
+Funding = "https://numfocus.org/donate"
+Source = "https://github.com/jupyter-server/pytest-jupyter"
+Tracker = "https://github.com/jupyter-server/pytest-jupyter/issues"
+
+[tool.hatch.version]
+path = "pytest_jupyter/_version.py"
+validate-bump = false
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/pytest_jupyter",
+    "/tests",
+]
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test", "server", "client"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test", "server", "client"]
+dependencies = ["coverage[toml]"]
+[tool.hatch.envs.cov.scripts]
+test = "coverage run -m pytest {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.typing]
+dependencies = ["pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+[tool.hatch.envs.lint]
+dependencies = ["pre-commit"]
+detached = true
+[tool.hatch.envs.lint.scripts]
+build = [
+    "pre-commit run --all-files ruff",
+    "pre-commit run --all-files ruff-format"
+]
+
+[tool.jupyter-releaser.options]
+post-version-spec = "dev"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-raXs", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
+]
+testpaths = [
+    "tests"
+]
+timeout = 10
+# Restore this setting to debug failures
+timeout_method = "thread"
+filterwarnings= [
+  # Fail on warnings
+  "error",
+  "module:datetime.datetime.utc:DeprecationWarning",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\bProtocol\\):",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.run]
+relative_files = true
+source = ["pytest_jupyter"]
+
+[tool.mypy]
+files = "pytest_jupyter"
+python_version = "3.8"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+disable_error_code = ["no-untyped-def"]
+warn_unreachable = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "PTH",         # flake8-use-pathlib
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "NPY",         # NumPy specific rules
+  "PD",          # pandas-vet
+  "PYI",         # flake8-pyi
+]
+ignore = [
+  "PLR",      # Design related pylint codes
+  "SIM105",   # Use `contextlib.suppress(...)`
+  "RUF012",   # Mutable class attributes should be annotated with
+  "ARG001",   # Unused function argument:
+  ]
+unfixable = [
+  # Don't touch print statements
+  "T201",
+  # Don't touch noqa lines
+  "RUF100",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# B011 Do not call assert False since python -O removes these calls
+# T201 `print` found
+# B007 Loop control variable `i` not used within the loop body.
+"tests/*" = ["B011", "C4", "T201", "B007", "PTH", "ARG"]
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["docs", "tests"]

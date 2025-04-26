@@ -1,0 +1,110 @@
+# Project configuration file for the "roman-numerals-py" package (see PEP 518)
+
+# Use flit as a build backend (https://flit.pypa.io/)
+# Build with (https://build.pypa.io/)
+[build-system]
+requires = ["flit_core>=3.7,<4"]
+build-backend = "flit_core.buildapi"
+
+# Project metadata
+# cf. https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+[project]
+name = "roman-numerals-py"
+description = "Manipulate well-formed Roman numerals"
+readme = "README.rst"
+urls.Changelog = "https://github.com/AA-Turner/roman-numerals/blob/master/CHANGES.rst"
+urls.Code = "https://github.com/AA-Turner/roman-numerals/"
+urls.Download = "https://pypi.org/project/roman-numerals-py/"
+urls."Issue tracker" = "https://github.com/AA-Turner/roman-numerals/issues"
+license.file = "LICENCE.rst"
+requires-python = ">=3.9"
+
+# Classifiers list: https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Zero-Clause BSD (0BSD)",
+    "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+dynamic = ["version"]
+
+[[project.authors]]
+name = "Adam Turner"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+]
+lint = [
+    "mypy==1.15.0",
+    "ruff==0.9.7",
+    "pyright==1.1.394",
+]
+
+[tool.flit.module]
+name = "roman_numerals"
+
+[tool.flit.sdist]
+include = [
+    "tests/",
+]
+
+[tool.mypy]
+files = [
+    "roman_numerals",
+    "tests",
+]
+python_version = "3.9"
+strict = true
+show_column_numbers = true
+show_error_context = true
+strict_equality = false
+warn_return_any = false
+enable_error_code = [
+    "comparison-overlap",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-expr",
+    "redundant-self",
+    "truthy-bool",
+    "truthy-iterable",
+    "type-arg",
+    "unimported-reveal",
+    "unused-awaitable",
+    "unused-ignore",
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = [
+    "roman_numerals",
+    "tests",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra",
+    "--import-mode=prepend",
+    "--pythonwarnings=error",
+    "--strict-config",
+    "--strict-markers",
+]
+empty_parameter_set_mark = "xfail"
+filterwarnings = [
+    "all",
+]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+xfail_strict = true

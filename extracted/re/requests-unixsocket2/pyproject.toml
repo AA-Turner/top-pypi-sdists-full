@@ -1,0 +1,76 @@
+[build-system]
+requires = [ "poetry-core>=2.1.2",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "requests-unixsocket2"
+version = "1.0.0"
+description = "Use requests to talk HTTP via a UNIX domain socket"
+authors = ["thelab <thelabdev@thelab.co>"]
+readme = "README.md"
+homepage = "https://gitlab.com/thelabnyc/requests-unixsocket2"
+repository = "https://gitlab.com/thelabnyc/requests-unixsocket2"
+license = "ISC"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+
+
+[[tool.poetry.packages]]
+include = "requests_unixsocket"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.32.3"
+urllib3 = ">=2.3.0,<3.0"
+
+[tool.poetry.group.dev.dependencies]
+coverage = {extras = ["toml"], version = "^7.8.0"}
+flake8 = "^7.2.0"
+pytest = "^8.3.5"
+waitress = "^3.0.2"
+mypy = "^1.15.0"
+types-requests = "^2.32.0.20240521"
+types-waitress = "^3.0.0.20240423"
+
+[tool.mypy]
+python_version = "3.8"
+
+[tool.pytest.ini_options]
+addopts = "--tb=short"
+
+[tool.isort]
+profile = "black"
+from_first = true
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["requests_unixsocket"]
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+annotated_tag = true
+gpg_sign = true
+tag_format = "v$version"
+update_changelog_on_bump = true
+changelog_merge_prerelease = true
+version_provider = "poetry"
+version_scheme = "pep440"
+version_files = [
+    "pyproject.toml:version",
+]
+pre_bump_hooks = [
+    "pre-commit run --all-files || true",
+]
+post_bump_hooks = [
+    "git push origin master $CZ_POST_CURRENT_TAG_VERSION"
+]

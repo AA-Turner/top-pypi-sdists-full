@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: sphinx-data-viewer
+Version: 0.1.5
+Summary: "Sphinx extension to show data in an interactive list view.
+Author-email: team useblocks <info@useblocks.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup
+Requires-Dist: sphinx>=5
+Requires-Dist: furo ; extra == "docs"
+Requires-Dist: sphinx-design ; extra == "docs"
+Requires-Dist: sphinx-needs ; extra == "docs"
+Requires-Dist: sphinxcontrib.plantuml ; extra == "docs"
+Requires-Dist: sphinx-copybutton ; extra == "docs"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Project-URL: Documentation, https://sphinx-data-viewer.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/useblocks/sphinx-data-viewer
+Provides-Extra: docs
+Provides-Extra: test
+
+Sphinx-Data-Viewer
+==================
+Adds an interactive data viewer for data objects to Sphinx.
+
+Use it to document:
+
+* JSON data
+* JSON files
+* Python objects
+
+**Complete documentation and examples:** https://sphinx-data-viewer.readthedocs.io/en/latest/
+
+.. image:: https://github.com/useblocks/sphinx-data-viewer/raw/main/docs/_static/sphinx-data-viewer-intro.png
+   :width: 70%
+   :target: https://sphinx-data-viewer.readthedocs.io/en/latest/
+
+The Javascript part is based on the wonderful work of https://github.com/pgrabovets/json-view.
+

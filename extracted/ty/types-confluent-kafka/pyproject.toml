@@ -1,0 +1,138 @@
+[tool.poetry]
+name = "types-confluent-kafka"
+version = "1.3.1"
+description = ""
+authors = ["benbenbang <bn@bitbrew.dev>"]
+license = "Apache-2.0 license"
+readme = "README.md"
+repository = "https://github.com/benbenbang/types-confluent-kafka"
+packages = [{ include = "confluent_kafka-stubs" }]
+exclude = ["confluent_kafka-stubs/__init__.py"]
+keywords = [
+    "types",
+    "typings",
+    "stubs",
+    "confluent_kafka",
+    "mypy",
+    "lsp",
+    "completion",
+    "type hints",
+    "type checking",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = ">= 3.9,<= 3.13"
+
+[tool.poetry.group.dev.dependencies]
+confluent-kafka = { extras = ["avro"], version = "^2.5.0" }
+types-requests = "^2.31.0.2"
+pyright = "^1.1.384"
+mypy = "^1.11.2"
+
+[tool.poetry.group.lint.dependencies]
+ruff = "^0.6.9"
+pylint = "^2.17.5"
+pre-commit = "^3.3.3"
+
+[tool.poetry.group.publish.dependencies]
+twine = "4.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+include = ["confluent_kafka-stubs", "*.pyi"]
+exclude = [
+    ".venv",
+    ".cache",
+    ".mypy_cache",
+    ".env",
+    "build",
+    "dist",
+    "*.ipynb",
+    "confluent-kafka-python",
+    "tests",
+]
+
+[tool.ruff.lint]
+ignore = ["F821", "F822"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pylint.messages_control]
+disable = ["all"]
+enable = [
+    "consider-using-f-string",
+    "cyclic-import",
+    "deprecated-module",
+    "f-string-without-interpolation",
+    "import-error",
+    "import-self",
+    "undefined-variable",
+    "undefined-all-variable",
+    "unused-format-string-argument",
+    "unused-format-string-key",
+    "unused-import",
+    #   This might be unused but a mandatory signature in airflow runtime
+    #   "unused-argument",
+    "unused-wildcard-import",
+    "unused-variable",
+    "used-before-assignment",
+    "use-list-literal",
+    "raise-missing-from",
+    "simplifiable-condition",
+    "simplify-boolean-expression",
+    "super-with-arguments",
+    "wrong-spelling-in-comment",
+    "wrong-spelling-in-docstring",
+]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pytest.ini_options]
+addopts = '--basetemp=/tmp/pytest'
+# switch on `-s` for deep debuging
+# addopts = '-s --basetemp=/tmp/pytest'
+
+filterwarnings = []
+
+testpaths = []
+
+markers = []
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unreachable = true
+enable_incomplete_feature = "Unpack"
+disable_error_code = ["attr-defined"]
+
+[tool.pyright]
+include = ["confluent_kafka-stubs"]
+exclude = ["**/__pycache__", "tests/**"]
+defineConstant = { DEBUG = true }
+stubPath = "confluent_kafka-stubs"
+
+reportMissingImports = "warning"
+reportIncompatibleMethodOverride = "none"
+reportAttributeAccessIssue = "none"

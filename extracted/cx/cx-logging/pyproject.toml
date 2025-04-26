@@ -1,0 +1,44 @@
+[build-system]
+requires = [
+    "setuptools>=70.1,<75",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cx_Logging"
+description = "Python and C interfaces for logging"
+readme = "README.txt"
+authors = [{name = "Anthony Tuininga", email = "anthony.tuininga@gmail.com"}]
+keywords = ["logging"]
+license = {text = "BSD License"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/anthony-tuininga/cx_Logging"
+
+[tool.setuptools]
+zip-safe = false
+license-files = ["LICENSE.txt"]
+include-package-data = false
+
+[tool.cibuildwheel]
+build-verbosity = "1"
+
+[tool.cibuildwheel.linux]
+build = "cp3*-manylinux_*"
+archs = "x86_64 aarch64"
+
+[tool.cibuildwheel.windows]
+build = "cp3*"

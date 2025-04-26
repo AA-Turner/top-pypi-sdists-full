@@ -1,0 +1,63 @@
+[project]
+name = "lb-telemetry"
+#version = "0.1.0"
+dynamic = ["version"]
+authors = [
+    {name="Cameron McClymont", email="cameron.duncan.mcclymont@cern.ch"},
+    {name="Daniel Cervenkov", email="daniel.cervenkov@cern.ch"},
+    {name="Chris Burr", email="christopher.burr@cern.ch"},
+]
+description = "A utility for logging telemetry data from LHCb packages to MONIT"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "LbPlatformUtils",
+    "logzero",
+    "requests",
+]
+
+[tool.setuptools_scm]
+
+[project.urls]
+"Homepage" = "https://gitlab.cern.ch/lhcb/lb-telemetry"
+"Bug Tracker" = "https://gitlab.cern.ch/lhcb/lb-telemetry/issues"
+
+[build-system]
+requires = [
+    "setuptools >= 61",
+    "wheel",
+    "setuptools_scm[toml] >= 3.4",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra",
+    "-q",
+    "--cov=src/lb_telemetry"
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "mypy-extensions",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "types-requests"
+]
+
+[tool.ruff]
+select = ["E", "F", "B", "I", "PLE", "RUF", "UP"]
+target-version = "py39"
+[tool.ruff.isort]
+known-first-party = ["lb_telemetry"]
+
+[project.scripts]
+lb-telemetry = "lb_telemetry:lb_telemetry"

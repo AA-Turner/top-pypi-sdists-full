@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: graphitesend
+Version: 0.10.0
+Summary: A simple interface for sending metrics to Graphite
+Home-page: https://github.com/daniellawrence/graphitesend
+Author: Danny Lawrence
+Author-email: dannyla@linux.com
+License: UNKNOWN
+Description: https://github.com/daniellawrence/graphitesend
+Platform: UNKNOWN

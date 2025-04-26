@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "cppcheck-codequality"
+version = "1.4.1"
+license = "MIT"
+authors = ["Alex Hogen <code.ahogen@outlook.com>"]
+description = "Convert a CppCheck XML report to a GitLab-compatible Code Quality JSON report."
+include = ["README.md", "CHANGELOG.md", "LICENSE"]
+readme = "README.md"
+homepage = "https://gitlab.com/ahogen/cppcheck-codequality"
+repository = "https://gitlab.com/ahogen/cppcheck-codequality"
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Utilities",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://gitlab.com/ahogen/cppcheck-codequality/-/issues"
+"Changelog" = "https://gitlab.com/ahogen/cppcheck-codequality/-/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry.scripts]
+cppcheck-codequality = 'cppcheck_codequality.__main__:main'
+
+[tool.poetry.dependencies]
+python = ">=3.7,<3.13"
+xmltodict = "^0.13.0"
+
+[tool.poetry.group.dev.dependencies]
+isort = "^5.0"
+black = "^22.0"
+pylint = "^2.0"
+
+[tool.poetry.group.test.dependencies]
+pytest-cov = "^4.0"
+pytest = "^7.0"
+coverage = "^6.5"
+
+
+[tool.poetry.group.multienv.dependencies]
+tox = ">=3.24.0"
+
+[tool.poetry.group.ci.dependencies]
+anybadge = "^1.0.0"
+pylint-exit = "^1.2.0"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+style = "semver"
+metadata = false

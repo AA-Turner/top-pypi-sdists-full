@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 119
+
+extend-exclude = [
+  ".ruff_cache",
+  ".env",
+  ".venv",
+  ".po",
+  ".svg",
+]
+
+[tool.ruff.lint]
+select=[
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "C",  # flake8-comprehensions
+  "B",  # flake8-bugbear
+  "PLE", # pylint error
+  "PLR", # pylint refactor
+  "PLW", # pylint warning
+  "UP", # pyupgrade
+]

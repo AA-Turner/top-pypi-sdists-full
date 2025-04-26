@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: PureCloudPlatformClientV2
+Version: 226.0.0
+Summary: PureCloud Platform API SDK
+Home-page: https://developer.mypurecloud.com/api/rest/client-libraries/python/
+Author: Genesys Developer Evangelists
+Author-email: DeveloperEvangelists@Genesys.com
+License: MIT
+Keywords: Swagger PureCloud Platform API Genesys
+Requires-Python: >=3.9
+Description-Content-Type: text/plain
+Requires-Dist: urllib3>=1.26.20
+Requires-Dist: certifi>=2025.01.31
+Requires-Dist: python-dateutil>=2.9.0.post0
+Requires-Dist: watchdog>=5.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+A Python library to interface with the PureCloud Platform API

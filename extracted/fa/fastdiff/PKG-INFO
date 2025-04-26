@@ -1,0 +1,74 @@
+Metadata-Version: 1.1
+Name: fastdiff
+Version: 0.3.0
+Summary: A fast native implementation of diff algorithm with a pure python fallback
+Home-page: https://github.com/syrusakbary/fastdiff
+Author: Syrus Akbary
+Author-email: me@syrusakbary.com
+License: MIT license
+Description: ========
+        fastdiff
+        ========
+        
+        
+        .. image:: https://img.shields.io/pypi/v/fastdiff.svg
+                :target: https://pypi.python.org/pypi/fastdiff
+        
+        .. image:: https://img.shields.io/travis/syrusakbary/fastdiff.svg
+                :target: https://travis-ci.org/syrusakbary/fastdiff
+        
+        .. image:: https://readthedocs.org/projects/fastdiff/badge/?version=latest
+                :target: https://fastdiff.readthedocs.io/en/latest/?badge=latest
+                :alt: Documentation Status
+        
+        
+        .. image:: https://pyup.io/repos/github/syrusakbary/fastdiff/shield.svg
+             :target: https://pyup.io/repos/github/syrusakbary/fastdiff/
+             :alt: Updates
+        
+        
+        
+        A fast/native implementation of diff algorithms using WebAssembly and Wasmer_.
+        
+        * Free software: MIT license
+        
+        
+        Features
+        --------
+        
+        * Uses WebAssembly to achieve 75x speedup in the compare algorithm
+        * Compatible with any platform
+        
+        
+        Credits
+        -------
+        
+        This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+        
+        .. _Wasmer: https://pypi.org/project/wasmer/
+        .. _Cookiecutter: https://github.com/audreyr/cookiecutter
+        .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
+        
+        
+        =======
+        History
+        =======
+        
+        0.1.0 (2019-07-04)
+        ------------------
+        
+        * First release on PyPI.
+        
+Keywords: fastdiff
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

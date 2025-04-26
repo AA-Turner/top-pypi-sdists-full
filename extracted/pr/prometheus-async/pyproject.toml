@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "prometheus-async"
+dynamic = ["version"]
+authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
+requires-python = ">=3.8"
+description = "Async helpers for prometheus_client."
+dependencies = [
+    # Keep min. version in-sync with constraints in oldest-supported.txt!
+    "prometheus_client >= 0.8.0",
+    "typing_extensions >= 3.10.0; python_version<'3.10'",
+    "wrapt",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+readme = { content-type = "text/markdown", file = "README.md" }
+keywords = ["metrics", "prometheus", "twisted", "asyncio", "async"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Documentation = "https://prometheus-async.readthedocs.io/"
+Changelog = "https://prometheus-async.readthedocs.io/en/stable/changelog.html"
+GitHub = "https://github.com/hynek/prometheus-async/"
+Funding = "https://hynek.me/say-thanks/"
+
+[project.optional-dependencies]
+aiohttp = ["aiohttp>=3"]
+consul = ["aiohttp>=3"]
+twisted = ["twisted"]
+tests = ["coverage[toml]", "pytest", "pytest-asyncio"]
+docs = [
+    "prometheus-async[aiohttp,twisted]",
+    "furo",
+    "myst-parser",
+    "sphinx-notfound-page",
+    "sphinx",
+]
+dev = ["prometheus-async[tests,aiohttp,twisted]", "mypy"]
+
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+testpaths = "tests"
+filterwarnings = [
+    "once::Warning",
+    "ignore:::aiohttp[.*]",
+    "ignore:::importlib[.*]",
+    "ignore::DeprecationWarning:twisted.python.threadable",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["prometheus_async"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/py*/**/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    # typing-related code
+    "^if (False|TYPE_CHECKING):",
+    ": \\.\\.\\.$",
+    "^ +\\.\\.\\.$",
+    "-> ['\"]?NoReturn['\"]?:",
+]
+omit = ["src/prometheus_async/types.py"]
+
+
+[tool.interrogate]
+omit-covered-files = true
+verbose = 2
+fail-under = 100
+whitelist-regex = ["test_.*"]
+
+
+[tool.mypy]
+strict = true
+pretty = true
+
+show_error_codes = true
+enable_error_code = ["ignore-without-code"]
+ignore_missing_imports = true
+
+warn_return_any = false
+disallow_any_generics = false
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tests.typing.*"
+ignore_errors = false
+
+[[tool.mypy.overrides]]
+module = "conftest.*"
+ignore_errors = true
+
+
+[tool.ruff]
+line-length = 79
+src = ["src", "tests", "docs/conf.py"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "A",       # shadowing is fine
+    "ANN",     # Mypy is better at this
+    "ARG",     # unused arguments are common w/ interfaces
+    "C901",    # sometimes you trade complexity for performance
+    "COM",     # formatter takes care of our commas
+    "D",       # We prefer our own docstring style.
+    "E501",    # leave line-length enforcement to formatter
+    "EM101",   # simple strings are fine
+    "FBT",     # bools are our friends
+    "FIX",     # Yes, we want XXX as a marker.
+    "INP001",  # sometimes we want Python files outside of packages
+    "ISC001",  # conflicts with formatter
+    "N802",    # some names are non-pep8 due to stdlib logging / Twisted
+    "N803",    # ditto
+    "N806",    # ditto
+    "PLR0913", # leave complexity to me
+    "PLR2004", # numbers are sometimes fine
+    "PLW2901", # overwriting a loop var can be useful
+    "RUF001",  # leave my smart characters alone
+    "SLF001",  # private members are accessed by friendly functions
+    "T201",    # prints are fine
+    "TID252",  # relative imports all the way
+    "TC",      # TYPE_CHECKING blocks break autodocs
+    "TD",      # we don't follow other people's todo style
+    "TRY003",  # simple strings are fine
+    "TRY004",  # too many false negatives
+    "TRY300",  # else blocks are nice, but code-locality is nicer
+    "PTH",     # pathlib can be slow, so no point to rewrite
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "B018",    # "useless" expressions can be useful in tests
+    "BLE",     # tests have different rules around exceptions
+    "EM",      # tests have different rules around exceptions
+    "PLC1901", # empty strings are falsey, but are less specific in tests
+    "PT011",   # broad exceptions are fine
+    "RUF012",  # no type hints in tests
+    "S",       # it's test; chill out security
+    "S101",    # assert
+    "S301",    # I know pickle is bad, but people like it.
+    "SIM300",  # Yoda rocks in tests
+    "TRY",     # tests have different rules around exceptions
+]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
+lines-after-imports = 2

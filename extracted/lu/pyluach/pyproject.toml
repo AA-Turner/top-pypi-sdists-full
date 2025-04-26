@@ -1,0 +1,46 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "pyluach"
+authors = [
+  {name = "MS List", email = "simlist@gmail.com"}
+]
+license = {file = "license.txt"}
+dynamic = ["description", "version"]
+readme = "README.rst"
+requires-python = ">=3.7"
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = [
+    'hebrew', 'calendar', 'jewish', 'luach', 'gregorian', 'julian',
+    'days', 'dates', 'date', 'conversion', 'parsha', 'holiday'
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+  "flake8",
+  "beautifulsoup4"
+]
+doc = ["sphinx ~= 6.1.3", "sphinx_rtd_theme ~= 1.2.0"]
+
+[project.urls]
+Documentation = "https://readthedocs.org/projects/pyluach/"
+Source = "https://github.com/simlist/pyluach"
+
+[tool.flit.sdist]
+exclude = ["tests", "docs", ".github", "requirements.txt", ".gitignore"]

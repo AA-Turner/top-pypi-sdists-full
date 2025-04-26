@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: tableaudocumentapi
+Version: 0.11
+Summary: A Python module for working with Tableau files.
+Home-page: https://github.com/tableau/document-api-python
+Author: Tableau
+Author-email: github@tableau.com
+License: MIT
+Description: file: README.md
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

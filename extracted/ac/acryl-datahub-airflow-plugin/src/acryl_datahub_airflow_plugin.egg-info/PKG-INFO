@@ -1,0 +1,101 @@
+Metadata-Version: 2.4
+Name: acryl-datahub-airflow-plugin
+Version: 1.0.0.2
+Summary: Datahub Airflow plugin to capture executions and send to Datahub
+Home-page: https://datahubproject.io/
+License: Apache License 2.0
+Project-URL: Documentation, https://datahubproject.io/docs/
+Project-URL: Source, https://github.com/datahub-project/datahub
+Project-URL: Changelog, https://github.com/datahub-project/datahub/releases
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Topic :: Software Development
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: acryl-datahub[datahub-rest]==1.0.0.2
+Requires-Dist: acryl-datahub[sql-parser]==1.0.0.2
+Requires-Dist: apache-airflow>=2.5.0
+Requires-Dist: openlineage-airflow<=1.30.1,>=1.2.0
+Provides-Extra: ignore
+Provides-Extra: datahub-rest
+Requires-Dist: acryl-datahub[datahub-rest]==1.0.0.2; extra == "datahub-rest"
+Provides-Extra: datahub-kafka
+Requires-Dist: acryl-datahub[datahub-kafka]==1.0.0.2; extra == "datahub-kafka"
+Provides-Extra: datahub-file
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.0.0.2; extra == "datahub-file"
+Provides-Extra: plugin-v1
+Provides-Extra: plugin-v2
+Requires-Dist: acryl-datahub[sql-parser]==1.0.0.2; extra == "plugin-v2"
+Requires-Dist: openlineage-airflow<=1.30.1,>=1.2.0; extra == "plugin-v2"
+Provides-Extra: dev
+Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: packaging; extra == "dev"
+Requires-Dist: tox-uv; extra == "dev"
+Requires-Dist: types-click==0.1.12; extra == "dev"
+Requires-Dist: mypy==1.10.1; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest]==1.0.0.2; extra == "dev"
+Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
+Requires-Dist: tenacity; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: acryl-datahub[sql-parser]==1.0.0.2; extra == "dev"
+Requires-Dist: sqlalchemy-stubs; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: deepdiff!=8.0.0; extra == "dev"
+Requires-Dist: openlineage-airflow<=1.30.1,>=1.2.0; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-dataclasses; extra == "dev"
+Requires-Dist: types-six; extra == "dev"
+Requires-Dist: pydantic>=1.10; extra == "dev"
+Requires-Dist: types-tabulate; extra == "dev"
+Requires-Dist: types-cachetools; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: ruff==0.9.7; extra == "dev"
+Requires-Dist: apache-airflow>=2.5.0; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Provides-Extra: integration-tests
+Requires-Dist: apache-airflow-providers-sqlite; extra == "integration-tests"
+Requires-Dist: snowflake-connector-python>=2.7.10; extra == "integration-tests"
+Requires-Dist: virtualenv; extra == "integration-tests"
+Requires-Dist: acryl-datahub[testing-utils]==1.0.0.2; extra == "integration-tests"
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.0.0.2; extra == "integration-tests"
+Requires-Dist: acryl-datahub[datahub-kafka]==1.0.0.2; extra == "integration-tests"
+Requires-Dist: apache-airflow[amazon,snowflake]>=2.0.2; extra == "integration-tests"
+Provides-Extra: test-airflow25
+Requires-Dist: apache-airflow-providers-amazon==7.3.0; extra == "test-airflow25"
+Requires-Dist: pendulum<3.0; extra == "test-airflow25"
+Requires-Dist: Flask-Session<0.6.0; extra == "test-airflow25"
+Requires-Dist: marshmallow<3.24.0; extra == "test-airflow25"
+Requires-Dist: connexion<3.0; extra == "test-airflow25"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Datahub Airflow Plugin
+
+See [the DataHub Airflow docs](https://datahubproject.io/docs/lineage/airflow) for details.
+
+## Developing
+
+See the [developing docs](../../metadata-ingestion/developing.md).

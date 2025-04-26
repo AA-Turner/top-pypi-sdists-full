@@ -1,0 +1,108 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cs2_nav"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+# Ruff config
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "docs",
+]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "INP001",
+    "D208",
+    "T20",
+    "PTH",
+    "TRY003",
+    "BLE001",
+    "PLR2004",
+    "UP007",
+    "ISC001",
+    "D",
+    "FA102",
+    "ERA001",
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "COM812",
+    "COM819",
+]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 17
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py"     = ["E402", "F401"]
+"tests/test_*.py" = ["ANN201", "S101", "SLF001", "PLR2004"]
+"plot_tiles.py"   = ["D", "ERA001"]
+
+[tool.pyright]
+include                            = ["scripts"]
+# typeCheckingMode                   = "strict"
+# strictListInference                = true
+# strictDictionaryInference          = true
+# reportDeprecated                   = "warning"
+# reportPropertyTypeMismatch         = "error"
+# reportFunctionMemberAccess         = "error"
+# reportMissingTypeStubs             = "error"
+# reportUntypedFunctionDecorator     = "error"
+# reportUntypedClassDecorator        = "error"
+# reportUntypedBaseClass             = "error"
+# reportUntypedNamedTuple            = "error"
+# reportPrivateUsage                 = "error"
+# reportConstantRedefinition         = "error"
+# reportOverlappingOverload          = "error"
+# reportMissingParameterType         = "error"
+# reportUnnecessaryIsInstance        = "error"
+# reportUnnecessaryCast              = "error"
+# reportUnnecessaryComparison        = "error"
+# reportUnnecessaryContains          = "error"
+# reportAssertAlwaysTrue             = "error"
+# reportUnnecessaryTypeIgnoreComment = "error"
+# reportImplicitOverride             = "none"
+# reportShadowedImports              = "error"

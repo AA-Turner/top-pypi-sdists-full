@@ -1,0 +1,86 @@
+[project]
+name = "argilla"
+description = "The Argilla python server SDK"
+authors = [
+    { name = "Argilla", email = "contact@argilla.io" },
+]
+requires-python = ">= 3.9"
+readme = "README.md"
+dynamic = []
+dependencies = [
+    "httpx>=0.26.0",
+    "pydantic>=2.6.0, <3.0.0",
+    "huggingface_hub>=0.22.0",
+    "tqdm>=4.60.0",
+    "rich>=10.0.0",
+    "datasets>=2.0.0",
+    "pillow>=9.5.0",
+    "standardwebhooks>=1.0.0",
+]
+legacy = [
+    "argilla-v1[listeners]",
+]
+version = "2.8.0"
+
+[project.license]
+text = "Apache 2.0"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.ruff]
+line-length = 120
+
+[tool.black]
+line-length = 120
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.version]
+source = "file"
+path = "src/argilla/_version.py"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "ipython>=8.12.3",
+    "pytest>=7.4.4",
+    "flake8>=5.0.4",
+    "ruff>=0.1.12",
+    "pytest-mock>=3.12.0",
+    "pytest-httpx ~=0.29.0",
+    "black>=23.12.1",
+    "build>=1.0.3",
+    "pre-commit>=3.5.0",
+    "mkdocs-material >= 9.5.17",
+    "mkdocstrings[python] >= 0.24.0",
+    "mkdocs-literate-nav >= 0.6.1",
+    "mkdocs-section-index >= 0.3.8",
+    "mkdocs-gen-files >= 0.5.0",
+    "mkdocs-open-in-new-tab >= 1.0.3",
+    "material-plausible-plugin>=0.2.0",
+    "mike >= 2.0.0",
+    "Pillow >= 9.5.0",
+    "CairoSVG >= 2.7.1",
+    "mknotebooks >= 0.8.0",
+    "pytest-retry>=1.5",
+    "pyarrow~=18.0.0",
+]
+
+[tool.pdm.scripts]
+lint = "ruff check"
+format = "black ."
+
+[tool.pdm.scripts.test]
+cmd = "pytest tests"
+env_file = ".env.test"
+
+[tool.pdm.scripts.all]
+composite = [
+    "format",
+    "lint",
+    "test",
+]

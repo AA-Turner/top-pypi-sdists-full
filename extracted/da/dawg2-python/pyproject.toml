@@ -1,0 +1,87 @@
+[tool.poetry]
+name = "DAWG2-Python"
+version = "0.9.0"
+description = "Pure-python reader for DAWGs (DAFSAs) created by dawgdic C++ library or DAWG Python extension."
+authors = ["Mikhail Korobov <kmike84@gmail.com>"]
+license = "MIT"
+readme = ["README.md", "CHANGES.md"]
+packages = [{include = "dawg_python"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Linguistic"
+]
+repository = "https://github.com/pymorphy2-fork/DAWG-Python/"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+typing-extensions = { version = ">=4.0", python = "<3.11" }
+
+[tool.poetry.group.dev.dependencies]
+flake8 = { version = ">=6.1,<8.0", python = "^3.8.1" }
+dawg2 = ">=0.12.1,<0.14.0"
+pytest = ">=7.4.1,<9.0.0"
+pytest-cov = ">=4.1,<6.0"
+ruff = ">=0.5.0,<0.9.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "D",
+    "PTH123",
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"_prepare_dev_data.py" = [
+    "ANN001",
+    "ANN002",
+    "ANN201",
+    "ANN202",
+    "ERA001",
+]
+
+"*/__init__.py" = [
+    "F401",
+]
+
+"bench/*" = [
+    "ANN001",
+    "ANN002",
+    "ANN201",
+    "ANN202",
+    "ERA001",
+    "PERF401",
+    "PLR0913",
+    "S311",
+]
+
+"tests/*" = [
+    "ANN001",
+    "ANN002",
+    "ANN201",
+    "B017",
+    "PT011",
+    "PTH123",
+    "RUF001",
+    "RUF012",
+    "S101",
+    "S301",
+    "S324",
+]

@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: dbutils_typehint
+Version: 0.1.9
+Summary: Provides type hints for dbutils in Data Bricks: https://docs.databricks.com/dev-tools/databricks-utils.html
+Home-page: https://github.com/cdeler/dbutils_typehint
+Author: cdeler
+Author-email: serj.krotov@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.5

@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "mongo_tooling_metrics"
+version = "1.0.8"
+description = "A slim library which leverages Pydantic to reliably collect type enforced metrics and store them to MongoDB."
+authors = ["Tausif Rahman <tausif.rahman@mongodb.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+distro = "^1.5.0"
+pydantic = "^1.8.2"
+pymongo = {extras = ["aws"], version = "^4.3.3"}
+gitpython = "^3.1.29"
+setuptools = "^58.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+mongomock = "^4.1.2"
+yapf = "^0.32.0"
+toml = "^0.10.2"
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = "100"
+indent_dictionary_value = "True"
+split_before_named_assigns = "False"
+each_dict_entry_on_separate_line = "False"
+
+[tool.yapfignore]
+ignore_patterns = [
+  "python3-venv/**/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

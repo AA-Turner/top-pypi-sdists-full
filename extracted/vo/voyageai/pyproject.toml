@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "voyageai"
+version = "0.3.2"
+description = ""
+authors = ["Yujie Qian <yujieq@voyageai.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9,<3.13"
+requests = "*"
+aiohttp = "*"
+tenacity = "*"
+numpy = "*"
+aiolimiter = "*"
+pillow = "*"
+pydantic = ">=1.10.8"
+tokenizers = ">=0.14.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.2"
+pytest-asyncio = "^0.21.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

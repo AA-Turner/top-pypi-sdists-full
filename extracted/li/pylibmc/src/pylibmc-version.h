@@ -1,0 +1,1 @@
+#define PYLIBMC_VERSION "1.6.3"

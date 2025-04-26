@@ -1,0 +1,100 @@
+[build-system]
+requires = [
+    "poetry-core >=1.8,<2",
+    "numpy >= 1.24",
+    "cython >= 3.0",
+    "setuptools",
+]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.build]
+script = "build.py"
+generate-setup-file = true
+
+
+[tool.poetry]
+authors = ["pylibjpeg-libjpeg contributors"]
+classifiers=[
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 5 - Production/Stable",
+    "Natural Language :: English",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Software Development :: Libraries",
+]
+description = """\
+A Python wrapper for libjpeg, with a focus on use as a plugin for \
+for pylibjpeg\
+"""
+homepage = "https://github.com/pydicom/pylibjpeg-libjpeg"
+keywords = ["dicom pydicom python jpg jpeg jpg-ls jpeg-ls libjpeg pylibjpeg"]
+license = "GPL V3.0"
+maintainers = ["scaramallion <scaramallion@users.noreply.github.com>"]
+name = "pylibjpeg-libjpeg"
+# We want to be able to build from sdist, so include required libjpeg src
+#   But don't include any libjpeg src in the built wheels
+include = [
+    { path = "lib", format = "sdist" },
+    { path = "build_tools", format = "sdist" },
+]
+exclude = [
+    "lib/libjpeg/config.log",
+    "lib/libjpeg/config.status",
+]
+packages = [
+    { include = "libjpeg" },
+]
+readme = "README.md"
+version = "2.3.0"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^2.0"
+
+[tool.poetry.plugins."pylibjpeg.jpeg_decoders"]
+libjpeg = "libjpeg:decode"
+
+[tool.poetry.plugins."pylibjpeg.jpeg_ls_decoders"]
+libjpeg = "libjpeg:decode"
+
+[tool.poetry.plugins."pylibjpeg.jpeg_xt_decoders"]
+libjpeg = "libjpeg:decode"
+
+[tool.poetry.plugins."pylibjpeg.pixel_data_decoders"]
+"1.2.840.10008.1.2.4.50" = "libjpeg:decode_pixel_data"
+"1.2.840.10008.1.2.4.51" = "libjpeg:decode_pixel_data"
+"1.2.840.10008.1.2.4.57" = "libjpeg:decode_pixel_data"
+"1.2.840.10008.1.2.4.70" = "libjpeg:decode_pixel_data"
+"1.2.840.10008.1.2.4.80" = "libjpeg:decode_pixel_data"
+"1.2.840.10008.1.2.4.81" = "libjpeg:decode_pixel_data"
+
+
+[tool.coverage.run]
+omit = [
+    "libjpeg/tests/*",
+]
+
+[tool.mypy]
+python_version = "3.9"
+files = "libjpeg"
+exclude = ["libjpeg/tests"]
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = false
+ignore_missing_imports = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true

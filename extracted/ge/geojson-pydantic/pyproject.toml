@@ -1,0 +1,115 @@
+[project]
+name = "geojson-pydantic"
+description = "Pydantic data models for the GeoJSON spec."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Drew Bollinger", email = "drew@developmentseed.org"},
+]
+keywords = ["geojson", "Pydantic"]
+classifiers = [
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = ["pydantic~=2.0"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov", "shapely"]
+dev = [
+    "pre-commit",
+    "bump-my-version",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "pygments",
+]
+
+[project.urls]
+Source = "https://github.com/developmentseed/geojson-pydantic"
+
+[build-system]
+requires = ["flit_core>=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "geojson_pydantic"
+
+[tool.flit.sdist]
+exclude = [
+    "tests/",
+    "docs/",
+    ".github/",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["geojson_pydantic"]
+known_third_party = ["pydantic"]
+default_section = "THIRDPARTY"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.ruff.lint]
+select = [
+    "D1",  # pydocstyle errors
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # flake8
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "B905",  # ignore zip() without an explicit strict= parameter, only support with python >3.10
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D1"]
+
+[tool.bumpversion]
+current_version = "1.2.0"
+
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+tag = true
+commit = true
+tag_name = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "geojson_pydantic/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'

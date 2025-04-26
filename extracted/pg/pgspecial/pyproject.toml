@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ['py37']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | \.cache
+  | \.pytest_cache
+  | _build
+  | buck-out
+  | build
+  | dist
+  | tests/data
+)/
+'''
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--capture=sys --showlocals -rxs"
+testpaths = [
+    "tests",
+]

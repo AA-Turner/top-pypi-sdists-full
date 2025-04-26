@@ -1,0 +1,36 @@
+Metadata-Version: 2.2
+Name: django_dramatiq
+Version: 0.13.0
+Summary: A Django app for Dramatiq.
+Classifier: Environment :: Web Environment
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: django>=4.2
+Requires-Dist: dramatiq>=1.11
+Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: flake8-quotes; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-django; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: classifier
+Dynamic: description
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Visit https://github.com/Bogdanp/django_dramatiq for more information.

@@ -1,0 +1,41 @@
+Metadata-Version: 2.3
+Name: treelite
+Version: 4.4.1
+Summary: Treelite: Universal model exchange format for decision tree forests
+Project-URL: documentation, https://treelite.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/dmlc/treelite
+Author-email: Hyunsu Cho <chohyu01@cs.washington.edu>
+License: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
+Requires-Dist: numpy
+Requires-Dist: packaging
+Requires-Dist: scipy
+Provides-Extra: scikit-learn
+Requires-Dist: scikit-learn; extra == 'scikit-learn'
+Provides-Extra: testing
+Requires-Dist: hypothesis; extra == 'testing'
+Requires-Dist: pandas; extra == 'testing'
+Requires-Dist: pytest; extra == 'testing'
+Requires-Dist: scikit-learn; extra == 'testing'
+Description-Content-Type: text/x-rst
+
+=======================
+Treelite Python Package
+=======================
+
+|PyPI version|
+
+.. |PyPI version| image:: https://badge.fury.io/py/treelite.svg
+   :target: http://badge.fury.io/py/treelite
+
+**Treelite** is a universal model exchange and serialization format for decision tree forests.
+
+See the documentation for more details.

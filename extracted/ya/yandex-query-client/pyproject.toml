@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yandex-query-client"
+version = "0.1.4"
+authors = [
+  { email="cloud@support.yandex.ru" },
+]
+description = "The Yandex Query official HTTP client"
+readme = "README.md"
+license="MIT"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "pandas>=1.2.5",
+  "python-dateutil>=2.8.2",
+  "requests>=2.31.0",
+  "urllib3>=1.26.5",
+]
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.4",
+    "ruff==0.3.3",
+    "mypy",
+    "responses>=0.23.1",
+    "types-python-dateutil",
+    "types-requests"
+]
+
+[project.urls]
+Homepage = "https://github.com/yandex-cloud/yandex-query-client"
+Issues = "https://github.com/yandex-cloud/yandex-query-client/issues"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 110
+extend-exclude = [
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"src/yandex_query_client/__init__.py" = ["F401"]

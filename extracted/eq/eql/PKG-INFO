@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: eql
+Version: 0.9.19
+Summary: Event Query Language
+Home-page: https://eql.readthedocs.io
+Author: Endgame, Inc.
+Author-email: eql@endgame.com
+License: AGPLv3
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Database
+Classifier: Topic :: Internet :: Log Analysis
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Provides-Extra: docs
+Provides-Extra: cli
+Provides-Extra: lint
+Provides-Extra: test
+Provides-Extra: loaders
+Provides-Extra: highlighters
+License-File: LICENSE

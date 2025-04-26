@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: tidevice
+Version: 0.12.10
+Summary: UNKNOWN
+Home-page: https://github.com/alibaba/tidevice
+Author: 圣翔
+Author-email: codeskyblue@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.6
+Provides-Extra: openssl

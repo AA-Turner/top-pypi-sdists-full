@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: junit-xml-2
+Version: 1.9
+Summary: Fork of https://github.com/kyrus/python-junit-xml that has tarball published to pypi
+Home-page: https://github.com/returntocorp/python-junit-xml
+Author: Brian Beyer
+Author-email: brian@kyr.us
+License: MIT
+Description: python-junit-xml
+        ================
+        Fork of https://github.com/kyrus/python-junit-xml to publish on pypi as tarball so
+        https://github.com/Homebrew/homebrew-core/blob/master/Formula/semgrep.rb can rely on this as a pypi package
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: Freely Distributable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Testing

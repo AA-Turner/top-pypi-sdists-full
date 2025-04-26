@@ -1,0 +1,4503 @@
+from __future__ import annotations
+
+import builtins
+import math
+import warnings
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Collection,
+    Iterable,
+    Iterator,
+    Literal,
+    TypeVar,
+    overload,
+)
+
+import daft.daft as native
+from daft import context
+from daft.daft import (
+    CountMode,
+    ImageFormat,
+    ImageMode,
+    ResourceRequest,
+    initialize_udfs,
+    resolved_col,
+    sql_datatype,
+    unresolved_col,
+)
+from daft.daft import PyExpr as _PyExpr
+from daft.daft import date_lit as _date_lit
+from daft.daft import decimal_lit as _decimal_lit
+from daft.daft import duration_lit as _duration_lit
+from daft.daft import list_distinct as _list_distinct
+from daft.daft import list_sort as _list_sort
+from daft.daft import lit as _lit
+from daft.daft import series_lit as _series_lit
+from daft.daft import struct as _struct
+from daft.daft import time_lit as _time_lit
+from daft.daft import timestamp_lit as _timestamp_lit
+from daft.daft import tokenize_decode as _tokenize_decode
+from daft.daft import tokenize_encode as _tokenize_encode
+from daft.daft import udf as _udf
+from daft.daft import url_download as _url_download
+from daft.daft import utf8_count_matches as _utf8_count_matches
+from daft.datatype import DataType, DataTypeLike, TimeUnit
+from daft.dependencies import pa
+from daft.expressions.testing import expr_structurally_equal
+from daft.logical.schema import Field, Schema
+from daft.series import Series, item_to_series
+
+if TYPE_CHECKING:
+    from daft.io import IOConfig
+    from daft.udf import BoundUDFArgs, InitArgsType, UninitializedUdf
+    from daft.window import Window
+
+
+def lit(value: object) -> Expression:
+    """Creates an Expression representing a column with every value set to the provided value.
+
+    Args:
+        val: value of column
+
+    Returns:
+        Expression: Expression representing the value provided
+
+    Examples:
+        >>> import daft
+        >>> df = daft.from_pydict({"x": [1, 2, 3]})
+        >>> df = df.with_column("y", daft.lit(1))
+        >>> df.show()
+        ╭───────┬───────╮
+        │ x     ┆ y     │
+        │ ---   ┆ ---   │
+        │ Int64 ┆ Int32 │
+        ╞═══════╪═══════╡
+        │ 1     ┆ 1     │
+        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+        │ 2     ┆ 1     │
+        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+        │ 3     ┆ 1     │
+        ╰───────┴───────╯
+        <BLANKLINE>
+        (Showing first 3 of 3 rows)
+
+    """
+    if isinstance(value, datetime):
+        # pyo3 datetime (PyDateTime) is not available when running in abi3 mode, workaround
+        pa_timestamp = pa.scalar(value)
+        i64_value = pa_timestamp.cast(pa.int64()).as_py()
+        time_unit = TimeUnit.from_str(pa_timestamp.type.unit)._timeunit
+        tz = pa_timestamp.type.tz
+        lit_value = _timestamp_lit(i64_value, time_unit, tz)
+    elif isinstance(value, date):
+        # pyo3 date (PyDate) is not available when running in abi3 mode, workaround
+        epoch_time = value - date(1970, 1, 1)
+        lit_value = _date_lit(epoch_time.days)
+    elif isinstance(value, time):
+        # pyo3 time (PyTime) is not available when running in abi3 mode, workaround
+        pa_time = pa.scalar(value)
+        i64_value = pa_time.cast(pa.int64()).as_py()
+        time_unit = TimeUnit.from_str(pa.type_for_alias(str(pa_time.type)).unit)._timeunit
+        lit_value = _time_lit(i64_value, time_unit)
+    elif isinstance(value, timedelta):
+        # pyo3 timedelta (PyDelta) is not available when running in abi3 mode, workaround
+        pa_duration = pa.scalar(value)
+        i64_value = pa_duration.cast(pa.int64()).as_py()
+        time_unit = TimeUnit.from_str(pa_duration.type.unit)._timeunit
+        lit_value = _duration_lit(i64_value, time_unit)
+    elif isinstance(value, Decimal):
+        sign, digits, exponent = value.as_tuple()
+        assert isinstance(exponent, int)
+        lit_value = _decimal_lit(sign == 1, digits, exponent)
+    elif isinstance(value, Series):
+        lit_value = _series_lit(value._series)
+    else:
+        lit_value = _lit(value)
+    return Expression._from_pyexpr(lit_value)
+
+
+def col(name: str) -> Expression:
+    """Creates an Expression referring to the column with the provided name.
+
+    See [Column Wildcards](https://www.getdaft.io/projects/docs/en/stable/core_concepts/#selecting-columns-using-wildcards) for details on wildcards.
+
+    Args:
+        name: Name of column
+
+    Returns:
+        Expression: Expression representing the selected column
+
+    Examples:
+        >>> import daft
+        >>> df = daft.from_pydict({"x": [1, 2, 3], "y": [4, 5, 6]})
+        >>> df = df.select(daft.col("x"))
+        >>> df.show()
+        ╭───────╮
+        │ x     │
+        │ ---   │
+        │ Int64 │
+        ╞═══════╡
+        │ 1     │
+        ├╌╌╌╌╌╌╌┤
+        │ 2     │
+        ├╌╌╌╌╌╌╌┤
+        │ 3     │
+        ╰───────╯
+        <BLANKLINE>
+        (Showing first 3 of 3 rows)
+
+    """
+    return Expression._from_pyexpr(unresolved_col(name))
+
+
+def _resolved_col(name: str) -> Expression:
+    """Creates a resolved column."""
+    return Expression._from_pyexpr(resolved_col(name))
+
+
+def list_(*items: Expression | str):
+    """Constructs a list from the item expressions.
+
+    Args:
+        *items (Union[Expression, str]): item expressions to construct the list
+
+    Returns:
+        Expression: Expression representing the constructed list
+
+    Examples:
+        >>> import daft
+        >>> df = daft.from_pydict({"x": [1, 2, 3], "y": [4, 5, 6]})
+        >>> df = df.select(daft.list_("x", "y").alias("fwd"), daft.list_("y", "x").alias("rev"))
+        >>> df.show()
+        ╭─────────────┬─────────────╮
+        │ fwd         ┆ rev         │
+        │ ---         ┆ ---         │
+        │ List[Int64] ┆ List[Int64] │
+        ╞═════════════╪═════════════╡
+        │ [1, 4]      ┆ [4, 1]      │
+        ├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ [2, 5]      ┆ [5, 2]      │
+        ├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ [3, 6]      ┆ [6, 3]      │
+        ╰─────────────┴─────────────╯
+        <BLANKLINE>
+        (Showing first 3 of 3 rows)
+
+    """
+    assert len(items) > 0, "List constructor requires at least one item"
+    return Expression._from_pyexpr(native.list_([col(i)._expr if isinstance(i, str) else i._expr for i in items]))
+
+
+def struct(*fields: Expression | str) -> Expression:
+    """Constructs a struct from the input field expressions.
+
+    Args:
+        inputs: Expressions to be converted into struct fields.
+
+    Returns:
+        An expression for a struct column with the input columns as its fields.
+
+    Examples:
+        >>> import daft
+        >>> from daft import col
+        >>> df = daft.from_pydict({"a": [1, 2, 3], "b": ["a", "b", "c"]})
+        >>> df.select(daft.struct(col("a") * 2, col("b"))).show()
+        ╭───────────────────────────╮
+        │ struct                    │
+        │ ---                       │
+        │ Struct[a: Int64, b: Utf8] │
+        ╞═══════════════════════════╡
+        │ {a: 2,                    │
+        │ b: a,                     │
+        │ }                         │
+        ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ {a: 4,                    │
+        │ b: b,                     │
+        │ }                         │
+        ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ {a: 6,                    │
+        │ b: c,                     │
+        │ }                         │
+        ╰───────────────────────────╯
+        <BLANKLINE>
+        (Showing first 3 of 3 rows)
+
+    """
+    pyinputs = []
+    for field in fields:
+        if isinstance(field, Expression):
+            pyinputs.append(field._expr)
+        elif isinstance(field, str):
+            pyinputs.append(col(field)._expr)
+        else:
+            raise TypeError("expected Expression or str as input for struct()")
+    return Expression._from_pyexpr(_struct(pyinputs))
+
+
+def interval(
+    years: int | None = None,
+    months: int | None = None,
+    days: int | None = None,
+    hours: int | None = None,
+    minutes: int | None = None,
+    seconds: int | None = None,
+    millis: int | None = None,
+    nanos: int | None = None,
+) -> Expression:
+    """Creates an Expression representing an interval."""
+    lit_value = native.interval_lit(
+        years=years, months=months, days=days, hours=hours, minutes=minutes, seconds=seconds, millis=millis, nanos=nanos
+    )
+    return Expression._from_pyexpr(lit_value)
+
+
+def coalesce(*args: Expression) -> Expression:
+    """Returns the first non-null value in a list of expressions. If all inputs are null, returns null.
+
+    Args:
+        *args: Two or more expressions to coalesce
+
+    Returns:
+        Expression: Expression containing first non-null value encountered when evaluating arguments in order
+
+    Examples:
+        >>> import daft
+        >>> df = daft.from_pydict({"x": [1, None, 3], "y": [None, 2, None]})
+        >>> df = df.with_column("first_valid", daft.coalesce(df["x"], df["y"]))
+        >>> df.show()
+        ╭───────┬───────┬─────────────╮
+        │ x     ┆ y     ┆ first_valid │
+        │ ---   ┆ ---   ┆ ---         │
+        │ Int64 ┆ Int64 ┆ Int64       │
+        ╞═══════╪═══════╪═════════════╡
+        │ 1     ┆ None  ┆ 1           │
+        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ None  ┆ 2     ┆ 2           │
+        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ 3     ┆ None  ┆ 3           │
+        ╰───────┴───────┴─────────────╯
+        <BLANKLINE>
+        (Showing first 3 of 3 rows)
+
+    """
+    return Expression._from_pyexpr(native.coalesce([arg._expr for arg in args]))
+
+
+class Expression:
+    _expr: _PyExpr = None  # type: ignore
+
+    def __init__(self) -> None:
+        raise NotImplementedError("We do not support creating a Expression via __init__ ")
+
+    @property
+    def str(self) -> ExpressionStringNamespace:
+        """Access methods that work on columns of strings."""
+        return ExpressionStringNamespace.from_expression(self)
+
+    @property
+    def dt(self) -> ExpressionDatetimeNamespace:
+        """Access methods that work on columns of datetimes."""
+        return ExpressionDatetimeNamespace.from_expression(self)
+
+    @property
+    def embedding(self) -> ExpressionEmbeddingNamespace:
+        """Access methods that work on columns of embeddings."""
+        return ExpressionEmbeddingNamespace.from_expression(self)
+
+    @property
+    def float(self) -> ExpressionFloatNamespace:
+        """Access methods that work on columns of floats."""
+        return ExpressionFloatNamespace.from_expression(self)
+
+    @property
+    def url(self) -> ExpressionUrlNamespace:
+        """Access methods that work on columns of URLs."""
+        return ExpressionUrlNamespace.from_expression(self)
+
+    @property
+    def list(self) -> ExpressionListNamespace:
+        """Access methods that work on columns of lists."""
+        return ExpressionListNamespace.from_expression(self)
+
+    @property
+    def struct(self) -> ExpressionStructNamespace:
+        """Access methods that work on columns of structs."""
+        return ExpressionStructNamespace.from_expression(self)
+
+    @property
+    def map(self) -> ExpressionMapNamespace:
+        """Access methods that work on columns of maps."""
+        return ExpressionMapNamespace.from_expression(self)
+
+    @property
+    def image(self) -> ExpressionImageNamespace:
+        """Access methods that work on columns of images."""
+        return ExpressionImageNamespace.from_expression(self)
+
+    @property
+    def partitioning(self) -> ExpressionPartitioningNamespace:
+        """Access methods that support partitioning operators."""
+        return ExpressionPartitioningNamespace.from_expression(self)
+
+    @property
+    def json(self) -> ExpressionJsonNamespace:
+        """Access methods that work on columns of json."""
+        return ExpressionJsonNamespace.from_expression(self)
+
+    @property
+    def binary(self) -> ExpressionBinaryNamespace:
+        """Access binary string operations for this expression.
+
+        Returns:
+            ExpressionBinaryNamespace: A namespace containing binary string operations
+        """
+        return ExpressionBinaryNamespace.from_expression(self)
+
+    @staticmethod
+    def _from_pyexpr(pyexpr: _PyExpr) -> Expression:
+        expr = Expression.__new__(Expression)
+        expr._expr = pyexpr
+        return expr
+
+    @staticmethod
+    def _to_expression(obj: object) -> Expression:
+        if isinstance(obj, Expression):
+            return obj
+        else:
+            return lit(obj)
+
+    @staticmethod
+    def udf(
+        name: builtins.str,
+        inner: UninitializedUdf,
+        bound_args: BoundUDFArgs,
+        expressions: builtins.list[Expression],
+        return_dtype: DataType,
+        init_args: InitArgsType,
+        resource_request: ResourceRequest | None,
+        batch_size: int | None,
+        concurrency: int | None,
+    ) -> Expression:
+        return Expression._from_pyexpr(
+            _udf(
+                name,
+                inner,
+                bound_args,
+                [e._expr for e in expressions],
+                return_dtype._dtype,
+                init_args,
+                resource_request,
+                batch_size,
+                concurrency,
+            )
+        )
+
+    @staticmethod
+    def to_struct(*fields: Expression | builtins.str) -> Expression:
+        """Constructs a struct from the input field expressions.
+
+        Renamed to 'struct' in https://github.com/Eventual-Inc/Daft/pull/3755.
+        """
+        warnings.warn(
+            "This function will be deprecated from Daft version >= 0.4.4!  Instead, please use 'struct'",
+            category=DeprecationWarning,
+        )
+        return struct(*fields)
+
+    def __bool__(self) -> bool:
+        raise ValueError(
+            "Expressions don't have a truth value. "
+            "If you used Python keywords `and` `not` `or` on an expression, use `&` `~` `|` instead."
+        )
+
+    def __abs__(self) -> Expression:
+        """Absolute of a numeric expression."""
+        return self.abs()
+
+    def abs(self) -> Expression:
+        """Absolute of a numeric expression."""
+        return Expression._from_pyexpr(native.abs(self._expr))
+
+    def __add__(self, other: object) -> Expression:
+        """Adds two numeric expressions or concatenates two string expressions (``e1 + e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr + expr._expr)
+
+    def __radd__(self, other: object) -> Expression:
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr + self._expr)
+
+    def __sub__(self, other: object) -> Expression:
+        """Subtracts two numeric expressions (``e1 - e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr - expr._expr)
+
+    def __rsub__(self, other: object) -> Expression:
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr - self._expr)
+
+    def __mul__(self, other: object) -> Expression:
+        """Multiplies two numeric expressions (``e1 * e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr * expr._expr)
+
+    def __rmul__(self, other: object) -> Expression:
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr * self._expr)
+
+    def __truediv__(self, other: object) -> Expression:
+        """True divides two numeric expressions (``e1 / e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr / expr._expr)
+
+    def __rtruediv__(self, other: object) -> Expression:
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr / self._expr)
+
+    def __mod__(self, other: Expression) -> Expression:
+        """Takes the mod of two numeric expressions (``e1 % e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr % expr._expr)
+
+    def __rmod__(self, other: Expression) -> Expression:
+        """Takes the mod of two numeric expressions (``e1 % e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr % self._expr)
+
+    def __and__(self, other: Expression) -> Expression:
+        """Takes the logical AND of two boolean expressions, or bitwise AND of two integer expressions (``e1 & e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr & expr._expr)
+
+    def __rand__(self, other: Expression) -> Expression:
+        """Takes the logical reverse AND of two boolean expressions (``e1 & e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr & self._expr)
+
+    def __or__(self, other: Expression) -> Expression:
+        """Takes the logical OR of two boolean or integer expressions, or bitwise OR of two integer expressions (``e1 | e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr | expr._expr)
+
+    def __xor__(self, other: Expression) -> Expression:
+        """Takes the logical XOR of two boolean or integer expressions, or bitwise XOR of two integer expressions (``e1 ^ e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr ^ expr._expr)
+
+    def __ror__(self, other: Expression) -> Expression:
+        """Takes the logical reverse OR of two boolean expressions (``e1 | e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr | self._expr)
+
+    def __lt__(self, other: Expression) -> Expression:
+        """Compares if an expression is less than another (``e1 < e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr < expr._expr)
+
+    def __le__(self, other: Expression) -> Expression:
+        """Compares if an expression is less than or equal to another (``e1 <= e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr <= expr._expr)
+
+    def __eq__(self, other: Expression) -> Expression:  # type: ignore
+        """Compares if an expression is equal to another (``e1 == e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr == expr._expr)
+
+    def eq_null_safe(self, other: Expression) -> Expression:
+        """Performs a null-safe equality comparison between two expressions.
+
+        Unlike regular equality (==), null-safe equality (<=> or IS NOT DISTINCT FROM):
+        - Returns True when comparing NULL <=> NULL
+        - Returns False when comparing NULL <=> any_value
+        - Behaves like regular equality for non-NULL values
+
+        Args:
+            other: The expression to compare with
+
+        Returns:
+            Expression: A boolean expression indicating if the values are equal
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr.eq_null_safe(expr._expr))
+
+    def __ne__(self, other: Expression) -> Expression:  # type: ignore
+        """Compares if an expression is not equal to another (``e1 != e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr != expr._expr)
+
+    def __gt__(self, other: Expression) -> Expression:
+        """Compares if an expression is greater than another (``e1 > e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr > expr._expr)
+
+    def __ge__(self, other: Expression) -> Expression:
+        """Compares if an expression is greater than or equal to another (``e1 >= e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr >= expr._expr)
+
+    def __lshift__(self, other: Expression) -> Expression:
+        """Shifts the bits of an integer expression to the left (``e1 << e2``).
+
+        Args:
+            other: The number of bits to shift the expression to the left
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr << expr._expr)
+
+    def __rshift__(self, other: Expression) -> Expression:
+        """Shifts the bits of an integer expression to the right (``e1 >> e2``).
+
+        .. NOTE::
+
+            For unsigned integers, this expression perform a logical right shift.
+            For signed integers, this expression perform an arithmetic right shift.
+
+        Args:
+            other: The number of bits to shift the expression to the right
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr >> expr._expr)
+
+    def __invert__(self) -> Expression:
+        """Inverts a boolean expression (``~e``)."""
+        expr = self._expr.__invert__()
+        return Expression._from_pyexpr(expr)
+
+    def __floordiv__(self, other: Expression) -> Expression:
+        """Floor divides two numeric expressions (``e1 / e2``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr // expr._expr)
+
+    def __rfloordiv__(self, other: object) -> Expression:
+        """Reverse floor divides two numeric expressions (``e2 / e1``)."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(expr._expr // self._expr)
+
+    def __getitem__(self, key) -> Expression:
+        """Syntactic sugar for `Expression.list.get` and `Expression.struct.get`.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"struct": [{"x": 1, "y": 2}, {"x": 3, "y": 4}], "list": [[10, 20], [30, 40]]})
+            >>> df = df.select(df["struct"]["x"], df["list"][0].alias("first"))
+            >>> df.show()
+            ╭───────┬───────╮
+            │ x     ┆ first │
+            │ ---   ┆ ---   │
+            │ Int64 ┆ Int64 │
+            ╞═══════╪═══════╡
+            │ 1     ┆ 10    │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 3     ┆ 30    │
+            ╰───────┴───────╯
+            <BLANKLINE>
+            (Showing first 2 of 2 rows)
+
+        Tip: See Also
+            [list.get](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionListNamespace.get) and [struct.get](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionStructNamespace.get)
+
+        """
+        key_type = type(key)
+
+        if key_type is int:
+            return self.list.get(key)
+        elif key_type is str:
+            return self.struct.get(key)
+        else:
+            raise TypeError(
+                f"Argument of type {key_type} is not supported in Expression.__getitem__. Only int and string types are supported."
+            )
+
+    def alias(self, name: builtins.str) -> Expression:
+        """Gives the expression a new name.
+
+        Args:
+            name: New name for expression
+
+        Returns:
+            Expression: Renamed expression
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [1, 2, 3]})
+            >>> df = df.select(col("x").alias("y"))
+            >>> df.show()
+            ╭───────╮
+            │ y     │
+            │ ---   │
+            │ Int64 │
+            ╞═══════╡
+            │ 1     │
+            ├╌╌╌╌╌╌╌┤
+            │ 2     │
+            ├╌╌╌╌╌╌╌┤
+            │ 3     │
+            ╰───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        assert isinstance(name, str)
+        expr = self._expr.alias(name)
+        return Expression._from_pyexpr(expr)
+
+    def cast(self, dtype: DataTypeLike) -> Expression:
+        """Casts an expression to the given datatype if possible.
+
+        The following combinations of datatype casting is valid:
+
+        | Target →           | Null | Boolean | Integers | Floats | Decimal128 | String | Binary | Fixed-size Binary | Image | Fixed-shape Image | Embedding | Tensor | Fixed-shape Tensor | Python | List | Fixed-size List | Struct | Map | Timestamp | Date | Time | Duration |
+        | ------------------ | ---- | ------- | -------- | ------ | ---------- | ------ | ------ | ----------------- | ----- | ----------------- | --------- | ------ | ------------------ | ------ | ---- | --------------- | ------ | --- | --------- | ---- | ---- | -------- |
+        | **Source ↓**       |
+        | Null               | Y    | Y       | Y        | Y      | Y          | Y      | Y      | Y                 | N     | N                 | Y         | N      | N                  | Y      | Y    | Y               | Y      | Y   | Y         | Y    | Y    | Y        |
+        | Boolean            | Y    | Y       | Y        | Y      | N          | Y      | Y      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | N    | N        |
+        | Integers           | Y    | Y       | Y        | Y      | Y          | Y      | Y      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | Y         | Y    | Y    | Y        |
+        | Floats             | Y    | Y       | Y        | Y      | Y          | Y      | Y      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | M               | N      | N   | Y         | Y    | Y    | Y        |
+        | Decimal128         | Y    | N       | Y        | Y      | Y          | N      | N      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | N    | N        |
+        | String             | Y    | N       | Y        | Y      | N          | Y      | Y      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | Y         | Y    | N    | N        |
+        | Binary             | Y    | N       | Y        | Y      | N          | Y      | Y      | Y                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | N    | N        |
+        | Fixed-size Binary  | Y    | N       | N        | N      | N          | N      | Y      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | N    | N        |
+        | Image              | N    | N       | N        | N      | N          | N      | N      | N                 | Y     | Y                 | N         | Y      | Y                  | Y      | N    | N               | Y      | N   | N         | N    | N    | N        |
+        | Fixed-size Image   | N    | N       | N        | N      | N          | N      | N      | N                 | Y     | Y                 | N         | Y      | Y                  | Y      | Y    | Y               | N      | N   | N         | N    | N    | N        |
+        | Embedding          | Y    | N       | N        | N      | N          | n      | N      | N                 | N     | Y                 | N         | Y      | Y                  | Y      | Y    | Y               | N      | N   | N         | N    | N    | N        |
+        | Tensor             | Y    | N       | N        | N      | N          | N      | N      | N                 | Y     | Y                 | N         | Y      | Y                  | Y      | N    | N               | Y      | N   | N         | N    | N    | N        |
+        | Fixed-shape Tensor | N    | N       | N        | N      | N          | N      | N      | N                 | N     | Y                 | N         | Y      | Y                  | Y      | Y    | Y               | N      | N   | N         | N    | N    | N        |
+        | Python             | Y    | Y       | Y        | Y      | N          | Y      | Y      | Y                 | Y     | Y                 | Y         | Y      | Y                  | Y      | Y    | Y               | Y      | N   | N         | N    | N    | N        |
+        | List               | N    | N       | N        | N      | N          | N      | N      | N                 | N     | N                 | Y         | N      | N                  | N      | Y    | Y               | N      | Y   | N         | N    | N    | N        |
+        | Fixed-size List    | N    | N       | N        | N      | N          | N      | N      | N                 | N     | Y                 | N         | N      | Y                  | N      | Y    | Y               | N      | N   | N         | N    | N    | N        |
+        | Struct             | N    | N       | N        | N      | N          | N      | N      | N                 | Y     | N                 | N         | Y      | N                  | N      | N    | N               | Y      | N   | N         | N    | N    | N        |
+        | Map                | N    | N       | N        | N      | N          | N      | N      | N                 | N     | N                 | Y         | N      | N                  | N      | Y    | Y               | N      | Y   | N         | N    | N    | N        |
+        | Timestamp          | Y    | N       | Y        | Y      | N          | Y      | N      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | Y         | Y    | Y    | N        |
+        | Date               | Y    | N       | Y        | Y      | N          | Y      | N      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | Y         | Y    | N    | N        |
+        | Time               | Y    | N       | Y        | Y      | N          | Y      | N      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | Y    | N        |
+        | Duration           | Y    | N       | Y        | Y      | N          | N      | N      | N                 | N     | N                 | N         | N      | N                  | Y      | N    | N               | N      | N   | N         | N    | N    | N        |
+
+        Returns:
+            Expression: Expression with the specified new datatype
+
+        Note:
+            - Overflowing values will be wrapped, e.g. 256 will be cast to 0 for an unsigned 8-bit integer.
+            - If a string is provided, it will use the sql engine to parse the string into a data type. See the [SQL Reference](https://www.getdaft.io/projects/docs/en/stable/sql/datatypes/) for supported datatypes.
+            - a python `type` can also be provided, in which case the corresponding Daft data type will be used.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"float": [1.0, 2.5, None]})
+            >>> df = df.select(daft.col("float").cast(daft.DataType.int64()))
+            >>> df.show()
+            ╭───────╮
+            │ float │
+            │ ---   │
+            │ Int64 │
+            ╞═══════╡
+            │ 1     │
+            ├╌╌╌╌╌╌╌┤
+            │ 2     │
+            ├╌╌╌╌╌╌╌┤
+            │ None  │
+            ╰───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            Example with python type and sql types:
+            >>> import daft
+            >>> df = daft.from_pydict({"a": [1, 2, 3]})
+            >>> df = df.select(
+            ...     daft.col("a").cast(str).alias("str"),
+            ...     daft.col("a").cast(int).alias("int"),
+            ...     daft.col("a").cast(float).alias("float"),
+            ...     daft.col("a").cast("string").alias("sql_string"),
+            ...     daft.col("a").cast("int").alias("sql_int"),
+            ...     daft.col("a").cast("tinyint").alias("sql_tinyint"),
+            ... )
+            >>> df.show()
+            ╭──────┬───────┬─────────┬────────────┬─────────┬─────────────╮
+            │ str  ┆ int   ┆ float   ┆ sql_string ┆ sql_int ┆ sql_tinyint │
+            │ ---  ┆ ---   ┆ ---     ┆ ---        ┆ ---     ┆ ---         │
+            │ Utf8 ┆ Int64 ┆ Float64 ┆ Utf8       ┆ Int32   ┆ Int8        │
+            ╞══════╪═══════╪═════════╪════════════╪═════════╪═════════════╡
+            │ 1    ┆ 1     ┆ 1       ┆ 1          ┆ 1       ┆ 1           │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2    ┆ 2     ┆ 2       ┆ 2          ┆ 2       ┆ 2           │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 3    ┆ 3     ┆ 3       ┆ 3          ┆ 3       ┆ 3           │
+            ╰──────┴───────┴─────────┴────────────┴─────────┴─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        if isinstance(dtype, str):
+            dtype = DataType._from_pydatatype(sql_datatype(dtype))
+        else:
+            assert isinstance(dtype, (DataType, type))
+            dtype = DataType._infer_type(dtype)
+        expr = self._expr.cast(dtype._dtype)
+        return Expression._from_pyexpr(expr)
+
+    def ceil(self) -> Expression:
+        """The ceiling of a numeric expression."""
+        expr = native.ceil(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def floor(self) -> Expression:
+        """The floor of a numeric expression."""
+        expr = native.floor(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def clip(self, min: Expression | None = None, max: Expression | None = None) -> Expression:
+        """Clips an expression to the given minimum and maximum values.
+
+        Args:
+            min: Minimum value to clip to. If None (or column value is Null), no lower clipping is applied.
+            max: Maximum value to clip to. If None (or column value is Null), no upper clipping is applied.
+
+        """
+        min_expr = Expression._to_expression(min)
+        max_expr = Expression._to_expression(max)
+        return Expression._from_pyexpr(native.clip(self._expr, min_expr._expr, max_expr._expr))
+
+    def sign(self) -> Expression:
+        """The sign of a numeric expression."""
+        expr = native.sign(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def signum(self) -> Expression:
+        """The signum of a numeric expression."""
+        expr = native.signum(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def negate(self) -> Expression:
+        """The negative of a numeric expression."""
+        expr = native.negate(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def negative(self) -> Expression:
+        """The negative of a numeric expression."""
+        expr = native.negative(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def round(self, decimals: int = 0) -> Expression:
+        """The round of a numeric expression.
+
+        Args:
+            decimals: number of decimal places to round to. Defaults to 0.
+        """
+        assert isinstance(decimals, int)
+        expr = native.round(self._expr, decimals)
+        return Expression._from_pyexpr(expr)
+
+    def sqrt(self) -> Expression:
+        """The square root of a numeric expression."""
+        expr = native.sqrt(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def cbrt(self) -> Expression:
+        """The cube root of a numeric expression."""
+        return Expression._from_pyexpr(native.cbrt(self._expr))
+
+    def sin(self) -> Expression:
+        """The elementwise sine of a numeric expression."""
+        expr = native.sin(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def cos(self) -> Expression:
+        """The elementwise cosine of a numeric expression."""
+        expr = native.cos(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def tan(self) -> Expression:
+        """The elementwise tangent of a numeric expression."""
+        expr = native.tan(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def csc(self) -> Expression:
+        """The elementwise cosecant of a numeric expression."""
+        expr = native.csc(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def sec(self) -> Expression:
+        """The elementwise secant of a numeric expression."""
+        expr = native.sec(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def cot(self) -> Expression:
+        """The elementwise cotangent of a numeric expression."""
+        expr = native.cot(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def sinh(self) -> Expression:
+        """The elementwise hyperbolic sine of a numeric expression."""
+        expr = native.sinh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def cosh(self) -> Expression:
+        """The elementwise hyperbolic cosine of a numeric expression."""
+        expr = native.cosh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def tanh(self) -> Expression:
+        """The elementwise hyperbolic tangent of a numeric expression."""
+        expr = native.tanh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arcsin(self) -> Expression:
+        """The elementwise arc sine of a numeric expression."""
+        expr = native.arcsin(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arccos(self) -> Expression:
+        """The elementwise arc cosine of a numeric expression."""
+        expr = native.arccos(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arctan(self) -> Expression:
+        """The elementwise arc tangent of a numeric expression."""
+        expr = native.arctan(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arctan2(self, other: Expression) -> Expression:
+        """Calculates the four quadrant arctangent of coordinates (y, x), in radians.
+
+        * ``x = 0``, ``y = 0``: ``0``
+        * ``x >= 0``: ``[-pi/2, pi/2]``
+        * ``y >= 0``: ``(pi/2, pi]``
+        * ``y < 0``: ``(-pi, -pi/2)``
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(native.arctan2(self._expr, expr._expr))
+
+    def arctanh(self) -> Expression:
+        """The elementwise inverse hyperbolic tangent of a numeric expression."""
+        expr = native.arctanh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arccosh(self) -> Expression:
+        """The elementwise inverse hyperbolic cosine of a numeric expression."""
+        expr = native.arccosh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def arcsinh(self) -> Expression:
+        """The elementwise inverse hyperbolic sine of a numeric expression."""
+        expr = native.arcsinh(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def radians(self) -> Expression:
+        """The elementwise radians of a numeric expression."""
+        expr = native.radians(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def degrees(self) -> Expression:
+        """The elementwise degrees of a numeric expression."""
+        expr = native.degrees(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def log2(self) -> Expression:
+        """The elementwise log base 2 of a numeric expression."""
+        expr = native.log2(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def log10(self) -> Expression:
+        """The elementwise log base 10 of a numeric expression."""
+        expr = native.log10(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def log(self, base: float = math.e) -> Expression:  # type: ignore
+        """The elementwise log with given base, of a numeric expression.
+
+        Args:
+            base: The base of the logarithm. Defaults to e.
+        """
+        assert isinstance(base, (int, float)), f"base must be an int or float, but {type(base)} was provided."
+        expr = native.log(self._expr, float(base))
+        return Expression._from_pyexpr(expr)
+
+    def ln(self) -> Expression:
+        """The elementwise natural log of a numeric expression."""
+        expr = native.ln(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def log1p(self) -> Expression:
+        """The ln(self + 1) of a numeric expression."""
+        expr = native.log1p(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def exp(self) -> Expression:
+        """The e^self of a numeric expression."""
+        expr = native.exp(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def expm1(self) -> Expression:
+        """The e^self - 1 of a numeric expression."""
+        expr = native.expm1(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def bitwise_and(self, other: Expression) -> Expression:
+        """Bitwise AND of two integer expressions."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr & expr._expr)
+
+    def bitwise_or(self, other: Expression) -> Expression:
+        """Bitwise OR of two integer expressions."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr | expr._expr)
+
+    def bitwise_xor(self, other: Expression) -> Expression:
+        """Bitwise XOR of two integer expressions."""
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr ^ expr._expr)
+
+    def shift_left(self, other: Expression) -> Expression:
+        """Shifts the bits of an integer expression to the left (``expr << other``).
+
+        Args:
+            other: The number of bits to shift the expression to the left
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr << expr._expr)
+
+    def shift_right(self, other: Expression) -> Expression:
+        """Shifts the bits of an integer expression to the right (``expr >> other``).
+
+        .. NOTE::
+            For unsigned integers, this expression perform a logical right shift.
+            For signed integers, this expression perform an arithmetic right shift.
+
+        Args:
+            other: The number of bits to shift the expression to the right
+        """
+        expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr >> expr._expr)
+
+    def count(self, mode: Literal["all", "valid", "null"] | CountMode = CountMode.Valid) -> Expression:
+        """Counts the number of values in the expression.
+
+        Args:
+            mode: A string ("all", "valid", or "null") that represents whether to count all values, non-null (valid) values, or null values. Defaults to "valid".
+        """
+        if isinstance(mode, builtins.str):
+            mode = CountMode.from_count_mode_str(mode)
+        expr = self._expr.count(mode)
+        return Expression._from_pyexpr(expr)
+
+    def count_distinct(self) -> Expression:
+        expr = self._expr.count_distinct()
+        return Expression._from_pyexpr(expr)
+
+    def sum(self) -> Expression:
+        """Calculates the sum of the values in the expression."""
+        expr = self._expr.sum()
+        return Expression._from_pyexpr(expr)
+
+    def approx_count_distinct(self) -> Expression:
+        """Calculates the approximate number of non-`NULL` distinct values in the expression.
+
+        Approximation is performed using the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) algorithm.
+
+        Examples:
+            A global calculation of approximate distinct values in a non-NULL column:
+
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [1, 2, 3, None]})
+            >>> df = df.agg(
+            ...     df["values"].approx_count_distinct().alias("distinct_values"),
+            ... )
+            >>> df.show()
+            ╭─────────────────╮
+            │ distinct_values │
+            │ ---             │
+            │ UInt64          │
+            ╞═════════════════╡
+            │ 3               │
+            ╰─────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+        """
+        expr = self._expr.approx_count_distinct()
+        return Expression._from_pyexpr(expr)
+
+    def approx_percentiles(self, percentiles: builtins.float | builtins.list[builtins.float]) -> Expression:
+        """Calculates the approximate percentile(s) for a column of numeric values.
+
+        For numeric columns, we use the [sketches_ddsketch crate](https://docs.rs/sketches-ddsketch/latest/sketches_ddsketch/index.html).
+        This is a Rust implementation of the paper [DDSketch: A Fast and Fully-Mergeable Quantile Sketch with Relative-Error Guarantees (Masson et al.)](https://arxiv.org/pdf/1908.10693)
+
+        1. Null values are ignored in the computation of the percentiles
+        2. If all values are Null then the result will also be Null
+        3. If ``percentiles`` are supplied as a single float, then the resultant column is a ``Float64`` column
+        4. If ``percentiles`` is supplied as a list, then the resultant column is a ``FixedSizeList[Float64; N]`` column, where ``N`` is the length of the supplied list.
+
+        Args:
+            percentiles: the percentile(s) at which to find approximate values at. Can be provided as a single
+                float or a list of floats.
+
+        Returns:
+            A new expression representing the approximate percentile(s). If `percentiles` was a single float, this will be a new `Float64` expression. If `percentiles` was a list of floats, this will be a new expression with type: `FixedSizeList[Float64, len(percentiles)]`.
+
+        Examples:
+            A global calculation of approximate percentiles:
+
+            >>> import daft
+            >>> df = daft.from_pydict({"scores": [1, 2, 3, 4, 5, None]})
+            >>> df = df.agg(
+            ...     df["scores"].approx_percentiles(0.5).alias("approx_median_score"),
+            ...     df["scores"].approx_percentiles([0.25, 0.5, 0.75]).alias("approx_percentiles_scores"),
+            ... )
+            >>> df.show()
+            ╭─────────────────────┬────────────────────────────────╮
+            │ approx_median_score ┆ approx_percentiles_scores      │
+            │ ---                 ┆ ---                            │
+            │ Float64             ┆ FixedSizeList[Float64; 3]      │
+            ╞═════════════════════╪════════════════════════════════╡
+            │ 2.9742334234767167  ┆ [1.993661701417351, 2.9742334… │
+            ╰─────────────────────┴────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+            A grouped calculation of approximate percentiles:
+
+            >>> df = daft.from_pydict({"class": ["a", "a", "a", "b", "c"], "scores": [1, 2, 3, 1, None]})
+            >>> df = (
+            ...     df.groupby("class")
+            ...     .agg(
+            ...         df["scores"].approx_percentiles(0.5).alias("approx_median_score"),
+            ...         df["scores"].approx_percentiles([0.25, 0.5, 0.75]).alias("approx_percentiles_scores"),
+            ...     )
+            ...     .sort("class")
+            ... )
+            >>> df.show()
+            ╭───────┬─────────────────────┬────────────────────────────────╮
+            │ class ┆ approx_median_score ┆ approx_percentiles_scores      │
+            │ ---   ┆ ---                 ┆ ---                            │
+            │ Utf8  ┆ Float64             ┆ FixedSizeList[Float64; 3]      │
+            ╞═══════╪═════════════════════╪════════════════════════════════╡
+            │ a     ┆ 1.993661701417351   ┆ [0.9900000000000001, 1.993661… │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b     ┆ 0.9900000000000001  ┆ [0.9900000000000001, 0.990000… │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ c     ┆ None                ┆ None                           │
+            ╰───────┴─────────────────────┴────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        expr = self._expr.approx_percentiles(percentiles)
+        return Expression._from_pyexpr(expr)
+
+    def mean(self) -> Expression:
+        """Calculates the mean of the values in the expression."""
+        expr = self._expr.mean()
+        return Expression._from_pyexpr(expr)
+
+    def stddev(self) -> Expression:
+        """Calculates the standard deviation of the values in the expression."""
+        expr = self._expr.stddev()
+        return Expression._from_pyexpr(expr)
+
+    def min(self) -> Expression:
+        """Calculates the minimum value in the expression."""
+        expr = self._expr.min()
+        return Expression._from_pyexpr(expr)
+
+    def max(self) -> Expression:
+        """Calculates the maximum value in the expression."""
+        expr = self._expr.max()
+        return Expression._from_pyexpr(expr)
+
+    def bool_and(self) -> Expression:
+        """Calculates the boolean AND of all values in a list.
+
+        For each list:
+        - Returns True if all non-null values are True
+        - Returns False if any non-null value is False
+        - Returns null if the list is empty or contains only null values
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [[True, True], [True, False], [None, None], []]})
+            >>> df.with_column("result", df["values"].list.bool_and()).collect()
+            ╭───────────────┬─────────╮
+            │ values        ┆ result  │
+            │ ---           ┆ ---     │
+            │ List[Boolean] ┆ Boolean │
+            ╞═══════════════╪═════════╡
+            │ [true, true]  ┆ true    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [true, false] ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [None, None]  ┆ None    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ []            ┆ None    │
+            ╰───────────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        expr = self._expr.bool_and()
+        return Expression._from_pyexpr(expr)
+
+    def bool_or(self) -> Expression:
+        """Calculates the boolean OR of all values in a list.
+
+        For each list:
+        - Returns True if any non-null value is True
+        - Returns False if all non-null values are False
+        - Returns null if the list is empty or contains only null values
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [[True, False], [False, False], [None, None], []]})
+            >>> df.with_column("result", df["values"].list.bool_or()).collect()
+            ╭────────────────┬─────────╮
+            │ values         ┆ result  │
+            │ ---            ┆ ---     │
+            │ List[Boolean]  ┆ Boolean │
+            ╞════════════════╪═════════╡
+            │ [true, false]  ┆ true    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [false, false] ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [None, None]   ┆ None    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ []             ┆ None    │
+            ╰────────────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        expr = self._expr.bool_or()
+        return Expression._from_pyexpr(expr)
+
+    def any_value(self, ignore_nulls=False) -> Expression:
+        """Returns any value in the expression.
+
+        Args:
+            ignore_nulls: whether to ignore null values when selecting the value. Defaults to False.
+        """
+        expr = self._expr.any_value(ignore_nulls)
+        return Expression._from_pyexpr(expr)
+
+    def agg_list(self) -> Expression:
+        """Aggregates the values in the expression into a list."""
+        expr = self._expr.agg_list()
+        return Expression._from_pyexpr(expr)
+
+    def agg_set(self) -> Expression:
+        """Aggregates the values in the expression into a set (ignoring nulls).
+
+        Returns:
+            Expression: A List expression containing the distinct values from the input
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [1, 1, None, 2, 2, None]})
+            >>> df.agg(df["values"].agg_set().alias("distinct_values")).show()
+            ╭─────────────────╮
+            │ distinct_values │
+            │ ---             │
+            │ List[Int64]     │
+            ╞═════════════════╡
+            │ [1, 2]          │
+            ╰─────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+            Note that null values are ignored by default:
+
+            >>> df = daft.from_pydict({"values": [None, None, None]})
+            >>> df.agg(df["values"].agg_set().alias("distinct_values")).show()
+            ╭─────────────────╮
+            │ distinct_values │
+            │ ---             │
+            │ List[Null]      │
+            ╞═════════════════╡
+            │ []              │
+            ╰─────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+        """
+        expr = self._expr.agg_set()
+        return Expression._from_pyexpr(expr)
+
+    def agg_concat(self) -> Expression:
+        """Aggregates the values in the expression into a single string by concatenating them."""
+        expr = self._expr.agg_concat()
+        return Expression._from_pyexpr(expr)
+
+    def _explode(self) -> Expression:
+        expr = native.explode(self._expr)
+        return Expression._from_pyexpr(expr)
+
+    def if_else(self, if_true: Expression, if_false: Expression) -> Expression:
+        """Conditionally choose values between two expressions using the current boolean expression as a condition.
+
+        Args:
+            if_true (Expression): Values to choose if condition is true
+            if_false (Expression): Values to choose if condition is false
+
+        Returns:
+            Expression: New expression where values are chosen from `if_true` and `if_false`.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"A": [1, 2, 3], "B": [0, 2, 4]})
+            >>> df = df.with_column(
+            ...     "A_if_bigger_else_B",
+            ...     (df["A"] > df["B"]).if_else(df["A"], df["B"]),
+            ... )
+            >>> df.collect()
+            ╭───────┬───────┬────────────────────╮
+            │ A     ┆ B     ┆ A_if_bigger_else_B │
+            │ ---   ┆ ---   ┆ ---                │
+            │ Int64 ┆ Int64 ┆ Int64              │
+            ╞═══════╪═══════╪════════════════════╡
+            │ 1     ┆ 0     ┆ 1                  │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2     ┆ 2     ┆ 2                  │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 3     ┆ 4     ┆ 4                  │
+            ╰───────┴───────┴────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        if_true = Expression._to_expression(if_true)
+        if_false = Expression._to_expression(if_false)
+        return Expression._from_pyexpr(self._expr.if_else(if_true._expr, if_false._expr))
+
+    def apply(self, func: Callable, return_dtype: DataTypeLike) -> Expression:
+        """Apply a function on each value in a given expression.
+
+        Args:
+            func: Function to run per value of the expression
+            return_dtype: Return datatype of the function that was ran
+
+        Returns:
+            Expression: New expression after having run the function on the expression
+
+        Note:
+            This is just syntactic sugar on top of a UDF and is convenient to use when your function only operates
+            on a single column, and does not benefit from executing on batches. For either of those other use-cases,
+            use a UDF instead.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["1", "2", "tim"]})
+            >>> def f(x_val: str) -> int:
+            ...     if x_val.isnumeric():
+            ...         return int(x_val)
+            ...     else:
+            ...         return 0
+            >>> df.with_column("num_x", df["x"].apply(f, return_dtype=daft.DataType.int64())).collect()
+            ╭──────┬───────╮
+            │ x    ┆ num_x │
+            │ ---  ┆ ---   │
+            │ Utf8 ┆ Int64 │
+            ╞══════╪═══════╡
+            │ 1    ┆ 1     │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 2    ┆ 2     │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ tim  ┆ 0     │
+            ╰──────┴───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        from daft.udf import UDF
+
+        inferred_return_dtype = DataType._infer_type(return_dtype)
+
+        def batch_func(self_series):
+            return [func(x) for x in self_series]
+
+        name = getattr(func, "__module__", "")  # type: ignore[call-overload]
+        if name:
+            name = name + "."
+        name = name + getattr(func, "__qualname__")  # type: ignore[call-overload]
+
+        return UDF(
+            inner=batch_func,
+            name=name,
+            return_dtype=inferred_return_dtype,
+        )(self)
+
+    def is_null(self) -> Expression:
+        """Checks if values in the Expression are Null (a special value indicating missing data).
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are missing
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [1.0, None, float("nan")]})
+            >>> df = df.select(df["x"].is_null())
+            >>> df.collect()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        expr = self._expr.is_null()
+        return Expression._from_pyexpr(expr)
+
+    def not_null(self) -> Expression:
+        """Checks if values in the Expression are not Null (a special value indicating missing data).
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are not missing
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [1.0, None, float("nan")]})
+            >>> df = df.select(df["x"].not_null())
+            >>> df.collect()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        expr = self._expr.not_null()
+        return Expression._from_pyexpr(expr)
+
+    def fill_null(self, fill_value: Expression) -> Expression:
+        """Fills null values in the Expression with the provided fill_value.
+
+        Returns:
+            Expression: Expression with null values filled with the provided fill_value
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [1, None, 3]})
+            >>> df = df.select(df["data"].fill_null(2))
+            >>> df.collect()
+            ╭───────╮
+            │ data  │
+            │ ---   │
+            │ Int64 │
+            ╞═══════╡
+            │ 1     │
+            ├╌╌╌╌╌╌╌┤
+            │ 2     │
+            ├╌╌╌╌╌╌╌┤
+            │ 3     │
+            ╰───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        fill_value = Expression._to_expression(fill_value)
+        expr = self._expr.fill_null(fill_value._expr)
+        return Expression._from_pyexpr(expr)
+
+    def is_in(self, other: Any) -> Expression:
+        """Checks if values in the Expression are in the provided list.
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are in the provided list
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [1, 2, 3]})
+            >>> df = df.select(df["data"].is_in([1, 3]))
+            >>> df.collect()
+            ╭─────────╮
+            │ data    │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        if isinstance(other, Collection):
+            other = [Expression._to_expression(item) for item in other]
+        elif not isinstance(other, Expression):
+            series = item_to_series("items", other)
+            other = [Expression._to_expression(series)]
+        else:
+            other = [other]
+
+        expr = self._expr.is_in([item._expr for item in other])
+        return Expression._from_pyexpr(expr)
+
+    def between(self, lower: Any, upper: Any) -> Expression:
+        """Checks if values in the Expression are between lower and upper, inclusive.
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are between lower and upper, inclusive.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [1, 2, 3, 4]})
+            >>> df = df.select(df["data"].between(1, 2))
+            >>> df.collect()
+            ╭─────────╮
+            │ data    │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+
+        """
+        lower = Expression._to_expression(lower)
+        upper = Expression._to_expression(upper)
+
+        expr = self._expr.between(lower._expr, upper._expr)
+        return Expression._from_pyexpr(expr)
+
+    def hash(self, seed: Any | None = None) -> Expression:
+        """Hashes the values in the Expression.
+
+        Uses the [XXH3_64bits](https://xxhash.com/) non-cryptographic hash function to hash the values in the expression.
+
+        Args:
+            seed (optional): Seed used for generating the hash. Defaults to 0.
+
+        Note:
+            Null values will produce a hash value instead of being propagated as null.
+
+        """
+        if seed is None:
+            expr = native.hash(self._expr)
+        else:
+            if not isinstance(seed, Expression):
+                seed = lit(seed)
+            expr = native.hash(self._expr, seed._expr)
+        return Expression._from_pyexpr(expr)
+
+    def minhash(
+        self,
+        num_hashes: int,
+        ngram_size: int,
+        seed: int = 1,
+        hash_function: Literal["murmurhash3", "xxhash", "sha1"] = "murmurhash3",
+    ) -> Expression:
+        """Runs the MinHash algorithm on the series.
+
+        For a string, calculates the minimum hash over all its ngrams,
+        repeating with `num_hashes` permutations. Returns as a list of 32-bit unsigned integers.
+
+        Tokens for the ngrams are delimited by spaces.
+        The strings are not normalized or pre-processed, so it is recommended
+        to normalize the strings yourself.
+
+        Args:
+            num_hashes: The number of hash permutations to compute.
+            ngram_size: The number of tokens in each shingle/ngram.
+            seed (optional): Seed used for generating permutations and the initial string hashes. Defaults to 1.
+            hash_function (optional): Hash function to use for initial string hashing. One of "murmurhash3", "xxhash", or "sha1". Defaults to "murmurhash3".
+
+        """
+        assert isinstance(num_hashes, int)
+        assert isinstance(ngram_size, int)
+        assert isinstance(seed, int)
+        assert isinstance(hash_function, str)
+        assert hash_function in ["murmurhash3", "xxhash", "sha1"], f"Hash function {hash_function} not found"
+
+        return Expression._from_pyexpr(native.minhash(self._expr, num_hashes, ngram_size, seed, hash_function))
+
+    def encode(self, codec: Literal["deflate", "gzip", "gz", "utf-8", "zlib"]) -> Expression:
+        r"""Encodes the expression (binary strings) using the specified codec.
+
+        Args:
+            codec (str): encoding codec (deflate, gzip, zlib)
+
+        Returns:
+            Expression: A new expression, of type `binary`, with the encoded value.
+
+        Note:
+            This inputs either a string or binary and returns a binary.
+            If the input value is a string and 'utf-8' is the codec, then it's just a cast to binary.
+            If the input value is a binary and 'utf-8' is the codec, we verify the bytes are valid utf-8.
+
+        Examples:
+            >>> import daft
+            >>> from daft import col
+            >>> df = daft.from_pydict({"text": [b"hello, world!"]})  # binary
+            >>> df.select(col("text").encode("zlib")).show()
+            ╭────────────────────────────────╮
+            │ text                           │
+            │ ---                            │
+            │ Binary                         │
+            ╞════════════════════════════════╡
+            │ b"x\x9c\xcbH\xcd\xc9\xc9\xd7Q… │
+            ╰────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+            >>> import daft
+            >>> from daft import col
+            >>> df = daft.from_pydict({"text": ["hello, world!"]})  # string
+            >>> df.select(col("text").encode("zlib")).show()
+            ╭────────────────────────────────╮
+            │ text                           │
+            │ ---                            │
+            │ Binary                         │
+            ╞════════════════════════════════╡
+            │ b"x\x9c\xcbH\xcd\xc9\xc9\xd7Q… │
+            ╰────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+        """
+        expr = native.encode(self._expr, codec)
+        return Expression._from_pyexpr(expr)
+
+    def decode(self, codec: Literal["deflate", "gzip", "gz", "utf-8", "zlib"]) -> Expression:
+        """Decodes the expression (binary strings) using the specified codec.
+
+        Args:
+            codec (str): decoding codec (deflate, gzip, zlib)
+
+        Returns:
+            Expression: A new expression with the decoded values.
+
+        Note:
+            This inputs a binary and returns either a binary or string. For now,
+            only decoding with 'utf-8' returns a string.
+
+        Examples:
+            >>> import daft
+            >>> import zlib
+            >>> from daft import col
+            >>> df = daft.from_pydict({"bytes": [zlib.compress(b"hello, world!")]})
+            >>> df.select(col("bytes").decode("zlib")).show()
+            ╭──────────────────╮
+            │ bytes            │
+            │ ---              │
+            │ Binary           │
+            ╞══════════════════╡
+            │ b"hello, world!" │
+            ╰──────────────────╯
+            <BLANKLINE>
+            (Showing first 1 of 1 rows)
+
+        """
+        expr = native.decode(self._expr, codec)
+        return Expression._from_pyexpr(expr)
+
+    def try_encode(self, codec: Literal["deflate", "gzip", "gz", "utf-8", "zlib"]) -> Expression:
+        """Encodes or returns null, see `Expression.encode`."""
+        expr = native.try_encode(self._expr, codec)
+        return Expression._from_pyexpr(expr)
+
+    def try_decode(self, codec: Literal["deflate", "gzip", "gz", "utf-8", "zlib"]) -> Expression:
+        """Decodes or returns null, see `Expression.decode`."""
+        expr = native.try_decode(self._expr, codec)
+        return Expression._from_pyexpr(expr)
+
+    def name(self) -> builtins.str:
+        return self._expr.name()
+
+    def over(self, window: Window) -> Expression:
+        expr = self._expr.over(window._spec)
+        return Expression._from_pyexpr(expr)
+
+    def __repr__(self) -> builtins.str:
+        return repr(self._expr)
+
+    def _to_sql(self) -> builtins.str | None:
+        return self._expr.to_sql()
+
+    def _to_field(self, schema: Schema) -> Field:
+        return Field._from_pyfield(self._expr.to_field(schema._schema))
+
+    def __hash__(self) -> int:
+        return self._expr.__hash__()
+
+    def __reduce__(self) -> tuple:
+        return Expression._from_pyexpr, (self._expr,)
+
+    def _input_mapping(self) -> builtins.str | None:
+        return self._expr._input_mapping()
+
+    def _initialize_udfs(self) -> Expression:
+        return Expression._from_pyexpr(initialize_udfs(self._expr))
+
+
+SomeExpressionNamespace = TypeVar("SomeExpressionNamespace", bound="ExpressionNamespace")
+
+
+class ExpressionNamespace:
+    _expr: _PyExpr
+
+    def __init__(self) -> None:
+        raise NotImplementedError("We do not support creating a ExpressionNamespace via __init__ ")
+
+    @classmethod
+    def from_expression(cls: type[SomeExpressionNamespace], expr: Expression) -> SomeExpressionNamespace:
+        ns = cls.__new__(cls)
+        ns._expr = expr._expr
+        return ns
+
+
+class ExpressionUrlNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.url` attribute."""
+
+    @staticmethod
+    def _should_use_multithreading_tokio_runtime() -> bool:
+        """Whether or not our expression should use the multithreaded tokio runtime under the hood, or a singlethreaded one.
+
+        This matters because for distributed workloads, each process has its own tokio I/O runtime. if each distributed process
+        is multithreaded (by default we spin up `N_CPU` threads) then we will be running `(N_CPU * N_PROC)` number of threads, and
+        opening `(N_CPU * N_PROC * max_connections)` number of connections. This is too large for big machines with many CPU cores.
+
+        Hence for Ray we default to doing the singlethreaded runtime. This means that we will have a limit of
+        `(singlethreaded=1 * N_PROC * max_connections)` number of open connections per machine, which works out to be reasonable at ~2-4k connections.
+
+        For local execution, we run in a single process which means that it all shares the same tokio I/O runtime and connection pool.
+        Thus we just have `(multithreaded=N_CPU * max_connections)` number of open connections, which is usually reasonable as well.
+        """
+        using_ray_runner = context.get_context().get_or_create_runner().name == "ray"
+        return not using_ray_runner
+
+    @staticmethod
+    def _override_io_config_max_connections(max_connections: int, io_config: IOConfig | None) -> IOConfig:
+        """Use a user-provided `max_connections` argument to override the value in S3Config.
+
+        This is because our Rust code under the hood actually does `min(S3Config's max_connections, url_download's max_connections)` to
+        determine how many connections to allow per-thread. Thus we need to override the io_config here to ensure that the user's max_connections
+        is correctly applied in our Rust code.
+        """
+        io_config = context.get_context().daft_planning_config.default_io_config if io_config is None else io_config
+        io_config = io_config.replace(s3=io_config.s3.replace(max_connections=max_connections))
+        return io_config
+
+    def download(
+        self,
+        max_connections: int = 32,
+        on_error: Literal["raise", "null"] = "raise",
+        io_config: IOConfig | None = None,
+    ) -> Expression:
+        """Treats each string as a URL, and downloads the bytes contents as a bytes column.
+
+        Args:
+            max_connections: The maximum number of connections to use per thread to use for downloading URLs. Defaults to 32.
+            on_error: Behavior when a URL download error is encountered - "raise" to raise the error immediately or "null" to log
+                the error but fallback to a Null value. Defaults to "raise".
+            io_config: IOConfig to use when accessing remote storage. Note that the S3Config's `max_connections` parameter will be overridden
+                with `max_connections` that is passed in as a kwarg.
+
+        Returns:
+            Expression: a Binary expression which is the bytes contents of the URL, or None if an error occurred during download
+
+        Note:
+            If you are observing excessive S3 issues (such as timeouts, DNS errors or slowdown errors) during URL downloads,
+            you may wish to reduce the value of ``max_connections`` (defaults to 32) to reduce the amount of load you are placing
+            on your S3 servers.
+
+            Alternatively, if you are running on machines with lower number of cores but very high network bandwidth, you can increase
+            ``max_connections`` to get higher throughput with additional parallelism
+
+        """
+        raise_on_error = False
+        if on_error == "raise":
+            raise_on_error = True
+        elif on_error == "null":
+            raise_on_error = False
+        else:
+            raise NotImplementedError(f"Unimplemented on_error option: {on_error}.")
+
+        if not (isinstance(max_connections, int) and max_connections > 0):
+            raise ValueError(f"Invalid value for `max_connections`: {max_connections}")
+
+        multi_thread = ExpressionUrlNamespace._should_use_multithreading_tokio_runtime()
+        io_config = ExpressionUrlNamespace._override_io_config_max_connections(max_connections, io_config)
+        return Expression._from_pyexpr(
+            _url_download(self._expr, max_connections, raise_on_error, multi_thread, io_config)
+        )
+
+    def upload(
+        self,
+        location: str | Expression,
+        max_connections: int = 32,
+        on_error: Literal["raise", "null"] = "raise",
+        io_config: IOConfig | None = None,
+    ) -> Expression:
+        """Uploads a column of binary data to the provided location(s) (also supports S3, local etc).
+
+        Files will be written into the location (folder(s)) with a generated UUID filename, and the result
+        will be returned as a column of string paths that is compatible with the ``.url.download()`` Expression.
+
+        Args:
+            location: a folder location or column of folder locations to upload data into
+            max_connections: The maximum number of connections to use per thread to use for uploading data. Defaults to 32.
+            on_error: Behavior when a URL upload error is encountered - "raise" to raise the error immediately or "null" to log
+                the error but fallback to a Null value. Defaults to "raise".
+            io_config: IOConfig to use when uploading data
+
+        Returns:
+            Expression: a String expression containing the written filepath
+
+        Examples:
+            >>> col("data").url.upload("s3://my-bucket/my-folder")  # doctest: +SKIP
+
+            Upload to row-specific URLs
+
+            >>> col("data").url.upload(col("paths"))  # doctest: +SKIP
+
+        """
+        if not (isinstance(max_connections, int) and max_connections > 0):
+            raise ValueError(f"Invalid value for `max_connections`: {max_connections}")
+
+        location_expr = Expression._to_expression(location)
+        raise_on_error = False
+        if on_error == "raise":
+            raise_on_error = True
+        elif on_error == "null":
+            raise_on_error = False
+        else:
+            raise NotImplementedError(f"Unimplemented on_error option: {on_error}.")
+        multi_thread = ExpressionUrlNamespace._should_use_multithreading_tokio_runtime()
+        # If the user specifies a single location via a string, we should upload to a single folder. Otherwise,
+        # if the user gave an expression, we assume that each row has a specific url to upload to.
+        # Consider moving the check for is_single_folder to a lower IR.
+        is_single_folder = isinstance(location, str)
+        io_config = ExpressionUrlNamespace._override_io_config_max_connections(max_connections, io_config)
+        return Expression._from_pyexpr(
+            native.url_upload(
+                self._expr,
+                location_expr._expr,
+                max_connections,
+                raise_on_error,
+                multi_thread,
+                is_single_folder,
+                io_config,
+            )
+        )
+
+
+class ExpressionFloatNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.float` attribute."""
+
+    def is_nan(self) -> Expression:
+        """Checks if values are NaN (a special float value indicating not-a-number).
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are invalid.
+
+        Note:
+            Nulls will be propagated! I.e. this operation will return a null for null values.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [1.0, None, float("nan")]})
+            >>> df = df.select(df["data"].float.is_nan())
+            >>> df.collect()
+            ╭─────────╮
+            │ data    │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ None    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.is_nan(self._expr))
+
+    def is_inf(self) -> Expression:
+        """Checks if values in the Expression are Infinity.
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are Infinity.
+
+        Note:
+            Nulls will be propagated! I.e. this operation will return a null for null values.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [-float("inf"), 0.0, float("inf"), None]})
+            >>> df = df.select(df["data"].float.is_inf())
+            >>> df.collect()
+            ╭─────────╮
+            │ data    │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ None    │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+
+        """
+        return Expression._from_pyexpr(native.is_inf(self._expr))
+
+    def not_nan(self) -> Expression:
+        """Checks if values are not NaN (a special float value indicating not-a-number).
+
+        Returns:
+            Expression: Boolean Expression indicating whether values are not invalid.
+
+        Note:
+            Nulls will be propagated! I.e. this operation will return a null for null values.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [1.0, None, float("nan")]})
+            >>> df = df.select(df["x"].float.not_nan())
+            >>> df.collect()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ None    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.not_nan(self._expr))
+
+    def fill_nan(self, fill_value: Expression) -> Expression:
+        """Fills NaN values in the Expression with the provided fill_value.
+
+        Returns:
+            Expression: Expression with Nan values filled with the provided fill_value
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": [1.1, float("nan"), 3.3]})
+            >>> df = df.with_column("filled", df["data"].float.fill_nan(2.2))
+            >>> df.show()
+            ╭─────────┬─────────╮
+            │ data    ┆ filled  │
+            │ ---     ┆ ---     │
+            │ Float64 ┆ Float64 │
+            ╞═════════╪═════════╡
+            │ 1.1     ┆ 1.1     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ NaN     ┆ 2.2     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ 3.3     ┆ 3.3     │
+            ╰─────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        fill_value = Expression._to_expression(fill_value)
+        expr = native.fill_nan(self._expr, fill_value._expr)
+        return Expression._from_pyexpr(expr)
+
+
+class ExpressionDatetimeNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.dt` attribute."""
+
+    def date(self) -> Expression:
+        """Retrieves the date for a datetime column.
+
+        Returns:
+            Expression: a Date expression
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 5, 1, 1),
+            ...             datetime.datetime(2021, 1, 2, 6, 1, 59),
+            ...             datetime.datetime(2021, 1, 3, 7, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("date", df["x"].dt.date())
+            >>> df.show()
+            ╭───────────────────────────────┬────────────╮
+            │ x                             ┆ date       │
+            │ ---                           ┆ ---        │
+            │ Timestamp(Microseconds, None) ┆ Date       │
+            ╞═══════════════════════════════╪════════════╡
+            │ 2021-01-01 05:01:01           ┆ 2021-01-01 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 06:01:59           ┆ 2021-01-02 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-03 07:02:00           ┆ 2021-01-03 │
+            ╰───────────────────────────────┴────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_date(self._expr))
+
+    def day(self) -> Expression:
+        """Retrieves the day for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the day extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 5, 1, 1),
+            ...             datetime.datetime(2021, 1, 2, 6, 1, 59),
+            ...             datetime.datetime(2021, 1, 3, 7, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("day", df["x"].dt.day())
+            >>> df.show()
+            ╭───────────────────────────────┬────────╮
+            │ x                             ┆ day    │
+            │ ---                           ┆ ---    │
+            │ Timestamp(Microseconds, None) ┆ UInt32 │
+            ╞═══════════════════════════════╪════════╡
+            │ 2021-01-01 05:01:01           ┆ 1      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 06:01:59           ┆ 2      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-03 07:02:00           ┆ 3      │
+            ╰───────────────────────────────┴────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_day(self._expr))
+
+    def hour(self) -> Expression:
+        """Retrieves the day for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the day extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 5, 1, 1),
+            ...             datetime.datetime(2021, 1, 2, 6, 1, 59),
+            ...             datetime.datetime(2021, 1, 3, 7, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("hour", df["x"].dt.hour())
+            >>> df.show()
+            ╭───────────────────────────────┬────────╮
+            │ x                             ┆ hour   │
+            │ ---                           ┆ ---    │
+            │ Timestamp(Microseconds, None) ┆ UInt32 │
+            ╞═══════════════════════════════╪════════╡
+            │ 2021-01-01 05:01:01           ┆ 5      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 06:01:59           ┆ 6      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-03 07:02:00           ┆ 7      │
+            ╰───────────────────────────────┴────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_hour(self._expr))
+
+    def minute(self) -> Expression:
+        """Retrieves the minute for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the minute extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 5, 1, 1),
+            ...             datetime.datetime(2021, 1, 2, 6, 1, 59),
+            ...             datetime.datetime(2021, 1, 3, 7, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("minute", df["x"].dt.minute())
+            >>> df.show()
+            ╭───────────────────────────────┬────────╮
+            │ x                             ┆ minute │
+            │ ---                           ┆ ---    │
+            │ Timestamp(Microseconds, None) ┆ UInt32 │
+            ╞═══════════════════════════════╪════════╡
+            │ 2021-01-01 05:01:01           ┆ 1      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 06:01:59           ┆ 1      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-03 07:02:00           ┆ 2      │
+            ╰───────────────────────────────┴────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_minute(self._expr))
+
+    def second(self) -> Expression:
+        """Retrieves the second for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the second extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 0, 1, 1),
+            ...             datetime.datetime(2021, 1, 1, 0, 1, 59),
+            ...             datetime.datetime(2021, 1, 1, 0, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("second", df["x"].dt.second())
+            >>> df.show()
+            ╭───────────────────────────────┬────────╮
+            │ x                             ┆ second │
+            │ ---                           ┆ ---    │
+            │ Timestamp(Microseconds, None) ┆ UInt32 │
+            ╞═══════════════════════════════╪════════╡
+            │ 2021-01-01 00:01:01           ┆ 1      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 00:01:59           ┆ 59     │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 00:02:00           ┆ 0      │
+            ╰───────────────────────────────┴────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_second(self._expr))
+
+    def millisecond(self) -> Expression:
+        """Retrieves the millisecond for a datetime column.
+
+        Examples:
+            >>> import daft
+            >>> from datetime import datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime(1978, 1, 1, 1, 1, 1, 0),
+            ...             datetime(2024, 10, 13, 5, 30, 14, 500_000),
+            ...             datetime(2065, 1, 1, 10, 20, 30, 60_000),
+            ...         ]
+            ...     }
+            ... )
+            >>> df = df.select(daft.col("datetime").dt.millisecond())
+            >>> df.show()
+            ╭──────────╮
+            │ datetime │
+            │ ---      │
+            │ UInt32   │
+            ╞══════════╡
+            │ 0        │
+            ├╌╌╌╌╌╌╌╌╌╌┤
+            │ 500      │
+            ├╌╌╌╌╌╌╌╌╌╌┤
+            │ 60       │
+            ╰──────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+        """
+        return Expression._from_pyexpr(native.dt_millisecond(self._expr))
+
+    def microsecond(self) -> Expression:
+        """Retrieves the microsecond for a datetime column.
+
+        Examples:
+            >>> import daft
+            >>> from datetime import datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime(1978, 1, 1, 1, 1, 1, 0),
+            ...             datetime(2024, 10, 13, 5, 30, 14, 500_000),
+            ...             datetime(2065, 1, 1, 10, 20, 30, 60_000),
+            ...         ]
+            ...     }
+            ... )
+            >>> df.select(daft.col("datetime").dt.microsecond()).show()
+            ╭──────────╮
+            │ datetime │
+            │ ---      │
+            │ UInt32   │
+            ╞══════════╡
+            │ 0        │
+            ├╌╌╌╌╌╌╌╌╌╌┤
+            │ 500000   │
+            ├╌╌╌╌╌╌╌╌╌╌┤
+            │ 60000    │
+            ╰──────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_microsecond(self._expr))
+
+    def nanosecond(self) -> Expression:
+        """Retrieves the nanosecond for a datetime column.
+
+        Examples:
+            >>> import daft
+            >>> from datetime import datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime(1978, 1, 1, 1, 1, 1, 0),
+            ...             datetime(2024, 10, 13, 5, 30, 14, 500_000),
+            ...             datetime(2065, 1, 1, 10, 20, 30, 60_000),
+            ...         ]
+            ...     }
+            ... )
+            >>>
+            >>> df.select(daft.col("datetime").dt.nanosecond()).show()
+            ╭───────────╮
+            │ datetime  │
+            │ ---       │
+            │ UInt32    │
+            ╞═══════════╡
+            │ 0         │
+            ├╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 500000000 │
+            ├╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 60000000  │
+            ╰───────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+        """
+        return Expression._from_pyexpr(native.dt_nanosecond(self._expr))
+
+    def time(self) -> Expression:
+        """Retrieves the time for a datetime column.
+
+        Returns:
+            Expression: a Time expression
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "x": [
+            ...             datetime.datetime(2021, 1, 1, 0, 1, 1),
+            ...             datetime.datetime(2021, 1, 1, 12, 1, 59),
+            ...             datetime.datetime(2021, 1, 1, 23, 59, 59),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("time", df["x"].dt.time())
+            >>> df.show()
+            ╭───────────────────────────────┬────────────────────╮
+            │ x                             ┆ time               │
+            │ ---                           ┆ ---                │
+            │ Timestamp(Microseconds, None) ┆ Time(Microseconds) │
+            ╞═══════════════════════════════╪════════════════════╡
+            │ 2021-01-01 00:01:01           ┆ 00:01:01           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 12:01:59           ┆ 12:01:59           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 23:59:59           ┆ 23:59:59           │
+            ╰───────────────────────────────┴────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_time(self._expr))
+
+    def month(self) -> Expression:
+        """Retrieves the month for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the month extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime.datetime(2024, 7, 3, 0, 0, 0),
+            ...             datetime.datetime(2024, 6, 4, 0, 0, 0),
+            ...             datetime.datetime(2024, 5, 5, 0, 0, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df.with_column("month", df["datetime"].dt.month()).collect()
+            ╭───────────────────────────────┬────────╮
+            │ datetime                      ┆ month  │
+            │ ---                           ┆ ---    │
+            │ Timestamp(Microseconds, None) ┆ UInt32 │
+            ╞═══════════════════════════════╪════════╡
+            │ 2024-07-03 00:00:00           ┆ 7      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2024-06-04 00:00:00           ┆ 6      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2024-05-05 00:00:00           ┆ 5      │
+            ╰───────────────────────────────┴────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_month(self._expr))
+
+    def year(self) -> Expression:
+        """Retrieves the year for a datetime column.
+
+        Returns:
+            Expression: a UInt32 expression with just the year extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime.datetime(2024, 7, 3, 0, 0, 0),
+            ...             datetime.datetime(2023, 7, 4, 0, 0, 0),
+            ...             datetime.datetime(2022, 7, 5, 0, 0, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df.with_column("year", df["datetime"].dt.year()).collect()
+            ╭───────────────────────────────┬───────╮
+            │ datetime                      ┆ year  │
+            │ ---                           ┆ ---   │
+            │ Timestamp(Microseconds, None) ┆ Int32 │
+            ╞═══════════════════════════════╪═══════╡
+            │ 2024-07-03 00:00:00           ┆ 2024  │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 2023-07-04 00:00:00           ┆ 2023  │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 2022-07-05 00:00:00           ┆ 2022  │
+            ╰───────────────────────────────┴───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+
+        """
+        return Expression._from_pyexpr(native.dt_year(self._expr))
+
+    def day_of_week(self) -> Expression:
+        """Retrieves the day of the week for a datetime column, starting at 0 for Monday and ending at 6 for Sunday.
+
+        Returns:
+            Expression: a UInt32 expression with just the day_of_week extracted from a datetime column
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime.datetime(2024, 7, 3, 0, 0, 0),
+            ...             datetime.datetime(2024, 7, 4, 0, 0, 0),
+            ...             datetime.datetime(2024, 7, 5, 0, 0, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df.with_column("day_of_week", df["datetime"].dt.day_of_week()).collect()
+            ╭───────────────────────────────┬─────────────╮
+            │ datetime                      ┆ day_of_week │
+            │ ---                           ┆ ---         │
+            │ Timestamp(Microseconds, None) ┆ UInt32      │
+            ╞═══════════════════════════════╪═════════════╡
+            │ 2024-07-03 00:00:00           ┆ 2           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2024-07-04 00:00:00           ┆ 3           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2024-07-05 00:00:00           ┆ 4           │
+            ╰───────────────────────────────┴─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.dt_day_of_week(self._expr))
+
+    def day_of_year(self) -> Expression:
+        """Retrieves the ordinal day for a datetime column. Starting at 1 for January 1st and ending at 365 or 366 for December 31st.
+
+        Examples:
+            >>> import daft
+            >>> from datetime import datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime(2024, 1, 1, 0, 0, 0),
+            ...             datetime(2024, 2, 1, 0, 0, 0),
+            ...             datetime(2024, 12, 31, 0, 0, 0),  # 2024 is a leap year
+            ...             datetime(2023, 12, 31, 0, 0, 0),  # not leap year
+            ...         ],
+            ...     }
+            ... )
+            >>> df.with_column("day_of_year", df["datetime"].dt.day_of_year()).collect()
+            ╭───────────────────────────────┬─────────────╮
+            │ datetime                      ┆ day_of_year │
+            │ ---                           ┆ ---         │
+            │ Timestamp(Microseconds, None) ┆ UInt32      │
+            ╞═══════════════════════════════╪═════════════╡
+            │ 2024-01-01 00:00:00           ┆ 1           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2024-02-01 00:00:00           ┆ 32          │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2024-12-31 00:00:00           ┆ 366         │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2023-12-31 00:00:00           ┆ 365         │
+            ╰───────────────────────────────┴─────────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        return Expression._from_pyexpr(native.dt_day_of_year(self._expr))
+
+    def truncate(self, interval: str, relative_to: Expression | None = None) -> Expression:
+        """Truncates the datetime column to the specified interval.
+
+        Args:
+            interval: The interval to truncate to. Must be a string representing a valid interval in "{integer} {unit}" format, e.g. "1 day". Valid time units are: 'microsecond', 'millisecond', 'second', 'minute', 'hour', 'day', 'week'.
+            relative_to: Optional timestamp to truncate relative to. If not provided, truncates to the start of the Unix epoch: 1970-01-01 00:00:00.
+
+        Returns:
+            Expression: a DateTime expression truncated to the specified interval
+
+        Examples:
+            >>> import daft, datetime
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "datetime": [
+            ...             datetime.datetime(2021, 1, 1, 0, 1, 1),
+            ...             datetime.datetime(2021, 1, 1, 0, 1, 59),
+            ...             datetime.datetime(2021, 1, 1, 0, 2, 0),
+            ...         ],
+            ...     }
+            ... )
+            >>> df.with_column("truncated", df["datetime"].dt.truncate("1 minute")).collect()
+            ╭───────────────────────────────┬───────────────────────────────╮
+            │ datetime                      ┆ truncated                     │
+            │ ---                           ┆ ---                           │
+            │ Timestamp(Microseconds, None) ┆ Timestamp(Microseconds, None) │
+            ╞═══════════════════════════════╪═══════════════════════════════╡
+            │ 2021-01-01 00:01:01           ┆ 2021-01-01 00:01:00           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 00:01:59           ┆ 2021-01-01 00:01:00           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-01 00:02:00           ┆ 2021-01-01 00:02:00           │
+            ╰───────────────────────────────┴───────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        relative_to = Expression._to_expression(relative_to)
+        return Expression._from_pyexpr(native.dt_truncate(self._expr, interval, relative_to._expr))
+
+    def to_unix_epoch(self, time_unit: str | TimeUnit | None = None) -> Expression:
+        """Converts a datetime column to a Unix timestamp. with the specified time unit. (default: seconds).
+
+        See [daft.datatype.TimeUnit](https://www.getdaft.io/projects/docs/en/stable/api/datatypes/#daft.datatype.DataType.timeunit) for more information on time units and valid values.
+
+        Examples:
+            >>> import daft
+            >>> from datetime import date
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "dates": [
+            ...             date(2001, 1, 1),
+            ...             date(2001, 1, 2),
+            ...             date(2001, 1, 3),
+            ...             None,
+            ...         ]
+            ...     }
+            ... )
+            >>> df.with_column("timestamp", daft.col("dates").dt.to_unix_epoch("ns")).show()
+            ╭────────────┬────────────────────╮
+            │ dates      ┆ timestamp          │
+            │ ---        ┆ ---                │
+            │ Date       ┆ Int64              │
+            ╞════════════╪════════════════════╡
+            │ 2001-01-01 ┆ 978307200000000000 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2001-01-02 ┆ 978393600000000000 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2001-01-03 ┆ 978480000000000000 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ None       ┆ None               │
+            ╰────────────┴────────────────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        if time_unit is None:
+            time_unit = TimeUnit.s()
+        if isinstance(time_unit, str):
+            time_unit = TimeUnit.from_str(time_unit)
+
+        return Expression._from_pyexpr(native.dt_to_unix_epoch(self._expr, time_unit._timeunit))
+
+    def strftime(self, format: str | None = None) -> Expression:
+        """Converts a datetime/date column to a string column.
+
+        Args:
+            format: The format to use for the conversion. If None, defaults to ISO 8601 format.
+
+        Note:
+            The format must be a valid datetime format string. (defaults to ISO 8601 format)
+            See: https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+
+
+        Examples:
+            >>> import daft
+            >>> from datetime import datetime, date
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "dates": [date(2023, 1, 1), date(2023, 1, 2), date(2023, 1, 3)],
+            ...         "datetimes": [
+            ...             datetime(2023, 1, 1, 12, 1),
+            ...             datetime(2023, 1, 2, 12, 0, 0, 0),
+            ...             datetime(2023, 1, 3, 12, 0, 0, 999_999),
+            ...         ],
+            ...     }
+            ... )
+            >>> df = df.with_column("datetimes_s", daft.col("datetimes").cast(daft.DataType.timestamp("s")))
+            >>> df.select(
+            ...     daft.col("dates").dt.strftime().alias("iso_date"),
+            ...     daft.col("dates").dt.strftime(format="%m/%d/%Y").alias("custom_date"),
+            ...     daft.col("datetimes").dt.strftime().alias("iso_datetime"),
+            ...     daft.col("datetimes_s").dt.strftime().alias("iso_datetime_s"),
+            ...     daft.col("datetimes_s").dt.strftime(format="%Y/%m/%d %H:%M:%S").alias("custom_datetime"),
+            ... ).show()
+            ╭────────────┬─────────────┬────────────────────────────┬─────────────────────┬─────────────────────╮
+            │ iso_date   ┆ custom_date ┆ iso_datetime               ┆ iso_datetime_s      ┆ custom_datetime     │
+            │ ---        ┆ ---         ┆ ---                        ┆ ---                 ┆ ---                 │
+            │ Utf8       ┆ Utf8        ┆ Utf8                       ┆ Utf8                ┆ Utf8                │
+            ╞════════════╪═════════════╪════════════════════════════╪═════════════════════╪═════════════════════╡
+            │ 2023-01-01 ┆ 01/01/2023  ┆ 2023-01-01T12:01:00.000000 ┆ 2023-01-01T12:01:00 ┆ 2023/01/01 12:01:00 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2023-01-02 ┆ 01/02/2023  ┆ 2023-01-02T12:00:00.000000 ┆ 2023-01-02T12:00:00 ┆ 2023/01/02 12:00:00 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2023-01-03 ┆ 01/03/2023  ┆ 2023-01-03T12:00:00.999999 ┆ 2023-01-03T12:00:00 ┆ 2023/01/03 12:00:00 │
+            ╰────────────┴─────────────┴────────────────────────────┴─────────────────────┴─────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+        """
+        return Expression._from_pyexpr(native.dt_strftime(self._expr, format))
+
+
+class ExpressionStringNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.str` attribute."""
+
+    def contains(self, substr: str | Expression) -> Expression:
+        """Checks whether each string contains the given pattern in a string column.
+
+        Args:
+            pattern: pattern to search for as a literal string, or as a column to pick values from
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value contains the provided pattern
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df = df.select(df["x"].str.contains("o"))
+            >>> df.show()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        substr_expr = Expression._to_expression(substr)
+        return Expression._from_pyexpr(native.utf8_contains(self._expr, substr_expr._expr))
+
+    def match(self, pattern: str | Expression) -> Expression:
+        """Checks whether each string matches the given regular expression pattern in a string column.
+
+        Args:
+            pattern: Regex pattern to search for as string or as a column to pick values from
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value matches the provided pattern
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df.with_column("match", df["x"].str.match("ba.")).collect()
+            ╭──────┬─────────╮
+            │ x    ┆ match   │
+            │ ---  ┆ ---     │
+            │ Utf8 ┆ Boolean │
+            ╞══════╪═════════╡
+            │ foo  ┆ false   │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ bar  ┆ true    │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ baz  ┆ true    │
+            ╰──────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_match(self._expr, pattern_expr._expr))
+
+    def endswith(self, suffix: str | Expression) -> Expression:
+        """Checks whether each string ends with the given pattern in a string column.
+
+        Args:
+            pattern: pattern to search for as a literal string, or as a column to pick values from
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value ends with the provided pattern
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["geftdaft", "lazy", "daft.io"]})
+            >>> df.with_column("match", df["x"].str.endswith("daft")).collect()
+            ╭──────────┬─────────╮
+            │ x        ┆ match   │
+            │ ---      ┆ ---     │
+            │ Utf8     ┆ Boolean │
+            ╞══════════╪═════════╡
+            │ geftdaft ┆ true    │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ lazy     ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ daft.io  ┆ false   │
+            ╰──────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        suffix_expr = Expression._to_expression(suffix)
+        return Expression._from_pyexpr(native.utf8_endswith(self._expr, suffix_expr._expr))
+
+    def startswith(self, prefix: str | Expression) -> Expression:
+        """Checks whether each string starts with the given pattern in a string column.
+
+        Args:
+            pattern: pattern to search for as a literal string, or as a column to pick values from
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value starts with the provided pattern
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["geftdaft", "lazy", "daft.io"]})
+            >>> df.with_column("match", df["x"].str.startswith("daft")).collect()
+            ╭──────────┬─────────╮
+            │ x        ┆ match   │
+            │ ---      ┆ ---     │
+            │ Utf8     ┆ Boolean │
+            ╞══════════╪═════════╡
+            │ geftdaft ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ lazy     ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ daft.io  ┆ true    │
+            ╰──────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        prefix_expr = Expression._to_expression(prefix)
+        return Expression._from_pyexpr(native.utf8_startswith(self._expr, prefix_expr._expr))
+
+    def split(self, pattern: str | Expression, regex: bool = False) -> Expression:
+        r"""Splits each string on the given literal or regex pattern, into a list of strings.
+
+        Args:
+            pattern: The pattern on which each string should be split, or a column to pick such patterns from.
+            regex: Whether the pattern is a regular expression. Defaults to False.
+
+        Returns:
+            Expression: A List[Utf8] expression containing the string splits for each string in the column.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": ["daft.distributed.query", "a.b.c", "1.2.3"]})
+            >>> df.with_column("split", df["data"].str.split(".")).collect()
+            ╭────────────────────────┬────────────────────────────╮
+            │ data                   ┆ split                      │
+            │ ---                    ┆ ---                        │
+            │ Utf8                   ┆ List[Utf8]                 │
+            ╞════════════════════════╪════════════════════════════╡
+            │ daft.distributed.query ┆ [daft, distributed, query] │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ a.b.c                  ┆ [a, b, c]                  │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 1.2.3                  ┆ [1, 2, 3]                  │
+            ╰────────────────────────┴────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            Split on a regex pattern
+
+            >>> import daft
+            >>> df = daft.from_pydict({"data": ["daft.distributed...query", "a.....b.c", "1.2...3.."]})
+            >>> df.with_column("split", df["data"].str.split(r"\.+", regex=True)).collect()
+            ╭──────────────────────────┬────────────────────────────╮
+            │ data                     ┆ split                      │
+            │ ---                      ┆ ---                        │
+            │ Utf8                     ┆ List[Utf8]                 │
+            ╞══════════════════════════╪════════════════════════════╡
+            │ daft.distributed...query ┆ [daft, distributed, query] │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ a.....b.c                ┆ [a, b, c]                  │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 1.2...3..                ┆ [1, 2, 3, ]                │
+            ╰──────────────────────────┴────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_split(self._expr, pattern_expr._expr, regex))
+
+    def concat(self, other: str | Expression) -> Expression:
+        """Concatenates two string expressions together.
+
+        Args:
+            other (Expression): a string expression to concatenate with
+
+        Returns:
+            Expression: a String expression which is `self` concatenated with `other`
+
+        Note:
+            Another (easier!) way to invoke this functionality is using the Python `+` operator which is
+            aliased to using `.str.concat`. These are equivalent:
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"], "y": ["a", "b", "c"]})
+            >>> df.select(col("x").str.concat(col("y"))).collect()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ fooa │
+            ├╌╌╌╌╌╌┤
+            │ barb │
+            ├╌╌╌╌╌╌┤
+            │ bazc │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        # Delegate to + operator implementation.
+        other_expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(self._expr) + other_expr
+
+    def extract(self, pattern: str | Expression, index: int = 0) -> Expression:
+        r"""Extracts the specified match group from the first regex match in each string in a string column.
+
+        Args:
+            pattern: The regex pattern to extract
+            index: The index of the regex match group to extract
+
+        Returns:
+            Expression: a String expression with the extracted regex match
+
+        Note:
+            If index is 0, the entire match is returned.
+            If the pattern does not match or the group does not exist, a null value is returned.
+
+        Examples:
+            >>> import daft
+            >>> regex = r"(\d)(\d*)"
+            >>> df = daft.from_pydict({"x": ["123-456", "789-012", "345-678"]})
+            >>> df.with_column("match", df["x"].str.extract(regex)).collect()
+            ╭─────────┬───────╮
+            │ x       ┆ match │
+            │ ---     ┆ ---   │
+            │ Utf8    ┆ Utf8  │
+            ╞═════════╪═══════╡
+            │ 123-456 ┆ 123   │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 789-012 ┆ 789   │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 345-678 ┆ 345   │
+            ╰─────────┴───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            Extract the first capture group
+
+            >>> df.with_column("match", df["x"].str.extract(regex, 1)).collect()
+            ╭─────────┬───────╮
+            │ x       ┆ match │
+            │ ---     ┆ ---   │
+            │ Utf8    ┆ Utf8  │
+            ╞═════════╪═══════╡
+            │ 123-456 ┆ 1     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 789-012 ┆ 7     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ 345-678 ┆ 3     │
+            ╰─────────┴───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+
+        Tip: See Also
+            [extract_all](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionStringNamespace.extract_all)
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_extract(self._expr, pattern_expr._expr, index))
+
+    def extract_all(self, pattern: str | Expression, index: int = 0) -> Expression:
+        r"""Extracts the specified match group from all regex matches in each string in a string column.
+
+        Args:
+            pattern: The regex pattern to extract
+            index: The index of the regex match group to extract
+
+        Returns:
+            Expression: a List[Utf8] expression with the extracted regex matches
+
+        Note:
+            This expression always returns a list of strings.
+            If index is 0, the entire match is returned. If the pattern does not match or the group does not exist, an empty list is returned.
+
+        Examples:
+            >>> import daft
+            >>> regex = r"(\d)(\d*)"
+            >>> df = daft.from_pydict({"x": ["123-456", "789-012", "345-678"]})
+            >>> df.with_column("match", df["x"].str.extract_all(regex)).collect()
+            ╭─────────┬────────────╮
+            │ x       ┆ match      │
+            │ ---     ┆ ---        │
+            │ Utf8    ┆ List[Utf8] │
+            ╞═════════╪════════════╡
+            │ 123-456 ┆ [123, 456] │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 789-012 ┆ [789, 012] │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 345-678 ┆ [345, 678] │
+            ╰─────────┴────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            Extract the first capture group
+
+            >>> df.with_column("match", df["x"].str.extract_all(regex, 1)).collect()
+            ╭─────────┬────────────╮
+            │ x       ┆ match      │
+            │ ---     ┆ ---        │
+            │ Utf8    ┆ List[Utf8] │
+            ╞═════════╪════════════╡
+            │ 123-456 ┆ [1, 4]     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 789-012 ┆ [7, 0]     │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 345-678 ┆ [3, 6]     │
+            ╰─────────┴────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        Tip: See Also
+            [extract](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionStringNamespace.extract)
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_extract_all(self._expr, pattern_expr._expr, index))
+
+    def replace(
+        self,
+        pattern: str | Expression,
+        replacement: str | Expression,
+        regex: bool = False,
+    ) -> Expression:
+        """Replaces all occurrences of a pattern in a string column with a replacement string. The pattern can be a literal string or a regex pattern.
+
+        Args:
+            pattern: The pattern to replace
+            replacement: The replacement string
+            regex: Whether the pattern is a regex pattern or an exact match. Defaults to False.
+
+        Returns:
+            Expression: a String expression with patterns replaced by the replacement string
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"data": ["foo", "bar", "baz"]})
+            >>> df.with_column("replace", df["data"].str.replace("ba", "123")).collect()
+            ╭──────┬─────────╮
+            │ data ┆ replace │
+            │ ---  ┆ ---     │
+            │ Utf8 ┆ Utf8    │
+            ╞══════╪═════════╡
+            │ foo  ┆ foo     │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ bar  ┆ 123r    │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ baz  ┆ 123z    │
+            ╰──────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            Replace with a regex pattern
+
+            >>> import daft
+            >>> df = daft.from_pydict({"data": ["foo", "fooo", "foooo"]})
+            >>> df.with_column("replace", df["data"].str.replace(r"o+", "a", regex=True)).collect()
+            ╭───────┬─────────╮
+            │ data  ┆ replace │
+            │ ---   ┆ ---     │
+            │ Utf8  ┆ Utf8    │
+            ╞═══════╪═════════╡
+            │ foo   ┆ fa      │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ fooo  ┆ fa      │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ foooo ┆ fa      │
+            ╰───────┴─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        replacement_expr = Expression._to_expression(replacement)
+        return Expression._from_pyexpr(
+            native.utf8_replace(self._expr, pattern_expr._expr, replacement_expr._expr, regex)
+        )
+
+    def length(self) -> Expression:
+        """Retrieves the length for a UTF-8 string column.
+
+        Returns:
+            Expression: an UInt64 expression with the length of each string
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df = df.select(df["x"].str.length())
+            >>> df.show()
+            ╭────────╮
+            │ x      │
+            │ ---    │
+            │ UInt64 │
+            ╞════════╡
+            │ 3      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 3      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 3      │
+            ╰────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_length(self._expr))
+
+    def length_bytes(self) -> Expression:
+        """Retrieves the length for a UTF-8 string column in bytes.
+
+        Returns:
+            Expression: an UInt64 expression with the length of each string
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["😉test", "hey̆", "baz"]})
+            >>> df = df.select(df["x"].str.length_bytes())
+            >>> df.show()
+            ╭────────╮
+            │ x      │
+            │ ---    │
+            │ UInt64 │
+            ╞════════╡
+            │ 8      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 5      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 3      │
+            ╰────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_length_bytes(self._expr))
+
+    def lower(self) -> Expression:
+        """Convert UTF-8 string to all lowercase.
+
+        Returns:
+            Expression: a String expression which is `self` lowercased
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["FOO", "BAR", "BAZ"]})
+            >>> df = df.select(df["x"].str.lower())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ foo  │
+            ├╌╌╌╌╌╌┤
+            │ bar  │
+            ├╌╌╌╌╌╌┤
+            │ baz  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_lower(self._expr))
+
+    def upper(self) -> Expression:
+        """Convert UTF-8 string to all upper.
+
+        Returns:
+            Expression: a String expression which is `self` uppercased
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df = df.select(df["x"].str.upper())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ FOO  │
+            ├╌╌╌╌╌╌┤
+            │ BAR  │
+            ├╌╌╌╌╌╌┤
+            │ BAZ  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_upper(self._expr))
+
+    def lstrip(self) -> Expression:
+        """Strip whitespace from the left side of a UTF-8 string.
+
+        Returns:
+            Expression: a String expression which is `self` with leading whitespace stripped
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "  baz"]})
+            >>> df = df.select(df["x"].str.lstrip())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ foo  │
+            ├╌╌╌╌╌╌┤
+            │ bar  │
+            ├╌╌╌╌╌╌┤
+            │ baz  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_lstrip(self._expr))
+
+    def rstrip(self) -> Expression:
+        """Strip whitespace from the right side of a UTF-8 string.
+
+        Returns:
+            Expression: a String expression which is `self` with trailing whitespace stripped
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz   "]})
+            >>> df = df.select(df["x"].str.rstrip())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ foo  │
+            ├╌╌╌╌╌╌┤
+            │ bar  │
+            ├╌╌╌╌╌╌┤
+            │ baz  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_rstrip(self._expr))
+
+    def reverse(self) -> Expression:
+        """Reverse a UTF-8 string.
+
+        Returns:
+            Expression: a String expression which is `self` reversed
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df = df.select(df["x"].str.reverse())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ oof  │
+            ├╌╌╌╌╌╌┤
+            │ rab  │
+            ├╌╌╌╌╌╌┤
+            │ zab  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_reverse(self._expr))
+
+    def capitalize(self) -> Expression:
+        """Capitalize a UTF-8 string.
+
+        Returns:
+            Expression: a String expression which is `self` uppercased with the first character and lowercased the rest
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["foo", "bar", "baz"]})
+            >>> df = df.select(df["x"].str.capitalize())
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ Foo  │
+            ├╌╌╌╌╌╌┤
+            │ Bar  │
+            ├╌╌╌╌╌╌┤
+            │ Baz  │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_capitalize(self._expr))
+
+    def left(self, nchars: int | Expression) -> Expression:
+        """Gets the n (from nchars) left-most characters of each string.
+
+        Returns:
+            Expression: a String expression which is the `n` left-most characters of `self`
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.left(4))
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ daft │
+            ├╌╌╌╌╌╌┤
+            │ quer │
+            ├╌╌╌╌╌╌┤
+            │ engi │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        nchars_expr = Expression._to_expression(nchars)
+        return Expression._from_pyexpr(native.utf8_left(self._expr, nchars_expr._expr))
+
+    def right(self, nchars: int | Expression) -> Expression:
+        """Gets the n (from nchars) right-most characters of each string.
+
+        Returns:
+            Expression: a String expression which is the `n` right-most characters of `self`
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "distributed", "engine"]})
+            >>> df = df.select(df["x"].str.right(4))
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ daft │
+            ├╌╌╌╌╌╌┤
+            │ uted │
+            ├╌╌╌╌╌╌┤
+            │ gine │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        nchars_expr = Expression._to_expression(nchars)
+        return Expression._from_pyexpr(native.utf8_right(self._expr, nchars_expr._expr))
+
+    def find(self, substr: str | Expression) -> Expression:
+        """Returns the index of the first occurrence of the substring in each string.
+
+        Returns:
+            Expression: an Int64 expression with the index of the first occurrence of the substring in each string
+
+        Note:
+            The returned index is 0-based. If the substring is not found, -1 is returned.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query daft", "df_daft"]})
+            >>> df = df.select(df["x"].str.find("daft"))
+            >>> df.show()
+            ╭───────╮
+            │ x     │
+            │ ---   │
+            │ Int64 │
+            ╞═══════╡
+            │ 0     │
+            ├╌╌╌╌╌╌╌┤
+            │ 6     │
+            ├╌╌╌╌╌╌╌┤
+            │ 3     │
+            ╰───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        substr_expr = Expression._to_expression(substr)
+        return Expression._from_pyexpr(native.utf8_find(self._expr, substr_expr._expr))
+
+    def rpad(self, length: int | Expression, pad: str | Expression) -> Expression:
+        """Right-pads each string by truncating or padding with the character.
+
+        Returns:
+            Expression: a String expression which is `self` truncated or right-padded with the pad character
+
+        Note:
+            If the string is longer than the specified length, it will be truncated.
+            The pad character must be a single character.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.rpad(6, "0"))
+            >>> df.show()
+            ╭────────╮
+            │ x      │
+            │ ---    │
+            │ Utf8   │
+            ╞════════╡
+            │ daft00 │
+            ├╌╌╌╌╌╌╌╌┤
+            │ query0 │
+            ├╌╌╌╌╌╌╌╌┤
+            │ engine │
+            ╰────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        length_expr = Expression._to_expression(length)
+        pad_expr = Expression._to_expression(pad)
+        return Expression._from_pyexpr(native.utf8_rpad(self._expr, length_expr._expr, pad_expr._expr))
+
+    def lpad(self, length: int | Expression, pad: str | Expression) -> Expression:
+        """Left-pads each string by truncating on the right or padding with the character.
+
+        Returns:
+            Expression: a String expression which is `self` truncated or left-padded with the pad character
+
+        Note:
+            If the string is longer than the specified length, it will be truncated on the right.
+            The pad character must be a single character.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.lpad(6, "0"))
+            >>> df.show()
+            ╭────────╮
+            │ x      │
+            │ ---    │
+            │ Utf8   │
+            ╞════════╡
+            │ 00daft │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 0query │
+            ├╌╌╌╌╌╌╌╌┤
+            │ engine │
+            ╰────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        length_expr = Expression._to_expression(length)
+        pad_expr = Expression._to_expression(pad)
+        return Expression._from_pyexpr(native.utf8_lpad(self._expr, length_expr._expr, pad_expr._expr))
+
+    def repeat(self, n: int | Expression) -> Expression:
+        """Repeats each string n times.
+
+        Returns:
+            Expression: a String expression which is `self` repeated `n` times
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.repeat(5))
+            >>> df.show()
+            ╭────────────────────────────────╮
+            │ x                              │
+            │ ---                            │
+            │ Utf8                           │
+            ╞════════════════════════════════╡
+            │ daftdaftdaftdaftdaft           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ queryqueryqueryqueryquery      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ engineengineengineengineengin… │
+            ╰────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        n_expr = Expression._to_expression(n)
+        return Expression._from_pyexpr(native.utf8_repeat(self._expr, n_expr._expr))
+
+    def like(self, pattern: str | Expression) -> Expression:
+        """Checks whether each string matches the given SQL LIKE pattern, case sensitive.
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value matches the provided pattern
+
+        Note:
+            Use % as a multiple-character wildcard or _ as a single-character wildcard.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.like("daf%"))
+            >>> df.show()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_like(self._expr, pattern_expr._expr))
+
+    def ilike(self, pattern: str | Expression) -> Expression:
+        """Checks whether each string matches the given SQL LIKE pattern, case insensitive.
+
+        Returns:
+            Expression: a Boolean expression indicating whether each value matches the provided pattern
+
+        Note:
+            Use % as a multiple-character wildcard or _ as a single-character wildcard.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.ilike("%ft%"))
+            >>> df.show()
+            ╭─────────╮
+            │ x       │
+            │ ---     │
+            │ Boolean │
+            ╞═════════╡
+            │ true    │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ├╌╌╌╌╌╌╌╌╌┤
+            │ false   │
+            ╰─────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        pattern_expr = Expression._to_expression(pattern)
+        return Expression._from_pyexpr(native.utf8_ilike(self._expr, pattern_expr._expr))
+
+    def substr(self, start: int | Expression, length: int | Expression | None = None) -> Expression:
+        """Extract a substring from a string, starting at a specified index and extending for a given length.
+
+        Returns:
+            Expression: A String expression representing the extracted substring.
+
+        Note:
+            If `length` is not provided, the substring will include all characters from `start` to the end of the string.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["daft", "query", "engine"]})
+            >>> df = df.select(df["x"].str.substr(2, 4))
+            >>> df.show()
+            ╭──────╮
+            │ x    │
+            │ ---  │
+            │ Utf8 │
+            ╞══════╡
+            │ ft   │
+            ├╌╌╌╌╌╌┤
+            │ ery  │
+            ├╌╌╌╌╌╌┤
+            │ gine │
+            ╰──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        start_expr = Expression._to_expression(start)
+        length_expr = Expression._to_expression(length)
+        return Expression._from_pyexpr(native.utf8_substr(self._expr, start_expr._expr, length_expr._expr))
+
+    def to_date(self, format: str) -> Expression:
+        """Converts a string to a date using the specified format.
+
+        Returns:
+            Expression: a Date expression which is parsed by given format
+
+        Note:
+            The format must be a valid date format string. See: https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["2021-01-01", "2021-01-02", None]})
+            >>> df = df.with_column("date", df["x"].str.to_date("%Y-%m-%d"))
+            >>> df.show()
+            ╭────────────┬────────────╮
+            │ x          ┆ date       │
+            │ ---        ┆ ---        │
+            │ Utf8       ┆ Date       │
+            ╞════════════╪════════════╡
+            │ 2021-01-01 ┆ 2021-01-01 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 ┆ 2021-01-02 │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ None       ┆ None       │
+            ╰────────────┴────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_to_date(self._expr, format))
+
+    def to_datetime(self, format: str, timezone: str | None = None) -> Expression:
+        """Converts a string to a datetime using the specified format and timezone.
+
+        Returns:
+            Expression: a DateTime expression which is parsed by given format and timezone
+
+        Note:
+            The format must be a valid datetime format string. See: https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["2021-01-01 00:00:00.123", "2021-01-02 12:30:00.456", None]})
+            >>> df = df.with_column("datetime", df["x"].str.to_datetime("%Y-%m-%d %H:%M:%S%.3f"))
+            >>> df.show()
+            ╭─────────────────────────┬───────────────────────────────╮
+            │ x                       ┆ datetime                      │
+            │ ---                     ┆ ---                           │
+            │ Utf8                    ┆ Timestamp(Milliseconds, None) │
+            ╞═════════════════════════╪═══════════════════════════════╡
+            │ 2021-01-01 00:00:00.123 ┆ 2021-01-01 00:00:00.123       │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 12:30:00.456 ┆ 2021-01-02 12:30:00.456       │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ None                    ┆ None                          │
+            ╰─────────────────────────┴───────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+            If a timezone is provided, the datetime will be parsed in that timezone
+
+            >>> df = daft.from_pydict({"x": ["2021-01-01 00:00:00.123 +0800", "2021-01-02 12:30:00.456 +0800", None]})
+            >>> df = df.with_column(
+            ...     "datetime", df["x"].str.to_datetime("%Y-%m-%d %H:%M:%S%.3f %z", timezone="Asia/Shanghai")
+            ... )
+            >>> df.show()
+            ╭───────────────────────────────┬────────────────────────────────────────────────╮
+            │ x                             ┆ datetime                                       │
+            │ ---                           ┆ ---                                            │
+            │ Utf8                          ┆ Timestamp(Milliseconds, Some("Asia/Shanghai")) │
+            ╞═══════════════════════════════╪════════════════════════════════════════════════╡
+            │ 2021-01-01 00:00:00.123 +0800 ┆ 2021-01-01 00:00:00.123 CST                    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2021-01-02 12:30:00.456 +0800 ┆ 2021-01-02 12:30:00.456 CST                    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ None                          ┆ None                                           │
+            ╰───────────────────────────────┴────────────────────────────────────────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.utf8_to_datetime(self._expr, format, timezone))
+
+    def normalize(
+        self,
+        *,
+        remove_punct: bool = False,
+        lowercase: bool = False,
+        nfd_unicode: bool = False,
+        white_space: bool = False,
+    ):
+        r"""Normalizes a string for more useful deduplication.
+
+        Args:
+            remove_punct: Whether to remove all punctuation (ASCII).
+            lowercase: Whether to convert the string to lowercase.
+            nfd_unicode: Whether to normalize and decompose Unicode characters according to NFD.
+            white_space: Whether to normalize whitespace, replacing newlines etc with spaces and removing double spaces.
+
+        Returns:
+            Expression: a String expression which is normalized.
+
+        Note:
+            All processing options are off by default.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": ["hello world", "Hello, world!", "HELLO,   \nWORLD!!!!"]})
+            >>> df = df.with_column(
+            ...     "normalized", df["x"].str.normalize(remove_punct=True, lowercase=True, white_space=True)
+            ... )
+            >>> df.show()
+            ╭───────────────┬─────────────╮
+            │ x             ┆ normalized  │
+            │ ---           ┆ ---         │
+            │ Utf8          ┆ Utf8        │
+            ╞═══════════════╪═════════════╡
+            │ hello world   ┆ hello world │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ Hello, world! ┆ hello world │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ HELLO,        ┆ hello world │
+            │ WORLD!!!!     ┆             │
+            ╰───────────────┴─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(
+            native.utf8_normalize(self._expr, remove_punct, lowercase, nfd_unicode, white_space)
+        )
+
+    def tokenize_encode(
+        self,
+        tokens_path: str,
+        *,
+        io_config: IOConfig | None = None,
+        pattern: str | None = None,
+        special_tokens: str | None = None,
+        use_special_tokens: bool | None = None,
+    ) -> Expression:
+        """Encodes each string as a list of integer tokens using a tokenizer.
+
+        Uses https://github.com/openai/tiktoken for tokenization.
+
+        Supported built-in tokenizers: `cl100k_base`, `o200k_base`, `p50k_base`, `p50k_edit`, `r50k_base`. Also supports
+        loading tokens from a file in tiktoken format.
+
+        Args:
+            tokens_path: The name of a built-in tokenizer, or the path to a token file (supports downloading).
+            io_config (optional): IOConfig to use when accessing remote storage.
+            pattern (optional): Regex pattern to use to split strings in tokenization step. Necessary if loading from a file.
+            special_tokens (optional): Name of the set of special tokens to use. Currently only "llama3" supported. Necessary if loading from a file.
+            use_special_tokens (optional): Whether or not to parse special tokens included in input. Disabled by default. Automatically enabled if `special_tokens` is provided.
+
+        Returns:
+            Expression: An expression with the encodings of the strings as lists of unsigned 32-bit integers.
+
+        Note:
+            If using this expression with Llama 3 tokens, note that Llama 3 does some extra preprocessing on
+            strings in certain edge cases. This may result in slightly different encodings in these cases.
+
+        """
+        # if special tokens are passed in, enable using special tokens
+        if use_special_tokens is None:
+            use_special_tokens = special_tokens is not None
+
+        return Expression._from_pyexpr(
+            _tokenize_encode(
+                self._expr,
+                tokens_path,
+                use_special_tokens,
+                io_config,
+                pattern,
+                special_tokens,
+            )
+        )
+
+    def tokenize_decode(
+        self,
+        tokens_path: str,
+        *,
+        io_config: IOConfig | None = None,
+        pattern: str | None = None,
+        special_tokens: str | None = None,
+    ) -> Expression:
+        """Decodes each list of integer tokens into a string using a tokenizer.
+
+        Uses https://github.com/openai/tiktoken for tokenization.
+
+        Supported built-in tokenizers: `cl100k_base`, `o200k_base`, `p50k_base`, `p50k_edit`, `r50k_base`. Also supports
+        loading tokens from a file in tiktoken format.
+
+        Args:
+            tokens_path: The name of a built-in tokenizer, or the path to a token file (supports downloading).
+            io_config (optional): IOConfig to use when accessing remote storage.
+            pattern (optional): Regex pattern to use to split strings in tokenization step. Necessary if loading from a file.
+            special_tokens (optional): Name of the set of special tokens to use. Currently only "llama3" supported. Necessary if loading from a file.
+
+        Returns:
+            Expression: An expression with decoded strings.
+        """
+        return Expression._from_pyexpr(_tokenize_decode(self._expr, tokens_path, io_config, pattern, special_tokens))
+
+    def count_matches(
+        self,
+        patterns: Any,
+        whole_words: bool = False,
+        case_sensitive: bool = True,
+    ):
+        """Counts the number of times a pattern, or multiple patterns, appear in a string.
+
+        If whole_words is true, then matches are only counted if they are whole words. This
+        also applies to multi-word strings. For example, on the string "abc def", the strings
+        "def" and "abc def" would be matched, but "bc de", "abc d", and "abc " (with the space)
+        would not.
+
+        If case_sensitive is false, then case will be ignored. This only applies to ASCII
+        characters; unicode uppercase/lowercase will still be considered distinct.
+
+        Args:
+            patterns: A pattern or a list of patterns.
+            whole_words: Whether to only match whole word(s). Defaults to false.
+            case_sensitive: Whether the matching should be case sensitive. Defaults to true.
+
+        Note:
+            If a pattern is a substring of another pattern, the longest pattern is matched first.
+            For example, in the string "hello world", with patterns "hello", "world", and "hello world",
+            one match is counted for "hello world".
+        """
+        if isinstance(patterns, str):
+            patterns = [patterns]
+        if not isinstance(patterns, Expression):
+            series = item_to_series("items", patterns)
+            patterns = Expression._to_expression(series)
+
+        return Expression._from_pyexpr(_utf8_count_matches(self._expr, patterns._expr, whole_words, case_sensitive))
+
+
+class ExpressionListNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.list` attribute."""
+
+    def join(self, delimiter: str | Expression) -> Expression:
+        """Joins every element of a list using the specified string delimiter.
+
+        Args:
+            delimiter (str | Expression): the delimiter to use to join lists with
+
+        Returns:
+            Expression: a String expression which is every element of the list joined on the delimiter
+        """
+        delimiter_expr = Expression._to_expression(delimiter)
+        return Expression._from_pyexpr(native.list_join(self._expr, delimiter_expr._expr))
+
+    def value_counts(self) -> Expression:
+        """Counts the occurrences of each distinct value in the list.
+
+        Returns:
+            Expression: A Map<X, UInt64> expression where the keys are distinct elements from the
+                        original list of type X, and the values are UInt64 counts representing
+                        the number of times each element appears in the list.
+
+        Note:
+            This function does not work for nested types. For example, it will not produce a map
+            with lists as keys.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"letters": [["a", "b", "a"], ["b", "c", "b", "c"]]})
+            >>> df.with_column("value_counts", df["letters"].list.value_counts()).collect()
+            ╭──────────────┬───────────────────╮
+            │ letters      ┆ value_counts      │
+            │ ---          ┆ ---               │
+            │ List[Utf8]   ┆ Map[Utf8: UInt64] │
+            ╞══════════════╪═══════════════════╡
+            │ [a, b, a]    ┆ [{key: a,         │
+            │              ┆ value: 2,         │
+            │              ┆ }, {key: …        │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [b, c, b, c] ┆ [{key: b,         │
+            │              ┆ value: 2,         │
+            │              ┆ }, {key: …        │
+            ╰──────────────┴───────────────────╯
+            <BLANKLINE>
+            (Showing first 2 of 2 rows)
+        """
+        return Expression._from_pyexpr(native.list_value_counts(self._expr))
+
+    def count(self, mode: Literal["all", "valid", "null"] | CountMode = CountMode.Valid) -> Expression:
+        """Counts the number of elements in each list.
+
+        Args:
+            mode: A string ("all", "valid", or "null") that represents whether to count all values, non-null (valid) values, or null values. Defaults to "valid".
+
+        Returns:
+            Expression: a UInt64 expression which is the length of each list
+        """
+        if isinstance(mode, str):
+            mode = CountMode.from_count_mode_str(mode)
+        return Expression._from_pyexpr(native.list_count(self._expr, mode))
+
+    def lengths(self) -> Expression:
+        """Gets the length of each list.
+
+        (DEPRECATED) Please use Expression.list.length instead
+
+        Returns:
+            Expression: a UInt64 expression which is the length of each list
+        """
+        warnings.warn(
+            "This function will be deprecated from Daft version >= 0.3.5!  Instead, please use 'Expression.list.length'",
+            category=DeprecationWarning,
+        )
+
+        return Expression._from_pyexpr(native.list_count(self._expr, CountMode.All))
+
+    def length(self) -> Expression:
+        """Gets the length of each list.
+
+        Returns:
+            Expression: a UInt64 expression which is the length of each list
+        """
+        return Expression._from_pyexpr(native.list_count(self._expr, CountMode.All))
+
+    def get(self, idx: int | Expression, default: object = None) -> Expression:
+        """Gets the element at an index in each list.
+
+        Args:
+            idx: index or indices to retrieve from each list
+            default: the default value if the specified index is out of bounds
+
+        Returns:
+            Expression: an expression with the type of the list values
+        """
+        idx_expr = Expression._to_expression(idx)
+        default_expr = lit(default)
+        return Expression._from_pyexpr(native.list_get(self._expr, idx_expr._expr, default_expr._expr))
+
+    def slice(self, start: int | Expression, end: int | Expression | None = None) -> Expression:
+        """Gets a subset of each list.
+
+        Args:
+            start: index or column of indices. The slice will include elements starting from this index. If `start` is negative, it represents an offset from the end of the list
+            end: optional index or column of indices. The slice will not include elements from this index onwards. If `end` is negative, it represents an offset from the end of the list. If not provided, the slice will include elements up to the end of the list
+
+        Returns:
+            Expression: an expression with a list of the type of the list values
+        """
+        start_expr = Expression._to_expression(start)
+        end_expr = Expression._to_expression(end)
+        return Expression._from_pyexpr(native.list_slice(self._expr, start_expr._expr, end_expr._expr))
+
+    def chunk(self, size: int) -> Expression:
+        """Splits each list into chunks of the given size.
+
+        Args:
+            size: size of chunks to split the list into. Must be greater than 0
+        Returns:
+            Expression: an expression with lists of fixed size lists of the type of the list values
+        """
+        if not (isinstance(size, int) and size > 0):
+            raise ValueError(f"Invalid value for `size`: {size}")
+        return Expression._from_pyexpr(native.list_chunk(self._expr, size))
+
+    def sum(self) -> Expression:
+        """Sums each list. Empty lists and lists with all nulls yield null.
+
+        Returns:
+            Expression: an expression with the type of the list values
+        """
+        return Expression._from_pyexpr(native.list_sum(self._expr))
+
+    def mean(self) -> Expression:
+        """Calculates the mean of each list. If no non-null values in a list, the result is null.
+
+        Returns:
+            Expression: a Float64 expression with the type of the list values
+        """
+        return Expression._from_pyexpr(native.list_mean(self._expr))
+
+    def min(self) -> Expression:
+        """Calculates the minimum of each list. If no non-null values in a list, the result is null.
+
+        Returns:
+            Expression: a Float64 expression with the type of the list values
+        """
+        return Expression._from_pyexpr(native.list_min(self._expr))
+
+    def max(self) -> Expression:
+        """Calculates the maximum of each list. If no non-null values in a list, the result is null.
+
+        Returns:
+            Expression: a Float64 expression with the type of the list values
+        """
+        return Expression._from_pyexpr(native.list_max(self._expr))
+
+    def bool_and(self) -> Expression:
+        """Calculates the boolean AND of all values in a list.
+
+        For each list:
+        - Returns True if all non-null values are True
+        - Returns False if any non-null value is False
+        - Returns null if the list is empty or contains only null values
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [[True, True], [True, False], [None, None], []]})
+            >>> df.with_column("result", df["values"].list.bool_and()).collect()
+            ╭───────────────┬─────────╮
+            │ values        ┆ result  │
+            │ ---           ┆ ---     │
+            │ List[Boolean] ┆ Boolean │
+            ╞═══════════════╪═════════╡
+            │ [true, true]  ┆ true    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [true, false] ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [None, None]  ┆ None    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ []            ┆ None    │
+            ╰───────────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        return Expression._from_pyexpr(native.list_bool_and(self._expr))
+
+    def bool_or(self) -> Expression:
+        """Calculates the boolean OR of all values in a list.
+
+        For each list:
+        - Returns True if any non-null value is True
+        - Returns False if all non-null values are False
+        - Returns null if the list is empty or contains only null values
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"values": [[True, False], [False, False], [None, None], []]})
+            >>> df.with_column("result", df["values"].list.bool_or()).collect()
+            ╭────────────────┬─────────╮
+            │ values         ┆ result  │
+            │ ---            ┆ ---     │
+            │ List[Boolean]  ┆ Boolean │
+            ╞════════════════╪═════════╡
+            │ [true, false]  ┆ true    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [false, false] ┆ false   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [None, None]   ┆ None    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ []             ┆ None    │
+            ╰────────────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+        """
+        return Expression._from_pyexpr(native.list_bool_or(self._expr))
+
+    def sort(self, desc: bool | Expression = False, nulls_first: bool | Expression | None = None) -> Expression:
+        """Sorts the inner lists of a list column.
+
+        Args:
+            desc: Whether to sort in descending order. Defaults to false. Pass in a boolean column to control for each row.
+
+        Returns:
+            Expression: An expression with the sorted lists
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"a": [[1, 3], [4, 2], [6, 7, 1]]})
+            >>> df.select(df["a"].list.sort()).show()
+            ╭─────────────╮
+            │ a           │
+            │ ---         │
+            │ List[Int64] │
+            ╞═════════════╡
+            │ [1, 3]      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [2, 4]      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [1, 6, 7]   │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        if isinstance(desc, bool):
+            desc = Expression._to_expression(desc)
+        if nulls_first is None:
+            nulls_first = desc
+        elif isinstance(nulls_first, bool):
+            nulls_first = Expression._to_expression(nulls_first)
+        return Expression._from_pyexpr(_list_sort(self._expr, desc._expr, nulls_first._expr))
+
+    def distinct(self) -> Expression:
+        """Returns a list of distinct elements in each list, preserving order of first occurrence and ignoring nulls.
+
+        Returns:
+            Expression: An expression with lists containing only distinct elements
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"a": [[1, 2, 2, 3], [4, 4, 6, 2], [6, 7, 1], [None, 1, None, 1]]})
+            >>> df.select(df["a"].list.distinct()).show()
+            ╭─────────────╮
+            │ a           │
+            │ ---         │
+            │ List[Int64] │
+            ╞═════════════╡
+            │ [1, 2, 3]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [4, 6, 2]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [6, 7, 1]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [1]         │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+
+            Note that null values are ignored:
+
+            >>> df = daft.from_pydict({"a": [[None, None], [1, None, 1], [None]]})
+            >>> df.select(df["a"].list.distinct()).show()
+            ╭─────────────╮
+            │ a           │
+            │ ---         │
+            │ List[Int64] │
+            ╞═════════════╡
+            │ []          │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [1]         │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ []          │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(_list_distinct(self._expr))
+
+    def unique(self) -> Expression:
+        """Returns a list of distinct elements in each list, preserving order of first occurrence and ignoring nulls.
+
+        Alias for [Expression.list.distinct](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionListNamespace.distinct).
+
+        Returns:
+            Expression: An expression with lists containing only distinct elements
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"a": [[1, 2, 2, 3], [4, 4, 6, 2], [6, 7, 1], [None, 1, None, 1]]})
+            >>> df.select(df["a"].list.unique()).show()
+            ╭─────────────╮
+            │ a           │
+            │ ---         │
+            │ List[Int64] │
+            ╞═════════════╡
+            │ [1, 2, 3]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [4, 6, 2]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [6, 7, 1]   │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [1]         │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+
+            Note that null values are ignored:
+
+            >>> df = daft.from_pydict({"a": [[None, None], [1, None, 1], [None]]})
+            >>> df.select(df["a"].list.unique()).show()
+            ╭─────────────╮
+            │ a           │
+            │ ---         │
+            │ List[Int64] │
+            ╞═════════════╡
+            │ []          │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ [1]         │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ []          │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        Tip: See Also
+            [Expression.list.distinct](https://www.getdaft.io/projects/docs/en/stable/api/expressions/#daft.expressions.expressions.ExpressionListNamespace.distinct)
+
+        """
+        return self.distinct()
+
+
+class ExpressionStructNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.struct` attribute."""
+
+    def get(self, name: str) -> Expression:
+        """Retrieves one field from a struct column, or all fields with "*".
+
+        Args:
+            name: the name of the field to retrieve
+
+        Returns:
+            Expression: the field expression
+        """
+        return Expression._from_pyexpr(self._expr.struct_get(name))
+
+
+class ExpressionMapNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.map` attribute."""
+
+    def get(self, key: Expression) -> Expression:
+        """Retrieves the value for a key in a map column.
+
+        Args:
+            key: the key to retrieve
+
+        Returns:
+            Expression: the value expression
+
+        Examples:
+            >>> import pyarrow as pa
+            >>> import daft
+            >>> pa_array = pa.array([[("a", 1)], [], [("b", 2)]], type=pa.map_(pa.string(), pa.int64()))
+            >>> df = daft.from_arrow(pa.table({"map_col": pa_array}))
+            >>> df = df.with_column("a", df["map_col"].map.get("a"))
+            >>> df.show()
+            ╭──────────────────┬───────╮
+            │ map_col          ┆ a     │
+            │ ---              ┆ ---   │
+            │ Map[Utf8: Int64] ┆ Int64 │
+            ╞══════════════════╪═══════╡
+            │ [{key: a,        ┆ 1     │
+            │ value: 1,        ┆       │
+            │ }]               ┆       │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ []               ┆ None  │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ [{key: b,        ┆ None  │
+            │ value: 2,        ┆       │
+            │ }]               ┆       │
+            ╰──────────────────┴───────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        key_expr = Expression._to_expression(key)
+        return Expression._from_pyexpr(self._expr.map_get(key_expr._expr))
+
+
+class ExpressionsProjection(Iterable[Expression]):
+    """A collection of Expressions that can be projected onto a Table to produce another Table.
+
+    Invariants:
+        1. All Expressions have names
+        2. All Expressions have unique names
+    """
+
+    def __init__(self, exprs: list[Expression]) -> None:
+        # Check invariants
+        seen: set[str] = set()
+        for e in exprs:
+            if e.name() in seen:
+                raise ValueError(f"Expressions must all have unique names; saw {e.name()} twice")
+            seen.add(e.name())
+
+        self._output_name_to_exprs = {e.name(): e for e in exprs}
+
+    @classmethod
+    def from_schema(cls, schema: Schema) -> ExpressionsProjection:
+        return cls([col(field.name) for field in schema])
+
+    def __len__(self) -> int:
+        return len(self._output_name_to_exprs)
+
+    def __iter__(self) -> Iterator[Expression]:
+        return iter(self._output_name_to_exprs.values())
+
+    @overload
+    def __getitem__(self, idx: slice) -> list[Expression]: ...
+
+    @overload
+    def __getitem__(self, idx: int) -> Expression: ...
+
+    def __getitem__(self, idx: int | slice) -> Expression | list[Expression]:
+        # Relies on the fact that Python dictionaries are ordered
+        return list(self._output_name_to_exprs.values())[idx]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ExpressionsProjection):
+            return False
+
+        return len(self._output_name_to_exprs) == len(other._output_name_to_exprs) and all(
+            (s.name() == o.name()) and expr_structurally_equal(s, o)
+            for s, o in zip(
+                self._output_name_to_exprs.values(),
+                other._output_name_to_exprs.values(),
+            )
+        )
+
+    def union(self, other: ExpressionsProjection, rename_dup: str | None = None) -> ExpressionsProjection:
+        """Unions two Expressions. Output naming conflicts are handled with keyword arguments.
+
+        Args:
+            other (ExpressionsProjection): other ExpressionsProjection to union with this one
+            rename_dup (Optional[str], optional): when conflicts in naming happen, append this string to the conflicting column in `other`. Defaults to None.
+        """
+        unioned: dict[str, Expression] = {}
+        for expr in list(self) + list(other):
+            name = expr.name()
+
+            # Handle naming conflicts
+            if name in unioned:
+                if rename_dup is not None:
+                    while name in unioned:
+                        name = f"{rename_dup}{name}"
+                    expr = expr.alias(name)
+                else:
+                    raise ValueError(
+                        f"Duplicate name found with different expression. name: {name}, seen: {unioned[name]}, current: {expr}"
+                    )
+
+            unioned[name] = expr
+        return ExpressionsProjection(list(unioned.values()))
+
+    def to_name_set(self) -> set[str]:
+        return {e.name() for e in self}
+
+    def input_mapping(self) -> dict[str, str]:
+        """Returns a map of {output_name: input_name} for all expressions that are just no-ops/aliases of an existing input."""
+        result = {}
+        for e in self:
+            input_map = e._input_mapping()
+            if input_map is not None:
+                result[e.name()] = input_map
+        return result
+
+    def to_column_expressions(self) -> ExpressionsProjection:
+        return ExpressionsProjection([col(e.name()) for e in self])
+
+    def get_expression_by_name(self, name: str) -> Expression:
+        if name not in self._output_name_to_exprs:
+            raise ValueError(f"{name} not found in ExpressionsProjection")
+        return self._output_name_to_exprs[name]
+
+    def to_inner_py_exprs(self) -> list[_PyExpr]:
+        return [expr._expr for expr in self]
+
+    def resolve_schema(self, schema: Schema) -> Schema:
+        fields = [e._to_field(schema) for e in self]
+        return Schema._from_field_name_and_types([(f.name, f.dtype) for f in fields])
+
+    def __repr__(self) -> str:
+        return f"{self._output_name_to_exprs.values()}"
+
+
+class ExpressionImageNamespace(ExpressionNamespace):
+    """Expression operations for image columns. The following methods are available under the `expr.image` attribute."""
+
+    def decode(
+        self,
+        on_error: Literal["raise", "null"] = "raise",
+        mode: str | ImageMode | None = None,
+    ) -> Expression:
+        """Decodes the binary data in this column into images.
+
+        This can only be applied to binary columns that contain encoded images (e.g. PNG, JPEG, etc.)
+
+        Args:
+            on_error: Whether to raise when encountering an error, or log a warning and return a null
+            mode: What mode to convert the images into before storing it in the column. This may prevent
+                errors relating to unsupported types.
+
+        Returns:
+            Expression: An Image expression represnting an image column.
+        """
+        raise_on_error = False
+        if on_error == "raise":
+            raise_on_error = True
+        elif on_error == "null":
+            raise_on_error = False
+        else:
+            raise NotImplementedError(f"Unimplemented on_error option: {on_error}.")
+
+        if mode is not None:
+            if isinstance(mode, str):
+                mode = ImageMode.from_mode_string(mode.upper())
+            if not isinstance(mode, ImageMode):
+                raise ValueError(f"mode must be a string or ImageMode variant, but got: {mode}")
+        return Expression._from_pyexpr(native.image_decode(self._expr, raise_on_error=raise_on_error, mode=mode))
+
+    def encode(self, image_format: str | ImageFormat) -> Expression:
+        """Encode an image column as the provided image file format, returning a binary column of encoded bytes.
+
+        Args:
+            image_format: The image file format into which the images will be encoded.
+
+        Returns:
+            Expression: A Binary expression representing a binary column of encoded image bytes.
+        """
+        if isinstance(image_format, str):
+            image_format = ImageFormat.from_format_string(image_format.upper())
+        if not isinstance(image_format, ImageFormat):
+            raise ValueError(f"image_format must be a string or ImageFormat variant, but got: {image_format}")
+        return Expression._from_pyexpr(native.image_encode(self._expr, image_format))
+
+    def resize(self, w: int, h: int) -> Expression:
+        """Resize image into the provided width and height.
+
+        Args:
+            w: Desired width of the resized image.
+            h: Desired height of the resized image.
+
+        Returns:
+            Expression: An Image expression representing an image column of the resized images.
+        """
+        if not isinstance(w, int):
+            raise TypeError(f"expected int for w but got {type(w)}")
+        if not isinstance(h, int):
+            raise TypeError(f"expected int for h but got {type(h)}")
+        return Expression._from_pyexpr(native.image_resize(self._expr, w, h))
+
+    def crop(self, bbox: tuple[int, int, int, int] | Expression) -> Expression:
+        """Crops images with the provided bounding box.
+
+        Args:
+            bbox (tuple[float, float, float, float] | Expression): Either a tuple of (x, y, width, height)
+                parameters for cropping, or a List Expression where each element is a length 4 List
+                which represents the bounding box for the crop
+
+        Returns:
+            Expression: An Image expression representing the cropped image
+        """
+        if not isinstance(bbox, Expression):
+            if len(bbox) != 4 or not all([isinstance(x, int) for x in bbox]):
+                raise ValueError(
+                    f"Expected `bbox` to be either a tuple of 4 ints or an Expression but received: {bbox}"
+                )
+            bbox = Expression._to_expression(bbox).cast(DataType.fixed_size_list(DataType.uint64(), 4))
+        assert isinstance(bbox, Expression)
+        return Expression._from_pyexpr(native.image_crop(self._expr, bbox._expr))
+
+    def to_mode(self, mode: str | ImageMode) -> Expression:
+        if isinstance(mode, str):
+            mode = ImageMode.from_mode_string(mode.upper())
+        if not isinstance(mode, ImageMode):
+            raise ValueError(f"mode must be a string or ImageMode variant, but got: {mode}")
+        return Expression._from_pyexpr(native.image_to_mode(self._expr, mode))
+
+
+class ExpressionPartitioningNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.partition` attribute."""
+
+    def days(self) -> Expression:
+        """Partitioning Transform that returns the number of days since epoch (1970-01-01).
+
+        Unlike other temporal partitioning expressions, this expression is date type instead of int. This is to conform to the behavior of other implementations of Iceberg partition transforms.
+
+        Returns:
+            Date Expression
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_days())
+
+    def hours(self) -> Expression:
+        """Partitioning Transform that returns the number of hours since epoch (1970-01-01).
+
+        Returns:
+            Expression: Int32 Expression in hours
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_hours())
+
+    def months(self) -> Expression:
+        """Partitioning Transform that returns the number of months since epoch (1970-01-01).
+
+        Returns:
+            Expression: Int32 Expression in months
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_months())
+
+    def years(self) -> Expression:
+        """Partitioning Transform that returns the number of years since epoch (1970-01-01).
+
+        Returns:
+            Expression: Int32 Expression in years
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_years())
+
+    def iceberg_bucket(self, n: int) -> Expression:
+        """Partitioning Transform that returns the Hash Bucket following the Iceberg Specification of murmur3_32_x86.
+
+        See <https://iceberg.apache.org/spec/#appendix-b-32-bit-hash-requirements> for more details.
+
+        Args:
+            n (int): Number of buckets
+
+        Returns:
+            Expression: Int32 Expression with the Hash Bucket
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_iceberg_bucket(n))
+
+    def iceberg_truncate(self, w: int) -> Expression:
+        """Partitioning Transform that truncates the input to a standard width `w` following the Iceberg Specification.
+
+        See <https://iceberg.apache.org/spec/#truncate-transform-details> for more details.
+
+        Args:
+            w (int): width of the truncation
+
+        Returns:
+            Expression: Expression of the Same Type of the input
+        """
+        return Expression._from_pyexpr(self._expr.partitioning_iceberg_truncate(w))
+
+
+class ExpressionJsonNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.json` attribute."""
+
+    def query(self, jq_query: str) -> Expression:
+        """Query JSON data in a column using a JQ-style filter <https://jqlang.github.io/jq/manual/>.
+
+        This expression uses jaq as the underlying executor, see <https://github.com/01mf02/jaq> for the full list of supported filters.
+
+        Args:
+            jq_query (str): JQ query string
+
+        Returns:
+            Expression: Expression representing the result of the JQ query as a column of JSON-compatible strings
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"col": ['{"a": 1}', '{"a": 2}', '{"a": 3}']})
+            >>> df.with_column("res", df["col"].json.query(".a")).collect()
+            ╭──────────┬──────╮
+            │ col      ┆ res  │
+            │ ---      ┆ ---  │
+            │ Utf8     ┆ Utf8 │
+            ╞══════════╪══════╡
+            │ {"a": 1} ┆ 1    │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┤
+            │ {"a": 2} ┆ 2    │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┤
+            │ {"a": 3} ┆ 3    │
+            ╰──────────┴──────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.json_query(self._expr, jq_query))
+
+
+class ExpressionEmbeddingNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.embedding` attribute."""
+
+    def cosine_distance(self, other: Expression) -> Expression:
+        """Compute the cosine distance between two embeddings.
+
+        Example:
+            >>> import daft
+            >>> df = daft.from_pydict({"e1": [[1, 2, 3], [1, 2, 3]], "e2": [[1, 2, 3], [-1, -2, -3]]})
+            >>> dtype = daft.DataType.fixed_size_list(daft.DataType.float32(), 3)
+            >>> df = df.with_column("dist", df["e1"].cast(dtype).embedding.cosine_distance(df["e2"].cast(dtype)))
+            >>> df.show()
+            ╭─────────────┬──────────────┬─────────╮
+            │ e1          ┆ e2           ┆ dist    │
+            │ ---         ┆ ---          ┆ ---     │
+            │ List[Int64] ┆ List[Int64]  ┆ Float64 │
+            ╞═════════════╪══════════════╪═════════╡
+            │ [1, 2, 3]   ┆ [1, 2, 3]    ┆ 0       │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+            │ [1, 2, 3]   ┆ [-1, -2, -3] ┆ 2       │
+            ╰─────────────┴──────────────┴─────────╯
+            <BLANKLINE>
+            (Showing first 2 of 2 rows)
+
+        Returns:
+            Expression: a Float64 Expression with the cosine distance between the two embeddings.
+        """
+        return Expression._from_pyexpr(native.cosine_distance(self._expr, other._expr))
+
+
+class ExpressionBinaryNamespace(ExpressionNamespace):
+    """The following methods are available under the `expr.binary` attribute."""
+
+    def length(self) -> Expression:
+        """Retrieves the length for a binary string column.
+
+        Returns:
+            Expression: an UInt64 expression with the length of each binary string in bytes
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [b"foo", b"bar", b"baz"]})
+            >>> df = df.select(df["x"].binary.length())
+            >>> df.show()
+            ╭────────╮
+            │ x      │
+            │ ---    │
+            │ UInt64 │
+            ╞════════╡
+            │ 3      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 3      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 3      │
+            ╰────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        return Expression._from_pyexpr(native.binary_length(self._expr))
+
+    def concat(self, other: Expression) -> Expression:
+        r"""Concatenates two binary strings.
+
+        Args:
+            other: The binary string to concatenate with, can be either an Expression or a bytes literal
+
+        Returns:
+            Expression: A binary expression containing the concatenated strings
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict(
+            ...     {"a": [b"Hello", b"\\xff\\xfe", b"", b"World"], "b": [b" World", b"\\x00", b"empty", b"!"]}
+            ... )
+            >>> df = df.select(df["a"].binary.concat(df["b"]))
+            >>> df.show()
+            ╭────────────────────╮
+            │ a                  │
+            │ ---                │
+            │ Binary             │
+            ╞════════════════════╡
+            │ b"Hello World"     │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b"\\xff\\xfe\\x00" │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b"empty"           │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b"World!"          │
+            ╰────────────────────╯
+            <BLANKLINE>
+            (Showing first 4 of 4 rows)
+
+        """
+        other_expr = Expression._to_expression(other)
+        return Expression._from_pyexpr(native.binary_concat(self._expr, other_expr._expr))
+
+    def slice(self, start: Expression | int, length: Expression | int | None = None) -> Expression:
+        r"""Returns a slice of each binary string.
+
+        Args:
+            start: The starting position (0-based) of the slice.
+            length: The length of the slice. If None, returns all characters from start to the end.
+
+        Returns:
+            A new expression representing the slice.
+
+        Examples:
+            >>> import daft
+            >>> df = daft.from_pydict({"x": [b"Hello World", b"\xff\xfe\x00", b"empty"]})
+            >>> df = df.select(df["x"].binary.slice(1, 3))
+            >>> df.show()
+            ╭─────────────╮
+            │ x           │
+            │ ---         │
+            │ Binary      │
+            ╞═════════════╡
+            │ b"ell"      │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b"\xfe\x00" │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ b"mpt"      │
+            ╰─────────────╯
+            <BLANKLINE>
+            (Showing first 3 of 3 rows)
+
+        """
+        start_expr = Expression._to_expression(start)
+        length_expr = Expression._to_expression(length)
+        return Expression._from_pyexpr(native.binary_slice(self._expr, start_expr._expr, length_expr._expr))

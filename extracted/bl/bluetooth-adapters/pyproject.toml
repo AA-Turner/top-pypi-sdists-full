@@ -1,0 +1,110 @@
+[project]
+name = "bluetooth-adapters"
+version = "0.21.4"
+license = "Apache-2.0"
+description = "Tools to enumerate and find Bluetooth Adapters"
+authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["classifiers", "dependencies", "optional-dependencies"]
+
+[project.urls]
+"Documentation" = "https://bluetooth-adapters.readthedocs.io"
+"Repository" = "https://github.com/bluetooth-devices/bluetooth-adapters"
+"Bug Tracker" = "https://github.com/bluetooth-devices/bluetooth-adapters/issues"
+"Changelog" = "https://github.com/bluetooth-devices/bluetooth-adapters/blob/main/CHANGELOG.md"
+
+[tool.poetry]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+packages = [
+    { include = "bluetooth_adapters", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.14"
+
+# Documentation Dependencies
+Sphinx = {version = ">=5,<8", optional = true}
+sphinx-rtd-theme = {version = ">=1,<4", optional = true}
+myst-parser = {version = ">=0.18,<3.1", optional = true}
+async-timeout = {version = ">=3.0.0", python = "<3.11"}
+dbus-fast = {version = ">=1.21.0", markers = "platform_system == \"Linux\""}
+bleak = ">=0.21.1"
+usb-devices = ">=0.4.5"
+aiooui = ">=0.1.1"
+uart-devices = ">=0.1.0"
+
+[tool.poetry.extras]
+docs = [
+    "myst-parser",
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-cov = "^6.0"
+pytest-asyncio = "^0.25.3"
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/bluetooth_adapters/__init__.py:__version__"]
+build_command = "pip install poetry && poetry build"
+
+[tool.pytest.ini_options]
+addopts = "-v -Wdefault --cov=bluetooth_adapters --cov-report=term-missing:skip-covered"
+pythonpath = ["src"]
+log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(filename)s:%(lineno)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_mode = "auto"
+log_cli = "true"
+log_level = "NOTSET"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["bluetooth_adapters", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+exclude = [
+    'docs/.*',
+    'setup.py',
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "docs.*"
+ignore_errors = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

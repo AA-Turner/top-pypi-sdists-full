@@ -1,0 +1,111 @@
+Metadata-Version: 2.2
+Name: hacktools
+Version: 0.38.5
+Summary: A set of utilities and tools for rom hacking and translations.
+Home-page: https://github.com/Illidanz/hacktools
+Author: Illidan
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: nds
+Requires-Dist: ndspy; extra == "nds"
+Provides-Extra: armips
+Requires-Dist: pyarmips; extra == "armips"
+Provides-Extra: xdelta
+Requires-Dist: pyxdelta; extra == "xdelta"
+Provides-Extra: iso
+Requires-Dist: pymkpsxiso; extra == "iso"
+Provides-Extra: psp
+Requires-Dist: pycdlib; extra == "psp"
+Requires-Dist: pyeboot; extra == "psp"
+Provides-Extra: ips
+Requires-Dist: ips_util; extra == "ips"
+Provides-Extra: graphics
+Requires-Dist: Pillow; extra == "graphics"
+Provides-Extra: cli
+Requires-Dist: click; extra == "cli"
+Requires-Dist: tqdm; extra == "cli"
+Requires-Dist: customtkinter; extra == "cli"
+Provides-Extra: all
+Requires-Dist: ndspy; extra == "all"
+Requires-Dist: pyarmips; extra == "all"
+Requires-Dist: pyxdelta; extra == "all"
+Requires-Dist: pymkpsxiso; extra == "all"
+Requires-Dist: pycdlib; extra == "all"
+Requires-Dist: pyeboot; extra == "all"
+Requires-Dist: ips_util; extra == "all"
+Requires-Dist: Pillow; extra == "all"
+Requires-Dist: click; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: customtkinter; extra == "all"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
+# hacktools
+A set of utilities and tools for rom hacking and translations.
+
+## Installing dependencies
+Most dependencies are optional, and can be installed with `pip install 'hacktools[name1,name2]'` or `pip install 'hacktools[all]'` to install all of them.
+### Dependencies list
+ - `nds`: needed for NDS roms and compressed binaries.
+ - `psp`: needed for PSP ISO/BIN signing.
+ - `iso`: needed for PSX/PS2 ISO.
+ - `graphics`: needed for most functions that deal with graphics.
+ - `cli`: needed by tools that use CLI/GUI.
+ - `armips`: needed for `common.armipsPatch`.
+ - `xdelta`: needed for `common.xdeltaPatch`.
+ - `ips`: needed for `common.ipsPatch`.
+
+## Supported platforms and formats
+External dependencies not included are marked as `(through *dependency*)`
+### NDS
+- ROM
+- NCGR/NSCR/NCER/NCLR images
+- NBFC/NTFT/NBFS/NBFP images
+- NFTR fonts
+- NARC archives
+- Textures in NSBMD 3D files
+### PSP
+- ISO
+- GIM/GMO images
+- PGF fonts
+- PMF header for MPS movies
+- BIN signing
+### PSX
+- BIN/ISO
+- TIM images
+### WonderSwan / WonderSwan Color
+- ROM banks
+- Assembly (through [NASM](https://www.nasm.us))
+- Raw and tiled images
+- Sprites
+### GameBoy
+- ROM banks
+- Assembly (through [wla-gb and wlalink](https://github.com/vhelin/wla-dx))
+### Wii
+- ISO (through [wit](https://wit.wiimm.de))
+- TPL images
+- ARC archives (through [wszst](https://szs.wiimm.de))
+- BRFNT fonts (through [brfnt2tpl](https://wiki.tockdom.com/wiki/Brfnt2tpl) and [wimgt](https://szs.wiimm.de))
+### Other / Generic
+- CPK archives
+- ARCH archives (including compression/decompression)
+- LZ10, LZ11, Huffman, CRILAYLA and RACJIN compression/decompression
+- ARM/MIPS binary patching
+- xdelta patch creation
+- IPS patch creation

@@ -1,0 +1,65 @@
+[build-system]
+requires = [
+    "setuptools<64; python_version<='3.11'",
+    "setuptools<70; python_version>'3.11'",
+    "wheel",
+    # fix numpy version for legacy Python versions
+    "numpy==1.14.5; python_version<='3.7' and platform_machine!='aarch64'",
+    # oldest-supported-numpy is deprecated and only applied for older Python versions
+    "oldest-supported-numpy; (python_version>'3.7' or platform_machine=='aarch64') and python_version<'3.9'",
+    # Force numpy higher than 2.0, so that built wheels are compatible
+    # with both numpy 1 and 2
+    "numpy>=2.0.0; python_version>='3.9'",
+    "cython>=3.0; platform_system!='Windows'",
+]
+
+[tool.coverage.run]
+branch = true
+cover_pylib = false
+concurrency = ["multiprocessing", "thread", "greenlet"]
+omit=[
+    "*/**/conftest.py",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "return NotImplemented",
+    "if TYPE_CHECKING:",
+]
+
+[tool.black]
+line-length = 88
+skip-string-normalization = true  # make sure py27 unicode strings not modified
+target-version = ['py34']  # make sure no commas added after kwargs
+extend-exclude = '''
+^/benchmarks/.*
+| ^/bin/.*
+| ^/cupid/.*
+| ^/docs/.*
+| ^/misc/.*
+| ^/odps/mars_extension/.*
+| ^/odps/df/.*
+| ^/odps/lib/.*
+| ^/odps/ml/.*
+| ^/odps/static/.*
+| ^/odps_scripts/.*
+'''
+
+[tool.isort]
+profile = "black"
+py_version = 36
+skip_glob = [
+    "cupid/*",
+    "examples/*",
+    "misc/*",
+    "odps/df/*",
+    "odps/lib/*",
+    "odps/mars_extension/*",
+    "odps/ml/*",
+    "odps_scripts/*",
+]

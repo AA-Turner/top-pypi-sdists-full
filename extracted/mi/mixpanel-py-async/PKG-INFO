@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: mixpanel-py-async
+Version: 0.3.0
+Summary: Python library for using Mixpanel asynchronously
+Home-page: https://github.com/jessepollak/mixpanel-python-async
+Author: Jesse Pollak
+Author-email: jpollak92@gmail.com
+License: UNKNOWN
+Description: Python library for using Mixpanel asynchronously. For more info, visit http://github.com/jessepollak/mixpanel-python-async.
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python

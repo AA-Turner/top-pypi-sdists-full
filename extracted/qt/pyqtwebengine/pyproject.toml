@@ -1,0 +1,36 @@
+# Specify the build system requirements.
+[build-system]
+requires = ["sip >=6.8, <7", "PyQt-builder >=1.9, <2"]
+build-backend = "sipbuild.api"
+
+[project]
+name = "PyQtWebEngine"
+version = "5.15.7"
+description = "Python bindings for the Qt WebEngine framework"
+readme = "README.md"
+urls.homepage = "https://www.riverbankcomputing.com/software/pyqtwebengine/"
+dependencies = ["PyQt5 (>=5.15.4)"]
+license = {text = "GPL v3"}
+
+[[project.authors]]
+name = "Riverbank Computing Limited"
+email = "info@riverbankcomputing.com"
+
+
+# Specify a PyQt-based project.
+[tool.sip]
+project-factory = "pyqtbuild:PyQtProject"
+
+# Configure the project.
+[tool.sip.project]
+tag-prefix = "QtWebEngine"
+
+# Define and configure each set of bindings.
+[tool.sip.bindings.QtWebEngineCore]
+qmake-QT = ["webenginecore"]
+
+[tool.sip.bindings.QtWebEngine]
+qmake-QT = ["webengine"]
+
+[tool.sip.bindings.QtWebEngineWidgets]
+qmake-QT = ["webenginewidgets"]

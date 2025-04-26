@@ -1,0 +1,20 @@
+Metadata-Version: 2.2
+Name: mailchecker
+Version: 6.0.17
+Summary: Cross-language email validation. Backed by a database of thousands throwable email providers.
+Home-page: https://github.com/FGRibreau/mailchecker
+Author: Francois-Guillaume Ribreau
+Author-email: github@fgribreau.com
+License: MIT
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: summary

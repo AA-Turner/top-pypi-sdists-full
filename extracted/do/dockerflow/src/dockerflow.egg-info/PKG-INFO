@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: dockerflow
+Version: 2024.4.2
+Summary: Python tools and helpers for Mozilla's Dockerflow
+Home-page: https://github.com/mozilla-services/python-dockerflow
+Author: Mozilla Foundation
+Author-email: dev-webdev@lists.mozilla.org
+License: MPL 2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment :: Mozilla
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Flask
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.7,<4
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS.rst
+Provides-Extra: django
+Requires-Dist: django; extra == "django"
+Provides-Extra: flask
+Requires-Dist: flask; extra == "flask"
+Requires-Dist: blinker; extra == "flask"
+Provides-Extra: sanic
+Requires-Dist: sanic; extra == "sanic"
+Provides-Extra: fastapi
+Requires-Dist: fastapi; extra == "fastapi"
+Requires-Dist: asgiref; extra == "fastapi"
+
+Python Dockerflow
+=================
+
+This package implements a few helpers and tools for Mozilla's
+`Dockerflow pattern <https://github.com/mozilla-services/Dockerflow>`_.
+The documentation can be found on `python-dockerflow.readthedocs.io`_
+
+.. _`python-dockerflow.readthedocs.io`: https://python-dockerflow.readthedocs.io/
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/ambv/black
+
+.. image:: https://github.com/mozilla-services/python-dockerflow/workflows/Test/badge.svg
+   :target: https://github.com/mozilla-services/python-dockerflow/actions
+   :alt: GitHub Actions
+
+.. image:: https://codecov.io/github/mozilla-services/python-dockerflow/coverage.svg?branch=main
+   :alt: Codecov
+   :target: https://codecov.io/github/mozilla-services/python-dockerflow?branch=main
+
+.. image:: https://readthedocs.org/projects/python-dockerflow/badge/?version=latest
+   :alt: Documentation Status
+   :target: https://python-dockerflow.readthedocs.io/en/latest/?badge=latest
+
+.. image:: https://img.shields.io/badge/calver-YYYY.M.PATCH-22bfda.svg
+   :target: https://calver.org/
+   :alt: CalVer - Timely Software Versioning
+
+Installation
+------------
+
+Please install the package using your favorite package installer::
+
+    pip install dockerflow
+
+Issues & questions
+------------------
+
+See the `issue tracker on GitHub <https://github.com/mozilla-services/python-dockerflow/issues>`_
+to open tickets if you have issues or questions about python-dockerflow.

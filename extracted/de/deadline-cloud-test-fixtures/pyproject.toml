@@ -1,0 +1,194 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deadline-cloud-test-fixtures"
+description = "This package contains pytest fixtures that are used to test AWS Deadline Cloud Python packages."
+authors = [
+  {name = "Amazon Web Services"},
+]
+dynamic = ["version"]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.9"
+# https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "License :: OSI Approved :: Apache Software License",
+  "Intended Audience :: Developers",
+]
+
+# Note: All deps should be using >= since this is a *library*. Applications that
+# consume this library should be the ones that are more strictly limiting dependencies
+# if they want/need to.
+dependencies = [
+  "boto3 >= 1.34.75,<2.0",
+  # boto3 depends on botocore, but we're finding that if we leave botocore to be resolved
+  # transitively then resolving the dependency closure of this package in conjunction with
+  # other test dependencies in other packages can result in it taking 20+ minutes to resolve
+  # dependencies in Python3.9. So, we explicitly include the botocore dependency here.
+  "botocore >= 1.34.75"
+]
+
+[project.urls]
+Homepage = "https://github.com/aws-deadline/deadline-cloud-test-fixtures"
+Source = "https://github.com/aws-deadline/deadline-cloud-test-fixtures"
+
+[project.entry-points.pytest11]
+deadline_test_fixtures = "deadline_test_fixtures.fixtures"
+
+[tool.hatch.build]
+artifacts = [
+  "*_version.py",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "post-release"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "_version.py"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_version_hook.py"
+
+[[tool.hatch.build.hooks.custom.copy_map]]
+sources = [
+  "_version.py",
+]
+destinations = [
+  "src/deadline_test_fixtures",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/*",
+  "hatch_version_hook.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/deadline_test_fixtures"
+]
+
+[tool.mypy]
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+files = [ "src/**/*.py" ]
+
+[[tool.mypy.overrides]]
+module = [
+  "boto3",
+  "botocore.*"
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "moto"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+ignore = [
+  "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "deadline_test_fixtures"
+]
+
+[tool.black]
+line-length = 100
+
+[tool.pytest.ini_options]
+xfail_strict = true
+addopts = [
+  "--durations=5",
+  "--cov=src/deadline_test_fixtures",
+  "--color=yes",
+  "--cov-report=html:build/coverage",
+  "--cov-report=xml:build/coverage/coverage.xml",
+  "--cov-report=term-missing",
+  "--numprocesses=auto",
+]
+testpaths = [ "test" ]
+looponfailroots = [
+  "src",
+  "test",
+]
+# looponfailroots is deprecated, this removes the deprecation from the test output
+filterwarnings = [
+  "ignore::DeprecationWarning"
+]
+
+[tool.coverage.run]
+source_pkgs = [ "deadline_test_fixtures" ]
+omit = [
+  "models.py",
+  "fixtures.py",
+  "deadline/stubs.py",
+]
+
+
+[tool.coverage.paths]
+source = [
+  "src/"
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.semantic_release]
+# Can be removed or set to true once we are v1
+major_on_zero = false
+tag_format = "{version}"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = [
+    "build",
+    "chore",
+    "ci",
+    "docs",
+    "feat",
+    "fix",
+    "perf",
+    "style",
+    "refactor",
+    "test",
+]
+minor_tags = []
+patch_tags = [
+  "chore",
+  "feat",
+  "fix",
+  "refactor",
+]
+
+[tool.semantic_release.publish]
+upload_to_vcs_release = false
+
+[tool.semantic_release.changelog]
+template_dir = ".semantic_release"
+
+[tool.semantic_release.changelog.environment]
+trim_blocks = true
+lstrip_blocks = true
+
+[tool.semantic_release.branches.release]
+match = "(mainline|release)"

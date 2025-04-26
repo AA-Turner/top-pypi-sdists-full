@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: githubpy
+Version: 2.0.0
+Summary: Github REST API Python3 SDK
+Home-page: https://github.com/michaelliao/githubpy
+Download-URL: https://github.com/michaelliao/githubpy
+Author: Michael Liao
+Author-email: askxuefeng@gmail.com
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.5
+License-File: LICENSE
+
+githubpy is a simple Python3 client for GitHub REST API.

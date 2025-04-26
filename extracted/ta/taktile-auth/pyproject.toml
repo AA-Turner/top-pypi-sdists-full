@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "taktile-auth"
+version = "1.1.41"
+description = "Auth Package for Taktile"
+readme = "PYPI.md"
+authors = ["Taktile GmbH <devops@taktile.com>"]
+license = "Apache-2.0"
+include = ["taktile_auth/assets/*"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "<3.0"
+PyYAML = "^6.0"
+PyJWT = {version = "2.10.1", extras = ["crypto"]}
+requests = "2.32.3"
+cryptography = "^44.0.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.2.0"
+black = "^24.3"
+isort = "^5.9.1"
+flake8 = "^7.0.0"
+pylint = "^2.8.3"
+mypy = "^1.8"
+flake8-print = "^5.0.0"
+types-requests = "^2.32.0"
+pylint-requests = "^0.1.1"
+pytest-cov = "^3.0.0"
+types-PyYAML = "^6.0.4"
+pytest-mock = "^3.7.0"
+freezegun = "^1.2.2"
+SQLAlchemy = "1.4.41"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pylint.'MESSAGES CONTROL']
+extension-pkg-whitelist = ["pydantic"]
+
+[tool.pylint.'SIMILARITIES']
+ignore-imports = "yes"
+
+[tool.isort]
+profile = "black"
+line_length = 79
+
+[tool.black]
+line_length = 79

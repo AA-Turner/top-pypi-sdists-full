@@ -1,0 +1,78 @@
+[tool.ruff]
+target-version = "py39"
+line-length = 110
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.poetry]
+name = "jsonschema2md"
+version = "1.5.2"
+description = "Convert JSON Schema to human-readable Markdown documentation"
+authors = ["Ralf Gabriels <ralfg@hotmail.be>", "Matt Graham <matthew.m.graham@gmail.com>"]
+maintainers = ["Stéphane Brunner <stephane.brunner@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/sbrunner/jsonschema2md"
+keywords = ["JSON Schema", "Markdown", "Converter", "Parser", "Documentation"]
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Topic :: Documentation',
+    'Topic :: Software Development :: Documentation',
+]
+
+[tool.poetry.scripts]
+jsonschema2md = 'jsonschema2md:main'
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+PyYAML = "6.0.2"
+markdown = "3.7"
+
+[tool.poetry.group.dev.dependencies]
+prospector = { version = "1.16.0", extras = ["with_bandit", "with_mypy", "with_pyroma", "with_ruff"] }
+prospector-profile-duplicated = "1.10.5"
+prospector-profile-utils = "1.22.3"
+types-PyYAML = "6.0.12.20241230"
+pytest = "8.3.5"
+pytest-cov = "6.0.0"
+types-markdown = "3.7.0.20250322"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+pattern = "^(?P<base>\\d+(\\.\\d+)*)"
+format-jinja = """
+{%- if env.get("VERSION_TYPE") == "default_branch" -%}
+{{serialize_pep440(bump_version(base, 1), dev=distance)}}
+{%- elif env.get("VERSION_TYPE") == "stabilization_branch" -%}
+{{serialize_pep440(bump_version(base, 2), dev=distance)}}
+{%- elif distance == 0 -%}
+{{serialize_pep440(base)}}
+{%- else -%}
+{{serialize_pep440(bump_version(base), dev=distance)}}
+{%- endif -%}
+"""
+
+[tool.poetry-plugin-tweak-dependencies-version]
+default = "major"
+
+[build-system]
+requires = [
+    "poetry-core>=1.0.0",
+    "poetry-dynamic-versioning[plugin]>=0.19.0",
+    "poetry-plugin-tweak-dependencies-version",
+    "poetry-plugin-drop-python-upper-constraint",
+    "poetry-dynamic-versioning",
+]
+build-backend = "poetry.core.masonry.api"

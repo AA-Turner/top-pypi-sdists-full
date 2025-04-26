@@ -1,0 +1,3 @@
+[tool.pyink]
+line-length = 80  # (default is 88)
+pyink-indentation = 4 #  (default is 4)

@@ -1,0 +1,210 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "globus-sdk"
+authors = [
+    { name = "Globus Team", email = "support@globus.org" },
+]
+description = "Globus SDK for Python"
+keywords = ["globus"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.19.1,<3.0.0",
+    "pyjwt[crypto]>=2.0.0,<3.0.0",
+    # cryptography 3.4.0 is known-bugged, see:
+    #   https://github.com/pyca/cryptography/issues/5756
+    # pyjwt requires cryptography>=3.3.1,
+    # so there's no point in setting a lower bound than that
+    "cryptography>=3.3.1,!=3.4.0",
+    # depend on the latest version of typing-extensions on python versions which do
+    # not have all of the typing features we use
+    'typing_extensions>=4.0; python_version<"3.11"',
+    # python versions older than 3.9 don't have importlib.resources
+    'importlib_resources>=5.12.0; python_version<"3.9"',
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://github.com/globus/globus-sdk-python"
+
+[dependency-groups]
+docs = [
+    "sphinx", "sphinx-copybutton", "sphinx-issues", "furo", "sphinx-design",
+    # required for testing modules to load
+    "responses",
+    # required for the PR pre-build step in RTD
+    "scriv",
+]
+coverage = ["coverage[toml]"]
+test = [
+    {include-group = "coverage"},
+    "pytest", "pytest-xdist", "pytest-randomly", "flaky",
+    "responses",
+]
+test-mindeps = [
+    {include-group = "test"},
+    # this version of requests is newer than the minimum in package data
+    # however, if we pin back to 2.19.1, we break 'responses' behaviors used by the
+    # testsuite
+    "requests==2.22.0",
+    "pyjwt==2.0.0",
+    "cryptography==3.3.1",
+    "typing_extensions==4.0",
+]
+typing = [
+    "mypy",
+    "types-docutils",
+    "types-jwt",
+    "types-requests",
+    "typing-extensions>=4.0",
+    # although 'responses' is provided by the test requirements, it also
+    # must be installed for proper type-checking on globus_sdk._testing
+    "responses",
+    # similarly, sphinx is needed to type-check our sphinx extension
+    "sphinx",
+]
+typing-mindeps = [
+    {include-group = "typing"},
+    "typing-extensions==4.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+globus_sdk = [
+  "py.typed",
+  "__init__.pyi",
+]
+"globus_sdk.login_flows.local_server_login_flow_manager.html_files" = ["*.html"]
+
+[tool.setuptools.dynamic.version]
+attr = "globus_sdk.__version__"
+
+# non-packaging tool configs follow
+
+[tool.pytest.ini_options]
+addopts = "--no-success-flaky-report --color=yes"
+testpaths = ["tests"]
+norecursedirs = ["tests/non-pytest"]
+filterwarnings = [
+    "error",
+]
+
+[tool.coverage.run]
+parallel = true
+source = ["globus_sdk"]
+# omit must be specified in a way which matches the
+# tox environment installations, so lead with `**`
+omit = [
+    "**/globus_sdk/_testing/*",
+]
+
+[tool.coverage.paths]
+# path remapping specifies that any installation of a package in a
+# site-packages directory (e.g. in tox) should be treated equivalently to src/
+source = [
+    "src/",
+    "*/site-packages/",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 93
+
+exclude_lines =[
+    # the pragma to disable coverage
+    "pragma: no cover",
+    # don't complain if tests don't hit unimplemented methods/modes
+    "raise NotImplementedError",
+    # don't check on executable components of importable modules
+    "if __name__ == .__main__.:",
+    # don't check coverage on type checking conditionals
+    "if t.TYPE_CHECKING:",
+    # skip overloads
+    "@t.overload",
+]
+
+[tool.scriv]
+version = "literal: src/globus_sdk/version.py: __version__"
+format = "rst"
+output_file = "changelog.rst"
+entry_title_template = 'v{{ version }} ({{ date.strftime("%Y-%m-%d") }})'
+rst_header_chars = "-~"
+categories = [
+    "Python Support",
+    "Added",
+    "Removed",
+    "Changed",
+    "Deprecated",
+    "Fixed",
+    "Documentation",
+    "Security",
+    "Development",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["tests", "globus_sdk"]
+
+[tool.mypy]
+strict = true
+sqlite_cache = true
+warn_unreachable = true
+warn_no_return = true
+
+[tool.pylint]
+load-plugins = ["pylint.extensions.docparams"]
+accept-no-param-doc = "false"
+
+[tool.pylint."messages control"]
+disable = [
+    # formatting and cosmetic rules (handled by 'black', etc)
+    "format", "C",
+    # refactoring rules (e.g. duplicate or similar code) are very prone to
+    # false positives
+    "R",
+    # emitted when pylint fails to import a module; these warnings
+    # are usually false-positives for optional dependencies
+    "import-error",
+    # "disallowed" usage of our own classes and objects gets underfoot
+    "protected-access",
+    # incorrect mis-reporting of lazily loaded attributes makes this lint
+    # unusable
+    "no-name-in-module",
+    # objections to log messages doing eager (vs lazy) string formatting
+    # the perf benefit of deferred logging doesn't always outweigh the readability cost
+    "logging-fstring-interpolation", "logging-format-interpolation",
+    # fixme comments are often useful; re-enable this to quickly find FIXME and
+    # TODO comments
+    "fixme",
+    # most SDK methods currently do not document the exceptions which they raise
+    # this is an area for potential improvement
+    "missing-raises-doc",
+]
+
+[tool.pylint.variables]
+ignored-argument-names = "args|kwargs"

@@ -1,0 +1,442 @@
+[project]
+name = "singer-sdk"
+dynamic = [
+    "version"
+]
+description = "A framework for building Singer taps"
+authors = [{ name = "Meltano Team and Contributors", email = "hello@meltano.com" }]
+maintainers = [{ name = "Meltano Team and Contributors", email = "hello@meltano.com" }]
+keywords = [
+    "Meltano",
+    "Singer",
+    "Meltano SDK",
+    "Singer SDK",
+    "ELT",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+
+dependencies = [
+    'backoff>=2.0.0; python_version<"4"',
+    'backports-datetime-fromisoformat>=2.0.1; python_version<"3.11"',
+    "click~=8.0",
+    "fs>=2.4.16",
+    "fsspec>=2024.9.0",
+    'importlib-metadata<9.0.0; python_version<"3.12"',
+    'importlib-resources>=5.12.0,!=6.2.0,!=6.3.0,!=6.3.1; python_version<"3.10"',
+    "inflection>=0.5.1",
+    "joblib>=1.3.0",
+    "jsonpath-ng>=1.5.3",
+    "jsonschema>=4.16.0",
+    "packaging>=23.1",
+    "python-dotenv>=0.20",
+    "PyYAML>=6.0",
+    "referencing>=0.30.0",
+    "requests>=2.25.1",
+    # TODO: remove this constraint once we get rid of the `fs` dependency
+    # newer setuptools versions are incompatible with some dependencies (fs)
+    "setuptools<=70.3.0",
+    "simpleeval>=0.9.13,!=1.0.1",
+    "simplejson>=3.17.6",
+    "sqlalchemy>=1.4,<3.0",
+    "typing-extensions>=4.5.0",
+]
+
+[project.optional-dependencies]
+# File storage dependencies installed as optional 'filesystem' extras
+s3 = [
+    "fs-s3fs>=1.1.1",
+    "s3fs>=2024.9.0",
+]
+
+# Parquet file dependencies installed as optional 'parquet' extras
+parquet = [
+    "numpy>=1.22",
+    "pyarrow>=13",
+]
+
+# Testing dependencies installed as optional 'testing' extras
+testing = [
+    "pytest>=7.2.1",
+]
+
+# installed as optional 'faker' extra
+faker = [
+    "faker>=22.5",
+]
+
+# Crypto extras
+jwt = [
+    "cryptography>=3.4.6",
+    "PyJWT~=2.4",
+]
+
+# SSH extras
+ssh = [
+    "paramiko>=3.3.0",
+]
+
+# msgspec extras
+msgspec = [
+    "msgspec>=0.19.0",
+]
+
+[project.urls]
+Homepage = "https://sdk.meltano.com/en/latest/"
+Repository = "https://github.com/meltano/sdk"
+Documentation = "https://sdk.meltano.com/en/latest/"
+"Issue Tracker" = "https://github.com/meltano/sdk/issues"
+"Twitter" = "https://twitter.com/meltanodata/"
+"Changelog" = "https://github.com/meltano/sdk/blob/main/CHANGELOG.md"
+"Slack" = "https://meltano.com/slack"
+"Youtube" = "https://www.youtube.com/meltano"
+
+[dependency-groups]
+dev = [
+    {"include-group" = "docs"},
+    {"include-group" = "testing"},
+    {"include-group" = "typing"},
+    "deptry>=0.15.0",
+]
+docs = [
+    "furo>=2024.5.6",
+    "myst-parser>=3",
+    "pytest>=7.2.1",
+    "sphinx>=7",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-inline-tabs>=2023.4.21",
+    "sphinx-notfound-page>=1.0.0",
+    "sphinx-reredirects>=0.1.5",
+]
+testing = [
+    "coverage[toml]>=7.4",
+    "duckdb>=0.8.0",
+    "duckdb-engine>=0.9.4; python_version<'4'",
+    "fastjsonschema>=2.19.1",
+    "moto>=5.0.14",
+    "pytest>=7.2.1",
+    "pytest-benchmark>=4.0.0",
+    "pytest-snapshot>=0.9.0",
+    "pytest-subtests>=0.13.1",
+    "pytz>=2022.2.1",
+    "requests-cache>=1.2.1",
+    "requests-mock>=1.10.0",
+    "rfc3339-validator>=0.1.4",
+    "time-machine>=2.10.0",
+    "xdoctest[colors]>=1.1.1",
+]
+typing = [
+    "mypy>=1.9",
+    "types-jsonschema>=4.17.0.6",
+    "types-pytz>=2022.7.1.2",
+    "types-requests>=2.28.11",
+    "types-simplejson>=3.18.0",
+    "types-PyYAML>=6.0.12",
+]
+benchmark = [
+    {"include-group" = "testing"},
+    "pytest-codspeed>=2.2.0",
+]
+
+[tool.hatch.version]
+fallback-version = "0.0.0"
+source = "vcs"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--durations=10",
+    "-m",
+    "not external",
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+]
+filterwarnings = [
+    "error",
+    "ignore:Could not configure external gitlab tests:UserWarning",
+    "ignore:No records were available to test:UserWarning",
+    # https://github.com/meltano/sdk/issues/1354
+    "ignore:The function singer_sdk.testing.get_standard_tap_tests is deprecated:DeprecationWarning",
+    "once:.*singer_sdk._singerlib.*:singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    # https://github.com/meltano/sdk/issues/2744
+    "default:Passing a config file path is deprecated:singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    "default:Passing a list of config file paths is deprecated:singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    "default:Passing a catalog file path is deprecated:singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    "default:Passing a state file path is deprecated:singer_sdk.helpers._compat.SingerSDKDeprecationWarning",
+    # TODO: Address this SQLite warning in Python 3.13+
+    "ignore::ResourceWarning",
+]
+log_cli_level = "INFO"
+markers = [
+    "external: Tests relying on external resources",
+    "windows: Tests that only run on Windows",
+    "snapshot: Tests that use pytest-snapshot",
+]
+minversion = "7"
+testpaths = ["tests"]
+norecursedirs = "cookiecutter"
+xfail_strict = false
+
+[tool.commitizen]
+name = "cz_version_bump"
+version = "0.45.10"
+changelog_merge_prerelease = true
+prerelease_offset = 1
+tag_format = "v$major.$minor.$patch$prerelease"
+version_files = [
+    "docs/conf.py:^release =",
+    "cookiecutter/tap-template/{{cookiecutter.tap_id}}/pyproject.toml:singer-sdk",
+    "cookiecutter/target-template/{{cookiecutter.target_id}}/pyproject.toml:singer-sdk",
+    "cookiecutter/mapper-template/{{cookiecutter.mapper_id}}/pyproject.toml:singer-sdk",
+    ".github/ISSUE_TEMPLATE/bug.yml:^      placeholder:",
+]
+
+[tool.coverage.paths]
+source = [
+    "singer_sdk/",
+    "*/singer_sdk",
+]
+tests = [
+    "tests/",
+    "*/tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["singer_sdk", "tests"]
+relative_files = true  # This allows coverage to be measured in Windows
+omit = [
+    "tests/*",
+    "samples/*",
+    "singer_sdk/_singerlib/*",
+    "singer_sdk/helpers/_compat.py",
+    "singer_sdk/helpers/types.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    '''class .*\bProtocol\):''',
+    '''@(abc\.)?abstractmethod''',
+    '''if (t\.)?TYPE_CHECKING:''',
+]
+fail_under = 82
+show_missing = true
+
+[tool.deptry]
+known_first_party = ["singer_sdk"]
+pep621_dev_dependency_groups = ["docs", "testing"]
+
+[tool.deptry.package_module_name_map]
+backports-datetime-fromisoformat = "backports"
+importlib-metadata = "importlib_metadata"
+importlib-resources = "importlib_resources"
+PyJWT = "jwt"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    # Transitive constraints
+    "numpy",
+    "setuptools",
+    "urllib3",
+    # Plugins
+    "paramiko",
+    "fs-s3fs",
+    "s3fs",
+]
+DEP004 = [
+    # TODO: Make pytest a runtime dependency?
+    "pytest",
+]
+
+[tool.mypy]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+exclude = "tests"
+files = "singer_sdk"
+local_partial_types = true
+strict = false
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+    "backports.datetime_fromisoformat.*",
+    "fsspec.*",       # TODO: Remove when https://github.com/fsspec/filesystem_spec/issues/625 is addressed
+    "joblib.*",       # TODO: Remove when https://github.com/joblib/joblib/issues/1516 is shipped
+    "jsonpath_ng.*",  # TODO: Remove when https://github.com/h2non/jsonpath-ng/issues/152 is implemented and released
+    "pyarrow.*",      # TODO: Remove when https://github.com/apache/arrow/issues/32609 if implemented and released
+]
+
+[build-system]
+requires = [
+    "hatchling==1.27",
+    "hatch-vcs==0.4",
+]
+build-backend = "hatchling.build"
+
+[project.entry-points."pytest11"]
+singer_testing = "singer_sdk.testing.pytest_plugin"
+
+[project.entry-points."singer_sdk.batch_encoders"]
+jsonl = "singer_sdk.contrib.batch_encoder_jsonl:JSONLinesBatcher"
+parquet = "singer_sdk.contrib.batch_encoder_parquet:ParquetBatcher"
+
+[tool.ruff]
+extend-exclude = [
+    "cookiecutter/*",
+]
+line-length = 88
+required-version = ">=0.9"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+explicit-preview-rules = false
+ignore = [
+    "N818",    # Exception name should be named with an Error suffix
+    "COM812",  # missing-trailing-comma
+]
+preview = true
+select = [
+    "F",    # Pyflakes
+    "E",    # pycodestyle (error)
+    "W",    # pycodestyle (warning)
+    "C90",  # mccabe
+    "DOC",  # pydocstyle
+    "I",    # isort
+    "N",    # pep8-naming
+    "D",    # pydocstyle/flake8-docstrings
+    "UP",   # pyupgrade
+    "YTT",  # flake8-2020
+    "ANN",  # flake8-annotations
+    "S",    # flake8-bandit
+    "BLE",  # flake8-blind-except
+    "FBT",  # flake8-boolean-trap
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "COM",  # flake8-commas
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimezs
+    "T10",  # flake8-debugger
+    "EM",   # flake8-errmsg
+    "FA",   # flake8-future-annotations
+    "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "G",    # flake8-logging-format
+    "INP",  # flake8-no-pep420
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PT",   # flake8-pytest-style
+    "Q",    # flake8-quotes
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "TC",   # flake8-type-checking
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PGH",  # pygrep-hooks
+    "PLC",  # pylint (convention)
+    "PLE",  # pylint (error)
+    "PLR",  # pylint (refactor)
+    "PLW",  # pylint (warning)
+    "TRY",  # tryceratops
+    "FLY",  # flynt
+    "PERF", # perflint
+    "RUF",  # ruff
+]
+unfixable = [
+    "ERA",  # Don't remove commented out code
+]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = [
+    "D",      # pydocstyle/flake8-docstrings
+    "I002",   # isort: missing-required-import
+    "INP001", # flake8-no-pep420: implicit-namespace-package
+]
+"noxfile.py" = ["ANN"]
+"tests/*" = [
+    "ANN",
+    "D1",
+    "D2",
+    "DOC",
+    "FBT001",
+    "FBT003",
+    "INP",      # Allow implicit namespace packages in tests
+    "PLR2004",
+    "S101",
+    "SLF001",
+    "PLC2701",  # Allow usage of private members in tests
+    "PLR6301",  # Don't suggest making test methods static, etc.
+]
+# Disabled some checks in helper modules
+"singer_sdk/helpers/_*.py" = ["DOC"]
+# Disabled some checks in samples code
+"samples/*" = ["ANN", "D", "DOC"]
+# Templates support a generic resource of type Any.
+"singer_sdk/testing/*.py" = ["S101"]
+"singer_sdk/testing/templates.py" = ["ANN401"]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+mypy-init-return = true
+suppress-dummy-args = true
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = ["sqlalchemy", "typing"]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+sqlalchemy = "sa"
+typing = "t"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.ruff.lint.isort]
+known-first-party = ["singer_sdk", "samples", "tests"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "singer_sdk.cli.plugin_cli",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 9
+
+[tool.uv]
+required-version = ">=0.5.19"
+
+[tool.codespell]
+skip = "*.csv,samples/aapl/*.json,samples/*/schemas/*.json"
+ignore-words-list = "fo,intoto"

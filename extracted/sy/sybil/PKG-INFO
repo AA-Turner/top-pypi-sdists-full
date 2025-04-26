@@ -1,0 +1,57 @@
+Metadata-Version: 2.2
+Name: sybil
+Version: 9.1.0
+Summary: Automated testing for the examples in your code and documentation.
+Home-page: https://github.com/simplistix/sybil
+Author: Chris Withers
+Author-email: chris@withers.org
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+License-File: LICENSE.txt
+Provides-Extra: pytest
+Requires-Dist: pytest>=8; extra == "pytest"
+Provides-Extra: test
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: myst_parser; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: seedir; extra == "test"
+Requires-Dist: testfixtures; extra == "test"
+Requires-Dist: types-PyYAML; extra == "test"
+Provides-Extra: docs
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Provides-Extra: release
+Requires-Dist: twine; extra == "release"
+Requires-Dist: wheel; extra == "release"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
+Sybil
+=====
+
+|CircleCI|_ |Docs|_
+
+.. |CircleCI| image:: https://circleci.com/gh/simplistix/sybil/tree/master.svg?style=shield
+.. _CircleCI: https://circleci.com/gh/simplistix/sybil/tree/master
+
+.. |Docs| image:: https://readthedocs.org/projects/sybil/badge/?version=latest
+.. _Docs: http://sybil.readthedocs.org/en/latest/
+
+
+This library provides a way to check examples in your code and documentation by parsing
+them from their source and evaluating the parsed examples as part of
+your normal test run. Integration is provided for the main Python test
+runners.
+
+The `documentation <https://sybil.readthedocs.io/>`__ is the best place to start.

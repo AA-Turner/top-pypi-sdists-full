@@ -1,0 +1,91 @@
+[project]
+name = "prompty"
+dynamic = []
+readme = "README.md"
+description = "Prompty is a new asset class and format for LLM prompts that aims to provide observability, understandability, and portability for developers. It includes spec, tooling, and a runtime. This Prompty runtime supports Python"
+authors = [
+    { name = "Seth Juarez", email = "seth.juarez@microsoft.com" },
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pyyaml>=6.0.1",
+    "jinja2>=3.1.4",
+    "python-dotenv>=1.0.1",
+    "click>=8.1.7",
+    "aiofiles>=24.1.0",
+]
+version = "0.1.50"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Repository = "https://github.com/Microsoft/prompty"
+Documentation = "https://prompty.ai/docs"
+Issues = "https://github.com/microsoft/prompty/issues"
+
+[project.optional-dependencies]
+azure = [
+    "azure-identity>=1.17.1",
+    "openai>=1.43.0",
+]
+openai = [
+    "openai>=1.43.0",
+]
+serverless = [
+    "azure-identity>=1.17.1",
+    "azure-ai-inference>=1.0.0b3",
+]
+
+[project.scripts]
+prompty = "prompty.cli:run"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=8.2.2",
+    "openai>=1.43.0",
+    "azure-ai-inference>=1.0.0b3",
+    "pytest-asyncio>=0.24.0",
+    "azure-identity>=1.17.1",
+    "ruff>=0.9.1",
+    "mypy>=1.15.0",
+    "types-aiofiles>=21.1.0",
+    "types-PyYAML>=6.0.12",
+]
+
+[tool.pdm.version]
+source = "scm"
+tag_filter = "python/*"
+tag_regex = "^python/(?:\\D*)?(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\\.post(0|[1-9][0-9]*))?(\\.dev(0|[1-9][0-9]*))?$)$"
+
+[tool.pdm.scripts.prompty]
+call = "prompty.cli:run"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+output-format = "full"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+]
+ignore = [
+    "D203",
+    "E501",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

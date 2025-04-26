@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: pyaogmaneo
+Version: 2.13.4
+Summary: Python bindings for the AOgmaNeo library
+Home-page: https://ogmacorp.com/
+Author: Ogma Intelligent Systems Corp
+Author-email: info@ogmacorp.com
+License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE.md
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
+
+https://github.com/ogmacorp/PyAOgmaNeo

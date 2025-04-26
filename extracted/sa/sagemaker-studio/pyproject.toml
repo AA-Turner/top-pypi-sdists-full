@@ -1,0 +1,23 @@
+[build-system]
+requires = [ "setuptools >= 61", "wheel", "mypy", "invoke"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+ignore_missing_imports = true
+exclude = ["sagemaker_studio._openapi.*", "sagemaker_studio._test.unit.*"]
+ignore_errors = true
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+known_first_party = ["sagemaker_studio"]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+addopts = "-vv --cov sagemaker_studio --cov-config .coveragerc --cov-report term-missing --durations=5 --color=yes --cov-report html:build/coverage --cov-report xml:build/coverage/coverage.xml"
+testpaths = ["src/sagemaker_studio/_test"]

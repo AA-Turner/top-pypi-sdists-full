@@ -1,0 +1,93 @@
+[tool.poetry]
+name = "trickkiste"
+version = "0.2.2"
+description = "Random useful stuff"
+authors = ["Frans Fürst <frans.fuerst+gitlab@protonmail.com>"]
+repository = "https://projects.om-office.de/frans/trickkiste.git"
+readme = "Readme.md"
+packages = [
+  {include = "trickkiste"},
+]
+
+
+# see https://pypi.org/project/poetry-bumpversion
+# poetry version patch [--dry-run]
+[tool.poetry_bumpversion.file."trickkiste/__init__.py"]
+
+
+[tool.poetry.scripts]
+suppress = 'trickkiste.std_suppress:main'
+
+
+[tool.poetry.dependencies]
+python = ">=3.10.4,<4"
+python-dateutil = "^2.9.0.post0"
+
+
+[tool.poetry.dev-dependencies]
+# those are actual dependencies but a package requiring rich/textual features
+# from trickkiste should list them explicitly. This is to avoid unneeded
+# dependencies being pulled into projects without fine grained feature based
+# dependency management
+rich = "^13"
+textual = "^0.46"
+
+#[tool.poetry.dev-dependencies]
+# and here come the actual dev-dependencies
+types-python-dateutil = "^2.9"
+black = "*"
+isort = "*"
+pytest = "*"
+pytest-cov = "*"
+mypy = "*"
+pylint = "*"
+ipython = "*"
+twine = "*"
+pre-commit = "*"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+fast = true
+exclude = '''
+(                       # exclude a few common directories in the root of the project
+  /(                    # note that this has to be done in .pre-commit-config.yaml, too
+    untracked
+    | \.git
+    | \.pytest_cache
+    | \.mypy_cache
+    | \.venv
+    | \.container_home_dir
+    | untracked
+    | build
+    | dist
+  ))
+'''
+
+
+[tool.isort]
+profile = "black"
+skip_glob = [".venv", ".container_home_dir"]
+
+
+[tool.mypy]
+python_version = "3.10"
+strict="True"
+disallow_untyped_defs = "True"
+disallow_any_unimported = "True"
+no_implicit_optional = "True"
+check_untyped_defs = "True"
+warn_return_any = "True"
+warn_unused_ignores = "True"
+show_error_codes = "True"
+exclude = [
+    '\.venv',
+    'tests'
+]

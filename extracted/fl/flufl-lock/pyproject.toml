@@ -1,0 +1,217 @@
+[project]
+name = 'flufl.lock'
+authors = [
+    {name = 'Barry Warsaw', email = 'barry@python.org'},
+]
+description = 'NFS-safe file locking with timeouts for POSIX and Windows'
+readme = 'README.rst'
+requires-python = '>=3.8'
+license = {text = 'Apache-2.0'}
+keywords = [
+    'locking',
+    'locks',
+    'lock',
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Development Status :: 6 - Mature',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+dependencies = [
+    'atpublic',
+    'psutil',
+]
+dynamic = ['version']
+
+[project.urls]
+'Home Page' = 'https://flufllock.readthedocs.io'
+'Documentation' = 'https://flufllock.readthedocs.io'
+'Source Code' = 'https://gitlab.com/warsaw/flufl.lock.git'
+'Bug Tracker' = 'https://gitlab.com/warsaw/flufl.lock/issues'
+
+[tool.hatch.version]
+path = 'src/flufl/lock/__init__.py'
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    'src/flufl',
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    'src/flufl/',
+    'docs/',
+    'test/',
+    'conftest.py',
+]
+excludes = [
+    '**/.mypy_cache',
+]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    'hatch run test:test',
+    'hatch run qa:qa',
+    'hatch run docs:docs',
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+[tool.hatch.envs.test]
+dependencies = [
+    'coverage[toml]',
+    'diff-cover',
+    'pytest',
+    'pytest-cov',
+    'sybil',
+]
+
+[tool.hatch.envs.test.scripts]
+test = [
+    'pytest {args}',
+    # The following is only useful in a git branch of main.
+    '- diff-cover coverage.xml',
+]
+
+[tool.hatch.envs.qa]
+dependencies = [
+    'ruff',
+    'mypy',
+]
+
+[tool.hatch.envs.qa.env-vars]
+MODULE_NAME = '{env:MODULE_NAME:flufl.lock}'
+MODULE_PATH = '{env:MODULE_PATH:src/flufl/lock}'
+
+[tool.hatch.envs.qa.scripts]
+qa = [
+    'ruff check {env:MODULE_PATH}',
+    'mypy -p {env:MODULE_NAME}',
+]
+fix = [
+    'ruff check --fix {env:MODULE_PATH}',
+]
+preview = [
+    'ruff check --fix --diff {env:MODULE_PATH}',
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+    'sphinx',
+    'furo',
+]
+
+[tool.hatch.envs.docs.scripts]
+docs = [
+    'sphinx-build docs build/html',
+]
+
+[tool.pytest.ini_options]
+addopts = '--cov=flufl --cov-report=term --cov-report=xml -p no:doctest'
+testpaths = 'test docs'
+
+[tool.coverage.paths]
+source = ['flufl/lock']
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+
+[tool.coverage.run]
+branch = true
+parallel = true
+
+[tool.ruff]
+line-length = 79
+src = ['src']
+
+[tool.ruff.lint]
+select = [
+    'B',                        # flake8-bugbear
+    'D',                        # pydocstyle
+    'E',                        # pycodestyle
+    'F',                        # pyflakes
+    'I',                        # isort
+    'RUF100',                   # check for valid noqa directives
+    'UP',                       # pyupgrade
+    'W',                        # pycodestyle
+]
+
+ignore = [
+    'D100',                     # Missing docstring in public module
+    'D104',                     # Missing docstring in public package
+    'D105',                     # Missing docstring in magic method
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = 'pep257'
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+classes = ['SEP']
+known-first-party = ['flufl.lock']
+length-sort-straight = true
+lines-after-imports = 2
+lines-between-types = 1
+order-by-type = true
+section-order = ['standard-library', 'third-party', 'local-folder', 'first-party']
+
+[tool.mypy]
+mypy_path = 'src'
+
+# Disallow dynamic typing
+disallow_any_generics = true
+disallow_subclassing_any = true
+
+# Untyped definitions and calls
+disallow_untyped_calls = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+
+# None and Optional handling
+no_implicit_optional = true
+
+# Configuring warnings
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+
+# Miscellaneous strictness flags
+implicit_reexport = false
+strict_equality = true
+
+# Configuring error messages
+show_error_context = true
+show_column_numbers = true
+show_error_codes = true
+pretty = true
+show_absolute_path = true
+
+# Miscellaneous
+warn_unused_configs = true
+verbosity = 0
+
+[[tool.mypy.overrides]]
+module = [
+    'psutil',
+    'pytest',
+    'sybil.*',
+]
+ignore_missing_imports = true
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'

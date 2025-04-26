@@ -1,0 +1,162 @@
+# This file is protected via CODEOWNERS
+
+[build-system]
+requires = ["hatchling>=1.6.0,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "urllib3-future"
+description = "urllib3.future is a powerful HTTP 1.1, 2, and 3 client with both sync and async interfaces"
+readme = "README.md"
+license-files = { paths = ["LICENSE.txt"] }
+license = "MIT"
+keywords = ["urllib", "httplib", "threadsafe", "filepost", "http", "https", "ssl", "pooling", "multiplexed", "concurrent", "dns", "dot", "doq", "doh", "dou", "dns-over-quic", "dns-over-https", "dns-over-tls", "async", "tasksafe"]
+authors = [
+  {name = "Andrey Petrov", email = "andrey.petrov@shazow.net"}
+]
+maintainers = [
+  {name = "Ahmed R. TAHRI", email="tahri.ahmed@proton.me"},
+]
+classifiers = [
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.7"
+dynamic = ["version"]
+dependencies = [
+  "qh3>=1.2.0,<2.0.0; (platform_python_implementation != 'CPython' or python_full_version > '3.7.10') and (platform_system == 'Darwin' or platform_system == 'Windows' or platform_system == 'Linux') and (platform_machine == 'x86_64' or platform_machine == 's390x' or platform_machine == 'armv7l' or platform_machine == 'ppc64le' or platform_machine == 'ppc64' or platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ARM64' or platform_machine == 'x86' or platform_machine == 'i686') and (platform_python_implementation == 'CPython' or (platform_python_implementation == 'PyPy' and python_version < '3.12'))",
+  "h11>=0.11.0,<1.0.0",
+  "jh2>=5.0.3,<6.0.0",
+]
+
+[project.optional-dependencies]
+brotli = [
+  "brotli>=1.0.9; platform_python_implementation == 'CPython'",
+  "brotlicffi>=0.8.0; platform_python_implementation != 'CPython'"
+]
+zstd = [
+  "zstandard>=0.18.0",
+]
+secure = []
+socks = [
+  "python-socks>=2.0,<=2.6.1",
+]
+qh3 = [
+  "qh3>=1.2.0,<2.0.0",
+]
+ws = [
+  "wsproto>=1.2,<2",
+]
+
+[project.urls]
+"Changelog" = "https://github.com/jawah/urllib3.future/blob/main/CHANGES.rst"
+"Documentation" = "https://urllib3future.readthedocs.io"
+"Code" = "https://github.com/jawah/urllib3.future"
+"Issue tracker" = "https://github.com/jawah/urllib3.future/issues"
+
+[tool.hatch.version]
+path = "src/urllib3/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/docs",
+  "/dummyserver",
+  "/src",
+  "/test",
+  "/dev-requirements.txt",
+  "/CHANGES.rst",
+  "/README.md",
+  "/LICENSE.txt",
+  "/hatch_build.py",
+  "/noxfile.py",
+  "/docker-compose.yaml",
+  "/docker-compose.win.yaml",
+  "/traefik/certificate.toml",
+  "/traefik/patched.Dockerfile",
+  "/traefik/haproxy.cfg",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/urllib3",
+    "src/urllib3_future",
+]
+
+[tool.hatch.build.hooks.custom]
+
+[tool.pytest.ini_options]
+xfail_strict = true
+python_classes = ["Test", "*TestCase"]
+markers = ["limit_memory"]
+log_level = "DEBUG"
+filterwarnings = [
+    "error",
+    '''ignore:.*iscoroutinefunction.*:DeprecationWarning''',
+    '''ignore:.*get_event_loop.*:DeprecationWarning''',
+    '''ignore:.*set_event_loop.*:DeprecationWarning''',
+    '''ignore:.*EventLoopPolicy.*:DeprecationWarning''',
+    '''default:ssl\.PROTOCOL_TLS is deprecated:DeprecationWarning''',
+    '''default:ssl\.PROTOCOL_TLSv1 is deprecated:DeprecationWarning''',
+    '''default:ssl\.TLSVersion\.TLSv1_1 is deprecated:DeprecationWarning''',
+    '''default:ssl\.PROTOCOL_TLSv1_1 is deprecated:DeprecationWarning''',
+    '''default:ssl\.PROTOCOL_TLSv1_2 is deprecated:DeprecationWarning''',
+    '''default:unclosed .*:ResourceWarning''',
+    '''ignore:No IPv6 support. Falling back to IPv4:urllib3.exceptions.HTTPWarning''',
+    '''ignore:No IPv6 support. skipping:urllib3.exceptions.HTTPWarning''',
+    '''ignore:ssl NPN is deprecated, use ALPN instead:DeprecationWarning''',
+    '''default:A conflicting charset has been set in Content-Type:UserWarning''',
+    '''ignore:util\.connection\.create_connection\(\) is deprecated and scheduled for removal:DeprecationWarning''',
+    '''ignore:RecentlyUsedContainer is deprecated and scheduled for removal:DeprecationWarning''',
+    '''ignore:The event_loop fixture provided by:DeprecationWarning''',
+    '''ignore:A plugin raised an exception during''',
+    '''ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning''',
+    '''ignore:Exception in thread:pytest.PytestUnhandledThreadExceptionWarning''',
+    '''ignore:function _SSLProtocolTransport\.__del__:pytest.PytestUnraisableExceptionWarning''',
+    '''ignore:The `hash` argument is deprecated in favor of `unsafe_hash`:DeprecationWarning''',
+    '''ignore:ssl\.TLSVersion\.TLSv1 is deprecated:DeprecationWarning''',
+    '''ignore:ssl\.TLSVersion\.TLSv1_1 is deprecated:DeprecationWarning''',
+    '''ignore:loop is closed:ResourceWarning''',
+]
+
+[tool.ruff.lint]
+ignore = ["E501", "E203", "E721"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/urllib3/contrib/socks.py" = ["F811"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.mypy]
+mypy_path = "src"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+show_error_codes = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true

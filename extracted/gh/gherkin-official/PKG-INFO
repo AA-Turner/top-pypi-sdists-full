@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: gherkin-official
+Version: 32.1.1
+Summary: Gherkin parser (official, by Cucumber team)
+Author-email: Cucumber Ltd and Björn Rasmusson <cukes@googlegroups.com>
+Project-URL: Homepage, https://github.com/cucumber/gherkin
+Project-URL: Repository, https://github.com/cucumber/gherkin.git
+Project-URL: Download, https://pypi.python.org/pypi/gherkin-official
+Project-URL: Issues, https://github.com/cucumber/gherkin/issues
+Project-URL: Changelog, https://github.com/cucumber/gherkin/releases
+Keywords: gherkin,cucumber,bdd
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: typing_extensions>=4
+Dynamic: license-file
+
+# Gherkin for Python
+
+Gherkin parser/compiler for Python. Please see [Gherkin](https://github.com/cucumber/gherkin) for details.

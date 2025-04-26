@@ -1,0 +1,143 @@
+[project]
+name = "everett"
+description = "Configuration library for Python applications"
+version = "3.4.0"
+readme = "README.rst"
+keywords = ["conf", "config", "configuration", "ini", "env", "yaml"]
+authors = [{name = "Will Kahn-Greene"}]
+license = {text = "MPLv2"}
+requires-python = ">=3.9"
+dependencies = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+urls.Homepage = "https://everett.readthedocs.io/"
+urls.Source = "https://github.com/willkg/everett/"
+urls.Issues = "https://github.com/willkg/everett/issues"
+
+[project.optional-dependencies]
+sphinx = [
+    "sphinx",
+]
+ini = [
+    "configobj",
+]
+yaml = [
+    "PyYAML",
+]
+dev = [
+    "build",
+    "cogapp",
+    "mypy",
+    "pytest",
+    "ruff",
+    "tox",
+    "tox-gh-actions",
+    "tox-uv",
+    "twine",
+    "types-PyYAML",
+    "Sphinx==7.2.6",
+    "sphinx_rtd_theme",
+]
+
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.ruff]
+target-version = "py39"
+src = ["src"]
+line-length = 88
+
+[tool.ruff.lint]
+# Enable pycodestyle (E), pyflakes (F), and bugbear (B) rules
+select = ["E", "F", "B"]
+
+# Ignore line length violations; ruff format does its best and we can rely on
+# that
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+
+[tool.mypy]
+python_version = "3.9"
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "configobj.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "docutils.*"
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore:::babel[.*]",
+    "ignore:::jinja2[.*]",
+    "ignore:::yaml[.*]",
+    # Sphinx 4.2.0 uses distutils and it's deprecated in 3.10
+    "ignore::DeprecationWarning:sphinx",
+]
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist =
+    py39
+    py39-doctest
+    py39-lint
+    py39-typecheck
+    py310
+    py311
+    py312
+    py313
+uv_python_preference = only-managed
+
+[gh-actions]
+python =
+    3.9: py39
+    3.10: py310
+    3.11: py311
+    3.12: py312
+    3.13: py313
+
+[testenv]
+extras = dev,ini,sphinx,yaml
+commands = pytest {posargs} tests/
+
+[testenv:py39-doctest]
+commands = pytest --doctest-modules src/
+
+[testenv:py39-lint]
+allowlist_externals = ruff
+basepython = python3.9
+changedir = {toxinidir}
+commands =
+    ruff format --check tests docs examples
+    ruff check src tests docs examples
+
+[testenv:py39-typecheck]
+basepython = python3.9
+changedir = {toxinidir}
+commands =
+    mypy src/everett/
+"""

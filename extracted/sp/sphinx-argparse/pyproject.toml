@@ -1,0 +1,115 @@
+[build-system]
+requires = ["flit_core>=3.7"]
+build-backend = "flit_core.buildapi"
+
+# project metadata
+[project]
+name = "sphinx-argparse"
+description = "A sphinx extension that automatically documents argparse commands and options"
+readme = "README.rst"
+urls.Changelog = "https://sphinx-argparse.readthedocs.io/en/latest/changelog.html"
+urls.Code = "https://github.com/sphinx-doc/sphinx-argparse/"
+urls.Download = "https://pypi.org/project/sphinx-argparse/"
+urls.Homepage = "https://sphinx-argparse.readthedocs.io/"
+urls."Issue tracker" = "https://github.com/sphinx-doc/sphinx-argparse/issues"
+license.text = "MIT"
+requires-python = ">=3.10"
+
+# Classifiers list: https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Framework :: Sphinx",
+    "Framework :: Sphinx :: Extension",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+]
+dependencies = [
+    "sphinx>=5.1.0",
+    "docutils>=0.19",  # for get_default_settings()
+]
+dynamic = ["version"]
+
+
+[project.optional-dependencies]
+markdown = [
+    "CommonMark>=0.5.6"
+]
+lint = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-docutils>=0.21",
+    "lxml-stubs>=0.4",
+]
+test = [
+    "pytest>=8.0",
+    "coverage>=6.5",
+    "lxml>=4.9",
+    "setuptools>=70.0",  # for Cython compilation
+    "typing_extensions>=4.9",  # for typing_extensions.Unpack
+]
+docs = [
+    "furo>=2024",
+    "CommonMark>=0.5.6",
+]
+
+[[project.authors]]
+name = "Ash Berlin-Taylor"
+email = "ash_github@firemirror.com"
+
+[tool.flit.module]
+name = "sphinxarg"
+
+[tool.flit.sdist]
+include = [
+    "LICENCE.rst",
+    # Documentation
+    "docs/",
+    # Tests
+    "test/",
+]
+exclude = [
+    "docs/_build",
+]
+
+[tool.black]
+line-length = 160
+skip-string-normalization = true
+
+[tool.isort]
+balanced_wrapping = true
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+known_first_party = [ "sphinxarg", "test" ]
+line_length = 160
+multi_line_output = 3
+
+[tool.mypy]
+files = ["sphinxarg", "test"]
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = [
+  "commonmark.*",
+  "CommonMark.*",
+  "docutils.parsers.rst.directives",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --tb=short"
+
+[tool.coverage.run]
+omit = ["tests/*","**/__main__.py"]
+branch = true

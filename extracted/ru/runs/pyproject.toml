@@ -1,0 +1,51 @@
+[tool.doks]
+auto = true
+
+[tool.poetry]
+name = "runs"
+version = "1.2.2"
+description = "🏃 Run a block of text as a subprocess 🏃"
+authors = ["Tom Ritchford <tom@swirly.com>"]
+license = "MIT"
+readme = "README.rst"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+xmod = "*"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+coverage = "*"
+flake8 = "*"
+isort = "*"
+mypy = "*"
+pytest = "*"
+tdir = "*"
+ruff = "*"
+
+[tool.coverage.run]
+branch = true
+source = ["runs"]
+
+[tool.coverage.report]
+fail_under = 80
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if False:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError"
+]
+
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.mypy]
+strict = true
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

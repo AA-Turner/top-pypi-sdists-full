@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling==1.26.3"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safety-schemas"
+version = "0.0.14"
+dependencies = [
+    "pydantic>=2.6.0,<2.10.0",
+    "dparse>=0.6.4",
+    "ruamel-yaml>=0.17.21",
+    "packaging>=21.0",
+    "typing-extensions>=4.7.1"
+]
+requires-python = ">=3.7"
+authors = [
+    {name = "Yeison Vargas", email = "support@safetycli.com"},
+]
+description = "Schemas for Safety tools"
+readme = "README.md"
+license = "MIT"
+keywords = ["safety", "schemas", "safety schemas", "safety models", "safety policy file", "policy file"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/pyupio/safety_schemas"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+[tool.ruff]
+target-version = "py37"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = false
+annotated_tag = true
+changelog_incremental = false
+bump_message = "bump: version $current_version → $new_version"
+
+[tool.mypy]
+incremental = false
+ignore_missing_imports = true
+exclude = "^(safety_schemas/__main__\\.py)$"

@@ -1,0 +1,134 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "markdown-callouts"
+description = "Markdown extension: a classier syntax for admonitions"
+readme = "README.md"
+license = "MIT"
+keywords = ["markdown", "extensions"]
+authors = [
+    {name = "Oleh Prypin", email = "oleh@pryp.in"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = [
+    "Markdown >=3.3.3",
+    #min "importlib_metadata >=4.3",
+]
+
+[project.urls]
+Documentation = "https://oprypin.github.io/markdown-callouts/"
+Source = "https://github.com/oprypin/markdown-callouts"
+Issues = "https://github.com/oprypin/markdown-callouts/issues"
+History = "https://github.com/oprypin/markdown-callouts/releases"
+
+[project.entry-points."markdown.extensions"]
+callouts = "markdown_callouts.callouts:CalloutsExtension"
+github-callouts = "markdown_callouts.github_callouts:GitHubCalloutsExtension"
+
+[tool.hatch.version]
+path = "markdown_callouts/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/markdown_callouts", "/tests"]
+
+[tool.hatch.env]
+requires = [
+    "hatch-mkdocs",
+    "hatch-pip-compile",
+]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    "hatch run style:fix",
+    "hatch run types:check",
+    "hatch run test:test",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pytest-golden",
+    "beautifulsoup4",
+]
+[tool.hatch.envs.test.scripts]
+test = [
+    "pytest -q",
+]
+
+[tool.hatch.envs.types]
+dependencies = [
+    "mypy",
+    "types-Markdown >=3.4.2",
+]
+[tool.hatch.envs.types.scripts]
+check = [
+    "mypy markdown_callouts"
+]
+
+[tool.hatch.envs.style]
+skip-install = true
+dependencies = [
+    "ruff",
+]
+[tool.hatch.envs.style.scripts]
+fix = [
+    "ruff check --fix markdown_callouts tests",
+    "format",
+]
+format = [
+    "ruff format -q markdown_callouts tests",
+]
+
+[tool.hatch.env.collectors.mkdocs.docs]
+[tool.hatch.envs.docs]
+type = "pip-compile"
+pip-compile-hashes = false
+
+[tool.ruff]
+line-length = 100
+select = [
+    "I",
+    "F", "W", "E", "UP", "YTT", "C4", "DTZ", "FA", "ISC", "PIE", "T20", "RSE", "TCH",
+    "B002", "B003", "B005", "B007", "B009", "B012", "B013", "B014", "B015", "B018", "B020", "B021", "B023", "B026", "B033", "B034", "B905",
+    "COM818",
+    "PERF101",
+    "PGH002", "PGH004", "PGH005",
+    "FLY002",
+    "PLC", "PLE", "PLR0124", "PLR0133", "PLR0206", "PLR0402", "PLR1701", "PLR1722", "PLW0120", "PLW0127", "PLW0129", "PLW0131", "PLW0406", "PLW0602", "PLW0603", "PLW0711",
+    "RUF001", "RUF005", "RUF007", "RUF010", "RUF013", "RUF100", "RUF200",
+    "SIM101", "SIM107", "SIM201", "SIM202", "SIM208", "SIM210", "SIM211", "SIM300", "SIM401", "SIM910",
+]
+ignore = ["E501", "E731"]
+[tool.ruff.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
+
+[tool.mypy]
+warn_unreachable = true
+allow_redefinition = true
+
+[tool.pytest.ini_options]
+addopts = "--tb=native"
+enable_assertion_pass_hook = true
+filterwarnings = ["ignore::DeprecationWarning:.*:",
+                  "default::DeprecationWarning:markdown_callouts.*:"]
+testpaths = ["tests"]

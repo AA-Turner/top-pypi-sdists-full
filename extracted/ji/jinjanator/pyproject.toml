@@ -1,0 +1,315 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-fancy-pypi-readme",
+  "hatch-vcs",
+  "hatchling<1.27",
+]
+
+[project]
+name = "jinjanator"
+description = "Command-line interface to Jinja2 for templating in shell scripts."
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Kevin P. Fleming", email = "jinjanator@kevin.km6g.us" },
+  { name = "Mark Vartanyan", email = "kolypto@gmail.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dynamic = [
+  "readme",
+  "version",
+]
+dependencies = [
+  "attrs",
+  "jinja2>=2.7.2",
+  "jinjanator-plugins==24.2.*",
+  "python-dotenv>=1",
+  "pyyaml",
+  "typing-extensions",
+]
+urls."Bug Tracker" = "https://github.com/kpfleming/jinjanator/issues"
+urls."Homepage" = "https://github.com/kpfleming/jinjanator"
+scripts.j2 = "jinjanator.cli:main"
+
+scripts.jinjanate = "jinjanator.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/jinjanator/version.py"
+
+[tool.hatch.build]
+artifacts = [
+  "src/jinjanator/version.py",
+]
+exclude = [
+  "*~",
+  ".github",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src",
+  "tests",
+  "*.md",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/jinjanator",
+]
+
+[tool.hatch.envs.default]
+python = "3.12"
+installer = "uv"
+python-sources = [
+  "external",
+]
+
+[tool.hatch.envs.changelog]
+detached = true
+dependencies = [
+  "towncrier",
+]
+
+[tool.hatch.envs.changelog.scripts]
+draft = [
+  "rm -f changelog.d/*~",
+  "towncrier build --version main --draft",
+]
+release = [
+  "rm -f changelog.d/*~",
+  "towncrier build --yes --version {args}",
+]
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "ruff>=0.2.0",
+  "mypy",
+  "pyproject-fmt",
+  "pytest",        # needed for type-checking tests
+  "types-PyYAML",
+]
+
+[tool.hatch.envs.lint.scripts]
+lint = [
+  "ruff format",
+  "ruff check --output-format=full --fix --show-fixes",
+  "mypy --package jinjanator",
+  "mypy tests",
+  "shellcheck workflow-support/*.sh",
+  "pyproject-fmt pyproject.toml tests/test_plugin/pyproject.toml",
+]
+lint-action = [
+  "ruff format --check --diff",
+  "ruff check --output-format=github",
+  "mypy --package jinjanator",
+  "mypy tests",
+  "shellcheck workflow-support/*.sh",
+  "pyproject-fmt --check pyproject.toml tests/test_plugin/pyproject.toml",
+]
+
+[tool.hatch.envs.ci]
+dependencies = [
+  "coverage[toml]",
+  "pytest",
+  "pytest-cov",
+  "pytest-icdiff",
+  "PyYAML",
+]
+
+[[tool.hatch.envs.ci.matrix]]
+python = [
+  "3.9",
+  "3.10",
+  "3.11",
+  "3.12",
+  "3.13",
+]
+
+[tool.hatch.envs.ci.scripts]
+ci = [
+  "rm -f .coverage",
+  # run tests for 'no plugin' mode
+  "uv pip uninstall jinjanator-test-plugin",
+  "pytest -m 'noplugin' --verbose  --cov-branch --cov=jinjanator",
+  # run tests for 'plugin' mode
+  "uv pip install ./tests/test_plugin",
+  "pytest -m 'not noplugin' --verbose --cov-append  --cov-branch --cov=jinjanator",
+  "coverage report --show-missing --fail-under=98",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = """
+# *jinjanator*: CLI tool for rendering Jinja2 templates
+
+"""
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+start-after = "<!-- fancy-readme start -->"
+end-before = "<!-- fancy-readme end -->"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = """
+## Release Information
+"""
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "CHANGELOG.md"
+start-after = "<!-- towncrier release notes start -->"
+pattern = "\n(###.+?\n)## "
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+text = """
+---
+[→ Full Changelog](https://github.com/kpfleming/jinjanator/blob/main/CHANGELOG.md)
+"""
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/kpfleming/jinjanator/tree/main/\g<2>)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "#(\\d+)"
+replacement = "[#\\1](https://github.com/kpfleming/jinjanator/issues/\\1)"
+
+[tool.ruff]
+line-length = 100
+
+src = [
+  "src",
+  "tests",
+]
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "ANN",     # Mypy is better at this.
+  "C901",    # Leave complexity to me.
+  "COM812",  # conflicts with formatter
+  "D",       # We have different ideas about docstrings.
+  "FA100",   # Intentionally not using '__future__' for annotations
+  "ISC001",  # conflicts with formatter
+  "PLR0912", # Leave complexity to me.
+  "TRY301",  # Raise in try blocks can totally make sense.
+]
+
+lint.per-file-ignores."src/jinjanator/cli.py" = [
+  "T201",
+]
+lint.per-file-ignores."tests/*" = [
+  "PLC1901", # empty strings are falsey, but are less specific in tests
+  "PT005",   # we use always underscores and explicit names
+  "S101",    # assert
+  "SIM300",  # Yoda rocks in tests
+]
+lint.per-file-ignores."tests/test_plugin/*" = [
+  "INP001", # we don't care that these are in implicit namespace packages
+]
+lint.unfixable = [
+  "F401",
+]
+lint.isort.lines-after-imports = 2
+lint.isort.lines-between-types = 1
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+xfail_strict = true
+testpaths = [
+  "tests",
+]
+addopts = [
+  "-ra",
+  "--strict-markers",
+]
+markers = [
+  "noplugin: tests which must run without plugins installed",
+]
+
+[tool.towncrier]
+name = "jinjanator"
+package = "jinjanator"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+template = "changelog.d/towncrier_template.md.jinja"
+title_format = ""
+issue_format = "[#{issue}](https://github.com/kpfleming/jinjanator/issues/{issue})"
+underlines = [
+  "",
+  "",
+  "",
+]
+
+[[tool.towncrier.section]]
+path = ""
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Backwards-incompatible Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecating"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "adding"
+name = "Additions"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changing"
+name = "Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixing"
+name = "Fixes"
+showcontent = true
+
+[tool.mypy]
+python_version = 3.9
+namespace_packages = true
+explicit_package_bases = true
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "normal"
+no_implicit_optional = true
+strict_equality = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = [
+  'tests/test_plugin/build',
+]

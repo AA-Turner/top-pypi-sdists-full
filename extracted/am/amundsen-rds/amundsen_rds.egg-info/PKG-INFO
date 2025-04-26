@@ -1,0 +1,13 @@
+Metadata-Version: 1.2
+Name: amundsen-rds
+Version: 0.0.8
+Summary: Amundsen ORM Support
+Home-page: https://www.github.com/amundsen-io/amundsenrds
+Maintainer: Amundsen TSC
+Maintainer-email: amundsen-tsc@lists.lfai.foundation
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.6

@@ -1,0 +1,21 @@
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+fix = true
+extend-exclude = [".github", "dapr/proto"]
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "C",  # flake8-comprehensions
+  "B",  # flake8-bugbear
+  "UP",  # pyupgrade
+]
+ignore = [
+  # Undefined name {name}
+  "F821",
+]
+[tool.ruff.format]
+quote-style = 'single'

@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: lycoris_lora
+Version: 3.2.0.post2
+Summary: Lora beYond Conventional methods, Other Rank adaptation Implementations for Stable diffusion
+Home-page: https://github.com/KohakuBlueleaf/LyCORIS
+Author: Shih-Ying Yeh(KohakuBlueLeaf), Yu-Guan Hsieh, Zhidong Gao
+Author-email: kohaku@kblueleaf.net
+License: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: GPU :: NVIDIA CUDA :: 11.8
+Classifier: Environment :: GPU :: NVIDIA CUDA :: 12
+Classifier: Environment :: GPU :: NVIDIA CUDA :: 12 :: 12.1
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+License-File: LICENSE.md
+Requires-Dist: torch
+Requires-Dist: einops
+Requires-Dist: toml
+Requires-Dist: tqdm
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

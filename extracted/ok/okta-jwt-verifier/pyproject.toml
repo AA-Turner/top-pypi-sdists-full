@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "okta-jwt-verifier"
+version = "0.2.8"
+description = "A Python library for OKTA JWT tokens validation"
+authors = ["Okta"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+PyJWT = "^2.8.0"
+acachecontrol = "^0.3.6"
+retry2 = "^0.9.5"
+
+[tool.poetry.group.dev.dependencies]
+cryptography = ">=43.0.0"
+pytest = ">=8.3.2"
+pytest-mock = ">=3.14.0"
+pytest-asyncio = ">=0.23.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,134 @@
+Metadata-Version: 2.3
+Name: jupyterlab_code_formatter
+Version: 3.0.2
+Dynamic: Keywords
+Summary:  A JupyterLab plugin to facilitate invocation of code formatters.
+Project-URL: Homepage,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter
+Project-URL: Bug Tracker,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/issues
+Project-URL: Repository,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter.git
+Author-email: Ryan Tam <ryantam626@gmail.com>
+License: Copyright 2023 Ryan TAM
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+License-File: LICENSE
+Classifier: Framework :: Jupyter
+Classifier: Framework :: Jupyter :: JupyterLab
+Classifier: Framework :: Jupyter :: JupyterLab :: 4
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
+Requires-Dist: jupyter-server<3,>=1.21
+Requires-Dist: packaging
+Provides-Extra: dev
+Requires-Dist: autopep8; extra == 'dev'
+Requires-Dist: black==22.1.0; extra == 'dev'
+Requires-Dist: blue==0.9.1; extra == 'dev'
+Requires-Dist: click==8.0.2; extra == 'dev'
+Requires-Dist: isort; extra == 'dev'
+Requires-Dist: jupyterlab>=3.0.0; extra == 'dev'
+Requires-Dist: rpy2; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: yapf; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: black==22.1.0; extra == 'test'
+Requires-Dist: blue==0.9.1; extra == 'test'
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: importlib-metadata; (python_version < '3.8') and extra == 'test'
+Requires-Dist: isort; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest-jupyter[server]>=0.6.0; extra == 'test'
+Requires-Dist: rpy2; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: yapf; extra == 'test'
+Description-Content-Type: text/markdown
+
+![](docs/logo.png)
+
+[![Extension status](https://img.shields.io/badge/status-ready-success 'ready to be used')](https://jupyterlab-contrib.github.io/)
+[![GitHub Action Status](https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/actions/workflows/build.yml/badge.svg)](https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/actions/workflows/build.yml)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/jupyterlab-contrib/jupyterlab_code_formatter/master?urlpath=lab)
+[![pypi-version](https://img.shields.io/pypi/v/jupyterlab-code-formatter.svg)](https://python.org/pypi/jupyterlab-code-formatter)
+
+_A JupyterLab plugin to facilitate invocation of code formatters._
+
+---
+
+Documentation: [Hosted on ReadTheDocs](https://jupyterlab-code-formatter.readthedocs.io/)
+
+---
+
+## Demo
+
+![](docs/_static/format-all.gif)
+
+---
+
+## Quick Start
+
+I recommend you going to the [documentation site](https://jupyterlab-code-formatter.readthedocs.io/#quick-start), but this should work too.
+
+1. **Install the package**
+
+```bash
+pip install jupyterlab-code-formatter
+```
+
+2. **Install some supported formatters** (isort+black are default for Python)
+
+```bash
+# NOTE: Install black and isort,
+#       JL code formatter is configured to invoke isort and black by default
+pip install black isort
+```
+
+3. **Restart JupyterLab**
+
+This plugin includes a server plugin, restart JupyterLab if you have followed the above steps while it's running.
+
+4. **Configure plugin**
+
+To configure which/how formatters are invoked, see [configuration](https://jupyterlab-code-formatter.readthedocs.io/configuration.html).
+
+---
+
+## Getting help
+
+If you don't use Discord then feel free to open a [GitHub issue](https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/issues), do note I am a bit slower in responding in GitHub.
+
+---
+
+## Your Support
+
+I could really use your support in giving me a star on GitHub, recommending features or fixing bugs.
+
+- [Recommending features via GitHub Issues](https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/issues)
+- [Submitting your PR on GitHub](https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/pulls)
+
+---
+
+## Contributors
+
+This extension was originally developed and maintained by [@ryantam626](https://github.com/ryantam626).
+Massive thanks to the below list of people who made past contributions to the project!
+
+<a href="https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=jupyterlab-contrib/jupyterlab_code_formatter" />
+</a>
+
+## License
+
+This project is licensed under the terms of the [MIT LICENSE](LICENSE) .

@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: fds.protobuf.stach.extensions
+Version: 1.3.1
+Summary: FactSet stach extensions
+Home-page: https://github.com/factset/stach-extensions
+Author: Analytics API
+Author-email: analytics.api.support@factset.com
+License: Apache License 2.0
+Description: Extension package to help convert stach format data to simpler data structures
+Platform: UNKNOWN
+Requires-Python: >=3.6

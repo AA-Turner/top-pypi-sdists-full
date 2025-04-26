@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: gamma-pytools
+Version: 3.0.2
+Summary: A collection of Python extensions and tools used in BCG GAMMA's open-source libraries.
+Home-page: https://github.com/BCG-X-Official/pytools
+License: Apache Software License v2.0
+Author: Boston Consulting Group (BCG)
+Requires-Python: >=3.10,<4a
+Description-Content-Type: text/x-rst
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: joblib            ~=1.0
+Requires-Dist: matplotlib        ~=3.6
+Requires-Dist: numpy             >=1.23,<3a
+Requires-Dist: pandas            >=1.5
+Requires-Dist: scipy             ~=1.9
+Requires-Dist: typing_inspect    ~=0.7
+Requires-Dist: typing_extensions ~=4.0
+Requires-Dist: sphinx ~= 4.5 ; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints ~= 1.19 ; extra == "docs"
+Requires-Dist: pydata-sphinx-theme ~= 0.8.1 ; extra == "docs"
+Requires-Dist: jinja2 ~= 2.11 ; extra == "docs"
+Requires-Dist: nbsphinx ~= 0.8.9 ; extra == "docs"
+Requires-Dist: jupyter == 1 ; extra == "docs"
+Requires-Dist: docutils ~= 0.17 ; extra == "docs"
+Requires-Dist: xlrd ~= 1.2 ; extra == "docs"
+Requires-Dist: m2r ~= 0.2 ; extra == "docs"
+Requires-Dist: mypy ~= 1.10 ; extra == "docs"
+Requires-Dist: pytest ~= 7.1 ; extra == "testing"
+Requires-Dist: pytest-cov ~= 2.12 ; extra == "testing"
+Project-URL: Documentation, https://bcg-x-official.github.io/pytools/
+Project-URL: Repository, https://github.com/BCG-X-Official/pytools
+Provides-Extra: docs
+Provides-Extra: testing
+
+*pytools* is an open source library containing general machine learning and visualisation
+utilities for reuse, including:
+
+- Basic tools for API development, supporting documentation, deprecation, and run-time validation
+- Support for simulating classification and regression data
+- Utilities for constructing complex expressions and rendering them as indented strings
+- Support for fitting objects to data, and testing whether an object is fitted
+- Parallelization based on the joblib package
+- A lean MVC framework for rendering basic visualizations in different styles, e.g., as *matplotlib* charts or as plain text
+
+.. Begin-Badges
+
+|pypi| |conda| |python_versions| |code_style| |made_with_sphinx_doc| |License_badge|
+
+.. End-Badges
+
+License
+---------------------------
+
+*pytools* is licensed under Apache 2.0 as described in the
+`LICENSE <https://github.com/BCG-X-Official/pytools/blob/develop/LICENSE>`_ file.
+
+.. |conda| image:: https://anaconda.org/bcg_gamma/gamma-pytools/badges/version.svg
+    :target: https://anaconda.org/BCG_Gamma/gamma-pytools
+
+.. |pypi| image:: https://badge.fury.io/py/gamma-pytools.svg
+    :target: https://pypi.org/project/gamma-pytools/
+
+.. |python_versions| image:: https://img.shields.io/badge/python-3.10|3.11|3.12-blue.svg
+    :target: https://www.python.org/downloads/release/python-380/
+
+.. |code_style| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+
+.. |made_with_sphinx_doc| image:: https://img.shields.io/badge/Made%20with-Sphinx-1f425f.svg
+    :target: https://bcg-x-official.github.io/pytools/index.html
+
+.. |license_badge| image:: https://img.shields.io/badge/License-Apache%202.0-olivegreen.svg
+    :target: https://opensource.org/licenses/Apache-2.0

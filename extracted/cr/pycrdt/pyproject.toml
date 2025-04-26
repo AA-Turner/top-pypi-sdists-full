@@ -1,0 +1,84 @@
+[build-system]
+requires = ["maturin>=1.8.2,<2"]
+build-backend = "maturin"
+
+[project]
+name = "pycrdt"
+dynamic = ["version"]
+description = "Python bindings for Yrs"
+license = { file = "LICENSE" }
+authors = [
+    { name = "David Brochart", email = "david.brochart@gmail.com" },
+]
+readme = "README.md"
+keywords = [
+    "crdt",
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+dependencies = [
+    "anyio >=4.4.0,<5.0.0",
+    "importlib_metadata >=3.6; python_version<'3.10'",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >=7.4.2,<8",
+    "pytest-mypy-testing",
+    "anyio",
+    "trio >=0.25.1,<0.30",
+    "pydantic >=2.5.2,<3",
+    "mypy",
+    "coverage[toml] >=7",
+    "exceptiongroup; python_version<'3.11'",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
+[project.urls]
+Homepage = "https://github.com/jupyter-server/pycrdt"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "pycrdt._pycrdt"
+
+[tool.ruff]
+exclude = ["tests/test_types.py"]
+line-length = 100
+lint.select = ["F", "E", "W", "I001"]
+
+[tool.coverage.run]
+source = ["python", "tests"]
+omit = ["tests/test_types.py"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:"
+]
+ 
+[tool.mypy]
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+]

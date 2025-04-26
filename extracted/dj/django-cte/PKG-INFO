@@ -1,0 +1,76 @@
+Metadata-Version: 2.1
+Name: django-cte
+Version: 1.3.3
+Summary: Common Table Expressions (CTE) for Django
+Home-page: https://github.com/dimagi/django-cte
+Maintainer: Daniel Miller
+Maintainer-email: millerdev@gmail.com
+License: BSD License
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 3
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4
+Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Common Table Expressions with Django
+
+[![Build Status](https://github.com/dimagi/django-cte/actions/workflows/tests.yml/badge.svg)](https://github.com/dimagi/django-cte/actions/workflows/tests.yml)
+[![PyPI version](https://badge.fury.io/py/django-cte.svg)](https://badge.fury.io/py/django-cte)
+
+## Installation
+```
+pip install django-cte
+```
+
+
+## Documentation
+
+The [django-cte documentation](https://dimagi.github.io/django-cte/) shows how
+to use Common Table Expressions with the Django ORM.
+
+
+## Running tests
+
+```
+cd django-cte
+mkvirtualenv cte  # or however you choose to setup your environment
+pip install django pynose flake8
+
+nosetests
+flake8 --config=setup.cfg
+```
+
+All feature and bug contributions are expected to be covered by tests.
+
+
+## Uploading to PyPI
+
+Package and upload the generated files.
+
+```
+pip install -r pkg-requires.txt
+
+python setup.py sdist bdist_wheel
+twine upload dist/*
+```
+
+

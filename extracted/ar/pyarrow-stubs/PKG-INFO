@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: pyarrow-stubs
+Version: 19.1
+Summary: Type annotations for pyarrow
+Project-URL: homepage, https://github.com/zen-xu/pyarrow-stubs
+Project-URL: repository, https://github.com/zen-xu/pyarrow-stubs.git
+Project-URL: issues, https://github.com/zen-xu/pyarrow-stubs/issues
+Author-email: "ZhengYu, Xu" <zen-xu@outlook.com>
+License-Expression: BSD-2-Clause
+License-File: LICENSE
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4,>=3.9
+Requires-Dist: pyarrow>=19

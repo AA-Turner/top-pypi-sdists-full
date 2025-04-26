@@ -1,0 +1,83 @@
+Metadata-Version: 1.2
+Name: pygaljs
+Version: 1.0.2
+Summary: Python package providing assets from https://github.com/Kozea/pygal.js
+Home-page: https://github.com/ionelmc/python-pygaljs
+Author: Mounier Florian
+Author-email: paradoxxx.zero@gmail.com
+Maintainer: Ionel Cristian Mărieș
+Maintainer-email: contact@ionelmc.ro
+License: LGPLv3
+Description: ========
+        pygal.js
+        ========
+        
+        .. list-table::
+            :stub-columns: 1
+        
+            * - package
+              - |version| |downloads|
+        
+        .. |version| image:: https://img.shields.io/pypi/v/pygaljs.svg?style=flat
+            :alt: PyPI Package latest release
+            :target: https://pypi.python.org/pypi/pygaljs
+        
+        .. |downloads| image:: https://img.shields.io/pypi/dm/pygaljs.svg?style=flat
+            :alt: PyPI Package monthly downloads
+            :target: https://pypi.python.org/pypi/pygaljs
+        
+        Python package providing assets from https://github.com/Kozea/pygal.js
+        
+        * Free software: LGPLv3 license
+        
+        Installation
+        ============
+        
+        ::
+        
+            pip install pygaljs
+        
+        Releasing
+        =========
+        
+        ::
+        
+        
+            git submodule foreach "git fetch; git reset --hard origin/gh-pages"
+            git submodule sync
+        
+        
+        Changelog
+        =========
+        
+        1.0.2 (2020-04-03)
+        ------------------
+        
+        * Fixed pytest section name in ``setup.cfg``.
+        
+        1.0.1 (2015-09-04)
+        ------------------
+        
+        * Updated files from upstream.
+        
+        1.0.0 (2015-08-13)
+        ------------------
+        
+        * First release on PyPI.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Utilities

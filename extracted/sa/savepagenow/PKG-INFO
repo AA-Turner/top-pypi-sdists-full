@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: savepagenow
+Version: 1.3.0
+Summary: A simple Python wrapper and command-line interface for archive.org’s "Save Page Now" capturing service
+Home-page: https://www.github.com/palewire/savepagenow/
+Author: Ben Welsh
+Author-email: b@palewi.re
+License: MIT
+Project-URL: Documentation, http://palewi.re/docs/savepagenow
+Project-URL: Source, https://github.com/palewire/savepagenow
+Project-URL: Tracker, https://github.com/palewire/savepagenow/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+## Links
+
+- Documentation: [palewi.re/docs/savepagenow/](https://palewi.re/docs/savepagenow/)
+- Save Page Now at archive.org: [archive.org/web](https://archive.org/web)
+- Code: [github.com/palewire/savepagenow](https://github.com/palewire/savepagenow)
+- Issues: [github.com/palewire/savepagenow/issues](https://github.com/palewire/savepagenow/issues)
+- Packaging: [pypi.org/project/savepagenow](https://pypi.org/project/savepagenow)

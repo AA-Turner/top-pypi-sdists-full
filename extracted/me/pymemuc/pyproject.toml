@@ -1,0 +1,82 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pymemuc"
+version = "v0.6.0"
+description = "A Python API for MEmu Android Emulator."
+readme = "README.md"
+authors = ["Martin Miglio <martin@pyclashbot.app>"]
+license = "MIT"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["memu", "memuc", "android-emulator", "api"]
+repository = "https://github.com/pyclashbot/pymemuc"
+documentation = "https://pymemuc.pyclashbot.app/"
+
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""}
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.2.1"
+black = ">=23.1,<25.0"
+prospector = "^1.9.0"
+ipykernel = "^6.22.0"
+
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^7.2.6"
+sphinxext-opengraph = "^0.9.1"
+sphinx-autobuild = "^2024.2.4"
+sphinx-copybutton = "^0.5.2"
+furo = "^2024.1.29"
+sphinx-intl = "^2.1.0"
+
+
+[tool.poetry.group.tests.dependencies]
+twine = ">=4.0.2,<6.0.0"
+
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+)
+'''
+
+
+[tool.isort]
+profile = "black"
+
+
+[tool.pylint.main]
+ignore = ["docs/source"]
+py-version = "3.11"
+suggestion-mode = true
+disable = [
+  "C0301", # line-too-long
+  "W0622", # redefined-builtin
+  "R0903", # too-few-public-methods
+  "C0412", # ungrouped-imports
+]

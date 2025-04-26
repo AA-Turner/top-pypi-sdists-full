@@ -1,0 +1,122 @@
+from typing import List, Optional, Tuple
+
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from labelbox.data.annotation_types.annotation import (
+    ClassificationAnnotation,
+    ObjectAnnotation,
+)
+from labelbox.data.annotation_types.feature import FeatureSchema
+from labelbox.data.mixins import (
+    ConfidenceNotSupportedMixin,
+    CustomMetricsNotSupportedMixin,
+)
+from labelbox.utils import _CamelCaseMixin, is_valid_uri
+
+
+class VideoClassificationAnnotation(ClassificationAnnotation):
+    """Video classification
+    Args:
+        name (Optional[str])
+        feature_schema_id (Optional[Cuid])
+        value (Union[Text, Checklist, Radio])
+        frame (int): The frame index that this annotation corresponds to
+        segment_id (Optional[Int]): Index of video segment this annotation belongs to
+        extra (Dict[str, Any])
+    """
+
+    frame: int
+    segment_index: Optional[int] = None
+
+
+class VideoObjectAnnotation(
+    ObjectAnnotation,
+    ConfidenceNotSupportedMixin,
+    CustomMetricsNotSupportedMixin,
+):
+    """Video object annotation
+    >>> VideoObjectAnnotation(
+    >>>     keyframe=True,
+    >>>     frame=10,
+    >>>     value=Rectangle(
+    >>>        start=Point(x=0, y=0),
+    >>>        end=Point(x=1, y=1)
+    >>>     ),
+    >>>     feature_schema_id="my-feature-schema-id"
+    >>> )
+    Args:
+        name (Optional[str])
+        feature_schema_id (Optional[Cuid])
+        value (Geometry)
+        frame (Int): The frame index that this annotation corresponds to
+        keyframe (bool): Whether or not this annotation was a human generated or interpolated annotation
+        segment_id (Optional[Int]): Index of video segment this annotation belongs to
+        classifications (List[ClassificationAnnotation]) = []
+        extra (Dict[str, Any])
+    """
+
+    frame: int
+    keyframe: bool
+    segment_index: Optional[int] = None
+
+
+class MaskFrame(_CamelCaseMixin, BaseModel):
+    index: int
+    instance_uri: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("instanceURI", "instanceUri"),
+        serialization_alias="instanceURI",
+    )
+    im_bytes: Optional[bytes] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def validate_args(self, values):
+        im_bytes = self.im_bytes
+        instance_uri = self.instance_uri
+        if im_bytes == instance_uri is None:
+            raise ValueError("One of `instance_uri`, `im_bytes` required.")
+        return self
+
+    @field_validator("instance_uri")
+    def validate_uri(cls, v):
+        if not is_valid_uri(v):
+            raise ValueError(f"{v} is not a valid uri")
+        return v
+
+
+class MaskInstance(_CamelCaseMixin, FeatureSchema):
+    color_rgb: Tuple[int, int, int] = Field(
+        validation_alias=AliasChoices("colorRGB", "colorRgb"),
+        serialization_alias="colorRGB",
+    )
+    name: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class VideoMaskAnnotation(BaseModel):
+    """Video mask annotation
+    >>> VideoMaskAnnotation(
+    >>>     frames=[
+    >>>         MaskFrame(index=1, instance_uri='https://storage.labelbox.com/cjhfn5y6s0pk507024nz1ocys%2F1d60856c-59b7-3060-2754-83f7e93e0d01-1?Expires=1666901963361&KeyName=labelbox-assets-key-3&Signature=t-2s2DB4YjFuWEFak0wxYqfBfZA'),
+    >>>         MaskFrame(index=5, instance_uri='https://storage.labelbox.com/cjhfn5y6s0pk507024nz1ocys1%2F1d60856c-59b7-3060-2754-83f7e93e0d01-1?Expires=1666901963361&KeyName=labelbox-assets-key-3&Signature=t-2s2DB4YjFuWEFak0wxYqfBfZA'),
+    >>>     ],
+    >>>     instances=[
+    >>>         MaskInstance(color_rgb=(0, 0, 255), name="mask1"),
+    >>>         MaskInstance(color_rgb=(0, 255, 0), name="mask2"),
+    >>>         MaskInstance(color_rgb=(255, 0, 0), name="mask3")
+    >>>     ]
+    >>> )
+    """
+
+    frames: List[MaskFrame]
+    instances: List[MaskInstance]

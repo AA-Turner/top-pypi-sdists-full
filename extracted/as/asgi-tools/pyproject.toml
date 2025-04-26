@@ -1,0 +1,123 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython"]
+
+[project]
+name = "asgi-tools"
+version = "1.1.0"
+description = "ASGI Toolkit to build web applications"
+readme = "README.rst"
+requires-python = ">=3.9"
+license = { "text" = "MIT License" }
+authors = [{ name = "Kirill Klenov", email = "horneds@gmail.com" }]
+keywords = ["asgi", "asgi-tools", "request", "response", "asyncio", "trio"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Cython",
+  "Topic :: Internet :: WWW/HTTP",
+  "Framework :: AsyncIO",
+  "Framework :: Trio",
+]
+dependencies = [
+  "http-router >= 4.0.0",
+  "multidict",
+  "sniffio",
+  "yarl >= 1.8.2",
+  "async-timeout;python_version<'3.11'",
+]
+
+[project.urls]
+homepage = "https://github.com/klen/asgi-tools"
+repository = "https://github.com/klen/asgi-tools"
+documentation = "https://klen.github.io/asgi-tools"
+
+[project.optional-dependencies]
+tests = [
+  "aiofile",
+  "pytest",
+  "pytest-aio[curio,trio] >= 1.1.0",
+  "pytest-benchmark",
+  "PyYAML",
+  "ruff",
+  "mypy",
+  "exceptiongroup;python_version<'3.11'",
+  "ujson; implementation_name == 'cpython'",
+  "uvloop; implementation_name == 'cpython'",
+  "pytest-mypy; implementation_name == 'cpython'",
+]
+ujson = ["ujson"]
+orjson = ["orjson"]
+examples = ["uvicorn[standard]", "jinja2", "httpx"]
+dev = ["bump2version", "tox", "cython", "pre-commit", "sphinx", "pydata-sphinx-theme"]
+
+[tool.setuptools]
+packages = ['asgi_tools']
+
+[tool.setuptools.package-data]
+asgi_tools = ["py.typed", "multipart.pxd", "multipart.pyx", "forms.pyx"]
+
+[tool.pytest.ini_options]
+addopts = "-xsv tests"
+
+[tool.mypy]
+packages = ["asgi_tools"]
+install_types = true
+non_interactive = true
+ignore_missing_imports = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py39,py310,py311,py312,py313,,pypy310
+
+[testenv]
+deps = -e .[tests]
+commands =
+        mypy
+	pytest tests
+"""
+
+[tool.ruff]
+fix = false
+line-length = 100
+target-version = "py39"
+exclude = [".venv", "docs", "examples"]
+
+[tool.ruff.lint]
+allowed-confusables = ["’"]
+select = ["ALL"]
+ignore = [
+  "ANN",
+  "COM",
+  "D",
+  "DJ",
+  "EM",
+  "FIX002",
+  "PLR0913",
+  "PLR2004",
+  "RSE",
+  "S101",
+  "SLF",
+  "TD",
+  "UP",
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["ARG", "TRY", "F", "PGH", "PLR", "PLW", "PTH", "RET504", "SIM"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+preview = true

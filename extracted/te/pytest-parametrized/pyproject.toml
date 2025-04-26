@@ -1,0 +1,39 @@
+[project]
+name = "pytest-parametrized"
+version = "1.7"
+description = "Pytest decorator for parametrizing tests with default iterables."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE.txt"}
+authors = [{name = "Aric Coady", email = "aric.coady@gmail.com"}]
+keywords = ["pytest", "parametrize", "parameterize", "fixture"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/coady/pytest-parametrized"
+Changelog = "https://github.com/coady/pytest-parametrized/blob/main/CHANGELOG.md"
+Issues = "https://github.com/coady/pytest-parametrized/issues"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.coverage.run]
+source = ["parametrized"]
+branch = true

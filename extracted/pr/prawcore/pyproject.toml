@@ -1,0 +1,168 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.4,<4"]
+
+[dependency-groups]
+dev = [
+  "tox-uv>=1.22.1"
+]
+lint = [
+  "pre-commit",
+  "ruff>=0.9.5"
+]
+test = [
+  "betamax >=0.8, <0.9",
+  "coverage>=7.6.10",
+  "pytest>=8.3.4",
+  "urllib3 ==1.*"
+]
+type = [
+  "pyright>=1.1.393",
+  "pytest>=8.3.4"
+]
+
+[project]
+authors = [{name = "Bryce Boe", email = "bbzbryce@gmail.com"}]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13"
+]
+dependencies = [
+  "requests >=2.6.0, <3.0"
+]
+dynamic = ["version", "description"]
+keywords = ["praw", "reddit", "api"]
+license = {file = "LICENSE.txt"}
+maintainers = [
+  {name = "Bryce Boe", email = "bbzbryce@gmail.com"}
+]
+name = "prawcore"
+readme = "README.rst"
+requires-python = "~=3.9"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/praw-dev/prawcore/issues"
+"Source Code" = "https://github.com/praw-dev/prawcore"
+
+[tool.ruff]
+include = [
+  "examples/*.py",
+  "prawcore/*.py",
+  "tests/*.py"
+]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = [
+  "A002", # shadowing built-in name
+  "A004", # shadowing built-in
+  "ANN202", # missing return type for private method
+  "D203", # 1 blank line required before class docstring
+  "D213", # Multi-line docstring summary should start at the second line
+  "E501", # line-length
+  "PLR0913" # too many arguments
+]
+select = [
+  "A", # flake8-builtins
+  "ANN", # flake8-annotations
+  "ARG", # flake8-unused-arguments
+  "B", # flake8-bugbear
+  "BLE", # flake8-blind-except
+  "C4", # flake8-comprehensions
+  "D", # pydocstyle
+  "DTZ", # flake8-datetimez
+  "E", # pycodestyle errors
+  "EM", # flake8-errmsg
+  "ERA", # eradicate
+  "EXE", # flake8-executable
+  "F", # pyflakes
+  "FA", # flake8-future-annotations
+  "FIX", # flake8-fix me
+  "FLY", # flynt
+  "G", # flake8-logging-format
+  "I", # isort
+  "INP", # flake8-no-pep420
+  "ISC", # flake8-implicit-str-concat
+  "N", # pep8-naming
+  "PIE", # flake8-pie
+  "PGH", # pygrep-hooks
+  "PL", # Pylint
+  "PT", # flake8-pytest-style
+  "PTH", # flake8-use-pathlib
+  "PYI", # flake8-pyi
+  "Q", # flake8-quotes
+  "RET", # flake8-return
+  "RSE", # flake8-raise
+  "S", # bandit
+  "SIM", # flake8-simplify
+  "T10", # flake8-debugger
+  "T20", # flake8-print
+  "TCH", # flake8-type-checking
+  "TD", # flake8-todos
+  "W", # pycodestyle warnings
+  "UP" # pyupgrade
+]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+suppress-dummy-args = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"examples/*.py" = ["ANN", "PLR2004", "T201"]
+"tests/**.py" = ["ANN", "D", "PLR2004", "S101", "S105", "S106", "S301"]
+
+[tool.tox]
+envlist = ["py39", "py310", "py311", "py312", "py313", "pre-commit", "style", "type"]
+minversion = "4.22"
+
+[tool.tox.env.pre-commit]
+commands = [
+  ["pre-commit", "run", "--all-files"]
+]
+description = "run pre-commit on code base"
+dependency_groups = ["lint"]
+runner = "uv-venv-lock-runner"
+
+[tool.tox.env.style]
+commands = [
+  ["ruff", "check"],
+  ["ruff", "format", "--diff", "--target-version", "py39"]
+]
+description = "run lint check on code base"
+dependency_groups = ["lint"]
+runner = "uv-venv-lock-runner"
+
+[tool.tox.env.stylefix]
+commands = [
+  ["ruff", "check", "--fix"],
+  ["ruff", "format", "--target-version", "py39"]
+]
+description = "run lint check on code base"
+dependency_groups = ["lint"]
+runner = "uv-venv-lock-runner"
+
+[tool.tox.env.type]
+commands = [["pyright", "prawcore"]]
+dependency_groups = ["type"]
+description = "run type check on code base"
+runner = "uv-venv-lock-runner"
+
+[tool.tox.env_run_base]
+commands = [
+  ["coverage", "run", "-m", "pytest", "{posargs}"],
+  ["coverage", "report", "-m", "--fail-under=100"]
+]
+description = "Run test under {base_python}"
+dependency_groups = ["test"]
+runner = "uv-venv-lock-runner"

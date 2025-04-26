@@ -1,0 +1,62 @@
+Metadata-Version: 2.1
+Name: Flask-FlatPages
+Version: 0.8.3
+Summary: Provides flat static pages to a Flask application
+Author: Simon Sapin, Igor Davydenko, Padraic Calpin
+Maintainer-email: Padraic Calpin <itsme@padraic.xyz>
+Project-URL: Repository, https://github.com/Flask-FlatPages/Flask-FlatPages
+Project-URL: Documentation, https://flask-flatpages.readthedocs.io/en/latest/
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Flask
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: !=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: Flask>1.0
+Requires-Dist: Jinja2>=2.10.2
+Requires-Dist: Markdown>=2.5
+Requires-Dist: PyYAML>5.3.1
+Requires-Dist: pytz; python_version == "2.7"
+Requires-Dist: six
+Provides-Extra: codehilite
+Requires-Dist: Pygments>=2.5.2; extra == "codehilite"
+
+===============
+Flask-FlatPages
+===============
+
+.. image:: https://github.com/flask-FlatPages/flask-FlatPages/actions/workflows/test.yml/badge.svg?branch=master
+    :target: https://github.com/flask-FlatPages/flask-FlatPages/actions/workflows/test.yml/
+
+.. image:: https://img.shields.io/pypi/v/Flask-FlatPages.svg
+    :target: https://pypi.python.org/pypi/Flask-FlatPages
+
+Provides flat static pages to a Flask_ application, based on text files
+as opposed to a relational database.
+
+* Works on Python 2.7 and 3.6+
+* BSD licensed
+* Latest documentation `on Read the Docs`_
+* Source, issues and pull requests `on Github`_
+* Releases `on PyPI`_
+* Install with ``pip install Flask-FlatPages``
+
+.. _Flask: http://flask.pocoo.org/
+.. _on Read the Docs: http://flask-flatpages.readthedocs.org/
+.. _on Github: https://github.com/SimonSapin/Flask-FlatPages/
+.. _on PyPI: http://pypi.python.org/pypi/Flask-FlatPages

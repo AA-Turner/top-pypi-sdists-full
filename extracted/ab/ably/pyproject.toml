@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "ably"
+version = "2.0.12"
+description = "Python REST and Realtime client library SDK for Ably realtime messaging service"
+license = "Apache-2.0"
+authors = ["Ably <support@ably.com>"]
+readme = "LONG_DESCRIPTION.rst"
+homepage = "https://ably.com"
+repository = "https://github.com/ably/ably-python"
+classifiers = [
+  "Development Status :: 6 - Mature",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+include = [
+  'ably/**/*.py'
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+# Mandatory dependencies
+methoddispatch = "^3.0.2"
+msgpack = "^1.0.0"
+httpx = [
+  { version = "^0.24.1", python = "~3.7" },
+  { version = ">= 0.25.0, < 1.0", python = "^3.8" },
+]
+h2 = "^4.1.0" # required for httx package, HTTP2 communication
+websockets = [
+  { version = ">= 10.0, < 12.0", python = "~3.7" },
+  { version = ">= 12.0, < 14.0", python = "^3.8" },
+]
+pyee = [
+  { version = "^9.0.4", python = "~3.7" },
+  { version = ">=11.1.0, <13.0.0", python = "^3.8" }
+]
+
+# Optional dependencies
+pycrypto = { version = "^2.6.1", optional = true }
+pycryptodome = { version = "*", optional = true }
+
+[tool.poetry.extras]
+oldcrypto = ["pycrypto"]
+crypto = ["pycryptodome"]
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1"
+mock = "^4.0.3"
+pep8-naming = "^0.4.1"
+pytest-cov = "^2.4"
+flake8="^3.9.2"
+pytest-xdist = "^1.15"
+respx = "^0.20.0"
+importlib-metadata = "^4.12"
+pytest-timeout = "^2.1.0"
+async-case = { version = "^10.1.0", python = "~3.7" }
+tokenize_rt = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+timeout = 30
+
+[tool.poetry.scripts]
+unasync = 'ably.scripts.unasync:run'

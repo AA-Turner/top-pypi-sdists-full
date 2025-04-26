@@ -1,0 +1,98 @@
+Metadata-Version: 2.1
+Name: datarobot-early-access
+Version: 3.8.0.2025.4.21
+Summary: This client library is designed to support the DataRobot API.
+Home-page: https://datarobot.com
+Author: datarobot
+Author-email: api-maintainer@datarobot.com
+Maintainer: datarobot
+Maintainer-email: api-maintainer@datarobot.com
+License: DataRobot Tool and Utility Agreement
+Project-URL: Documentation, https://datarobot-public-api-client.readthedocs-hosted.com/en/early-access/
+Project-URL: Changelog, https://datarobot-public-api-client.readthedocs-hosted.com/en/early-access/CHANGES.html
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.7
+Provides-Extra: dev
+Provides-Extra: examples
+Provides-Extra: release
+Provides-Extra: lint
+Provides-Extra: docs
+Provides-Extra: images
+Provides-Extra: test
+Provides-Extra: databricks
+License-File: LICENSE.txt
+
+
+About datarobot_early_access
+============================
+.. image:: https://img.shields.io/pypi/v/datarobot_early_access.svg
+   :target: https://pypi.python.org/pypi/datarobot-early-access/
+.. image:: https://img.shields.io/pypi/pyversions/datarobot_early_access.svg
+.. image:: https://img.shields.io/pypi/status/datarobot_early_access.svg
+
+DataRobot is a client library for working with the `DataRobot`_ platform API. This package is the "early access" version of the client. **Do NOT use this package in production--you will expose yourself to risk of breaking changes and bugs.** For the most stable version, see the quarterly release on PyPI at https://pypi.org/project/datarobot/.
+
+This package is released under the terms of the DataRobot Tool and Utility Agreement, which
+can be found on our `Legal`_ page, along with our privacy policy and more.
+
+Installation
+=========================
+Python >= 3.7 are supported.
+You must have a datarobot account.
+
+::
+
+   $ pip install datarobot_early_access
+
+Usage
+=========================
+The library will look for a config file `~/.config/datarobot/drconfig.yaml` by default.
+This is an example of what that config file should look like.
+
+::
+
+   token: your_token
+   endpoint: https://app.datarobot.com/api/v2
+
+Alternatively a global client can be set in the code.
+
+::
+
+   import datarobot as dr
+   dr.Client(token='your_token', endpoint='https://app.datarobot.com/api/v2')
+
+Alternatively environment variables can be used.
+
+::
+
+   export DATAROBOT_API_TOKEN='your_token'
+   export DATAROBOT_ENDPOINT='https://app.datarobot.com/api/v2'
+
+See `documentation`_ for example usage after configuring.
+
+Helpful links
+=========================
+- `API quickstart guide <https://docs.datarobot.com/en/docs/api/api-quickstart/index.html>`_
+- `Code examples <https://docs.datarobot.com/en/docs/api/guide/python/index.html>`_
+- `Common use cases <https://docs.datarobot.com/en/docs/api/guide/common-case/index.html>`_
+
+Bug Reporting and Q&A
+=========================
+To report issues or ask questions, send email to `the team <api-maintainer@datarobot.com>`_.
+
+.. _datarobot: https://datarobot.com
+.. _documentation: https://datarobot-public-api-client.readthedocs-hosted.com/en/early-access/
+.. _legal: https://www.datarobot.com/legal/

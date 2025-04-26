@@ -1,0 +1,396 @@
+Metadata-Version: 2.4
+Name: grpc_requests
+Version: 0.1.21
+Summary: grpc for Humans. grpc reflection support client
+Home-page: https://github.com/grpc-requests/grpc_requests
+Author: wesky93
+Author-email: wesky93@gmail.com
+Maintainer: ViridianForge
+Maintainer-email: wayne@viridianforge.tech
+License: Apache License 2.0
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: grpcio>=1.60.1
+Requires-Dist: grpcio-reflection>=1.60.1
+Requires-Dist: protobuf>=4.25.0
+Requires-Dist: google-api-core>=2.11.1
+Requires-Dist: cryptography>=42.0.8
+Dynamic: license-file
+Dynamic: requires-dist
+
+# grpc_requests
+
+[![Nox](https://img.shields.io/badge/%F0%9F%A6%8A-Nox-D85E00.svg)](https://github.com/wntrblm/nox)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![PyPI](https://img.shields.io/pypi/v/grpc-requests?style=flat-square)](https://pypi.org/project/grpc-requests)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/grpc-requests?style=flat-square)](https://pypi.org/project/grpc-requests)
+[![PyPI download month](https://img.shields.io/pypi/dm/grpc-requests?style=flat-square)](https://pypi.org/project/grpc-requests)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+![Views](https://views.whatilearened.today/views/github/wesky93/grpc_requests.svg)
+
+## GRPC for Humans
+
+Leverage [reflection](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
+to interact with GRPC in a familiar manner for users of the [requests](https://requests.readthedocs.io/en/latest/) library.
+
+```python
+from grpc_requests import Client
+
+client = Client.get_by_endpoint("localhost:50051")
+assert client.service_names == ["helloworld.Greeter"]
+
+request_data = {"name": "sinsky"}
+say_hello_response = client.request("helloworld.Greeter", "SayHello", request_data)
+assert say_hello_response ==  {"message":"Hello sinsky!"}
+```
+
+## Features
+
+- Create a client easily when connecting to servers implementing grpc reflection
+- Still support creating a client from stubs when reflection isn't available
+- All unary and stream methods supported
+- TLS and compression connections supported
+- AsyncIO API supported
+
+## Install
+
+```shell script
+pip install grpc_requests
+```
+
+## Usage
+
+In short:
+
+Instantiate a client using the URL of a GRPC server and any authentication
+credentials you may need. If the server utilizes SSL (and it probably does)
+make sure to toggle that flag.
+
+```python
+from grpc_requests import Client
+
+metadata = [("authorization", "bearer my.cool.jwt")]
+client = Client.get_by_endpoint("cool.servers.arecool:443", ssl=True, metadata=metadata)
+```
+
+The [examples page](./src/examples/README.md) provides more thorough examples of
+usage scenarioes, and the [unit tests](./src/tests/) are also a useful reference point.
+
+## Contributing
+
+Contributions from the community are welcomed and greatly appreciated.
+
+Before opening a PR, running `python -m nox` can be used to ensure the contribution passes
+linting and unit test checks for all supported versions of Python and protobuf.
+You can also run [complexity.sh](./complexity.sh) to use
+[radon](https://pypi.org/project/radon/) to look at the cyclomatic complexity,
+maintainability index, and Halstead effort and difficulty of files.
+
+PRs should be targeted to merge with the `develop` branch. When opening a PR,
+please assign it to a maintainer for review. The maintainers will take it from
+there.
+
+## Compatibility
+
+`grpc_requests` currently does its best to support versions of Python and
+protobuf that are within their support lifetimes. You may find that other versions
+of dependencies work with the library, but this should be treated as a happy accident.
+
+For Python, we target versions that are in the security and bugfix phases.
+For protobuf, we target versions that in their public support phase.
+
+[Python's support matrix](https://devguide.python.org/versions/)
+[Protobuf's support matrix](https://protobuf.dev/support/version-support/#python)
+
+### Protobuf Compatibility
+
+The maintainers of `grpc_requests` have found that protobuf `4.25.4` is not compatible
+with verisons `>=1.66.0` of both `grpcio` and `grpcio-reflection`. If your use case
+needs `4.25.4` of protobuf, we recommend sticking to verison `1.65.x` of `grpcio` and
+`grpcio-reflection`.
+
+The maintainers have also noted that under Python `3.13` `grpc_requests` will work
+only with protobuf version `5.29.4` and above.
+
+
+## Questions, Comments, Issues?
+
+For questions, please start a conversation on the [discussions page](https://github.com/wesky93/grpc_requests/discussions)!
+
+For feature requests or bugs, please open an [issue](https://github.com/wesky93/grpc_requests/issues) and assign it the appropriate tag.
+
+## Maintainers
+
+- sinsky - [wesky93](https://github.com/wesky93)
+- Wayne Manselle - [ViridianForge](https://viridianforge.tech)
+r
+# ChangeLog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.21](https://github.com/grpc-requests/grpc_requests/releases/tag/v0.1.21) - 2025-03-22
+
+### Fixed
+
+- Added support for Async Iterators in Async Clients
+- Set default for asyncio fixture loop scope
+- Updated dependency versions
+- Corrected documentation
+
+## [0.1.20](https://github.com/grpc-requests/grpc_requests/releases/tag/v0.1.20) - 2024-08-15
+
+### Added
+
+- Noxfile for testing combinations of supported versions Python and protobuf
+- Specifications around support targets for Python and protobuf for the library
+
+### Fixed
+
+- Fixed a bug wherein attempting to retrieve a dependency of a FileDescriptor could
+  result thrown an exception if the dependency was not being served via reflection by
+  the server.
+
+## [0.1.19](https://github.com/grpc-requests/grpc_requests/releases/tag/v0.1.19) - 2024-07-18
+
+### Added
+
+- Tools for developers to measure complexity of the code base
+- Integrations with mypy
+
+### Removed
+
+Support for Python 3.7
+
+## [0.1.18](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.18) - 2024-05-18
+
+### Added
+
+- Support for lazy loading of services in async clients
+
+## [0.1.17](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.17) - 2024-04-22
+
+### Added
+
+- Support for custom message parsing in both async and sync clients
+
+### Removed
+
+- Removed singular FileDescriptor getter methods and Method specific field descriptor
+  methods as laid out previously.
+
+## [0.1.16](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.16) - 2024-03-03
+
+### Added
+
+- Additional usage examples
+
+### Fixed
+
+- Put deprecation warnings in the correct place for old get_descriptor methods, so they do not warn at all times.
+
+## [0.1.15](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.15) - 2024-02-17
+
+### Added
+
+- Add methods to return FileDescriptors and their transistive dependencies as requested by either a name or symbol
+- Add option to skip automatic checking of method availability
+
+### Deprecated
+
+- Due to the possibility of transient dependencies being missed, or other name or symbol collisions, methods to access singular FileDescriptors are deprecated and will be removed in version 0.1.17
+- The method to retrieve fields of a method's descriptor input type alone will be removed in version 0.1.17
+
+## [0.1.14](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.14) - 2024-01-06
+
+### Added
+
+- MethodMetaData accessible to clients
+- MethodDescriptors accessible via MethodMetaData
+- When using ReflectionClients, FileDescriptors accessible by name and symbol
+- New examples documented
+
+## [0.1.13](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.13) - 2023-12-03
+
+### Added
+
+- Added channel interceptors for standard and async clients
+
+### Fixed
+
+- Refactored how methods and services are added to description pool to better avoid cases where FileDescriptors may be added twice.
+
+## [0.1.12](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.12) - 2023-11-26
+
+### Added
+
+- Method to print out a generic descriptor added to utils collection
+- Helper methods to print out a method's request and responses in a human readable format
+
+### Changed
+
+- Documentation revamped
+- Version checks to avoid using deprecated methods added to async client
+
+### Fixed
+
+- Include `requirements.txt` in build manifest
+
+### Deprecated
+
+- Method to retrieve fields for the descriptor of a method's input type.
+
+## [0.1.11](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.11) - 2023-10-05
+
+### Added
+
+- Method to retrieve fields for the descriptor of a method's input type.
+
+### Changes
+
+- Updates to minimum versons of requirements to address vulnerabilities
+
+## [0.1.10](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.10) - 2023-03-07
+
+### Fixed
+
+- Corrected pin of `protobuf` version in `requirements.txt`
+
+## [0.1.9](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.9) - 2023-02-14
+
+### Changes
+
+- Reimplementation of test case framework
+- Restoration of reflection client test cases
+- Updates to continuous integration pipeline
+
+## [0.1.8](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.8) - 2023-01-24
+
+### Changes
+
+- Update project and dev dependencies to versions that require Python >= 3.7
+- Update project documentation and examples
+
+## [0.1.7](https://github.com/wesky93/grpc_requests/releases/tag/v0.1.7) - 2022-12-16
+
+### Deprecated
+
+- homi dependency, as the project has been archived
+- homi dependent test code
+
+## [0.1.6](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.1.6) - 2022-11-10
+
+### Fixed
+
+- Ignore repeat imports of protobufs and reflecting against a server
+
+## [0.1.3](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.1.3) - 2022-7-14
+
+### Fixed
+
+- remove click
+
+### Issues
+
+- ignore test before deploy
+
+## [0.1.2](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.1.2) - 2022-7-7
+
+## [0.1.1](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.1.1) - 2022-6-13
+
+### Changes
+
+- remove unused package : click #35
+
+## [0.1.0](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.1.0) - 2021-8-21
+
+### Added
+
+- Full TLS connection support
+
+### Fixed
+
+- Ignore reflection if service already registered
+
+### Changed
+
+- Update grpcio version
+
+## [0.0.10](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.10) - 2021-2-27
+
+### Fixed
+
+- Fix 3.6 compatibility issue : await is in f-string
+
+## [0.0.9](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.9) - 2020-12-25
+
+### Added
+
+- Support AsyncIO API
+
+## [0.0.8](https://github.com/spaceone-dev/grpc_requests/releases/tag/0.0.8) - 2020-11-24
+
+### Added
+
+- Add StubClient
+
+### Fixed
+
+- Bypasss kwargs to base client
+
+## [0.0.7](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.7) - 2020-10-4
+
+### Added
+
+- Support Compression
+
+## [0.0.6](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.6) - 2020-10-3
+
+### Added
+
+- Support TLS connections
+
+## [0.0.5](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.5) - 2020-9-9
+
+### Changed
+
+- Response filled gets original proto field name rather than(before returned lowerCamelCase)
+
+## [0.0.4](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.4) - 2020-7-21
+
+## [0.0.3](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.3) - 2020-7-21
+
+### Added
+
+- Dynamic request method
+- Service client
+
+## [0.0.2](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.2) - 2020-7-20
+
+### Added
+
+- Support all method types
+- Add request test case
+
+## [0.0.1](https://github.com/spaceone-dev/grpc_requests/releases/tag/v0.0.1) - 2020-7-20
+
+### Added
+
+- Sync proto using reflection
+- Auto convert request(response) from(to) dict
+- Support unary-unary

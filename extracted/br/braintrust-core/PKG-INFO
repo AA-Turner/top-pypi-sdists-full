@@ -1,0 +1,24 @@
+Metadata-Version: 2.2
+Name: braintrust_core
+Version: 0.0.58
+Summary: Shared core dependencies for Braintrust packages
+Home-page: https://www.braintrust.dev
+Author: Braintrust
+Author-email: info@braintrust.dev
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8.0
+Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-python
+Dynamic: summary
+
+# Braintrust Core
+
+This package contains a small set of dependencies shared by various packages in
+the braintrust ecosystem.

@@ -1,0 +1,111 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.10",
+    "pybind11",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "awkward_cpp"
+version = "45"
+dependencies = [
+    "numpy>=1.18.0"
+]
+readme = "README.md"
+description = "CPU kernels and compiled extensions for Awkward Array"
+authors = [
+    {name = "Jim Pivarski", email = "jpivarski@gmail.com"},
+]
+maintainers = [
+    {name = "Scikit-HEP", email = "scikit-hep-admins@googlegroups.com"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/scikit-hep/awkward-1.0"
+Documentation = "https://awkward-array.org"
+"Source Code" = "https://github.com/scikit-hep/awkward-1.0"
+"Bug Tracker" = "https://github.com/scikit-hep/awkward-1.0/issues"
+Discussions = "https://github.com/scikit-hep/awkward-1.0/discussions"
+Chat = "https://gitter.im/Scikit-HEP/awkward-array"
+Releases = "https://github.com/scikit-hep/awkward-1.0/releases"
+
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{cache_tag}"
+sdist.reproducible = true
+sdist.include = [
+    "header-only",
+    "include/awkward/kernels.h",
+    "src/awkward_cpp/_kernel_signatures.py",
+    "tests-spec",
+    "tests-spec-explicit",
+    "tests-cpu-kernels",
+    "tests-cpu-kernels-explicit"
+]
+
+[[tool.scikit-build.overrides]]
+if.platform-system = "darwin"
+cmake.version = ">=3.29"
+
+
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
+free-threaded-support = true
+test-requires = ["pytest>=6", "."]
+test-command = ["echo {project}:", "ls {project}", "echo {package}:", "ls {package}",
+"""
+pytest -p no:cacheprovider \
+       {project}/tests \
+       {package}/tests-cpu-kernels \
+       {package}/tests-cpu-kernels-explicit \
+       {package}/tests-spec \
+       {package}/tests-spec-explicit
+"""]
+skip = [
+    "pp*win*",
+    "pp*-manylinux_i686",
+]
+test-skip = [
+    "*universal2:arm64",
+    "pp*",
+    "*musllinux*",
+]
+build-verbosity = 1
+
+[tool.cibuildwheel.environment]
+PIP_ONLY_BINARY = "cmake,numpy"
+
+[[tool.cibuildwheel.overrides]]
+select = "cp313*"
+environment.PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
+
+[[tool.cibuildwheel.overrides]]
+select = "*pyodide*"
+build-frontend = {name = "build", args = ["--exports", "whole_archive"]}

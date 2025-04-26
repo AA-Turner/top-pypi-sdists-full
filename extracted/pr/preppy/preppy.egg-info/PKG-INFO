@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: preppy
+Version: 4.3.0
+Summary: preppy - a Preprocessor for Python
+Home-page: https://hg.reportlab.com/hg-public/preppy
+Author: Robin Becker, Andy Robinson, Aaron Watters
+Author-email: andy@reportlab.com
+License: BSD license (see license.txt for details), Copyright (c) 2000-2022, ReportLab Inc.
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Printing
+Classifier: Topic :: Text Processing :: Markup
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+
+preppy - a Preprocessor for Python. See https://preppy.readthedocs.io/

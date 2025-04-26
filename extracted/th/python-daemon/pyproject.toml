@@ -1,0 +1,204 @@
+# pyproject.toml
+# Python project metadata and build settings for this code base.
+# Documentation:
+#     <URL:https://peps.python.org/pep-0517/>
+#     <URL:https://peps.python.org/pep-0518/>
+#     <URL:https://peps.python.org/pep-0621/>
+
+[project]
+
+# Name of the Python distribution to build.
+name = "python-daemon"
+
+# Keywords to categorise this project.
+keywords = ["daemon", "fork", "unix"]
+
+# Trove classifiers for this project.
+# Reference: <URL:https://pypi.org/classifiers/>
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    ]
+
+# The Python version requirements of the project.
+requires-python = ">= 3.7"
+
+# Core dependencies required for the package to operate.
+dependencies = [
+
+    # Platform-independent file locking module.
+    # Documentation: <URL:http://docs.openstack.org/developer/pylockfile>.
+    "lockfile >= 0.10",
+
+    ]
+
+# The license granted to recipients of this project.
+license = { file = "COPYING" }
+
+# The persons or entities considered the authors of this project.
+authors = [
+    { name = "Ben Finney", email = "ben+python@benfinney.id.au" },
+    ]
+
+# Names of fields that must be dynamically computed by the build system.
+dynamic = [
+    "description",
+    "readme",
+    "version",
+    "maintainers",
+    ]
+
+[project.optional-dependencies]
+
+doc = [
+    # Currently no dependencies for documentation.
+
+    ]
+
+static-analysis = [
+
+    # Pip version inspector that reports PyPI available updates.
+    # Homepage: <URL:https://github.com/bartTC/pip-check/>.
+    "pip-check",
+
+    # Static code checker for Python style recommendations.
+    # Documentation: <URL:https://pycodestyle.pycqa.org/>.
+    "pycodestyle ~= 2.12",
+
+    # Python docstring style checker.
+    # Documentation: <URL:https://www.pydocstyle.org/>.
+    "pydocstyle ~= 6.3",
+
+    # Tool to upgrade Python syntax for newer versions.
+    # Documentation: <URL:https://github.com/asottile/pyupgrade>.
+    "pyupgrade ~= 3.17",
+
+    # Python ‘import’ statement sorter.
+    # Documentation: <URL:https://pycqa.github.io/isort/>.
+    "isort ~= 5.13",
+
+    ]
+
+build = [
+
+    "python-daemon[doc]",
+
+    # Reference implementation of Python wheel packaging standard (PEP 427).
+    # Documentation: <URL:https://wheel.readthedocs.io/>.
+    "wheel",
+
+    # A simple, correct (defined by PEP 517) Python build frontend.
+    # Documentation: <URL:https://build.pypa.io/>.
+    "build",
+
+    # Python Documentation Utilities.
+    # Documentation: <URL:https://docutils.sourceforge.io/docs/>.
+    "docutils",
+
+    # Parser library for project Change Log documents.
+    # Homepage: <URL:https://git.sr.ht/~bignose/changelog-chug>.
+    "changelog-chug",
+
+    ]
+
+test = [
+
+    "python-daemon[static-analysis,build]",
+
+    # Extensions to the Python ‘unittest’ framework.
+    # Documentation: <URL:https://testtools.readthedocs.org/>.
+    "testtools",
+
+    # Data-driven test scenarios for ‘unittest’.
+    # Documentation: <URL:https://pypi.org/project/testscenarios/>.
+    "testscenarios >= 0.4",
+
+    # Code coverage measurement.
+    # Documentation: <URL:https://coverage.readthedocs.io/>.
+    "coverage",
+
+    ]
+
+dist = [
+
+    "python-daemon[build]",
+
+    # Collection of utilities for publishing packages on PyPI.
+    # Documentation: <URL:https://twine.readthedocs.io/>.
+    "twine",
+
+    ]
+
+devel = [
+
+    "python-daemon[test,dist]",
+
+    ]
+
+[project.urls]
+"Home Page" = "https://pagure.io/python-daemon/"
+"Change Log" = "https://pagure.io/python-daemon/blob/main/f/ChangeLog"
+"Source" = "https://pagure.io/python-daemon/"
+"Issue Tracker" = "https://pagure.io/python-daemon/issues"
+
+
+[build-system]
+
+# Minimum requirements for the build system.
+requires = [
+
+    # Reference implementation of Python wheel packaging standard (PEP 427).
+    # Documentation: <URL:https://wheel.readthedocs.io/>.
+    "wheel",
+
+    # Framework for working with Python packages.
+    # Documentation: <URL:https://setuptools.pypa.io/>.
+    "setuptools >= 62.4.0",
+
+    # Python Documentation Utilities.
+    # Documentation: <URL:https://docutils.sourceforge.io/docs/>.
+    "docutils",
+
+    # Parser library for project Change Log documents.
+    # Documentation: <URL:https://packaging.pypa.io/>.
+    "changelog-chug",
+
+    ]
+
+# Path to the Python object to perform the build.
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+
+# Can the project be safely installed and run from a zip file?
+zip-safe = false
+
+# Matching glob patterns for files containing full text of license conditions.
+license-files = ["LICENSE.*"]
+
+[tool.setuptools.packages.find]
+
+# Folders that contain the packages (default: ["."])
+where = ["src"]
+
+
+[tool.coverage.run]
+
+# Source (packages or directories) to measure during execution.
+source = [
+    "daemon",
+    "util",
+    "setup",
+    ]
+
+
+# Local-variables:
+# coding: utf-8
+# mode: conf
+# mode: toml
+# End:
+# vim: fileencoding=utf-8 filetype=toml :

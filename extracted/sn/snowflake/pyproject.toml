@@ -1,0 +1,83 @@
+[project]
+name = 'snowflake'
+authors = [
+    {name = 'Snowflake, Inc.', email = 'snowflake-python-libraries-dl@snowflake.com' },
+]
+description = 'Snowflake Python API'
+readme = 'README.md'
+requires-python = '>=3.9,<3.12'
+license = {text = 'Apache-2.0'}
+keywords = [
+    'Snowflake',
+    'analytics',
+    'cloud',
+    'database',
+    'db',
+    'warehouse',
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'Environment :: Other Environment',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Education',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: OS Independent',
+    'Programming Language :: SQL',
+    'Programming Language :: Python :: 3',
+    'Topic :: Database',
+    'Topic :: Software Development',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Application Frameworks',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Scientific/Engineering :: Information Analysis',
+]
+# The version for the `snowflake` namespace package must be defined
+# statically, since there's no actual code to a namespace package.
+version = '1.4.0'
+
+dependencies = [
+    'snowflake.core == 1.4.0',
+    'snowflake._legacy',
+]
+
+[project.optional-dependencies]
+ml = [
+    # https://github.com/snowflakedb/snowflake-ml-python/releases
+    'snowflake-ml-python == 1.8.2',
+]
+
+# [project.urls]
+# 'Home Page' = 'https://docs.snowflake.com/en/developer-guide/snowpark/index'
+# 'Documentation' = 'https://docs.snowflake.com/en/developer-guide/snowpark/python/index.html'
+# 'Source' = 'https://github.com/snowflakedb/snowpark-python'
+# 'Issues' = 'https://github.com/snowflakedb/snowpark-python/issues'
+# 'Changelog' = 'https://github.com/snowflakedb/snowpark-python/blob/main/CHANGELOG.md'
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.metadata.hooks.custom]
+path = '../../scripts/hatch_hooks.py'
+
+[tool.hatch.build]
+directory = '../../dist/snowflake'
+dev-mode-dirs = ['src']
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    'src/snowflake',
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    'src/snowflake',
+    'README.md',
+    'pyproject.toml',
+]
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'

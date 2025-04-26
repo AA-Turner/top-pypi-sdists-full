@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "celery-singleton"
+version = "0.3.1"
+description = "Prevent duplicate celery tasks"
+authors = ["Steinthor Palsson <steini90@gmail.com>"]
+homepage = 'https://github.com/steinitzu/celery-singleton'
+repository = 'https://github.com/steinitzu/celery-singleton'
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+celery = ">=4"
+redis = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pytest-cov = "*"
+pytest-celery = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

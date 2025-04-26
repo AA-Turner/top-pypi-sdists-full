@@ -1,0 +1,79 @@
+Metadata-Version: 2.3
+Name: shrub.py
+Version: 3.10.0
+Summary: Library for creating evergreen configurations
+License: Apache-2.0
+Author: DevProd Services & Integrations Team
+Author-email: devprod-si-team@mongodb.com
+Requires-Python: >=3.8.1
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: PyYaml (>=5.1,<7.0)
+Requires-Dist: croniter (>=1.4.1,<2.0.0)
+Requires-Dist: dataclasses (>=0.7,<0.8) ; python_version == "3.6"
+Requires-Dist: pydantic (>=2.0,<3.0)
+Requires-Dist: typing-extensions (>=4,<5)
+Project-URL: Repository, https://github.com/evergreen-ci/shrub.py
+Description-Content-Type: text/markdown
+
+# shrub.py
+
+A python based Evergreen project config generation library
+
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/shrub.py)
+[![PyPI version](https://badge.fury.io/py/shrub.py.svg)](https://pypi.org/project/shrub.py/)
+
+## Overview
+
+Based on [shrub](https://github.com/evergreen-ci/shrub/), shrub.py is a library for programatically
+building Evergreen project configurations described [here](https://github.com/evergreen-ci/evergreen/wiki/Project-Files).
+
+## Example
+
+The following snippet will create a set of parallel tasks reported under a single display task. It
+would generate json used by ```generate.tasks```:
+
+```python
+from shrub.v3.evg_task import EvgTask, EvgTaskDependency
+from shrub.v3.evg_build_variant import BuildVariant, DisplayTask
+from shrub.v3.evg_command import FunctionCall
+from shrub.v3.evg_project import EvgProject
+from shrub.v3.shrub_service import ShrubService
+
+
+n_tasks = 10
+def define_task(index):
+    name = f"task_name_{index}"
+
+    return EvgTask(
+        name=name,
+        commands=[
+            FunctionCall(func="do setup"),
+            FunctionCall(
+                func="run test generator",
+                vars={"parameter_1": "value 1", "parameter_2": "value 2"}
+            ),
+            FunctionCall(func="run tests")
+        ],
+        depends_on=[EvgTaskDependency(name="compile")]
+    )
+
+tasks = [define_task(i) for i in range(n_tasks)]
+display_task = DisplayTask(name="test_suite", execution_tasks=[t.name for t in tasks])
+variant = BuildVariant(name="linux-64", tasks=[], display_tasks=[display_task])
+project = EvgProject(buildvariants=[variant], tasks=tasks)
+
+print(ShrubService.generate_json(project))
+```
+
+## Run tests
+
+```
+poetry run pytest
+```
+

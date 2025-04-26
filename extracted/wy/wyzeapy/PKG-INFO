@@ -1,0 +1,16 @@
+Metadata-Version: 2.3
+Name: wyzeapy
+Version: 0.5.28
+Summary: A library for interacting with Wyze devices
+License: GPL-3.0-only
+Author: Katie Mulliken
+Author-email: katie@mulliken.net
+Requires-Python: >=3.11.0
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiodns (>=3.2.0,<4.0.0)
+Requires-Dist: aiohttp (>=3.11.12,<4.0.0)
+Requires-Dist: pycryptodome (>=3.21.0,<4.0.0)

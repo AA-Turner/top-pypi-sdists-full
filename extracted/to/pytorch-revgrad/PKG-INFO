@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: pytorch_revgrad
+Version: 0.2.0
+Summary: A pytorch module (and function) to reverse gradients.
+Home-page: https://github.com/janfreyberg/pytorch-revgrad
+Author: Jan Freyberg
+Author-email: jan.freyberg@gmail.com

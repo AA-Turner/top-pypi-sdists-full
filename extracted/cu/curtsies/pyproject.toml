@@ -1,0 +1,24 @@
+[build-system]
+requires = [
+  "setuptools >= 43",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target_version = ["py36"]
+exclude = '''
+(
+    /(
+          \.git
+        | build
+        | curtsies.egg-info
+        | dist
+        | examples
+        | notes
+        | stubs
+    )/
+    | bootstrap.py
+    | docs/conf.py
+)
+'''

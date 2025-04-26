@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: fastapi-jwt-auth
+Version: 0.5.0
+Summary: FastAPI extension that provides JWT Auth support (secure, easy to use and lightweight)
+Home-page: https://github.com/IndominusByte/fastapi-jwt-auth
+Author: Nyoman Pradipta Dewantara
+Author-email: nyomanpradipta120@gmail.com

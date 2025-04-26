@@ -1,0 +1,136 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "esp-idf-kconfig"
+authors = [
+    {name = "Espressif Systems"},
+]
+description = "Kconfig tooling for esp-idf"
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.8"
+keywords = ["espressif", "embedded", "project", "configuration", "kconfig"]
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Environment :: Console",
+    "Topic :: Software Development :: Embedded Systems",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+]
+dynamic = ['version']
+dependencies = [
+    "windows-curses; sys_platform == 'win32' and python_version < '3.13'",
+    # older versions does not support Python 3.13: https://github.com/zephyrproject-rtos/windows-curses/issues/69
+    "windows-curses>=2.4.1; sys_platform == 'win32' and python_version >= '3.13'",
+]
+[project.urls]
+Homepage = "https://github.com/espressif/esp-idf-kconfig"
+
+[project.optional-dependencies]
+dev = [
+    "commitizen",
+    "pre-commit",
+    "pexpect",
+    "pyparsing",
+    "pytest",
+]
+docs = [
+    "esp-docs~=1.5"
+]
+
+[tool.setuptools.packages]
+find = {exclude = ["test", "test.*"]}
+
+[tool.setuptools.dynamic]
+version = {attr = "esp_idf_kconfig.__version__"}
+
+
+[tool.commitizen]
+tag_format = "v$version"
+version = "2.5.0"
+changelog_merge_prerelease = true
+annotated_tag = true
+version_files = ["esp_idf_kconfig/__init__.py"]
+bump_message = "change: Update version to $new_version"
+update_changelog_on_bump = true
+change_type_order = [
+    "BREAKING CHANGE",
+    "New Features",
+    "Bug Fixes",
+    "Code Refactoring",
+    "Performance Improvements"
+]
+
+[tool.commitizen.change_type_map]
+feat = "New Features"
+fix = "Bug Fixes"
+refactor = "Code Refactoring"
+perf = "Performance Improvements"
+
+[tool.mypy]
+    disallow_incomplete_defs = false # Disallows defining functions with incomplete type annotations
+    disallow_untyped_defs    = false # Disallows defining functions without type annotations or with incomplete type annotations
+    ignore_missing_imports   = true  # Suppress error messages about imports that cannot be resolved
+    python_version           = "3.8" # Specifies the Python version used to parse and check the target program
+    warn_no_return           = true  # Shows errors for missing return statements on some execution paths
+    warn_return_any          = true  # Shows a warning when returning a value with type Any from a function declared with a non- Any return type
+
+[tool.ruff]
+# https://docs.astral.sh/ruff/settings/
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".eggs",
+    ".git",
+    "__pycache__"
+]
+
+line-length = 120
+
+select = ['E', 'F', 'W']
+ignore = ["E203"]
+
+# Assume Python 3.8
+target-version = "py38"
+
+[tool.ruff.per-file-ignores]
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Also enable isort (`I`) for import statements ordering.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+
+# ruff-format hook configuration
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.isort]
+force-single-line = true
+
+[tool.codespell]
+ignore-words-list ="rsource,osource,orsource,assertIn"
+write-changes = true

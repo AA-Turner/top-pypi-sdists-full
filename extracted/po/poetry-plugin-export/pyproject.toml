@@ -1,0 +1,117 @@
+[tool.poetry]
+name = "poetry-plugin-export"
+version = "1.9.0"
+description = "Poetry plugin to export the dependencies to various formats"
+authors = ["Sébastien Eustace <sebastien@eustace.io>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://python-poetry.org/"
+repository = "https://github.com/python-poetry/poetry-plugin-export"
+
+packages = [
+    { include = "poetry_plugin_export", from = "src" }
+]
+
+include = [
+    { path = "tests", format = "sdist" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+poetry = ">=2.0.0,<3.0.0"
+poetry-core = ">=1.7.0,<3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = ">=2.18"
+pytest = "^8.0"
+pytest-cov = "^4.0"
+pytest-mock = "^3.9"
+pytest-randomly = "^3.12"
+pytest-xdist = { version = "^3.1", extras = ["psutil"] }
+mypy = ">=0.971"
+
+# only used in github actions
+[tool.poetry.group.github-actions]
+optional = true
+[tool.poetry.group.github-actions.dependencies]
+pytest-github-actions-annotate-failures = "^0.1.7"
+
+[tool.poetry.plugins."poetry.application.plugin"]
+export = "poetry_plugin_export.plugins:ExportApplicationPlugin"
+
+
+[tool.ruff]
+fix = true
+target-version = "py39"
+line-length = 88
+extend-exclude = [
+    "docs/*",
+    # External to the project's coding standards
+    "tests/**/fixtures/*",
+]
+
+[tool.ruff.lint]
+unfixable = [
+    "ERA", # do not autoremove commented out code
+]
+extend-select = [
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "ERA", # flake8-eradicate/eradicate
+    "I",   # isort
+    "N",   # pep8-naming
+    "PIE", # flake8-pie
+    "PGH", # pygrep
+    "RUF", # ruff checks
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+lines-between-types = 1
+lines-after-imports = 2
+known-first-party = ["poetry_plugin_export"]
+required-imports = ["from __future__ import annotations"]
+
+
+[tool.mypy]
+namespace_packages = true
+show_error_codes = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+strict = true
+files = ["src", "tests"]
+exclude = ["^tests/fixtures/"]
+
+# use of importlib-metadata backport makes it impossible to satisfy mypy
+# without some ignores: but we get a different set of ignores at different
+# python versions.
+#
+# <https://github.com/python/mypy/issues/8823>, meanwhile suppress that
+# warning.
+[[tool.mypy.overrides]]
+module = [
+  'poetry_plugin_export',
+]
+warn_unused_ignores = false
+
+
+[tool.pytest.ini_options]
+addopts = "-n auto"
+testpaths = [
+    "tests"
+]
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

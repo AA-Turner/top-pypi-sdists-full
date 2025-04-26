@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "glue-helper-lib"
+version = "0.5.5"
+description = "A library containing multiple helper and utility functionalities for AWS Glue"
+authors = ["Martijn Sturm <martijn.sturm@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "glue_helper_lib" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+flake8 = "^6.0.0"
+
+
+[tool.poetry.group.test.dependencies]
+aws-glue-libs = { git = "https://github.com/awslabs/aws-glue-libs.git", rev = "v4.0" }
+pytest = "^7.2.2"
+pytest-mock = "^3.10.0"
+pyspark = "^3.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 79

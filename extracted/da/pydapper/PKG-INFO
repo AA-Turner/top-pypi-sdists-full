@@ -1,0 +1,149 @@
+Metadata-Version: 2.3
+Name: pydapper
+Version: 0.12.0
+Summary: A python micro ORM inspired by the nuget package Dapper
+License: MIT
+Author: Zach Schumacher
+Author-email: zschu15@gmail.com
+Requires-Python: >=3.9,<3.14
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: aiopg
+Provides-Extra: google-cloud-bigquery
+Provides-Extra: google-cloud-bigquery-storage
+Provides-Extra: mysql-connector-python
+Provides-Extra: oracledb
+Provides-Extra: psycopg
+Provides-Extra: psycopg2
+Provides-Extra: pymssql
+Requires-Dist: aiopg (>=1.4.0,<2.0.0) ; extra == "aiopg"
+Requires-Dist: coro-context-manager (==0.2.1)
+Requires-Dist: dsnparse (>=0.2.1,<0.3.0)
+Requires-Dist: google-cloud-bigquery (>=3.29.0,<4.0.0) ; extra == "google-cloud-bigquery"
+Requires-Dist: google-cloud-bigquery-storage (>=2.27.0,<3.0.0) ; extra == "google-cloud-bigquery-storage"
+Requires-Dist: mysql-connector-python (>=9.2.0,<10.0.0) ; extra == "mysql-connector-python"
+Requires-Dist: numpy ; extra == "google-cloud-bigquery-storage"
+Requires-Dist: oracledb (>=2.5.1,<3.0.0) ; extra == "oracledb"
+Requires-Dist: psycopg2-binary (>=2.9.10,<3.0.0) ; extra == "psycopg2"
+Requires-Dist: psycopg[binary] (>=3.2.4,<4.0.0) ; extra == "psycopg"
+Requires-Dist: pyarrow ; extra == "google-cloud-bigquery-storage"
+Requires-Dist: pymssql (>=2.3.2,<3.0.0) ; extra == "pymssql"
+Requires-Dist: types-psycopg2 (>=2.9.4,<3.0.0) ; extra == "psycopg2"
+Requires-Dist: types-pymssql (>=2.1.0,<3.0.0) ; extra == "pymssql"
+Description-Content-Type: text/markdown
+
+[![PyPI version](https://badge.fury.io/py/pydapper.svg)](https://badge.fury.io/py/pydapper)
+[![Documentation Status](https://readthedocs.org/projects/pydapper/badge/?version=latest)](https://pydapper.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/zschumacher/pydapper/branch/main/graph/badge.svg?token=3X1IR81HL2)](https://codecov.io/gh/zschumacher/pydapper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pydapper)
+
+# pydapper
+A pure python library inspired by the NuGet library [dapper](https://dapper-tutorial.net).
+
+*pydapper* is built on top of the [dbapi 2.0 spec](https://www.python.org/dev/peps/pep-0249/)
+to provide more convenient methods for working with databases in python, with both sync
+and async dbapi support.
+
+---
+## Help
+See the [documentation](https://pydapper.readthedocs.io/en/latest/) for more details and examples for configuring all
+of the connectors pydapper supports.
+
+---
+## Installation
+It is recommended to only install the database apis you need for your use case.  Example below is for psycopg2!
+### pip
+```console
+pip install pydapper[psycopg2]
+```
+
+### poetry
+```console
+poetry add pydapper -E psycopg2
+```
+
+---
+## Supported drivers
+The [database support docs](https://pydapper.readthedocs.io/en/latest/database_support/intro/)
+go into further detail about how to connect to the different drivers pydapper supports.
+  
+In addition to `psycopg2`, *pydapper* also supports. 
+
+### Sync dbapis
+* `pymssql`
+* `mysql-connector-python`
+* `oracledb`
+* `google-cloud-bigquery`
+* `sqlite3`
+* `psycopg`
+### Async dbapis
+* `aiopg`
+* `psycopg`
+
+---
+## Never write this again...
+```python
+from psycopg2 import connect
+
+@dataclass
+class Task:
+    id: int
+    description: str
+    due_date: datetime.date
+
+with connect("postgresql://pydapper:pydapper@localhost/pydapper") as conn:
+    with conn.cursor() as cursor:
+        cursor.execute("select id, description, due_date from task")
+        headers = [i[0] for i in cursor.description]
+        data = cursor.fetchall()
+
+list_data = [Task(**dict(zip(headers, row))) for row in data]
+```
+
+## Instead, write...
+```python
+from dataclasses import dataclass
+import datetime
+
+import pydapper
+
+
+@dataclass
+class Task:
+    id: int
+    description: str
+    due_date: datetime.date
+
+    
+with pydapper.connect("postgresql+psycopg2://pydapper:pydapper@locahost/pydapper") as commands:
+    tasks = commands.query("select id, description, due_date from task;", model=Task)
+```
+(This script is complete, it should run "as is")
+
+## Buy me a coffee
+If you find this project useful, consider buying me a coffee!  
+
+<a href="https://www.buymeacoffee.com/zachschumacher" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
+

@@ -1,0 +1,42 @@
+[build-system]
+# 1.8.3 is the first version of maturin that supports Rust editon 2024
+requires = ["cffi", "maturin>=1.8.3,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "arrow-odbc"
+authors = [{name = "Markus Klein"}]
+description="Read the data of an ODBC data source as sequence of Apache Arrow record batches."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+version = "8.3.9"
+# cffi: for communicating with Rust
+# pyarrow: to create pyarrow arrays out of the c representation
+dependencies = [
+    "cffi",
+    "pyarrow >= 8.0.0",
+]
+
+[project.urls]
+repository = "https://github.com/pacman82/arrow-odbc-py"
+changelog = "https://github.com/pacman82/arrow-odbc-py/blob/main/CHANGELOG.md"
+
+[tool.maturin]
+# Bindings type
+bindings = "cffi"
+python-source = "python"
+# Not sure what the default would be, best be sure and make release profile explicit
+profile = "release"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+
+[dependency-groups]
+dev = [
+    "duckdb>=1.2.1",
+    "pyodbc>=5.2.0",
+    "pytest>=8.3.5",
+]

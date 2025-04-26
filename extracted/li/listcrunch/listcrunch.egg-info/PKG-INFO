@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: listcrunch
+Version: 1.0.1
+Summary: A simple human-readable way to compress redundant sequential data
+Home-page: https://github.com/MuckRock/listcrunch
+Author: Dylan Freedman
+Author-email: freedmand@gmail.com
+License: UNKNOWN
+Description: # ListCrunch
+        
+        A simple human-readable way to compress redundant sequential data.
+        
+        ## Example
+        
+        ```python
+        from listcrunch import crunch
+        
+        compressed_string = crunch([1, 1, 1, 1, 1, 1, 1, 1, 1, 2])
+        # Returns '1:0-8;2:9', meaning 1 appears in indices 0-8 (inclusive),
+        # and 2 occurs at index 9.
+        ```
+        
+        To uncompress, use the `uncrunch` function.
+        
+        ```python
+        from listcrunch import uncrunch
+        
+        uncrunch('50:0-1,3-4;3:2,5;60:6;70:7-8')
+        # Returns ['50', '50', '3', '50', '50', '3', '60', '70', '70']
+        ```
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

@@ -1,0 +1,79 @@
+[project]
+name = "numpy-quaternion"
+description = "Add a quaternion dtype to NumPy"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = {file = "LICENSE"}
+authors = [
+  { name = "Michael Boyle", email = "michael.oliver.boyle@gmail.com" }
+]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Astronomy"
+]
+dependencies = [
+  "numpy >=1.25,<3",
+  "scipy >=1.5,<2",
+  #"numba >=0.55; implementation_name == 'cpython'"
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/moble/quaternion"
+Documentation = "https://quaternion.readthedocs.io/en/latest"
+
+[project.optional-dependencies]
+docs = [
+  "mkdocs-material",
+  "mkdocstrings-python",
+  "pymdown-extensions"
+]
+
+[build-system]
+requires = ["hatchling", "setuptools>=61", "wheel", "numpy>=2.0,<3"]
+build-backend = "setuptools.build_meta"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "pytest",
+  "pytest-cov",
+  "black",
+  "numba"
+]
+[tool.hatch.envs.default.scripts]
+# Run these as `hatch run test`
+test = "pytest {args:tests}"
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "mkdocs-material",
+  "mkdocstrings-python",
+  "pymdown-extensions"
+]
+[tool.hatch.envs.docs.scripts]
+# Run these as `hatch run docs:build` or `hatch run docs:serve`
+build = "mkdocs build --clean"
+serve = "mkdocs serve --dev-addr localhost:8000"
+
+[tool.hatch.version]
+path = "src/quaternion/__init__.py"
+
+[tool.setuptools.dynamic]
+version = {attr = "quaternion.__version__"}
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+norecursedirs = ".* build dist *.egg-info install ENV"
+junit_family="xunit2"
+addopts = "-v --tb=short --doctest-glob='' --cov=quaternion --cov-branch --cov-report xml"
+
+
+
+# FIXME: temporary workaround until https://github.com/pypa/setuptools/issues/4759 is fixed
+[tool.setuptools]
+license-files = []

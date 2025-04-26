@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling>=1.11.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rich-argparse"
+version = "1.7.0"
+description = "Rich help formatters for argparse and optparse"
+authors = [
+  {name="Ali Hamdan", email="ali.hamdan.dev@gmail.com"},
+]
+readme = "README.md"
+license = "MIT"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: User Interfaces",
+]
+keywords = ["argparse", "rich", "help-formatter", "optparse"]
+dependencies = [
+  "rich >= 11.0.0",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/hamdanal/rich-argparse"
+Documentation = "https://github.com/hamdanal/rich-argparse#rich-argparse"
+Issue-Tracker = "https://github.com/hamdanal/rich-argparse/issues"
+Changelog = "https://github.com/hamdanal/rich-argparse/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "requirements-dev.txt",
+  "rich_argparse",
+  "tests",
+  "LICENSE",
+  "README.md",
+  "pyproject.toml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["rich_argparse"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["C4", "B", "UP", "RUF100", "TID", "T10"]
+extend-ignore = ["E501"]
+unfixable = ["B"]
+isort.required-imports = ["from __future__ import annotations"]
+isort.extra-standard-library = ["typing_extensions"]
+flake8-tidy-imports.ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+local_partial_types = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+plugins = ["covdefaults"]
+source = ["rich_argparse", "tests"]

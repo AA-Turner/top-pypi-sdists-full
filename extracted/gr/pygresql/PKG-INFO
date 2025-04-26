@@ -1,0 +1,112 @@
+Metadata-Version: 2.1
+Name: PyGreSQL
+Version: 6.1.0
+Summary: Python PostgreSQL interfaces
+Home-page: https://pygresql.github.io/
+Download-URL: https://pygresql.github.io/download/
+Author: D'Arcy J. M. Cain
+Author-email: "D'Arcy J. M. Cain" <darcy@pygresql.org>, Christoph Zwerschke <cito@online.de>
+License: Written by D'Arcy J.M. Cain (darcy@PyGreSQL.org)
+        
+        Based heavily on code written by Pascal Andre (andre@chimay.via.ecp.fr)
+        
+        Copyright (c) 1995, Pascal Andre
+        
+        Further modifications copyright (c) 1997-2008 by D'Arcy J.M. Cain
+        
+        Further modifications copyright (c) 2009-2024 by the PyGreSQL Development Team
+        
+        PyGreSQL is released under the PostgreSQL License, a liberal Open Source
+        license, similar to the BSD or MIT licenses:
+        
+        Permission to use, copy, modify, and distribute this software and its
+        documentation for any purpose, without fee, and without a written agreement
+        is hereby granted, provided that the above copyright notice and this
+        paragraph and the following two paragraphs appear in all copies.  In
+        this license the term "AUTHORS" refers to anyone who has contributed code
+        to PyGreSQL.
+        
+        IN NO EVENT SHALL THE AUTHORS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+        SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
+        ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
+        AUTHORS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+        THE AUTHORS SPECIFICALLY DISCLAIM ANY WARRANTIES, INCLUDING, BUT NOT LIMITED
+        TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+        PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE
+        AUTHORS HAVE NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+        ENHANCEMENTS, OR MODIFICATIONS.
+        
+Project-URL: Homepage, https://pygresql.github.io/
+Project-URL: Documentation, https://pygresql.github.io/contents/
+Project-URL: Source Code, https://github.com/PyGreSQL/PyGreSQL
+Project-URL: Issue Tracker, https://github.com/PyGreSQL/PyGreSQL/issues/
+Project-URL: Changelog, https://pygresql.github.io/contents/changelog.html
+Project-URL: Download, https://pygresql.github.io/download/
+Project-URL: Mailing List, https://mail.vex.net/mailman/listinfo/pygresql
+Keywords: pygresql,postgresql,database,api,dbapi
+Classifier: Development Status :: 6 - Mature
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: PostgreSQL License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+
+PyGreSQL - Python interface for PostgreSQL
+==========================================
+
+PyGreSQL is a Python module that interfaces to a PostgreSQL database.
+It wraps the lower level C API library libpq to allow easy use of the
+powerful PostgreSQL features from Python.
+
+PyGreSQL should run on most platforms where PostgreSQL and Python is running.
+It is based on the PyGres95 code written by Pascal Andre.
+D'Arcy J. M. Cain renamed it to PyGreSQL starting with version 2.0
+and serves as the "BDFL" of PyGreSQL.
+Christoph Zwerschke volunteered as another maintainer and has been the main 
+contributor since version 3.7 of PyGreSQL.
+
+The following Python versions are supported:
+
+* PyGreSQL 4.x and earlier: Python 2 only
+* PyGreSQL 5.x: Python 2 and Python 3
+* PyGreSQL 6.x and newer: Python 3 only
+
+The current version of PyGreSQL supports Python versions 3.7 to 3.13
+and PostgreSQL versions 10 to 17 on the server.
+
+Installation
+------------
+
+The simplest way to install PyGreSQL is to type::
+
+    $ pip install PyGreSQL
+
+For other ways of installing PyGreSQL and requirements,
+see the documentation.
+
+Note that PyGreSQL also requires the libpq shared library to be
+installed and accessible on the client machine.
+
+Documentation
+-------------
+
+The documentation is available at
+`pygresql.github.io/ <http://pygresql.github.io/>`_ and at
+`pygresql.readthedocs.io <https://pygresql.readthedocs.io/>`_,
+where you can also find the documentation for older versions.

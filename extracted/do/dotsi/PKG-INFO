@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: dotsi
+Version: 0.0.3
+Summary: Dotsi: Dot-accessible, update-aware Python dicts (& lists).
+Home-page: https://github.com/polydojo/dotsi
+Author: Polydojo, Inc.
+Author-email: 8079593+sumukhbarve@users.noreply.github.com

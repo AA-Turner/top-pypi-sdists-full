@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: aws-cdk.aws-kinesisfirehose-destinations-alpha
+Version: 2.186.0a0
+Summary: This module is deprecated. All constructs are now available under aws-kinesisfirehose
+Home-page: https://github.com/aws/aws-cdk
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/aws/aws-cdk.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 7 - Inactive
+Classifier: License :: OSI Approved
+Classifier: Framework :: AWS CDK
+Classifier: Framework :: AWS CDK :: 2
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.186.0
+Requires-Dist: aws-cdk.aws-kinesisfirehose-alpha==2.186.0.a0
+Requires-Dist: constructs<11.0.0,>=10.0.0
+Requires-Dist: jsii<2.0.0,>=1.109.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+# Amazon Kinesis Data Firehose Destinations Library
+
+<!--BEGIN STABILITY BANNER-->---
+
+
+![Deprecated](https://img.shields.io/badge/deprecated-critical.svg?style=for-the-badge)
+
+> This API may emit warnings. Backward compatibility is not guaranteed.
+
+---
+<!--END STABILITY BANNER-->
+
+All constructs moved to aws-cdk-lib/aws-kinesisfirehose.
+
+This library provides constructs for adding destinations to a Amazon Kinesis Data Firehose
+delivery stream. Destinations can be added by specifying the `destinations` prop when
+defining a delivery stream.
+
+See [Amazon Kinesis Data Firehose module README](https://docs.aws.amazon.com/cdk/api/latest/docs/aws-kinesisfirehose-readme.html) for usage examples.
+
+```python
+import aws_cdk.aws_kinesisfirehose_destinations_alpha as destinations
+```

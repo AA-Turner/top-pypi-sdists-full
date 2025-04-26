@@ -1,0 +1,8 @@
+[build-system]
+
+# See https://github.com/scipy/oldest-supported-numpy deprecation notice
+requires = [
+    "setuptools",
+    "wheel",
+    "numpy>=1.24",
+]

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    {name = "frostming", email = "mianghong@gmail.com"},
+]
+dynamic = ["version"]
+requires-python = ">=3.5"
+license = "MIT"
+dependencies = ["flask"]
+description = ""
+name = "demo-package"
+readme = "README.md"
+
+[project.optional-dependencies]
+
+[tool.pdm]
+version = {source = "file", path = "my_package/__init__.py" }
+
+[tool.pdm.build]
+source-includes = ["my_package/**/*.json"]
+
+[[tool.pdm.source]]
+url = "https://test.pypi.org/simple"
+verify_ssl = true
+name = "testpypi"

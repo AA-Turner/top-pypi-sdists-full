@@ -1,0 +1,110 @@
+Metadata-Version: 2.4
+Name: mkdocs-panzoom-plugin
+Version: 0.1.9
+Summary: MkDocs Plugin to enable pan & zoom on images and mermaid diagrams
+Home-page: https://github.com/PLAYG0N/mkdocs-panzoom.git
+Author: PLAYG0N
+Author-email: playg0nofficial@gmail.com
+License: MIT
+Keywords: mkdocs zoom pan plugin mermaid images
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mkdocs>=1.0.4
+Requires-Dist: beautifulsoup4>=4.9.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Panzoom for MkDocs
+
+This plugin makes use of the [panzoom](https://github.com/anvaka/panzoom) ([LICENCE](./mkdocs_panzoom_plugin/panzoom/LICENCE)) library by [Andrei Kashcha](https://github.com/anvaka)
+
+> [Live Demo](https://playg0n.github.io/mkdocs-panzoom/)
+
+## Setup
+
+`pip install mkdocs-panzoom-plugin`
+
+Add it to your `mkdocs.yml`:
+
+```yml
+plugins:
+  - search
+  - panzoom
+
+```
+
+> [!WARNING]
+>Make sure to define the `site_url` otherwise it won't work!
+>
+>**Example**:
+>
+>```yaml
+>site_url: https://playg0n.github.io/mkdocs-panzoom/
+>```
+
+## Usage
+
+Examples and usage are available in the [docs](https://playg0n.github.io/mkdocs-panzoom/).
+
+## Config
+
+### Selectors
+
+Mermaid and D2 are included by default, but you can add any arbitrary selector or exclude the default ones.
+To enable images add the `img` tag like below.
+
+```yaml
+plugins:
+  - panzoom:
+      include_selectors:
+        - .myClass # class in html
+        - "#myId" # id in html
+        - "img" # tag in html
+      exclude_selectors:
+        - ".mermaid"
+        - ".d2"
+```
+
+### Exclude Pages
+
+```yml
+plugins:
+  - panzoom:
+      exclude:
+        - Path/to/page.md
+```
+
+### Enable Fullscreen
+
+> [!WARNING]
+>This is still in development!
+
+```yml
+plugins:
+  - panzoom:
+      full_screen: True # default False
+```
+
+## Credits
+
+The structure and some parts are from the [enumerate-headings-plugin](https://github.com/timvink/mkdocs-enumerate-headings-plugin) ([LICENCE](./licences/enumerate-headings-plugin))

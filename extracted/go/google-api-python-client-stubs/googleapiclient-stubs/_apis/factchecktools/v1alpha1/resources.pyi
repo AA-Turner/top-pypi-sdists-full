@@ -1,0 +1,166 @@
+import collections.abc
+import typing
+
+import httplib2
+import typing_extensions
+
+import googleapiclient.discovery
+import googleapiclient.http
+
+from .schemas import *
+
+_list = list
+
+@typing.type_check_only
+class FactCheckToolsResource(googleapiclient.discovery.Resource):
+    @typing.type_check_only
+    class ClaimsResource(googleapiclient.discovery.Resource):
+        def imageSearch(
+            self,
+            *,
+            imageUri: str = ...,
+            languageCode: str = ...,
+            offset: int = ...,
+            pageSize: int = ...,
+            pageToken: str = ...,
+            **kwargs: typing.Any,
+        ) -> GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponseHttpRequest: ...
+        def imageSearch_next(
+            self,
+            previous_request: GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponseHttpRequest,
+            previous_response: GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponse,
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponseHttpRequest
+            | None
+        ): ...
+        def search(
+            self,
+            *,
+            languageCode: str = ...,
+            maxAgeDays: int = ...,
+            offset: int = ...,
+            pageSize: int = ...,
+            pageToken: str = ...,
+            query: str = ...,
+            reviewPublisherSiteFilter: str = ...,
+            **kwargs: typing.Any,
+        ) -> GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponseHttpRequest: ...
+        def search_next(
+            self,
+            previous_request: GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponseHttpRequest,
+            previous_response: GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponse,
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponseHttpRequest
+            | None
+        ): ...
+
+    @typing.type_check_only
+    class PagesResource(googleapiclient.discovery.Resource):
+        def create(
+            self,
+            *,
+            body: GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPage = ...,
+            **kwargs: typing.Any,
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPageHttpRequest
+        ): ...
+        def delete(
+            self, *, name: str, **kwargs: typing.Any
+        ) -> GoogleProtobufEmptyHttpRequest: ...
+        def get(
+            self, *, name: str, **kwargs: typing.Any
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPageHttpRequest
+        ): ...
+        def list(
+            self,
+            *,
+            offset: int = ...,
+            organization: str = ...,
+            pageSize: int = ...,
+            pageToken: str = ...,
+            url: str = ...,
+            **kwargs: typing.Any,
+        ) -> GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponseHttpRequest: ...
+        def list_next(
+            self,
+            previous_request: GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponseHttpRequest,
+            previous_response: GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponse,
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponseHttpRequest
+            | None
+        ): ...
+        def update(
+            self,
+            *,
+            name: str,
+            body: GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPage = ...,
+            **kwargs: typing.Any,
+        ) -> (
+            GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPageHttpRequest
+        ): ...
+
+    def new_batch_http_request(
+        self,
+        callback: collections.abc.Callable[
+            [
+                str,
+                googleapiclient.http.HttpRequest,
+                googleapiclient.errors.HttpError | None,
+            ],
+            typing.Any,
+        ]
+        | None = None,
+    ) -> googleapiclient.http.BatchHttpRequest: ...
+    def claims(self) -> ClaimsResource: ...
+    def pages(self) -> PagesResource: ...
+
+@typing.type_check_only
+class GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPageHttpRequest(
+    googleapiclient.http.HttpRequest
+):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> GoogleFactcheckingFactchecktoolsV1alpha1ClaimReviewMarkupPage: ...
+
+@typing.type_check_only
+class GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponseHttpRequest(
+    googleapiclient.http.HttpRequest
+):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> (
+        GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimImageSearchResponse
+    ): ...
+
+@typing.type_check_only
+class GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponseHttpRequest(
+    googleapiclient.http.HttpRequest
+):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> GoogleFactcheckingFactchecktoolsV1alpha1FactCheckedClaimSearchResponse: ...
+
+@typing.type_check_only
+class GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponseHttpRequest(
+    googleapiclient.http.HttpRequest
+):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> GoogleFactcheckingFactchecktoolsV1alpha1ListClaimReviewMarkupPagesResponse: ...
+
+@typing.type_check_only
+class GoogleProtobufEmptyHttpRequest(googleapiclient.http.HttpRequest):
+    def execute(
+        self,
+        http: httplib2.Http | googleapiclient.http.HttpMock | None = None,
+        num_retries: int = 0,
+    ) -> GoogleProtobufEmpty: ...

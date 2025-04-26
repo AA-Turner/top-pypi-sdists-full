@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: apispec-oneofschema
+Version: 3.0.1
+Summary: Plugin for apispec providing support for Marshmallow-OneOfSchema schemas
+Home-page: https://github.com/timakro/apispec-oneofschema
+Author: Tim Schumacher
+License: MIT
+License-File: LICENSE.txt
+Requires-Dist: apispec>=3.0.0
+Requires-Dist: marshmallow<4.0.0
+Requires-Dist: marshmallow-oneofschema

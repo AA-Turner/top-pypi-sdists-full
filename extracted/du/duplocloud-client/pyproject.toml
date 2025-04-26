@@ -1,0 +1,163 @@
+[project]
+name = "duplocloud-client"
+description = "Command line Client for interacting with Duplocloud portals."
+readme = "README.md"
+dynamic = ["version"]
+requires-python = ">=3.10.0"
+keywords = [
+  "duplocloud",
+  "duplo", 
+  "duploctl", 
+  "duplo-client"
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+authors = [
+{ name = "Kelly", email = "kelly@duplocloud.net" }
+]
+maintainers = [
+{ name = "Kelly", email = "kelly@duplocloud.net" }
+]
+dependencies = [
+  "requests>=2.22.0",
+  "cachetools>=5.2.0",
+  "jmespath>=1.0.1",
+  "pyyaml>=6.0.1",
+  "jsonpatch>=1.33",
+  "pyjwt>=2.8.0",
+  "jsonpointer>=2.4"
+]
+[project.optional-dependencies]
+build = [
+  "invoke",
+  "setuptools_scm",
+  "build",
+  "wheel",
+  "twine",
+  "pyinstaller",
+  "toml",
+  "semver",
+  "GitPython",
+  "Jinja2"
+]
+test = [
+  "pytest",
+  "ruff",
+  "pip-audit",
+  "pytest-black",
+  "pytest-isort",
+  "pytest-cov",
+  "pytest-dependency",
+  "pytest-order",
+  "pytest-mock"
+]
+aws = [
+  "boto3>=1.34.83"
+]
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocstrings[python]"
+]
+[build-system]
+requires = [
+  "setuptools>=42",
+  "setuptools_scm[toml]>=6.2",
+  "wheel",
+  "build"
+]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://duplocloud.com/"
+Documentation = "https://cli.duplocloud.com/"
+Repository = "https://github.com/duplocloud/duploctl"
+Issues = "https://github.com/duplocloud/duploctl/issues"
+Changelog = "https://cli.duplocloud.com/Changelog"
+LatestRelease = "https://github.com/duplocloud/duploctl/releases"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "src --verbose --cov=src --cov-report term-missing"
+testpaths = [
+  "src/tests"
+]
+pythonpath = [
+  "src"
+]
+markers = [
+  "integration: mark a test as an integration test",
+  "unit: mark a test as a unit test",
+
+  "aws: mark a test as an aws test",
+  "gcp: mark a test as a gcp test",
+  "azure: mark a test as an azure test",
+
+  "k8s: mark a test as a k8s test",
+  "ecs: mark a test as an ecs test",
+  "native: mark a test as a native test"
+]
+
+[tool.coverage.run]
+omit = [
+  "*_test.py",
+  "foo.py",
+  "src/tests/*",
+  "**/__*__.py"
+]
+
+[tool.ruff]
+exclude = [
+  "**/*_test.py", 
+  "**/test_*.py",
+  "src/tests/*"
+]
+
+[tool.setuptools_scm]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests"]
+
+[project.scripts]
+duploctl = "duplocloud.cli:main"
+
+[project.entry-points."duplocloud.net"]
+infrastructure = "duplo_resource.infrastructure:DuploInfrastructure"
+plan = "duplo_resource.plan:DuploPlan"
+tenant = "duplo_resource.tenant:DuploTenant"
+version = "duplo_resource.version:DuploVersion"
+service = "duplo_resource.service:DuploService"
+ecs = "duplo_resource.ecs_service:DuploEcsService"
+cronjob = "duplo_resource.cronjob:DuploCronJob"
+job = "duplo_resource.job:DuploJob"
+pod = "duplo_resource.pod:DuploPod"
+ssm_param = "duplo_resource.ssm_param:DuploParam"
+aws_secret = "duplo_resource.aws_secret:DuploAwsSecret"
+user = "duplo_resource.user:DuploUser"
+lambda = "duplo_resource.lambda:DuploLambda"
+jit = "duplo_resource.jit:DuploJit"
+system = "duplo_resource.system:DuploSystem"
+asg = "duplo_resource.asg:DuploAsg"
+secret = "duplo_resource.secret:DuploSecret"
+configmap = "duplo_resource.configmap:DuploConfigMap"
+hosts = "duplo_resource.hosts:DuploHosts"
+ingress = "duplo_resource.ingress:DuploIngress"
+rds = "duplo_resource.rds:DuploRDS"
+s3 = "duplo_resource.s3:DuploS3"
+storageclass = "duplo_resource.storageclass:DuploStorageClass"
+pvc = "duplo_resource.pvc:PersistentVolumeClaim"
+cloudfront = "duplo_resource.cloudfront:CloudFront"
+
+[project.entry-points."formats.duplocloud.net"]
+json = "duplocloud.formats:tojson"
+yaml = "duplocloud.formats:toyaml"
+string = "duplocloud.formats:tostring"
+env = "duplocloud.formats:toenv"
+csv = "duplocloud.formats:tocsv"

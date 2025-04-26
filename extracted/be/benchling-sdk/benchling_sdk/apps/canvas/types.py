@@ -1,0 +1,125 @@
+from typing import TypeVar, Union
+
+from benchling_api_client.v2.extensions import UnknownType
+
+from benchling_sdk.models import (
+    ButtonUiBlock,
+    ButtonUiBlockCreate,
+    ButtonUiBlockUpdate,
+    ChipUiBlock,
+    ChipUiBlockCreate,
+    ChipUiBlockUpdate,
+    DropdownMultiValueUiBlock,
+    DropdownMultiValueUiBlockCreate,
+    DropdownMultiValueUiBlockUpdate,
+    DropdownUiBlock,
+    DropdownUiBlockCreate,
+    DropdownUiBlockUpdate,
+    MarkdownUiBlock,
+    MarkdownUiBlockCreate,
+    MarkdownUiBlockUpdate,
+    SearchInputMultiValueUiBlock,
+    SearchInputMultiValueUiBlockCreate,
+    SearchInputMultiValueUiBlockUpdate,
+    SearchInputUiBlock,
+    SearchInputUiBlockCreate,
+    SearchInputUiBlockUpdate,
+    SectionUiBlock,
+    SectionUiBlockCreate,
+    SectionUiBlockUpdate,
+    SelectorInputMultiValueUiBlock,
+    SelectorInputMultiValueUiBlockCreate,
+    SelectorInputMultiValueUiBlockUpdate,
+    SelectorInputUiBlock,
+    SelectorInputUiBlockCreate,
+    SelectorInputUiBlockUpdate,
+    TableUiBlock,
+    TableUiBlockCreate,
+    TableUiBlockUpdate,
+    TextInputUiBlock,
+    TextInputUiBlockCreate,
+    TextInputUiBlockUpdate,
+)
+
+UiBlock = Union[
+    ButtonUiBlock,
+    ChipUiBlock,
+    DropdownMultiValueUiBlock,
+    DropdownUiBlock,
+    MarkdownUiBlock,
+    SearchInputMultiValueUiBlock,
+    SearchInputUiBlock,
+    SectionUiBlock,
+    SelectorInputMultiValueUiBlock,
+    SelectorInputUiBlock,
+    TableUiBlock,
+    TextInputUiBlock,
+    UnknownType,
+]
+
+UiBlockType = TypeVar(
+    "UiBlockType",
+    bound=UiBlock,
+)
+
+_UiBlockCreate = Union[
+    ButtonUiBlockCreate,
+    ChipUiBlockCreate,
+    DropdownMultiValueUiBlockCreate,
+    DropdownUiBlockCreate,
+    MarkdownUiBlockCreate,
+    SearchInputMultiValueUiBlockCreate,
+    SearchInputUiBlockCreate,
+    SectionUiBlockCreate,
+    SelectorInputMultiValueUiBlockCreate,
+    SelectorInputUiBlockCreate,
+    TableUiBlockCreate,
+    TextInputUiBlockCreate,
+    UnknownType,
+]
+
+_UiBlockUpdate = Union[
+    ButtonUiBlockUpdate,
+    ChipUiBlockUpdate,
+    DropdownMultiValueUiBlockUpdate,
+    DropdownUiBlockUpdate,
+    MarkdownUiBlockUpdate,
+    SearchInputMultiValueUiBlockUpdate,
+    SearchInputUiBlockUpdate,
+    SectionUiBlockUpdate,
+    SelectorInputMultiValueUiBlockUpdate,
+    SelectorInputUiBlockUpdate,
+    TableUiBlockUpdate,
+    TextInputUiBlockUpdate,
+    UnknownType,
+]
+
+_UI_BLOCK_MAPPINGS_CREATE = {
+    ButtonUiBlock: ButtonUiBlockCreate,
+    ChipUiBlock: ChipUiBlockCreate,
+    DropdownMultiValueUiBlock: DropdownMultiValueUiBlockCreate,
+    DropdownUiBlock: DropdownUiBlockCreate,
+    MarkdownUiBlock: MarkdownUiBlockCreate,
+    SearchInputMultiValueUiBlock: SearchInputMultiValueUiBlockCreate,
+    SearchInputUiBlock: SearchInputUiBlockCreate,
+    SectionUiBlock: SectionUiBlockCreate,
+    SelectorInputMultiValueUiBlock: SelectorInputMultiValueUiBlockCreate,
+    SelectorInputUiBlock: SelectorInputUiBlockCreate,
+    TableUiBlock: TableUiBlockCreate,
+    TextInputUiBlock: TextInputUiBlockCreate,
+}
+
+_UI_BLOCK_MAPPINGS_UPDATE = {
+    ButtonUiBlock: ButtonUiBlockUpdate,
+    ChipUiBlock: ChipUiBlockUpdate,
+    DropdownMultiValueUiBlock: DropdownMultiValueUiBlockUpdate,
+    DropdownUiBlock: DropdownUiBlockUpdate,
+    MarkdownUiBlock: MarkdownUiBlockUpdate,
+    SearchInputMultiValueUiBlock: SearchInputMultiValueUiBlockUpdate,
+    SearchInputUiBlock: SearchInputUiBlockUpdate,
+    SectionUiBlock: SectionUiBlockUpdate,
+    SelectorInputMultiValueUiBlock: SelectorInputMultiValueUiBlockUpdate,
+    SelectorInputUiBlock: SelectorInputUiBlockUpdate,
+    TableUiBlock: TableUiBlockUpdate,
+    TextInputUiBlock: TextInputUiBlockUpdate,
+}

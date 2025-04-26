@@ -1,0 +1,45 @@
+[project]
+name = "python-calamine"
+requires-python = ">=3.8"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = ["packaging>=23.1"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+  "maturin~=1.0",
+  "pre-commit~=3.0",
+  "pytest~=8.0",
+  "pandas[excel]~=2.0",
+  "numpy~=1.0",
+]
+
+[tool.isort]
+include_trailing_comma = true
+line_length = 88
+multi_line_output = 3
+profile = "black"
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = false
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "python_calamine._python_calamine"
+python-source = "python"

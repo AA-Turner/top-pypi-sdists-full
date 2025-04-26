@@ -1,0 +1,98 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+
+[project]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering"
+]
+dependencies = [
+  "attrs",
+  "multiurl >= 0.3.2",
+  "requests",
+  "typing-extensions"
+]
+description = "ESEE Data Stores API Python Client"
+dynamic = ["version"]
+license = {file = "LICENSE"}
+name = "datapi"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+legacy = ["cdsapi >= 0.7.5"]
+
+[project.urls]
+documentation = "https://ecmwf-projects.github.io/datapi/"
+source = "https://github.com/ecmwf-projects/datapi"
+tracker = "https://github.com/ecmwf-projects/datapi/issues"
+
+[tool.coverage.run]
+branch = true
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = ["cdsapi.*", "multiurl.*"]
+
+[tool.pytest.ini_options]
+markers = ["extra: additional tests skipped by CI"]
+
+[tool.ruff]
+# Same as Black.
+indent-width = 4
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+ignore = [
+  # pydocstyle: Missing Docstrings
+  "D1"
+]
+select = [
+  # pyflakes
+  "F",
+  # pycodestyle
+  "E",
+  "W",
+  # isort
+  "I",
+  # pydocstyle
+  "D",
+  # flake8-future-annotations
+  "FA"
+]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 110
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.setuptools]
+packages = ["datapi"]
+
+[tool.setuptools.package-data]
+"datapi" = ["py.typed"]
+
+[tool.setuptools_scm]
+fallback_version = "999"
+write_to = "datapi/version.py"
+write_to_template = '''
+# Do not change! Do not track in version control!
+__version__ = "{version}"
+'''

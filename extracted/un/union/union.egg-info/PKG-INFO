@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: union
+Version: 0.1.180
+Summary: Adds Union specific functionality to Flytekit
+Author-email: unionai <info@union.ai>
+License: Source code in this repository is licensed under the Business Source
+        License 1.1 (BSL) and the Apache License 2.0 (APL). A copy of each
+        license can be found in the licenses directory. Source code in a
+        given file is licensed under the BSL and the copyright belongs to
+        Union Systems, Inc. unless otherwise noted at the beginning of the
+        file.
+        
+Project-URL: Homepage, https://www.union.ai/
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: licenses/APL.txt
+License-File: licenses/BSL.txt
+License-File: LICENSE
+Requires-Dist: googleapis-common-protos>=1.57
+Requires-Dist: grpcio!=1.68.0,!=1.68.1
+Requires-Dist: grpcio-status!=1.68.0,!=1.68.1
+Requires-Dist: keyring
+Requires-Dist: importlib-metadata
+Requires-Dist: fsspec>=2023.3.0
+Requires-Dist: aiofiles>=23.2.1
+Requires-Dist: click
+Requires-Dist: rich
+Requires-Dist: rich_click
+Requires-Dist: flytekit>=v1.15.4
+Requires-Dist: flyteidl>=v1.15.1
+Requires-Dist: sentry-sdk>=2.0.0
+Requires-Dist: mashumaro
+Requires-Dist: unionai-actor>=0.1.9; platform_system == "Linux" and platform_machine == "x86_64"
+Requires-Dist: pyyaml
+Requires-Dist: typing_extensions
+Requires-Dist: protobuf<5.28.0; platform_system == "Windows"
+Provides-Extra: byoc
+Requires-Dist: unionmeta-byoc; extra == "byoc"
+Provides-Extra: vllm
+Requires-Dist: vllm>=0.8.2; extra == "vllm"
+Requires-Dist: torch==2.6; extra == "vllm"
+Requires-Dist: aiofiles==24.1.0; extra == "vllm"
+Requires-Dist: obstore==0.3.0; extra == "vllm"
+Requires-Dist: pydantic==2.11.2; extra == "vllm"
+Requires-Dist: union-runtime==0.1.14; extra == "vllm"
+Provides-Extra: sglang
+Requires-Dist: sglang[all]>=0.4.5; extra == "sglang"
+Requires-Dist: datamodel-code-generator==0.28.5; extra == "sglang"
+Requires-Dist: torch==2.5.1; extra == "sglang"
+Requires-Dist: aiofiles==24.1.0; extra == "sglang"
+Requires-Dist: obstore==0.3.0; extra == "sglang"
+Requires-Dist: pydantic==2.11.2; extra == "sglang"
+Requires-Dist: union-runtime==0.1.14; extra == "sglang"
+Dynamic: license-file
+
+# UnionAI
+
+The SDK for [Union.ai](https://www.union.ai/).
+
+## Installation
+
+Install `union`:
+
+```bash
+pip install union
+```

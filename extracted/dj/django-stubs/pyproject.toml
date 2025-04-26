@@ -1,0 +1,59 @@
+[tool.codespell]
+ignore-words-list = "aadd,acount,nam,asend"
+
+[tool.ruff]
+# Adds to default excludes: https://ruff.rs/docs/settings/#exclude
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# See Rules in Ruff documentation: https://beta.ruff.rs/docs/rules/
+select = [
+    "B",        # bugbear
+    "E",        # pycodestyle
+    "F",        # pyflakes
+    "INP",      # flake8-tidy-imports
+    "W",        # pycodestyle
+    "I",        # isort
+    "UP",       # pyupgrade
+    "TID251",   # Disallowed imports (flake8-tidy-imports.banned-api)
+    "PYI",      # flake8-pyi
+    "RUF100",   # Equivalent to flake8-noqa NQA103
+    "PGH004",   # Equivalent to flake8-noqa NQA104
+    "PGH003",   # Disallowed blanket `type: ignore` annotations.
+]
+ignore = [
+    "PYI021",
+    "PYI024",
+    "PYI041",
+    "PYI043",
+    # no-return-argument-annotation-in-stub
+    # Prefers typing.Never to typing.NoReturn, but Never only available on
+    # Python 3.11+
+    "PYI050",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyi" = [
+    "B",
+    "E501",
+    "E741",
+    "E743",
+    "F403", # Use wildcard import
+    "F405",
+    "F822",
+    "F821",
+]
+"tests/*.py" = ["INP001", "PGH003"]
+"ext/tests/*.py" = ["INP001"]
+"setup.py" = ["INP001"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"_typeshed.Self".msg = "Use typing_extensions.Self (PEP 673) instead."
+
+[tool.ruff.lint.isort]
+known-first-party = ["django_stubs_ext", "mypy_django_plugin"]
+split-on-trailing-comma = false
+
+[build-system]
+requires = ["setuptools<79.0.0", "wheel"]

@@ -1,0 +1,246 @@
+Metadata-Version: 2.4
+Name: dycw-utilities
+Version: 0.110.3
+Author-email: Derek Wan <d.wan@icloud.com>
+License-File: LICENSE
+Requires-Python: >=3.12
+Requires-Dist: typing-extensions<4.14,>=4.13.1
+Provides-Extra: test
+Requires-Dist: hypothesis<6.132,>=6.131.9; extra == 'test'
+Requires-Dist: pytest-asyncio<0.27,>=0.26.0; extra == 'test'
+Requires-Dist: pytest-cov<6.2,>=6.1.1; extra == 'test'
+Requires-Dist: pytest-instafail<0.6,>=0.5.0; extra == 'test'
+Requires-Dist: pytest-lazy-fixtures<1.2,>=1.1.2; extra == 'test'
+Requires-Dist: pytest-only<2.2,>=2.1.2; extra == 'test'
+Requires-Dist: pytest-randomly<3.17,>=3.16.0; extra == 'test'
+Requires-Dist: pytest-regressions<2.8,>=2.7.0; extra == 'test'
+Requires-Dist: pytest-rerunfailures<16,>=15.0; extra == 'test'
+Requires-Dist: pytest-rng<1.1,>=1.0.0; extra == 'test'
+Requires-Dist: pytest-timeout<2.4,>=2.3.1; extra == 'test'
+Requires-Dist: pytest-xdist<3.7,>=3.6.1; extra == 'test'
+Requires-Dist: pytest<8.4,>=8.3.5; extra == 'test'
+Requires-Dist: setuptools>=78.0.2; extra == 'test'
+Provides-Extra: zzz-test-altair
+Requires-Dist: altair<5.6,>=5.5.0; extra == 'zzz-test-altair'
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-altair'
+Requires-Dist: img2pdf<0.7,>=0.6.0; extra == 'zzz-test-altair'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-altair'
+Requires-Dist: vl-convert-python<1.8,>=1.7.0; extra == 'zzz-test-altair'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-altair'
+Provides-Extra: zzz-test-astor
+Requires-Dist: astor<0.9,>=0.8.1; extra == 'zzz-test-astor'
+Provides-Extra: zzz-test-asyncio
+Provides-Extra: zzz-test-atomicwrites
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-atomicwrites'
+Provides-Extra: zzz-test-atools
+Requires-Dist: atools<0.15,>=0.14.2; extra == 'zzz-test-atools'
+Provides-Extra: zzz-test-cachetools
+Requires-Dist: cachetools<5.6,>=5.5.2; extra == 'zzz-test-cachetools'
+Provides-Extra: zzz-test-click
+Requires-Dist: click<8.2,>=8.1.8; extra == 'zzz-test-click'
+Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-click'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-click'
+Provides-Extra: zzz-test-contextlib
+Provides-Extra: zzz-test-contextvars
+Provides-Extra: zzz-test-cryptography
+Requires-Dist: cryptography<44.1,>=44.0.2; extra == 'zzz-test-cryptography'
+Provides-Extra: zzz-test-cvxpy
+Requires-Dist: cvxpy<1.7,>=1.6.5; extra == 'zzz-test-cvxpy'
+Provides-Extra: zzz-test-dataclasses
+Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-dataclasses'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-dataclasses'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-dataclasses'
+Provides-Extra: zzz-test-datetime
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-datetime'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-datetime'
+Provides-Extra: zzz-test-enum
+Provides-Extra: zzz-test-errors
+Provides-Extra: zzz-test-eventkit
+Requires-Dist: eventkit<1.1,>=1.0.3; extra == 'zzz-test-eventkit'
+Provides-Extra: zzz-test-fastapi
+Requires-Dist: fastapi<0.116,>=0.115.11; extra == 'zzz-test-fastapi'
+Requires-Dist: httpx<0.29,>=0.28.1; extra == 'zzz-test-fastapi'
+Requires-Dist: uvicorn<0.35,>=0.34.1; extra == 'zzz-test-fastapi'
+Provides-Extra: zzz-test-fpdf2
+Requires-Dist: fpdf2<2.9,>=2.8.3; extra == 'zzz-test-fpdf2'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-fpdf2'
+Provides-Extra: zzz-test-functions
+Provides-Extra: zzz-test-functools
+Provides-Extra: zzz-test-getpass
+Provides-Extra: zzz-test-git
+Provides-Extra: zzz-test-hashlib
+Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-hashlib'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-hashlib'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-hashlib'
+Provides-Extra: zzz-test-http
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-http'
+Requires-Dist: orjson<3.11,>=3.10.16; extra == 'zzz-test-http'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-http'
+Provides-Extra: zzz-test-hypothesis
+Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-hypothesis'
+Requires-Dist: asyncpg<0.31,>=0.30.0; extra == 'zzz-test-hypothesis'
+Requires-Dist: greenlet<3.3,>=3.2.0; extra == 'zzz-test-hypothesis'
+Requires-Dist: hypothesis<6.132,>=6.131.9; extra == 'zzz-test-hypothesis'
+Requires-Dist: luigi<3.7,>=3.6.0; extra == 'zzz-test-hypothesis'
+Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-hypothesis'
+Requires-Dist: pathvalidate<3.3,>=3.2.3; extra == 'zzz-test-hypothesis'
+Requires-Dist: redis<5.3,>=5.2.1; extra == 'zzz-test-hypothesis'
+Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-hypothesis'
+Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-hypothesis'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-hypothesis'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-hypothesis'
+Provides-Extra: zzz-test-ipython
+Requires-Dist: ipython<9.1,>=9.0.1; extra == 'zzz-test-ipython'
+Provides-Extra: zzz-test-iterables
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-iterables'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-iterables'
+Provides-Extra: zzz-test-jupyter
+Requires-Dist: jupyterlab<4.3,>=4.2.0; extra == 'zzz-test-jupyter'
+Requires-Dist: pandas<2.3,>=2.2.2; extra == 'zzz-test-jupyter'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-jupyter'
+Provides-Extra: zzz-test-logging
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-logging'
+Requires-Dist: coloredlogs<15.1,>=15.0.1; extra == 'zzz-test-logging'
+Requires-Dist: concurrent-log-handler<0.10,>=0.9.25; extra == 'zzz-test-logging'
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-logging'
+Requires-Dist: tomlkit<0.14,>=0.13.2; extra == 'zzz-test-logging'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-logging'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-logging'
+Provides-Extra: zzz-test-loguru
+Requires-Dist: loguru<0.8,>=0.7.3; extra == 'zzz-test-loguru'
+Provides-Extra: zzz-test-luigi
+Requires-Dist: luigi<3.7,>=3.6.0; extra == 'zzz-test-luigi'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-luigi'
+Provides-Extra: zzz-test-math
+Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-math'
+Provides-Extra: zzz-test-memory-profiler
+Requires-Dist: memory-profiler<0.62,>=0.61.0; extra == 'zzz-test-memory-profiler'
+Provides-Extra: zzz-test-modules
+Provides-Extra: zzz-test-more-itertools
+Requires-Dist: more-itertools<10.8,>=10.7.0; extra == 'zzz-test-more-itertools'
+Provides-Extra: zzz-test-numpy
+Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-numpy'
+Provides-Extra: zzz-test-operator
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-operator'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-operator'
+Provides-Extra: zzz-test-optuna
+Requires-Dist: optuna<4.4,>=4.3.0; extra == 'zzz-test-optuna'
+Provides-Extra: zzz-test-orjson
+Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-orjson'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-orjson'
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-orjson'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-orjson'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-orjson'
+Provides-Extra: zzz-test-os
+Provides-Extra: zzz-test-pathlib
+Provides-Extra: zzz-test-pickle
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pickle'
+Provides-Extra: zzz-test-platform
+Provides-Extra: zzz-test-polars
+Requires-Dist: dacite<1.10,>=1.9.2; extra == 'zzz-test-polars'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-polars'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-polars'
+Provides-Extra: zzz-test-pqdm
+Requires-Dist: pqdm<0.3,>=0.2.0; extra == 'zzz-test-pqdm'
+Provides-Extra: zzz-test-pydantic
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pydantic'
+Requires-Dist: pydantic<2.12,>=2.11.2; extra == 'zzz-test-pydantic'
+Provides-Extra: zzz-test-pyinstrument
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pyinstrument'
+Requires-Dist: pyinstrument<5.1,>=5.0.0; extra == 'zzz-test-pyinstrument'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-pyinstrument'
+Provides-Extra: zzz-test-pyrsistent
+Requires-Dist: pyrsistent<0.21,>=0.20.0; extra == 'zzz-test-pyrsistent'
+Provides-Extra: zzz-test-pytest
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pytest'
+Requires-Dist: orjson<3.11,>=3.10.16; extra == 'zzz-test-pytest'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-pytest'
+Provides-Extra: zzz-test-pytest-regressions
+Requires-Dist: pytest-regressions<2.8,>=2.7.0; extra == 'zzz-test-pytest-regressions'
+Provides-Extra: zzz-test-python-dotenv
+Requires-Dist: python-dotenv<1.2,>=1.1.0; extra == 'zzz-test-python-dotenv'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-python-dotenv'
+Provides-Extra: zzz-test-random
+Provides-Extra: zzz-test-re
+Provides-Extra: zzz-test-redis
+Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-redis'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-redis'
+Requires-Dist: redis<5.3,>=5.2.1; extra == 'zzz-test-redis'
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-redis'
+Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-redis'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-redis'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-redis'
+Provides-Extra: zzz-test-rich
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-rich'
+Provides-Extra: zzz-test-scipy
+Requires-Dist: scipy<1.16,>=1.15.2; extra == 'zzz-test-scipy'
+Provides-Extra: zzz-test-sentinel
+Provides-Extra: zzz-test-shelve
+Provides-Extra: zzz-test-slack-sdk
+Requires-Dist: aiohttp<3.12,>=3.11.16; extra == 'zzz-test-slack-sdk'
+Requires-Dist: slack-sdk<3.36,>=3.35.0; extra == 'zzz-test-slack-sdk'
+Provides-Extra: zzz-test-socket
+Provides-Extra: zzz-test-sqlalchemy
+Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-sqlalchemy'
+Requires-Dist: asyncpg<0.31,>=0.30.0; extra == 'zzz-test-sqlalchemy'
+Requires-Dist: greenlet<3.3,>=3.2.0; extra == 'zzz-test-sqlalchemy'
+Requires-Dist: nest-asyncio<1.7,>=1.6.0; extra == 'zzz-test-sqlalchemy'
+Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-sqlalchemy'
+Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-sqlalchemy'
+Provides-Extra: zzz-test-sqlalchemy-polars
+Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: asyncpg<0.31,>=0.30.0; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: greenlet<3.3,>=3.2.0; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: nest-asyncio<1.7,>=1.6.0; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-sqlalchemy-polars'
+Provides-Extra: zzz-test-streamlit
+Requires-Dist: streamlit<1.45,>=1.44.1; extra == 'zzz-test-streamlit'
+Provides-Extra: zzz-test-sys
+Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-sys'
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-sys'
+Requires-Dist: tomlkit<0.14,>=0.13.2; extra == 'zzz-test-sys'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-sys'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-sys'
+Provides-Extra: zzz-test-tempfile
+Provides-Extra: zzz-test-tenacity
+Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-tenacity'
+Provides-Extra: zzz-test-text
+Provides-Extra: zzz-test-threading
+Provides-Extra: zzz-test-timer
+Provides-Extra: zzz-test-traceback
+Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-traceback'
+Requires-Dist: tomlkit<0.14,>=0.13.2; extra == 'zzz-test-traceback'
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-traceback'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-traceback'
+Provides-Extra: zzz-test-types
+Provides-Extra: zzz-test-typing
+Requires-Dist: polars-lts-cpu<1.28,>=1.27.1; extra == 'zzz-test-typing'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-typing'
+Provides-Extra: zzz-test-tzlocal
+Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-tzlocal'
+Provides-Extra: zzz-test-uuid
+Provides-Extra: zzz-test-version
+Requires-Dist: tomlkit<0.14,>=0.13.2; extra == 'zzz-test-version'
+Provides-Extra: zzz-test-warnings
+Provides-Extra: zzz-test-whenever
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-whenever'
+Provides-Extra: zzz-test-zipfile
+Provides-Extra: zzz-test-zoneinfo
+Requires-Dist: tzdata<2025.3,>=2025.2; extra == 'zzz-test-zoneinfo'
+Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-zoneinfo'
+Description-Content-Type: text/markdown
+
+[![PyPI version](https://badge.fury.io/py/dycw-utilities.svg)](https://badge.fury.io/py/dycw-utilities)
+
+# `dycw-utilities`
+
+[All the Python functions I don't want to write twice.](https://github.com/nvim-lua/plenary.nvim)
+
+## Installation
+
+- `pip install dycw-utilities`
+
+or with [extras](https://github.com/dycw/python-utilities/blob/master/pyproject.toml).

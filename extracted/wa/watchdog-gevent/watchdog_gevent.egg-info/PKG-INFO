@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: watchdog_gevent
+Version: 0.2.1
+Summary: A gevent-based observer for watchdog.
+Author: Bogdan Popa
+Author-email: bogdan@defn.io
+License-File: LICENSE
+Requires-Dist: gevent>=1.1
+Requires-Dist: watchdog>=4.0
+Provides-Extra: dev
+Requires-Dist: bumpversion; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: flake8-quotes; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+
+Visit https://github.com/Bogdanp/watchdog_gevent for more information.

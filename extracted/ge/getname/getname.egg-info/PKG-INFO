@@ -1,0 +1,121 @@
+Metadata-Version: 1.1
+Name: getname
+Version: 0.1.1
+Summary: Get popular cat/dog/superhero/supervillain names
+Home-page: http://github.com/lord63/getname
+Author: lord63
+Author-email: lord63.j@gmail.com
+License: MIT
+Description: GetName
+        =======
+        
+        |Latest Version| |Build Status|
+        
+        Get cat/dog/superhero/supervillain names.
+        
+        I just combine `@sindresorhus <https://github.com/sindresorhus>`__'s
+        four staffs into this one.
+        
+        -  `cat-names <https://github.com/sindresorhus/cat-names>`__
+        -  `dog-names <https://github.com/sindresorhus/dog-names>`__
+        -  `superheroes <https://github.com/sindresorhus/superheroes>`__
+        -  `supervillains <https://github.com/sindresorhus/supervillains>`__
+        
+        Install
+        -------
+        
+        .. code:: shell
+        
+            $ pip install getname
+        
+        Usage
+        -----
+        
+        API
+        ~~~
+        
+        ``random(the_type, gender, showall)``
+        
+        -  type: cat/dog/superhero/supervillian.
+        -  gender: female/male, **only** for dog names.
+        -  showall: True/False, show all the names.
+        
+        .. code:: python
+        
+            >>> from getname import random_name
+            >>> random_name('cat')
+            u'Angel'
+            >>> random_name('dog', gender='female')
+            u'Maggie'
+            >>> random_name('superhero', showall=True)
+            [u'3-D Man', u'A-Bomb', u'A.I.M.', ...]
+        
+        CLI
+        ~~~
+        
+        .. code:: shell
+        
+            $ getname dog
+            Angel
+            $ getname dog -f
+            Lady
+            $ getname dog --showall
+            [u'Max', u'Buddy',...]
+        
+        Use ``getname -h`` to get help message about each usage.
+        
+        .. code:: shell
+        
+            Usage: getname [OPTIONS] COMMAND [ARGS]...
+        
+              Get popular cat/dog/superhero/supervillain names.
+        
+            Options:
+              -v, --version  Show the version and exit.
+              -h, --help     Show this message and exit.
+        
+            Commands:
+              cat      Get popular cat names.
+              dog      Get popular dog names.
+              superhero     Get superhero names.
+              supervillain  Get supervillain names.
+        
+        Use ``getname cat/dog/superhero/supervillain -h`` to get help message
+        about the specified type.
+        
+        Tests
+        -----
+        
+        .. code:: shell
+        
+            $ pip install -r dev-requirements.txt
+            $ invoke test
+        
+        Credits
+        -------
+        
+        All the glories should belong to
+        `@sindresorhus <https://github.com/sindresorhus>`__, I just port it to
+        python :)
+        
+        License
+        -------
+        
+        MIT.
+        
+        .. |Latest Version| image:: http://img.shields.io/pypi/v/getname.svg
+           :target: https://pypi.python.org/pypi/getname
+        .. |Build Status| image:: https://travis-ci.org/lord63/getname.svg
+           :target: https://travis-ci.org/lord63/getname
+        
+Keywords: name cat dog superhero supervillain
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4

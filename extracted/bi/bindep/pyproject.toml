@@ -1,0 +1,90 @@
+[build-system]
+requires = ["pbr>=6.1.1"]
+build-backend = "pbr.build"
+
+[project]
+authors = [
+    {email = "service-discuss@lists.opendev.org"},
+    {name = "OpenDev Contributors"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Archiving :: Packaging",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "distro>=1.7",
+    "packaging",
+    "Parsley",
+    "pbr>=2",
+]
+description = "Binary dependency utility"
+dynamic = ["version"]
+keywords = [
+    "binary",
+    "commandline",
+    "dependency",
+    "distribution",
+    "distro",
+    "package",
+]
+# TODO: Add 'license-expression = "Apache-2.0"' here and drop the License
+# classifier once https://github.com/pypa/setuptools/issues/4629 is resolved.
+maintainers = [
+    {email = "service-discuss@lists.opendev.org"},
+    {name = "OpenDev Contributors"},
+]
+name = "bindep"
+readme = {charset = "UTF-8", content-type = "text/x-rst", file = "README.rst"}
+requires-python = ">=3.7"
+
+[project.optional-dependencies]
+build-docs = [
+    # needed because we use autodoc to document our tests in the dev docs
+    "fixtures>=0.3.12",
+
+    "reno>=2.8.0",  # Apache-2.0
+    "sphinx!=1.6.6,!=1.6.7,!=2.1.0",  # BSD
+    "sphinxcontrib-programoutput",  # BSD license
+]
+test-cover = [
+    "bindep[test-unit]",
+    "coverage>=3.6",
+]
+test-linters = [
+    "hacking>=7,<8"
+]
+test-unit = [
+    "fixtures>=0.3.12",
+    "python-subunit",
+    "stestr>=1",
+    "testtools>=0.9.27",
+]
+
+[project.scripts]
+bindep = "bindep.__main__:main"
+
+[project.urls]
+"Browse Source" = "https://opendev.org/opendev/bindep"
+"Bug Reporting" = "https://storyboard.openstack.org/#!/project/opendev/bindep"
+"Documentation" = "https://docs.opendev.org/opendev/bindep"
+"Git Clone URL" = "https://opendev.org/opendev/bindep"
+"License Texts" = "https://opendev.org/opendev/bindep/src/branch/master/LICENSE"
+"Release Notes" = "https://docs.opendev.org/opendev/bindep/latest/releasenotes.html"

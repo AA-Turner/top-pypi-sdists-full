@@ -1,0 +1,43 @@
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1,<2"]
+
+[project]
+name = "mkdocs-minify-html-plugin"
+version = "0.3.1"
+description = "MkDocs plugin for minification using minify-html, an extremely fast and smart HTML + JS + CSS minifier"
+readme = "README.md"
+authors = [{ name = "monosans", email = "hsyqixco@protonmail.com" }]
+requires-python = ">=3.9"
+classifiers = [
+  "Framework :: MkDocs",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Rust",
+  "Typing :: Typed",
+]
+dependencies = ["mkdocs>=1.4", "typing-extensions>=4.4; python_version<'3.12'"]
+urls.repository = "https://github.com/monosans/mkdocs-minify-html-plugin"
+entry-points."mkdocs.plugins".minify_html = "mkdocs_minify_html_plugin.plugin:MinifyHtmlPlugin"
+
+[dependency-groups]
+dev = ["mypy[faster-cache]==1.15", "ruff==0.11.2"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "mkdocs_minify_html_plugin._minify_html"
+
+[tool.uv]
+package = false

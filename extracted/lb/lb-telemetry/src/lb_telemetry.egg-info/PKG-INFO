@@ -1,0 +1,72 @@
+Metadata-Version: 2.1
+Name: lb-telemetry
+Version: 0.5.0
+Summary: A utility for logging telemetry data from LHCb packages to MONIT
+Author-email: Cameron McClymont <cameron.duncan.mcclymont@cern.ch>, Daniel Cervenkov <daniel.cervenkov@cern.ch>, Chris Burr <christopher.burr@cern.ch>
+Project-URL: Homepage, https://gitlab.cern.ch/lhcb/lb-telemetry
+Project-URL: Bug Tracker, https://gitlab.cern.ch/lhcb/lb-telemetry/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+License-File: LICENSE
+
+# lb-telemetry
+
+A utility for logging telemetry data about LHCb packages to [MONIT](https://monit.web.cern.ch/).
+Usage data graphs specific to each package can be viewed on the [MONIT Grafana](https://monit-grafana.cern.ch/d/Q78h6E-nz/home?orgId=46).
+
+The package is not user-callable. It is intended to be imported and called by other LHCb packages such as [PIDCalib2](https://gitlab.cern.ch/lhcb-rta/pidcalib2).
+
+## Setup
+
+### Installing from PyPI
+
+The package is available on [PyPI](https://pypi.org/project/lb-telemetry/).
+It can be installed on any computer via `pip` by running (preferably in a [virtual environment](https://docs.python.org/3/library/venv.html)):
+```sh
+pip install lb-telemetry
+```
+
+## Usage
+
+### Adding to a package
+
+```python
+from lb_telemetry import Logger
+
+# Time execution (optional)
+start_time = time.perf_counter()
+do_some_task()
+exec_time = time.perf_counter() - start_time
+
+telemetry = {
+    "exec_time": exec_time,
+    "version": VERSION,
+    "some_field": "field_value",
+    "some_tag": "tag_value",
+}
+
+Logger().log_to_monit(
+    "NameOfThisPackage",  # Or other readable identifier
+    telemetry,
+    tags=["version", "some_tag"],  # `exec_time` and `some_field` interpreted as fields
+)
+```
+
+### Running the CLI
+
+The default value for `--table` is 'CLI'.
+```commandline
+lb-telemetry send '{"test_field": "test_value"}' --include-host-info
+```
+
+Tags can be specified by:
+```commandline
+lb-telemetry send '{"field1": 0, "tag1": 5, "tag2": 2}' --table some_table --tags tag1 tag2
+```
+
+### Viewing the telemetry
+
+Logged telemetry is usually visible in under a minute and can be accessed via this [Grafana dashboard](https://monit-grafana.cern.ch/d/vQC-V7C4k/lb-telemetry?orgId=46&from=now-30d&to=now). Request permission to edit the dashboard from an LHCb Grafana org admin if necessary. Then create a new row on the dashboard for your package and add the desired graphs.

@@ -1,0 +1,124 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "manifestoo_core"
+description = "A library to reason about Odoo addons manifests"
+authors = [
+  {name = "Stéphane Bidoul", email = "stephane.bidoul@acsone.eu"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Odoo",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+readme = "README.md"
+dependencies = [
+    "dataclasses ; python_version<'3.7'",
+    "importlib_resources ; python_version<'3.9'",
+    "packaging",
+    "typing-extensions ; python_version < '3.8'",
+]
+requires-python = ">=3.6"
+dynamic = ["version"]
+
+[project.optional-dependencies]
+metadata = []
+test = [
+    "pytest",
+    "coverage[toml]",
+    "pkg-metadata",
+]
+doc = [
+    "sphinx",
+    "furo",
+    "myst-parser",
+    # towncrier pinned because of
+    # https://github.com/sphinx-contrib/sphinxcontrib-towncrier/issues/60
+    "towncrier<22.8",
+    "sphinxcontrib-towncrier",
+]
+
+[project.urls]
+Homepage = "https://github.com/acsone/manifestoo-core"
+Documentation = "https://manifestoo-core.readthedocs.io/en/stable/"
+Changelog = "https://manifestoo-core.readthedocs.io/en/stable/changelog.html"
+Source = "https://github.com/acsone/manifestoo-core"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+exclude = [
+    "/.github",
+]
+
+[tool.ruff]
+target-version = "py37"
+fix = true
+
+[tool.ruff.lint]
+extend-select = [
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "C90",  # mccabe
+    "E",
+    "F",
+    "I",  # isort
+    "N",  # pep8 naming
+    "PL",  # pylint
+    "UP",  # pyupgrade
+    "PERF",
+    "RUF",
+    "S",  # flake8-bandit
+    "T100",  # flake8-debugger
+    "TRY",
+    "W",
+]
+ignore = [
+    # "C408",   # Unnecessary `dict` call (rewrite as a literal)
+]
+exclude = [
+    "docs/conf.py",
+    "mk_core_addons",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = [
+    "S101", # use of assert detected
+    "S603", # `subprocess` call: check for execution of untrusted input
+    "S607", # Starting a process with a partial executable path
+]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["manifestoo_core"]
+
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["manifestoo_core"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+]
+
+
+[tool.towncrier]
+package = "manifestoo_core"
+package_dir = "src"
+filename = "HISTORY.rst"
+directory = "news"
+issue_format = "`#{issue} <https://github.com/acsone/manifestoo-core/issues/{issue}>`_"
+title_format = "{version} ({project_date})"

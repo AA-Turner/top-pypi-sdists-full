@@ -1,0 +1,9 @@
+Metadata-Version: 1.2
+Name: Files.com
+Version: 1.4.240
+Summary: Python bindings for the Files.com API
+Home-page: UNKNOWN
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.5

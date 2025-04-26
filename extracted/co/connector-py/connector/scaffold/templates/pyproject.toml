@@ -1,0 +1,88 @@
+[project]
+name = "connector-{hyphenated_name}"
+dynamic = ["version"]
+description = "A CLI Tool, HTTP server, and Package to Perform Actions on {title}"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {{ file = "LICENSE.txt" }}
+keywords = ["integrations"]
+authors = [
+    {{ name = "{author}", email = "{author_email}" }},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "connector-py",
+    "httpx >= 0.27.0",
+]
+
+[project.optional-dependencies]
+fastapi = [
+    "connector-py[fastapi]"
+]
+dev = [
+    "pytest >= 8",
+    "pytest-asyncio >= 0.23",
+    "pytest-cases >= 3",
+    "pytest-httpx >= 0.33",
+    "mypy ~= 1.10",
+]
+all = ["connector-{hyphenated_name}[dev,fastapi]"]
+
+[project.urls]
+Documentation = "https://github.com/teamlumos/connector#readme"
+Issues = "https://github.com/teamlumos/connector/issues"
+Source = "https://github.com/teamlumos/connector"
+
+[project.scripts]
+{hyphenated_name} = "{name}.main:main"
+
+[tool.poetry]
+version = {{ attr = "{name}.__about__.__version__" }}
+
+[tool.setuptools.dynamic]
+version = {{ attr = "{name}.__about__.__version__" }}
+
+[tool.setuptools.packages.find]
+exclude = ["logs"]
+
+[tool.coverage.run]
+source_pkgs = ["{name}", "tests"]
+branch = true
+parallel = true
+omit = [
+    "{name}/__about__.py",
+]
+
+[tool.coverage.paths]
+{name} = ["{name}"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+# more places to look for types
+mypy_path = [
+    "$MYPY_CONFIG_FILE_DIR/../../../../projects/libs/python/connector-sdk/",
+]
+# Don't typecheck build artifacts
+exclude = [
+    "build",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "msgpack",
+]
+ignore_missing_imports = true

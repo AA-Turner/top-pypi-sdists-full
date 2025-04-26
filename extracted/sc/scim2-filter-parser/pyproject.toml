@@ -1,0 +1,91 @@
+[tool.ruff]
+# Version 3.8 is supported, so don't use syntax for newer versions
+target-version = "py38"
+
+[tool.ruff.lint]
+# Many other rulesets exist -- start with a simple set to get `flake8` parity
+select = [
+  "C4",    # flake8-comprehensions
+  "DJ",    # flake8-django
+  "DTZ",   # flake8-datetimez
+  "EXE",   # flake8-executable (files marked executable must have a shebang & vice versa)
+  "E",     # pycodestyle
+  "F",     # pyflakes
+  "G",     # flake8-logging-format
+  "I",     # isort
+  "ICN",   # flake8-import-conventions
+  "INT",   # flake8-gettext
+  "LOG",   # flake8-logging
+  "PIE",   # flake8-pie
+  "SLF",   # flake8-self
+  "T10",   # flake8-debugger
+  "TCH",   # flake8-type-checking
+  "YTT",   # flake8-2020
+
+  # Ensure that `noqa` lines actually are necessary!
+  "RUF100",
+]
+
+ignore = [
+  # Just let line length be handled by the autoformatter
+  "E501",
+]
+
+[tool.poetry]
+name = "scim2-filter-parser"
+version = "0.7.0"
+description = "A customizable parser/transpiler for SCIM2.0 filters."
+license = "MIT"
+authors = ["Paul Logston <paul@15five.com>"]
+maintainers = ["Paul Logston <paul.logston@gmail.com>"]
+readme = "README.rst"
+homepage = "https://pypi.org/project/scim2-filter-parser/"
+repository = "https://github.com/15five/scim2-filter-parser"
+documentation = "https://scim2-filter-parser.readthedocs.io/en/stable/"
+keywords = ["scim", "scim2", "2.0", "filter"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+    { include = "scim2_filter_parser", from = "src" },
+]
+
+[tool.poetry.scripts]
+sfp-lexer = 'scim2_filter_parser.lexer:main'
+sfp-parser = 'scim2_filter_parser.parser:main'
+sfp-transpiler = 'scim2_filter_parser.transpilers.sql:main'
+sfp-query = 'scim2_filter_parser.queries.sql:main'
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+sly = "==0.5"
+
+django = { version = ">=3.2", optional = true }
+
+[tool.poetry.extras]
+django-query = ['django']
+
+[tool.poetry.dev-dependencies]
+coverage = "^6.4.2"
+mock = "^4.0.2"
+pytest = ">=5.4.0"
+pytest-cov = "3.0.0"
+ruff = "^0.4.4"
+toml = "^0.10.1"
+tox = "^3.16.1"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

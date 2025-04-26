@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: kubernetes-stubs
+Version: 22.6.0.post1
+Summary: Type stubs for the Kubernetes Python API client
+License: Apache-2.0
+Author: Nikhil Benesch
+Author-email: nikhil.benesch@gmail.com
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+
+# kubernetes-stubs
+
+[![PyPI](https://img.shields.io/pypi/v/kubernetes-stubs)](https://pypi.org/project/kubernetes-stubs/)
+
+Python type stubs for the [Kubernetes API client](https://github.com/kubernetes-client/python).
+The version numbers of this package track upstream's. PRs to fix bugs are
+welcomed.
+
+## Usage
+
+```
+pip install kubernetes-stubs
+```
+

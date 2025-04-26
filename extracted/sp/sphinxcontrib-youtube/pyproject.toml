@@ -1,0 +1,56 @@
+[build-system]
+requires = ["flit_core >=3.5,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "sphinxcontrib.youtube"
+
+[project]
+name = "sphinxcontrib-youtube"
+dynamic = ["version", "description"]
+authors = [{name = "Chris Pickel", email = "sfiera@gmail.com"}]
+maintainers = [{name = "David A. Ham", email = "david.ham@imperial.ac.uk"}]
+license = {file = "LICENCE"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Documentation",
+    "Topic :: Utilities",
+]
+dependencies = ["Sphinx>=6.1", "requests"]
+
+[project.readme]
+content-type = "text/plain"
+text = '''
+This package contains the youtube Sphinx extension.
+The extension defines the directives, "youtube" and "vimeo", for embedding
+YouTube, Vimeo and Peertube videos, respectively.'''
+
+[project.urls]
+Homepage = "https://github.com/sphinx-contrib/youtube"
+
+[project.optional-dependencies]
+dev = ["nox"]
+doc = ["sphinx-copybutton", "pydata-sphinx-theme", "sphinx-design"]
+test = ["pytest", "beautifulsoup4", "pytest-regressions", "pytest-cov"]
+
+[tool.ruff]
+ignore-init-module-imports = true
+fix = true
+select = ["E", "F", "W", "I", "D", "RUF"]
+ignore = ["E501"]  # line too long | Black take care of it
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.coverage.run]
+source = ["sphinxcontrib.youtube"]

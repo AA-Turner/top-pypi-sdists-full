@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "clickhouse-pool"
+version = "0.6.0"
+description = "a thread-safe connection pool for ClickHouse"
+authors = ["Eric McCarthy <ericmccarthy7@gmail.com>"]
+license = "LGPL-3.0-or-later"
+readme = "README.md"
+homepage = "https://ericmccarthy7.github.io/clickhouse-pool/"
+repository = "https://github.com/ericmccarthy7/clickhouse-pool"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+clickhouse-driver = "0.2.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+pylint = "^3.2.3"
+black = "^24.4.2"
+sphinx = "^7.3.7"
+sphinx-rtd-theme = "^2.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

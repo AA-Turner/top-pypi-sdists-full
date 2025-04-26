@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: extension-helpers
+Version: 1.2.0
+Summary: Utilities for building and installing packages with compiled extensions
+Author-email: The Astropy Developers <astropy.team@gmail.com>
+License: BSD 3-Clause License
+Project-URL: Homepage, https://github.com/astropy/extension-helpers
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Framework :: Setuptools Plugin
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Archiving :: Packaging
+Provides: extension_helpers
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE.rst
+Requires-Dist: setuptools>=40.2
+Requires-Dist: tomli>=1.0.0; python_version < "3.11"
+Provides-Extra: test
+Requires-Dist: wheel; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: cython; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-automodapi; extra == "docs"
+
+extension-helpers
+=================
+
+.. image:: https://github.com/astropy/extension-helpers/actions/workflows/main.yml/badge.svg
+  :target: https://github.com/astropy/extension-helpers/actions/workflows/main.yml
+
+.. image:: https://codecov.io/gh/astropy/extension-helpers/branch/main/graph/badge.svg
+  :target: https://codecov.io/gh/astropy/extension-helpers
+
+.. image:: https://readthedocs.org/projects/extension-helpers/badge/?version=latest
+  :target: https://extension-helpers.readthedocs.io/en/latest/?badge=latest
+  :alt: Documentation Status
+
+The **extension-helpers** package includes convenience helpers to assist with
+building Python packages with compiled C/Cython extensions. It is developed by
+the Astropy project but is intended to be general and usable by any Python
+package.
+
+For more information, see the documentation at http://extension-helpers.readthedocs.io

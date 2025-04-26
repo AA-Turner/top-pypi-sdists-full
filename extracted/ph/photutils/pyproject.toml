@@ -1,0 +1,310 @@
+[project]
+name = 'photutils'
+description = 'An Astropy package for source detection and photometry'
+readme = 'README.rst'
+license = {file = 'LICENSE.rst'}
+authors = [
+    {name = 'Photutils Developers', email = 'astropy.team@gmail.com'},
+]
+keywords = [
+    'astronomy',
+    'astrophysics',
+    'photometry',
+    'aperture',
+    'psf',
+    'source detection',
+    'background',
+    'segmentation',
+    'centroids',
+    'isophote',
+    'morphology',
+    'radial profiles',
+]
+classifiers = [
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: BSD License',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
+    'Programming Language :: Cython',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Astronomy',
+]
+dynamic = ['version']
+requires-python = '>=3.11'
+dependencies = [
+    'numpy>=1.24',
+    'astropy>=5.3',
+    'scipy>=1.10',
+]
+
+[project.urls]
+Homepage = 'https://github.com/astropy/photutils'
+Documentation = 'https://photutils.readthedocs.io/en/stable/'
+
+[project.optional-dependencies]
+all = [
+    'matplotlib>=3.7',
+    'regions>=0.9',
+    'scikit-image>=0.20',
+    'gwcs>=0.20',
+    'bottleneck',
+    'tqdm',
+    'rasterio',
+    'shapely',
+]
+test = [
+    'pytest-astropy>=0.11',
+    'pytest-xdist>=2.5.0',
+]
+docs = [
+    'photutils[all]',
+    'sphinx',
+    'sphinx_design',
+    'sphinx-astropy[confv2]>=1.9.1',
+]
+
+[build-system]
+requires = [
+    'setuptools>=61.2',
+    'setuptools_scm>=6.2',
+    'cython>=3.0.0,<4',
+    'numpy>=2.0.0',
+    'extension-helpers>=1',
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.extension-helpers]
+use_extension_helpers = true
+
+[tool.setuptools_scm]
+write_to = 'photutils/version.py'
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = false
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.setuptools.package-data]
+'photutils' = [
+    'CITATION.rst',
+]
+'photutils.datasets' = [
+    'data/*',
+]
+'photutils.detection.tests' = [
+    'data/*',
+]
+'photutils.isophote.tests' = [
+    'data/*',
+]
+'photutils.psf.tests' = [
+    'data/*',
+]
+
+[tool.pytest.ini_options]
+minversion = 7.0
+testpaths = [
+    'photutils',
+    'docs',
+]
+norecursedirs = [
+    'docs/_build',
+    'extern',
+]
+astropy_header = true
+doctest_plus = 'enabled'
+text_file_format = 'rst'
+addopts = [
+    '-ra',
+    '--color=yes',
+    '--doctest-rst',
+    '--strict-config',
+    '--strict-markers',
+]
+log_cli_level = 'INFO'
+xfail_strict = true
+remote_data_strict = true
+filterwarnings = [
+    'error',  # turn warnings into exceptions
+    'ignore:numpy.ndarray size changed:RuntimeWarning',
+]
+
+[tool.coverage.run]
+omit = [
+    'photutils/_astropy_init*',
+    'photutils/conftest.py',
+    'photutils/*setup_package*',
+    'photutils/tests/*',
+    'photutils/*/tests/*',
+    'photutils/extern/*',
+    'photutils/version*',
+    '*/photutils/_astropy_init*',
+    '*/photutils/conftest.py',
+    '*/photutils/*setup_package*',
+    '*/photutils/tests/*',
+    '*/photutils/*/tests/*',
+    '*/photutils/extern/*',
+    '*/photutils/version*',
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'except ImportError',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'def main\\(.*\\):',
+    'pragma: py{ignore_python_version}',
+    'def _ipython_key_completions_',
+]
+
+[tool.repo-review]
+ignore = [
+    'MY',  # ignore MyPy
+    'PC110',  # ignore using black or ruff-format in pre-commit
+    'PC111',  # ignore using blacken-docs in pre-commit
+    'PC140',  # ignore using mypy in pre-commit
+    'PC180',  # ignore using prettier in pre-commit
+    'PC901',  # ignore using custom pre-commit update message
+    'PY005',  # ignore having a tests/ folder
+]
+
+[tool.isort]
+skip_glob = [
+    'photutils/*__init__.py*',
+]
+known_first_party = [
+    'photutils',
+    'extension_helpers',
+]
+use_parentheses = true
+
+[tool.black]
+force-exclude = """
+(
+  .*
+)
+"""
+
+[tool.bandit.assert_used]
+skips = ['*_test.py', '*/test_*.py']
+
+[tool.numpydoc_validation]
+checks = [
+    'all',   # report on all checks, except the below
+    'ES01',  # missing extended summary
+    'EX01',  # missing "Examples"
+    'SA01',  # missing "See Also"
+    'SA04',  # missing "See Also" description
+    'RT02',  # only type in "Returns" section (no name)
+    'SS06',  # single-line summary
+    'RT01',  # do not require return type for lazy properties
+]
+
+# don't report on objects that match any of these regex;
+# remember to use single quotes for regex in TOML
+exclude = [
+    '__init__',
+    '\._.*',  # private functions/methods
+    '^test_*',  # test code
+    '^conftest.*$',  # pytest configuration
+
+    # PR02: subclasses without __init__
+    'Background$',
+    'BackgroundRMS$',
+    'RadialProfile$',
+
+    # GL08: docstrings inherited from base classes
+    '\.to_mask$',
+    '\.calc_background$',
+    '\.calc_background_rms$',
+    '\.make_model_image$',
+    '\.make_residual_image$',
+
+    # GL08: property setters
+    '\.normalization_correction$',
+    '\.origin$',
+    '\.fill_value$',
+    '\.make_model_image$',
+    '\.make_residual_image$',
+    '\.cutout_center$',
+    '\.data',
+
+    # GL08: inner function
+    '\.optimize_func$',
+]
+
+[tool.docformatter]
+    wrap-summaries = 72
+    pre-summary-newline = true
+    make-summary-multi-line = true
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint.pylint]
+max-statements = 130
+
+[tool.ruff.lint]
+select = ['ALL']
+exclude = ["photutils/extern/*"]
+ignore = [
+    'ANN',
+    'ARG002',
+    'ARG005',
+    'B008',
+    'B023',
+    'B028',
+    'BLE001',
+    'C901',
+    'COM812',
+    'D101',
+    'D102',
+    'D103',
+    'D105',
+    'D200',
+    'D205',
+    'D301',
+    'D401',
+    'D404',
+    'EM101',
+    'EM102',
+    'ERA001',
+    'FBT002',
+    'FIX002',
+    'I001',
+    'N803',
+    'N803',
+    'PD011',
+    'PERF203',
+    'PLR0912',
+    'PLR0913',
+    'PLR2004',
+    'PLW2901',
+    'PTH',
+    'Q000',
+    'RUF015',
+    'RUF100',
+    'S101',
+    'SLF001',
+    'TD002',
+    'TD003',
+    'TRY003',
+    'UP038',
+]
+
+[tool.ruff.lint.per-file-ignores]
+'__init__.py' = ['D104', 'I']
+'docs/conf.py' = ['ERA001', 'INP001', 'TRY400']
+'model_io.py' = ['ARG001']
+
+[tool.ruff.lint.pydocstyle]
+convention = 'numpy'
+
+[tool.codespell]
+ignore-words-list = """
+    ned,
+"""

@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: marshmallow3-annotations
+Version: 1.1.0
+Summary: Marrying marshmallow3 and annotations
+Home-page: https://github.com/dkunitsk/marshmallow3-annotations
+Author: Alec Nikolas Reiter
+Author-email: alecreiter@gmail.com
+License: MIT
+Keywords: annotations,marshmallow
+Classifier: Topic :: Utilities
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Provides-Extra: attrs
+License-File: LICENSE
+
+# marshmallow3-annotations
+
+This is a fork of [marshmallow-annotations](https://github.com/justanr/marshmallow-annotations) which has been minimally
+patched to be marshmallow 3.0.0+ compatible. All credit goes to the original author.
+
+It is available on [PyPI](https://pypi.org/project/marshmallow3-annotations/).

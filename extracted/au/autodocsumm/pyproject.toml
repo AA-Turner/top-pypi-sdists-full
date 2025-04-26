@@ -1,0 +1,61 @@
+[build-system]
+build-backend = 'setuptools.build_meta'
+requires = ['setuptools >= 61.0', 'versioneer[toml]']
+
+[project]
+name = 'autodocsumm'
+dynamic = ["version"]
+description = 'Extended sphinx autodoc including automatic autosummaries'
+readme = 'README.rst'
+keywords = ['sphinx', 'autodoc', 'autosummary', 'content', 'table']
+authors = [
+    { name = 'Philipp S. Sommer', email = 'philipp.sommer@hereon.de' },
+]
+license = { text = 'Apache-2.0' }
+
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Documentation',
+    'License :: OSI Approved :: Apache Software License',
+    'Framework :: Sphinx',
+    'Framework :: Sphinx :: Extension',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Operating System :: OS Independent',
+]
+
+requires-python = '>= 3.7'
+dependencies = [
+    'Sphinx >= 4.0, < 9.0',
+]
+
+[project.urls]
+Homepage = "https://github.com/Chilipp/autodocsumm"
+Documentation = "https://autodocsumm.readthedocs.io/en/latest/"
+Source = "https://github.com/Chilipp/autodocsumm"
+Tracker = "https://github.com/Chilipp/autodocsumm/issues"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+namespaces = false
+exclude = ['docs', 'tests*', 'examples']
+
+[tool.pytest.ini_options]
+addopts = '-v'
+
+[tool.versioneer]
+VCS = 'git'
+style = 'pep440'
+versionfile_source = 'autodocsumm/_version.py'
+versionfile_build = 'autodocsumm/_version.py'
+tag_prefix = 'v'
+parentdir_prefix = 'autodocsumm-'

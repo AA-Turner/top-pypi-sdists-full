@@ -1,0 +1,280 @@
+Metadata-Version: 2.1
+Name: token-throttler
+Version: 1.5.1
+Summary: Token throttler is an extendable rate-limiting library somewhat based on a token bucket algorithm
+Home-page: https://gitlab.com/vojko.pribudic/token-throttler
+License: MIT
+Author: Vojko Pribudić
+Author-email: dmanthing@gmail.com
+Maintainer: Vojko Pribudić
+Maintainer-email: dmanthing@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Libraries
+Provides-Extra: fastapi
+Provides-Extra: redis
+Requires-Dist: fastapi (>=0.102.0) ; extra == "fastapi"
+Requires-Dist: redis (>=4.4) ; extra == "redis"
+Project-URL: Changelog, https://gitlab.com/vojko.pribudic/token-throttler/-/releases
+Project-URL: Repository, https://gitlab.com/vojko.pribudic/token-throttler
+Project-URL: Tracker, https://gitlab.com/vojko.pribudic/token-throttler/-/issues
+Description-Content-Type: text/markdown
+
+# Token throttler
+
+![Downloads](https://static.pepy.tech/badge/token-throttler)
+![Coverage](https://img.shields.io/gitlab/coverage/vojko.pribudic/token-throttler/main?job_name=tests)
+![Version](https://img.shields.io/pypi/pyversions/token-throttler)
+![Formatter](https://img.shields.io/badge/code%20style-black-black)
+![License](https://img.shields.io/pypi/l/token-throttler)
+
+**Token throttler** is an extendable rate-limiting library somewhat based on a [token bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket).
+
+## Table of contents
+
+1. [ Installation ](#installation)
+2. [ Features ](#features)
+3. [ Usage ](#usage)
+    1. [ Manual usage example ](#usage-manual)
+    2. [ Decorator usage example ](#usage-decorator)
+    3. [ FastAPI usage example ](#usage-fastapi)
+4. [ Storage ](#storage)
+5. [ Configuration ](#configuration)
+   1. [ Global configuration usage ](#configuration-global)
+   2. [ Instance configuration usage ](#configuration-instance)
+
+<a name="installation"></a>
+## 1. Installation
+
+Token throttler is available on PyPI:
+```console 
+$ python -m pip install token-throttler
+```
+Token throttler officially supports Python >= 3.8.
+
+*NOTE*: Depending on the storage engine you pick, you can install token throttler with extras:
+```console 
+$ python -m pip install token-throttler[redis]
+```
+
+<a name="features"></a>
+## 2. Features
+
+- Blocking (TokenThrottler) and non-blocking (TokenThrottlerAsync)
+- Global throttler(s) configuration
+- Configurable token throttler cost and identifier
+- Multiple buckets per throttler per identifier
+- Buckets can be added/removed manually or by a `dict` configuration
+- Manual usage or usage via decorator
+- Decorator usage supports async code too
+- Custom decorator can be written
+- Extendable storage engine (eg. Redis)
+
+<a name="usage"></a>
+## 3. Usage
+
+Token throttler supports both manual usage and via decorator.
+
+Decorator usage supports both async and sync.
+
+<a name="usage-manual"></a>
+### 1) Manual usage example:
+
+```python
+from token_throttler import TokenBucket, TokenThrottler
+from token_throttler.storage import RuntimeStorage
+
+throttler: TokenThrottler = TokenThrottler(1, RuntimeStorage())
+throttler.add_bucket("hello_world", TokenBucket(10, 10))
+throttler.add_bucket("hello_world", TokenBucket(30, 20))
+
+
+def hello_world() -> None:
+    print("Hello World")
+
+
+for i in range(10):
+    throttler.consume("hello_world")
+    hello_world()
+
+if throttler.consume("hello_world"):
+    hello_world()
+else:
+    print(
+        f"bucket_one ran out of tokens, retry in: {throttler.wait_time('hello_world')}"
+    )
+```
+
+<a name="usage-decorator"></a>
+### 2) Decorator usage example:
+
+```python
+from token_throttler import TokenBucket, TokenThrottler, TokenThrottlerException
+from token_throttler.storage import RuntimeStorage
+
+throttler: TokenThrottler = TokenThrottler(1, RuntimeStorage())
+throttler.add_bucket("hello_world", TokenBucket(10, 10))
+throttler.add_bucket("hello_world", TokenBucket(30, 20))
+
+
+@throttler.enable("hello_world")
+def hello_world() -> None:
+    print("Hello World")
+
+
+for i in range(10):
+    hello_world()
+
+try:
+    hello_world()
+except TokenThrottlerException:
+    print(
+        f"bucket_one ran out of tokens, retry in: {throttler.wait_time('hello_world')}"
+    )
+```
+
+<a name="usage-fastapi"></a>
+### 3) FastAPI usage example:
+
+```python
+from fastapi import Depends, FastAPI, Request
+from pydantic import BaseModel
+from token_throttler import TokenThrottler, TokenBucket
+from token_throttler.storage import RuntimeStorage
+from token_throttler.ext.fastapi import FastAPIThrottler
+
+app: FastAPI = FastAPI()
+ban_hammer: TokenThrottler = TokenThrottler(cost=1, storage=RuntimeStorage())
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+u1: User = User(id=1, name="Test")
+users: list[User] = [u1]
+
+
+def create_buckets() -> None:
+    for user in users:
+        ban_hammer.add_bucket(
+            str(user.id), TokenBucket(replenish_time=10, max_tokens=10)
+        )
+
+
+# For example purposes only - feel free to load your users with the bucket(s) anywhere else
+app.add_event_handler("startup", create_buckets)
+
+
+# Add your auth logic here
+def get_auth_user() -> User:
+    return u1
+
+
+# Since this is a FastAPI dependency, you can have the `Request` object here too if needed (e.g. storing the JWT token in
+# a request lifecycle).
+# You can also use sub-dependencies like shown below - `auth_user`
+async def get_user_id(
+        request: Request, auth_user: User = Depends(get_auth_user)
+) -> str:
+    return str(auth_user.id)
+
+
+# You can configure the dependency per route, on a router level or on global application level.
+# Pass your unique user identifier (e.g. JWT subject, apikey or user's ID) as a callback parameter 
+# of the `enable` method.
+@app.get(
+    "/throttle", dependencies=[Depends(FastAPIThrottler(ban_hammer).enable(get_user_id))]
+)
+async def read_users():
+    return {"detail": "This is throttled URL"}
+```
+
+For other examples see [**examples**](https://gitlab.com/vojko.pribudic/token-throttler/-/tree/main/examples) directory.
+
+<a name="storage"></a>
+## 4. Storage
+
+`TokenThrottler` supports `RuntimeStorage` and `RedisStorage`.
+`TokenThrottlerAsync` supports `RedisStorageAsync`
+
+If you want your own storage engine, feel free to extend the `token_throttler.storage.BucketStorage` or `token_throttler.storage.BucketStorageAsync` classes.
+
+For storage examples see [**examples**](https://gitlab.com/vojko.pribudic/token-throttler/-/tree/main/examples) directory.
+
+<a name="configuration"></a>
+## 5. Configuration
+
+Token throttler supports global and per instance configurations.
+
+Configuration params:
+- `IDENTIFIER_FAIL_SAFE` (default `False`) - if invalid identifier is given as a param for the `consume` method and `IDENTIFIER_FAIL_SAFE`
+is set to `True`, no `KeyError` exception will be raised and `consume` will act like a limitless bucket is being consumed.
+- `ENABLE_THREAD_LOCK` (default `False`) - if set to `True`, throttler will acquire a thread lock upon calling `consume` method and release
+the lock once the `consume` is finished. This avoids various race conditions at a slight performance cost.
+
+<a name="configuration-global"></a>
+### Global configuration usage
+
+Global configuration means that all the throttler instances will use the same configuration from
+the `ThrottlerConfigGlobal` class singleton (!) instance - `default_config`.
+
+```python
+from token_throttler import TokenBucket, TokenThrottler, default_config
+from token_throttler.storage import RuntimeStorage
+
+default_config.set({
+   "ENABLE_THREAD_LOCK": False,
+   "IDENTIFIER_FAIL_SAFE": True,
+})
+throttler: TokenThrottler = TokenThrottler(1, RuntimeStorage())
+throttler.add_bucket("hello_world", TokenBucket(10, 10))
+throttler.add_bucket("hello_world", TokenBucket(30, 20))
+...
+```
+
+Whenever you change the options inside `default_config` object, all of the `TokenThrottler` instances, that are not
+using the instance specific configuration, will get updated with the new settings.
+
+*NOTE*: If any modifications are attempted on the `default_config` object during runtime, a `RuntimeWarning` will be emitted. The `default_config` object is designed to be a singleton instance of the `ThrottlerConfigGlobal` class, responsible for storing and managing configuration settings. To ensure the proper functioning of the throttling mechanism and to maintain the integrity of the configuration, it is recommended to avoid making runtime changes to the `default_config` object. Any such modifications may result in unexpected behavior or inconsistencies in the throttling behavior. Instead, consider utilizing [instance-specific configuration](#instance-configuration-usage).
+
+<a name="configuration-instance"></a>
+### Instance configuration usage
+
+Instance configuration is to be used when `TokenThrottler` instance(s) needs a different configuration that the global one.
+If no instance configuration is passed, `TokenThrottler` object will use the global configuration.
+
+```python
+from token_throttler import ThrottlerConfig, TokenBucket, TokenThrottler
+from token_throttler.storage import RuntimeStorage
+
+
+throttler: TokenThrottler = TokenThrottler(
+    1,
+    RuntimeStorage(),
+    ThrottlerConfig(
+        {
+            "ENABLE_THREAD_LOCK": True,
+            "IDENTIFIER_FAIL_SAFE": True,
+        }
+    ),
+)
+throttler.add_bucket("hello_world", TokenBucket(10, 10))
+throttler.add_bucket("hello_world", TokenBucket(30, 20))
+...
+```
+

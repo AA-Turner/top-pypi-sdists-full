@@ -1,0 +1,70 @@
+[build-system]
+requires = ["flit_core >=3.5,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "orbax-checkpoint"
+description = "Orbax Checkpoint"
+readme = 'README.md'
+license = {file = 'LICENSE'}
+requires-python = '>=3.10'
+authors = [{name = 'Orbax Authors', email='orbax-dev@google.com'}]
+classifiers=[
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+]
+
+
+keywords = ["JAX machine learning", "checkpoint", "training"]
+
+dependencies = [
+    'absl-py',
+    'etils[epath,epy]',
+    'typing_extensions',
+    'msgpack',
+    'jax >= 0.5.0',
+    'numpy',
+    'pyyaml',
+    'tensorstore >= 0.1.71',
+    'nest_asyncio',
+    'protobuf',
+    'humanize',
+    'simplejson >= 3.16.0',
+]
+
+dynamic = ['version']
+
+[tool.flit.module]
+name = "orbax.checkpoint"
+
+[project.urls]
+homepage = 'http://github.com/google/orbax'
+repository = 'http://github.com/google/orbax'
+
+[project.optional-dependencies]
+docs = [
+  'flax',
+  'google-cloud-logging',
+]
+testing = [
+    'google-cloud-logging',
+    'mock',
+    'flax',
+    'pytest',
+    'pytest-xdist',
+    'chex',
+    'aiofiles',
+]
+
+[tool.flit.sdist]
+# Flit specific options (files to exclude from the PyPI package).
+exclude = [
+  # Do not release tests files on PyPI
+  "**/*_test.py",
+  '**/BUILD',
+
+]

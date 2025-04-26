@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: opentelemetry-container-distro
+Version: 0.2.0
+Summary: An OpenTelemetry distro which automatically discovers container attributes
+Home-page: https://github.com/chrisguidry/opentelemetry-container-distro
+Author: Chris Guidry
+Author-email: chris@theguidrys.us
+Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-container-distro/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+License-File: LICENSE
+
+# opentelemetry-container-distro
+
+An OpenTelemetry distro which automatically discovers container attributes.
+
+This distro expands the standard `opentelemetry-distro` to automatically bring in
+additional resource detectors for container environments.
+
+* [opentelemetry-resourcedetector-docker](https://pypi.org/project/opentelemetry-resourcedetector-docker/)
+* [opentelemetry-resourcedetector-kubernetes](https://pypi.org/project/opentelemetry-resourcedetector-kubernetes/)
+* [opentelemetry-resourcedetector-process](https://pypi.org/project/opentelemetry-resourcedetector-process/)
+
+Otherwise, this distro preserves the behavior and configuration of
+`opentelemetry-distro`.

@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: python3-saml
+Version: 1.16.0
+Summary: Saml Python Toolkit. Add SAML support to your Python software using this library
+Home-page: https://github.com/SAML-Toolkits/python3-saml
+License: MIT
+Description: UNKNOWN
+Keywords: saml saml2 sso xmlsec federation identity
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: test

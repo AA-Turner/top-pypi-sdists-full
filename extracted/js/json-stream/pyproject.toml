@@ -1,0 +1,46 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "json-stream"
+version = "2.3.3"
+authors = [
+    {name = "Jamie Cockburn", email="jamie_cockburn@hotmail.co.uk"},
+]
+license = {file = "LICENSE.txt"}
+description = "Streaming JSON encoder and decoder"
+keywords = ["json", "stream", "decoder", "encoder", "parsing"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.5,<4"
+dependencies = ["json-stream-rs-tokenizer >= 0.4.17"]
+dynamic = ["readme"]
+
+[project.urls]
+Homepage = "https://github.com/daggaz/json-stream"
+Repository = "https://github.com/daggaz/json-stream"
+Tracker = "https://github.com/daggaz/json-stream/issues"
+Funding = "https://www.buymeacoffee.com/daggaz"
+
+[project.optional-dependencies]
+requests = ["requests"]
+httpx = ["httpx"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"], content-type = "text/markdown"}

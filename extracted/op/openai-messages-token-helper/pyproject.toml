@@ -1,0 +1,61 @@
+[project]
+name = "openai-messages-token-helper"
+description = "A helper library for estimating tokens used by messages sent through OpenAI Chat Completions API."
+version = "0.1.11"
+authors = [{name = "Pamela Fox"}]
+requires-python = ">=3.9"
+readme = "README.md"
+license = {file = "LICENSE"}
+dependencies = [
+    "openai",
+    "tiktoken",
+    "pillow"
+    ]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: Pytest"
+    ]
+
+[project.urls]
+Home = "https://github.com/pamelafox/openai-messages-token-helper"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pre-commit",
+    "ruff",
+    "black",
+    "flit",
+    "azure-identity",
+    "python-dotenv",
+    "mypy"
+]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+output-format = "full"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["D203", "E501"]
+
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov"
+
+[tool.coverage.report]
+show_missing = true

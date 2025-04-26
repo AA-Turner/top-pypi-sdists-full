@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=65.5.0", "setuptools_scm[toml]>=6.4.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dissect.util"
+description = "A Dissect module implementing various utility functions for the other Dissect modules"
+readme = "README.md"
+requires-python = "~=3.9"
+license.text = "Apache License 2.0"
+authors = [
+  {name = "Dissect Team", email = "dissect@fox-it.com"}
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Internet :: Log Analysis",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Security",
+  "Topic :: Utilities",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://dissect.tools"
+documentation = "https://docs.dissect.tools/en/latest/projects/dissect.util"
+repository = "https://github.com/fox-it/dissect.util"
+
+[project.optional-dependencies]
+lzo = [
+    # There are no Windows PyPy wheels available for python-lzo
+    # So we use a pure python fallback for it.
+    "python-lzo; platform_system != 'Windows' or platform_python_implementation != 'PyPy'",
+]
+lz4 = [
+    "lz4",
+]
+
+[project.scripts]
+dump-nskeyedarchiver = "dissect.util.tools.dump_nskeyedarchiver:main"
+
+[tool.ruff]
+line-length = 120
+required-version = ">=0.9.0"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  "F",
+  "E",
+  "W",
+  "I",
+  "N",
+  "UP",
+  "YTT",
+  "ANN",
+  "S",
+  "B",
+  "C4",
+  "DTZ",
+  "T10",
+  "FA",
+  "ISC",
+  "G",
+  "INP",
+  "PIE",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TCH",
+  "PTH",
+  "PLC",
+  "TRY",
+  "FLY",
+  "PERF",
+  "FURB",
+  "RUF",
+]
+ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "S110", "SIM105", "TRY003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/docs/**" = ["INP001"]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dissect.util"]
+known-third-party = ["dissect"]
+
+[tool.setuptools]
+license-files = ["LICENSE", "COPYRIGHT"]
+
+[tool.setuptools.packages.find]
+include = ["dissect.*"]
+
+[tool.setuptools_scm]

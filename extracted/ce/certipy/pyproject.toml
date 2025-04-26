@@ -1,0 +1,71 @@
+###############################################################################
+# Copyright (c) 2018, Lawrence Livermore National Security, LLC
+# Produced at the Lawrence Livermore National Laboratory
+# Written by Thomas Mendoza mendoza33@llnl.gov
+# LLNL-CODE-754897
+# All rights reserved
+#
+# This file is part of Certipy: https://github.com/LLNL/certipy
+#
+# SPDX-License-Identifier: BSD-3-Clause
+###############################################################################
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=7"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "certipy"
+description = "Utility to create and sign CAs and certificates"
+dynamic = ["version"]
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+authors = [{name = "Thomas Mendoza", email = "mendoza33@llnl.gov"}]
+classifiers=[
+    "Development Status :: 4 - Beta",
+
+    "Intended Audience :: Developers",
+    "Topic :: Utilities",
+
+    "License :: OSI Approved :: BSD License",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+keywords = ["pki", "ssl", "tls", "certificates"]
+requires-python = ">=3.7"
+dependencies = ["cryptography"]
+
+[project.optional-dependencies]
+dev = ["pytest", "flask", "build", "pre-commit", "ruff", "bump-my-version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "certipy.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["certipy"]
+
+[project.scripts]
+certipy = "certipy.command_line:main"
+
+[project.urls]
+Homepage = "https://github.com/LLNL/certipy"
+
+[tool.bumpversion]
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+commit_args = "--no-verify"
+tag = true
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+current_version = "0.2.2"
+search = "{current_version}"
+replace = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "certipy/version.py"

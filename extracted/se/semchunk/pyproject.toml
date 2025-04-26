@@ -1,0 +1,119 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "semchunk"
+version = "3.2.1"
+authors = [
+    {name="Isaacus", email="support@isaacus.com"},
+    {name="Umar Butler", email="umar@umar.au"},
+]
+description = "A fast, lightweight and easy-to-use Python library for splitting text into semantically meaningful chunks."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text="MIT"}
+keywords = [
+    "chunking",
+    "splitting",
+    "text",
+    "split",
+    "splits",
+    "chunks",
+    "chunk",
+    "splitter",
+    "chunker",
+    "nlp",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: General",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
+dependencies = [
+    "tqdm",
+    "mpire[dill]",
+]
+
+[project.urls]
+Homepage = "https://github.com/isaacus-dev/semchunk"
+Documentation = "https://github.com/isaacus-dev/semchunk/blob/main/README.md"
+Issues = "https://github.com/isaacus-dev/semchunk/issues"
+Source = "https://github.com/isaacus-dev/semchunk"
+
+[tool.hatch.build.targets.sdist]
+only-include = ['src/semchunk/__init__.py', 'src/semchunk/py.typed', 'src/semchunk/semchunk.py', 'pyproject.toml', 'README.md', 'LICENCE', 'CHANGELOG.md', 'tests/bench.py', 'tests/test_semchunk.py', '.github/workflows/ci.yml', 'tests/helpers.py']
+
+[tool.ruff]
+exclude = [
+    "__pycache__",
+    "develop-eggs",
+    "eggs",
+    ".eggs",
+    "wheels",
+    "htmlcov",
+    ".tox",
+    ".nox",
+    ".coverage",
+    ".cache",
+    ".pytest_cache",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pybuilder",
+    "__pypackages__",
+    ".env",
+    ".venv",
+    "venv",
+    "env",
+    "ENV",
+    "env.bak",
+    "venv.bak",
+    ".archive",
+    ".persist_cache",
+    "site-packages",
+    "node_modules",
+    "dist",
+    "build",
+    "dist-info",
+    "egg-info",
+    ".hatchling",
+    ".bzr",
+    ".direnv",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".vscode",
+    "_build",
+    "buck-out",
+    "migrations",
+    "target",
+    "bin",
+    "lib",
+    "lib64",
+    "include",
+    "share",
+    "var",
+    "tmp",
+    "temp",
+    "logs",
+]
+line-length = 120
+target-version = "py312"

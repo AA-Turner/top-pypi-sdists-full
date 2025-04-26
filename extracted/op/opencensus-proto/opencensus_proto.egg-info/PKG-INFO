@@ -1,0 +1,45 @@
+Metadata-Version: 1.1
+Name: opencensus-proto
+Version: 0.1.0
+Summary: OpenCensus Proto
+Home-page: https://github.com/census-instrumentation/opencensus-proto/tree/master/gen-python
+Author: OpenCensus Authors
+Author-email: census-developers@googlegroups.com
+License: Apache-2.0
+Description: OpenCensus Proto
+        ============================================================================
+        
+        |pypi|
+        
+        .. |pypi| image:: https://badge.fury.io/py/opencensus-proto.svg
+           :target: https://pypi.org/project/opencensus-proto/
+        
+        Python library generated from OpenCensus cross-language protos.
+        
+        Installation
+        ------------
+        
+        ::
+        
+            pip install opencensus-proto
+        
+        Usage
+        -----
+        
+        .. code:: python
+        
+            # TBD
+        
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

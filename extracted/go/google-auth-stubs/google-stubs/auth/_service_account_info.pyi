@@ -1,0 +1,6 @@
+from _typeshed import Incomplete
+
+from google.auth import crypt as crypt
+
+def from_dict(data, require: Incomplete | None = ...): ...
+def from_filename(filename, require: Incomplete | None = ...): ...

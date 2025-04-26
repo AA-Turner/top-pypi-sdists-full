@@ -1,0 +1,27 @@
+Metadata-Version: 1.1
+Name: tacacs-plus
+Version: 2.6
+Summary: A client for TACACS+ authentication
+Home-page: http://github.com/ansible/tacacs_plus
+Author: Ryan Petrello
+Author-email: ryan@ryanpetrello.com
+License: BSD
+Description: UNKNOWN
+Keywords: tacas tacacs+ tacacs_plus auth authentication pap chap
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: PyPy

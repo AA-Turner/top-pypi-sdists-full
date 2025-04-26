@@ -1,0 +1,86 @@
+[project]
+name = "findpython"
+description = "A utility to find python versions on your system"
+authors = [
+    { name = "Frost Ming", email = "mianghong@gmail.com" },
+]
+dependencies = [
+    "packaging>=20",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+dynamic = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+version = "0.6.3"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/frostming/findpython"
+
+[project.scripts]
+findpython = "findpython.__main__:main"
+
+[tool.pdm.version]
+source = "scm"
+write_to = "findpython/__version__.py"
+write_template = "__version__ = \"{}\"\n"
+
+[tool.pdm.build]
+package-dir = "src"
+
+[tool.pdm.dev-dependencies]
+tests = [
+    "pytest",
+]
+
+[tool.black]
+line-length = 90
+include = "\\.pyi?$"
+exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox\n  | \\.venv\n  | build\n  | dist\n  | src/pythonfinder/_vendor\n)\n"
+
+[tool.ruff]
+line-length = 90
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "PGH",
+    "RUF",
+    "W",
+    "YTT",
+]
+extend-ignore = [
+    "B018",
+    "B019",
+]
+src = [
+    "src",
+]
+exclude = [
+    "tests/fixtures",
+]
+target-version = "py37"
+
+[tool.ruff.mccabe]
+max-complexity = 10
+
+[tool.ruff.isort]
+known-first-party = [
+    "findpython",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

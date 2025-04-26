@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: azure-servicemanagement-legacy
+Version: 0.20.8
+Summary: Microsoft Azure Legacy Service Management Client Library for Python
+Home-page: https://github.com/Azure/azure-sdk-for-python
+Author: Microsoft Corporation
+Author-email: ptvshelp@microsoft.com
+License: Apache License 2.0
+Keywords: azure,azure sdk
+Classifier: Development Status :: 7 - Inactive
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: License :: OSI Approved :: Apache Software License
+Description-Content-Type: text/markdown
+Requires-Dist: azure-common>=1.1.5
+Requires-Dist: requests
+Provides-Extra: get-certificate-from-publish-settings
+Requires-Dist: pyopenssl; extra == "get-certificate-from-publish-settings"
+
+# Microsoft Azure SDK for Python
+
+This package has been deprecated and will no longer be maintained after 10-31-2024. This package will only receive security fixes until 10-31-2024. To receive updates on new features and non-security bug fixes, upgrade to the specific service management package listed [here](https://azure.github.io/azure-sdk/releases/latest/all/python.html).

@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edk2-pytool-library"
+maintainers = [{name = "EDK2 Pytool Maintainers", email = "edk2-pytools@microsoft.com"}]
+dynamic = ["version"]
+description = "Python library supporting UEFI EDK2 firmware development"
+readme = {file = "readme.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = [
+    "pyasn1 >= 0.4.8",
+    "pyasn1-modules >= 0.2.8",
+    "cryptography >= 39.0.1",
+    "joblib >= 1.3.2",
+    "GitPython >= 3.1.30",
+    "sqlalchemy >= 2.0.0",
+    "pygount >= 1.6.1",
+    "pywin32 >= 308 ; sys_platform == 'win32'",
+]
+classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: OS Independent",
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13"
+    ]
+
+[project.urls]
+homepage = "https://github.com/tianocore/edk2-pytool-library/"
+documentation = "https://www.tianocore.org/edk2-pytool-library/"
+issues = "https://github.com/tianocore/edk2-pytool-library/issues/"
+
+[project.optional-dependencies]
+dev = [
+    "ruff == 0.8.6",
+    "pytest == 8.3.5",
+    "coverage == 7.6.12",
+    "pre-commit == 4.0.1",
+]
+publish = [
+    "setuptools == 75.8.2",
+    "build == 1.2.2.post1",
+    "twine == 6.1.0",
+]
+docs = [
+    "black==25.1.0",
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.5.49",
+    "mkdocstrings[python]==0.27.0",
+    "mkdocstrings-python==1.11.1",
+    "markdown-include==0.8.1",
+    "mkdocs-gen-files==0.5.0",
+    "mkdocs-exclude==1.0.2",
+    "mkdocs-awesome-pages-plugin==2.9.3",
+]
+
+[tool.setuptools_scm]
+
+[tool.coverage.run]
+include = ["edk2toollib/*"]
+
+[tool.ruff]
+src = ["edk2toollib"]
+line-length = 120
+
+[lint]
+ignore = ["ANN101"]
+select = [
+    "E", # Pycodestyle errors
+    "W", # Pycodestyle warnings
+    "F", # PyFlakes
+    "D", # pydocstyle
+    "I", # isort
+    "PIE", # flake8 - PIEpip
+    "ANN",
+]
+
+[lint.flake8-annotations]
+allow-star-arg-any = true
+
+[lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests.unit"
+]

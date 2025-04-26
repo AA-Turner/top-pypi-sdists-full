@@ -1,0 +1,45 @@
+import abc
+from typing import Dict, Union
+
+from .. import TokenBucket
+
+
+class BucketStorageAsync(metaclass=abc.ABCMeta):
+    def __init__(self) -> None:
+        self.buckets: Dict = {}
+
+    @abc.abstractmethod
+    async def get_bucket(
+        self, identifier: str, bucket_key: str
+    ) -> Union[TokenBucket, None]:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def get_all_buckets(
+        self, identifier: str
+    ) -> Union[Dict[str, TokenBucket], None]:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def add_bucket(self, bucket: TokenBucket) -> None:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def remove_bucket(
+        self, identifier: str, bucket_key: str
+    ) -> None:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def remove_all_buckets(self, identifier: str) -> None:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def replenish(self, bucket: TokenBucket) -> None:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    async def consume(
+        self, identifier: str, bucket_key: str
+    ) -> bool:  # pragma: no cover
+        pass

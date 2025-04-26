@@ -1,0 +1,39 @@
+[build-system]
+requires = [
+    "setuptools>=46.4.0",       # PEP-420 support, PEP-517/518 support, setup.cfg attr: support
+    "wheel>=0.30.0",            # limited python api support
+    "cython~=3.0",
+    "dimod==0.12.17",           # Lowest that support Python 3.9 through 3.13 and NumPy 2.0
+    "numpy~=2.0",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build-verbosity = "1"
+skip = "pp* *musllinux*"
+before-test = "pip install -r {project}/tests/requirements.txt"
+test-command = "python -m unittest discover {project}/tests/"
+
+[tool.cibuildwheel.linux]
+archs = "x86_64 aarch64"
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+
+[tool.cibuildwheel.macos]
+# We follow NumPy and don't build universal wheels, see https://github.com/numpy/numpy/pull/20787
+archs = "x86_64 arm64"
+
+[tool.cibuildwheel.windows]
+archs = "AMD64"
+before-build = "pip install delvewheel>=1.4.0"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg dwave"
+
+[tool.coverage.run]
+source = ["dwave/samplers"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

@@ -1,0 +1,123 @@
+Metadata-Version: 2.4
+Name: web-fragments
+Version: 3.0.0
+Summary: Web fragments
+Home-page: https://github.com/openedx/web-fragments
+Author: edX
+Author-email: oscm@edx.org
+License: AGPL 3.0
+Keywords: Django edx
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE.txt
+License-File: AUTHORS
+Provides-Extra: django
+Requires-Dist: Django<4.3,>=4.2; extra == "django"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
+
+web-fragments
+=============
+
+.. image:: https://img.shields.io/pypi/v/web-fragments.svg
+    :target: https://pypi.python.org/pypi/web-fragments/
+    :alt: PyPI
+
+.. image:: https://github.com/openedx/web-fragments/workflows/Python%20CI/badge.svg?branch=master
+    :target: https://github.com/openedx/web-fragments/actions?query=workflow%3A%22Python+CI%22
+    :alt: CI
+
+.. image:: http://codecov.io/github/edx/web-fragments/coverage.svg?branch=master
+    :target: http://codecov.io/github/edx/web-fragments?branch=master
+    :alt: Codecov
+
+.. image:: http://web-fragments.readthedocs.io/en/latest/?badge=latest
+    :target: http://web-fragments.readthedocs.io/en/latest/
+    :alt: Documentation
+
+.. image:: https://img.shields.io/pypi/pyversions/web-fragments.svg
+    :target: https://pypi.python.org/pypi/web-fragments/
+    :alt: Supported Python versions
+
+.. image:: https://img.shields.io/github/license/edx/web-fragments.svg
+    :target: https://github.com/openedx/web-fragments/blob/master/LICENSE.txt
+    :alt: License
+
+Overview
+--------
+
+The web fragments library provides a Python and Django implementation for
+managing fragments of web pages. In particular, this library refactors the
+fragment code from XBlock into a standalone implementation.
+
+A Django view subclass called FragmentView is provided which supports three
+different ways of rendering a fragment into a page:
+
+* the fragment can be rendered as a standalone page at its own URL
+* the fragment can be rendered into another page directly from Django
+* the fragment can be returned as JSON so that it can be rendered client-side
+
+The rationale behind this design can be found in `OEP-12`_.
+
+.. _OEP-12: https://open-edx-proposals.readthedocs.io/en/latest/architectural-decisions/oep-0012-arch-fragment-views.html
+
+The intention is that a client-side implementation will be provided in a
+subsequent version. This should provide JavaScript code to request fragements
+over AJAX and then dynamically update the current page. This logic will be a
+refactoring of the current implementation in edx-platform for rendering XBlocks.
+It is also intended that this functionality will enhance the capabilities
+around dependency loading.
+
+.. Documentation
+.. -------------
+..
+.. The full documentation is at https://web-fragments.readthedocs.org.
+
+License
+-------
+
+The code in this repository is licensed under the AGPL 3.0 unless otherwise
+noted.
+
+Please see ``LICENSE.txt`` for details.
+
+How To Contribute
+-----------------
+
+Contributions are very welcome. Please read `the Open edX Contributing Guide`_ for details.
+
+.. _the Open edX Contributing Guide: https://github.com/openedx/.github/blob/master/CONTRIBUTING.md
+
+Reporting Security Issues
+-------------------------
+
+Please do not report security issues in public. Please email security@openedx.org.
+
+Getting Help
+------------
+
+Have a question about this repository, or about Open edX in general?  Please
+refer to the Open edX guide to `Getting Help`_.
+
+.. _Getting Help: https://open.edx.org/getting-help
+
+
+We don't maintain a detailed changelog.  For details of changes, see the
+`GitHub commit history`_.
+
+.. _GitHub commit history: https://github.com/openedx/web-fragments/commits/master

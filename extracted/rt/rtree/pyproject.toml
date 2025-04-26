@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rtree"
+authors = [
+    {name = "Sean Gillies", email = "sean.gillies@gmail.com"},
+]
+maintainers = [
+    {name = "Howard Butler", email = "howard@hobu.co"},
+    {name = "Mike Taves", email = "mwtoews@gmail.com"},
+]
+description = "R-Tree spatial index for Python GIS"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["gis", "spatial", "index", "r-tree"]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Database",
+]
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://rtree.readthedocs.io"
+Repository = "https://github.com/Toblerity/rtree"
+
+[tool.setuptools]
+packages = ["rtree"]
+zip-safe = false
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "rtree.__version__"}
+
+[tool.setuptools.package-data]
+rtree = ["py.typed"]
+
+[tool.cibuildwheel]
+build = "cp39-*"
+build-verbosity = 3
+before-all = "pip install wheel"
+repair-wheel-command = "python scripts/repair_wheel.py -w {dest_dir} {wheel}"
+test-requires = "tox"
+test-command = "tox --conf {project} --installpkg {wheel}"
+test-skip = [
+    "*-macosx_arm64",
+]
+
+[tool.cibuildwheel.linux]
+archs = ["auto"]
+before-build = [
+    "yum install -y cmake libffi-devel",
+    "sh {project}/scripts/install_libspatialindex.sh",
+]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-build = [
+    "apk add cmake libffi-dev",
+    "sh {project}/scripts/install_libspatialindex.sh",
+]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+environment = { MACOSX_DEPLOYMENT_TARGET="10.9" }
+before-build = [
+    "brew install coreutils cmake",
+    "sh {project}/scripts/install_libspatialindex.sh",
+]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+before-build = [
+    "call {project}\\scripts\\install_libspatialindex.bat",
+]
+
+[tool.coverage.report]
+# Ignore warnings for overloads
+# https://github.com/nedbat/coveragepy/issues/970#issuecomment-612602180
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "I",   # isort
+    "NPY",  # NumPy-specific
+]
+
+[tool.mypy]
+exclude = ["docs", "build"]
+ignore_missing_imports = true
+show_error_codes = true

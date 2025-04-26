@@ -1,0 +1,125 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "antsibull-changelog"
+dynamic = ["version"]
+description = "Changelog tool for Ansible-core and Ansible collections"
+readme = "README.md"
+requires-python = ">= 3.9.0"
+license = "GPL-3.0-or-later"
+license-files.globs = ["LICENSES/*.txt"]
+authors = [
+  { name = "Felix Fontein", email = "felix@fontein.de" },
+  { name = "Toshio Kuratomi", email = "a.badger@gmail.com" },
+  { name = "Matt Clay", email = "matt@mystile.com" },
+]
+maintainers = [
+  { name = "Felix Fontein", email = "felix@fontein.de" },
+  { name = "Maxwell G", email = "maxwell@gtmx.me" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Ansible",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "antsibull-fileutils >= 1.0.0, < 2.0.0",
+    "docutils",
+    "packaging",
+    "rstcheck >= 3.0.0, < 7.0.0",
+    "semantic_version",
+    "antsibull-docutils >= 1.0.0, < 2.0.0",
+    "pydantic ~= 2.0",
+    "annotated_types",
+]
+
+[project.urls]
+"Documentation" = "https://ansible.readthedocs.io/projects/antsibull-changelog/"
+"Source code" = "https://github.com/ansible-community/antsibull-changelog/"
+"Code of Conduct" = "https://docs.ansible.com/ansible/latest/community/code_of_conduct.html"
+"Bug tracker" = "https://github.com/ansible-community/antsibull-changelog/issues"
+"Changelog" = "https://github.com/ansible-community/antsibull-changelog/tree/main/CHANGELOG.md"
+
+[project.scripts]
+antsibull-changelog = "antsibull_changelog.cli:main"
+
+
+[project.optional-dependencies]
+#
+# User facing
+#
+
+# Use for getting the current version from pyproject.toml
+toml = [
+    "tomli; python_version<'3.11'",
+]
+
+#
+# Development. Not user facing.
+#
+
+codeqa = [
+    "flake8 >= 3.8.0",
+    "pylint",
+    "reuse",
+]
+coverage = [
+    "coverage[toml]",
+]
+formatters = [
+    "black>=24",
+    "isort",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-error-for-skips",
+]
+typing = [
+    "mypy",
+    "types-docutils",
+    "types-PyYAML",
+    "types-toml",
+]
+dev = [
+    # Used by nox sessions
+    "antsibull-changelog[codeqa]",
+    "antsibull-changelog[coverage]",
+    "antsibull-changelog[formatters]",
+    "antsibull-changelog[test]",
+    "antsibull-changelog[typing]",
+    # misc
+    "nox",
+]
+
+[tool.hatch.version]
+path = "src/antsibull_changelog/__init__.py"
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.paths]
+source = [
+    "src",
+   "*/site-packages",
+]
+
+[tool.mypy]
+mypy_path = "stubs/"
+
+[[tool.mypy.overrides]]
+module = "semantic_version"
+ignore_missing_imports = true

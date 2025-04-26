@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: celery-singleton
+Version: 0.3.1
+Summary: Prevent duplicate celery tasks
+Home-page: https://github.com/steinitzu/celery-singleton
+License: MIT
+Author: Steinthor Palsson
+Author-email: steini90@gmail.com
+Requires-Python: >=3.6,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: celery (>=4)
+Requires-Dist: redis
+Project-URL: Repository, https://github.com/steinitzu/celery-singleton

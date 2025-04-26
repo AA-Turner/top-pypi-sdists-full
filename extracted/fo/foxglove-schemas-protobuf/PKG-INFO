@@ -1,0 +1,44 @@
+Metadata-Version: 2.3
+Name: foxglove-schemas-protobuf
+Version: 0.3.0
+Summary: Precompiled protocol buffer schemas for Foxglove
+License: MIT
+Author: Foxglove
+Author-email: support@foxglove.dev
+Requires-Python: >=3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: protobuf (>=3.20)
+Project-URL: Documentation, https://docs.foxglove.dev/
+Project-URL: Repository, https://github.com/foxglove/schemas
+Description-Content-Type: text/markdown
+
+# Foxglove Schemas (Protobuf)
+
+This package provides [Protobuf](https://developers.google.com/protocol-buffers/) classes for [Foxglove Schemas](https://docs.foxglove.dev/docs/visualization/message-schemas/introduction).
+
+## Installation
+
+Install via [Poetry](https://python-poetry.org/):
+
+```sh
+poetry add foxglove-schemas-protobuf
+```
+
+## Usage
+
+Import types from the `foxglove_schemas_protobuf` module as follows:
+
+```py
+from foxglove_schemas_protobuf.CompressedImage_pb2 import CompressedImage
+```
+
+## Stay in touch
+
+Join our [Slack channel](https://foxglove.dev/slack) to ask questions, share feedback, and stay up to date on what our team is working on.
+

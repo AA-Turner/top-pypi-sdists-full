@@ -1,0 +1,59 @@
+[tool.poetry]
+name = "pytest-watcher"
+version = "0.4.3"
+description = "Automatically rerun your tests on file modifications"
+authors = ["Olzhas Arystanov <o.arystanov@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/olzhasar/pytest-watcher"
+repository = "https://github.com/olzhasar/pytest-watcher"
+documentation = "https://pytest-watcher.readthedocs.io/en/latest/"
+keywords = ["pytest", "watch", "watcher"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Utilities",
+]
+include = ["LICENSE"]
+
+[tool.poetry.scripts]
+pytest-watcher = "pytest_watcher:run"
+ptw = "pytest_watcher:run"
+
+[tool.poetry.dependencies]
+python = ">=3.7.0,<4.0.0"
+watchdog = ">=2.0.0"
+tomli = { version = "^2.0.1", python = "<3.11" }
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+ruff = "*"
+mypy = "*"
+pytest-mock = "*"
+freezegun = "*"
+tox = "*"
+sphinx = { version = "*", python = ">=3.8" }
+coverage = { extras = ["toml"], version = "*" }
+myst-parser = "^1.0.0"
+sphinx-rtd-theme = "^1.2.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+source = ["pytest_watcher"]
+omit = ['pytest_watcher/__main__.py']
+
+[tool.ruff]
+line-length = 89
+lint.extend-select = ["I"]
+
+[tool.mypy]
+python_version = "3.7"
+ignore_missing_imports = true
+exclude = ".venv"

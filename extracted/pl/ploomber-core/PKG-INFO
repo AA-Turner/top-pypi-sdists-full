@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: ploomber-core
+Version: 0.2.26
+Classifier: License :: OSI Approved :: Apache Software License
+Provides-Extra: dev
+License-File: LICENSE

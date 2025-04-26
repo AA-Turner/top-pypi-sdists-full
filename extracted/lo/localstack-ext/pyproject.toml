@@ -1,0 +1,252 @@
+# LocalStack-Ext project configuration
+[build-system]
+requires = ['setuptools>=64', 'wheel', 'plux>=1.12', "setuptools_scm>=8.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localstack-ext"
+authors = [
+    { name = "LocalStack Team", email = "info@localstack.cloud" }
+]
+description = "Extensions for LocalStack"
+requires-python = ">=3.9"
+dependencies = [
+    "dill>=0.3.2",
+    "dnslib>=0.9.10",
+    "dnspython>=1.16.0",
+    "packaging",
+    "build",
+    "plux>=1.10.0",
+    "localstack-core==4.3.0",
+    "pyotp>=2.9.0",
+    "python-jose[cryptography]>=3.1.0",
+    "requests>=2.20.0",
+    "python-dateutil>=2.8",
+    "tabulate",
+    # currently needed to load pro entrypoints, for the tree view
+    "windows-curses;platform_system=='Windows'",
+]
+dynamic = ["version"]
+license = { text = "Proprietary" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: Other/Proprietary License",
+    "Topic :: Internet",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Emulators",
+]
+
+[tool.setuptools_scm]
+version_file = "localstack/pro/core/version.py"
+search_parent_directories = "true"
+# pypi (and our platform) does not support local versions:
+# https://setuptools-scm.readthedocs.io/en/latest/usage/#default-versioning-scheme
+local_scheme = "no-local-version"
+
+[project.urls]
+Homepage = "https://localstack.cloud"
+Documentation = "https://docs.localstack.cloud"
+Issues = "https://github.com/localstack/localstack/issues"
+
+[project.optional-dependencies]
+runtime = [
+    "amazon.ion>=0.9.3",
+    "avro>=1.11.0",
+    "aws-encryption-sdk>=3.1.0",
+    "aws-json-term-matcher>=0.1.5",
+    "dirtyjson>=1.0.7",
+    "distro",
+    "docker-registry-client>=0.5.2",
+    "dulwich>=0.19.16",
+    "graphql-core>=3.0.3",
+    "janus>=0.5.0",
+    # TODO: transitive dependency from community, can be removed (adjust range in community before)
+    "jsonpatch>=1.32",
+    "kafka-python",
+    "confluent-kafka",
+    "kubernetes>=21.7.0",
+    "libvirt-python==10.2.0",
+    "localstack-core[runtime]==4.3.0",
+    "paho-mqtt>=1.5",
+    "parquet[snappy]>=1.3.1",
+    "parse>=1.19.0",
+    "pg8000>=1.10",
+    "postgres>=2.2.2",
+    "postgresql-proxy>=0.2.0",
+    "presto-python-client>=0.7.0",
+    "pycdlib>=1.14.0",
+    "pyftpdlib>=1.5.6",
+    # hive_pure_sasl extra is necessary for python3.11
+    "pyhive[hive_pure_sasl]>=0.7.0",
+    # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
+    "pure-sasl>=0.6.2",
+    # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
+    "thrift>=0.10.0",
+    # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
+    "thrift_sasl>=0.1.0",
+    "pyion2json>=0.0.2",
+    "PyJWT>=1.7.0",
+    "pymysql",
+    "mysql-replication",
+    "pproxy-ext>=2.7.9",
+    "pyqldb~=3.2",
+    "python-snappy>=0.6",
+    # TODO: transitive dependency from community, can be removed (adjust range in community before)
+    "readerwriterlock>=1.0.7",
+    "redis>=5.0",
+    "rsa>=4.0",
+    "sql-metadata>=2.6.0",
+    "sqlglot[rs]",
+    "srp-ext>=1.0.7.1",
+    "testing.common.database>=1.1.0",
+    "tornado>=6.0",
+    "warrant-ext>=0.6.2",
+    # TODO: Upgrade websockets to v14, see https://websockets.readthedocs.io/en/stable/project/changelog.html#id4
+    "websockets>=8.1,<14",
+    "Whoosh>=2.7.4"
+]
+
+test = [
+    # test always needs the runtime to be able to run the tests
+    "localstack-ext[runtime]",
+    # TODO fix issues with pytest-httpserver==1.1.2, remove upper boundary
+    "pytest-httpserver>=1.0.1,<1.1.2",
+    "aiohttp",
+    "async-timeout",
+    "awsiotsdk",
+    "awswrangler>=3.5.2",
+    "aws_xray_sdk>=2.4.2",
+    "coverage[toml]>=5.0.0",
+    "deepdiff>=5.5.0",
+    "gremlinpython",
+    "jws>=0.1.3",
+    "localstack-core[test]==4.3.0",
+    "msal",
+    "msal-extensions",
+    "msrest",
+    "neo4j",
+    "nest-asyncio>=1.4.1",
+    "paramiko",
+    "portalocker",
+    "pre-commit>=3.5.0",
+    # pyarrow: writing parquet test files
+    "pyarrow",
+    "PyAthena[Pandas]",
+    "pymongo",
+    "pymssql>=2.2.8",
+    "pytest-instafail>=0.4.2",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.1.0",
+    "redshift_connector",
+    "stomp.py>=8.0.1",
+    "mysql-connector-python",
+    "python-terraform",
+    "aws-cdk-lib>=2.88.0",
+    "aws_cdk.aws_neptune_alpha",
+    "aws_cdk.aws_redshift_alpha",
+    "awsiotsdk",
+    "aws-cdk.aws-cognito-identitypool-alpha",
+    "playwright",
+    "pytest-playwright"
+]
+
+package = [
+    # TODO replace with localstack-obfuscator
+    "python-minifier<2.11.3"
+]
+
+typehint = [
+    # typehint extends the test dev experience, so it needs the test dependencies
+    "localstack-ext[test]",
+    "boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,bedrock,bedrock-runtime,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,qldb,qldb-session,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]"
+]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"], content-type = "text/markdown" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"*" = [
+    "*.md",
+]
+"localstack" = [
+    "**/*.py.enc",
+    "**/services/**/*.json",
+    "**/services/**/endpoint_injection/*/localstack_wrapper.sh",
+    "**/services/**/endpoint_injection/java/SdkV2DisableCertificateValidation.jar",
+    "**/services/**/*.yml",
+    "**/openapi.yaml",
+    "**/replicator/**.json"
+]
+
+[tool.ruff]
+# Extend the ruff config in the root dir
+extend = "../ruff.toml"
+# Always generate Python 3.9-compatible code.
+# Generate code compatible with version defined in .python-version
+target-version = "py311"
+line-length = 100
+src = ["tests", "localstack"]
+exclude = [
+    ".venv*",
+    "venv*",
+    "dist",
+    "build",
+    "target",
+    "*.egg-info",
+    ".filesystem",
+    ".git",
+    "**/version.py",
+]
+
+[tool.ruff.per-file-target-version]
+# Only allow minimum version for code used in the CLI
+"localstack/pro/core/cli/**" = "py39"
+"localstack/pro/core/bootstrap/**" = "py39"
+
+
+[tool.coverage.run]
+relative_files = true
+source = [
+    "localstack/pro/core",
+]
+omit = [
+    "*/aws/api/*"
+]
+
+[tool.coverage.paths]
+source = [
+    "localstack",
+    "../.venv/**/site-packages"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__ == .__main__.:",
+    "raise NotImplemented.",
+    "return NotImplemented",
+    "def __repr__",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "aws_parity: test can be run standalone against AWS and has been validated before",
+]
+log_cli = false
+log_level = "DEBUG"
+log_cli_format = "%(asctime)s.%(msecs)03d %(levelname)5s --- [%(threadName)12s] %(name)-26s : %(message)s"
+log_cli_date_format = "%Y-%m-%dT%H:%M:%S"
+
+[tool.pip-tools]
+# adding localstack-ext itself here because it is referenced in the pyproject.toml for stacking the extras
+# adding localstack-core because we do not want to pin it in the requirements files
+# pip, setuptools, and distribute are pip-tools defaults which need to be set again here
+unsafe-package = ["localstack-ext", "localstack-core", "pip", "setuptools", "distribute"] # packages that should not be pinned

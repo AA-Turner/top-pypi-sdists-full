@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: fireblocks_sdk
+Version: 2.16.1
+Summary: Fireblocks python SDK
+Home-page: https://github.com/fireblocks/fireblocks-sdk-py
+Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.16.1.tar.gz
+License: MIT
+Keywords: Fireblocks,SDK
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: PyJWT>=2.8.0
+Requires-Dist: cryptography>=2.7
+Requires-Dist: requests>=2.22.0
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+Fireblocks python SDK

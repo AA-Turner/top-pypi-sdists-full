@@ -1,0 +1,66 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [{name = "Niklas Rosenstein", mail = "rosensteinniklas@gmail.com"}]
+classifiers = []
+dependencies = [
+  "typing-extensions>=3.0.0",
+]
+description = ""
+keywords = []
+license = "MIT"
+name = "typeapi"
+packages = [{include = "typeapi", from = "src"}]
+readme = "README.md"
+requires-python = ">=3.8"
+version = "2.2.4"
+
+[project.urls]
+"Bug Tracker" = "https://github.com/NiklasRosenstein/python-typeapi/issues"
+Documentation = "https://niklasrosenstein.github.io/python-typeapi/"
+Homepage = "https://github.com/NiklasRosenstein/python-typeapi"
+# Repository = ""
+
+[tool.uv]
+dev-dependencies = [
+  "astor>=0.8.1,<1.0.0",
+  "mypy>=1.14.1",
+  "pytest>=8.3.4",
+  "ruff>=0.9.3",
+  "types-dataclasses>=0.6.5,<1.0.0",
+]
+
+[tool.slap]
+typed = true
+
+[tool.slap.test]
+mypy = "uv run dmypy run src/"
+pytest = "uv run pytest src/ -vv --doctest-modules"
+ruff = "uv run ruff check . && uv run ruff format --check ."
+
+[tool.slap.run]
+"docs:build" = "cd docs && uv run mkdocs build --site-dir _site"
+"docs:dev" = "cd docs && uv run mkdocs serve"
+fmt = "uv run ruff format . && uv run ruff check --fix-only ."
+
+[tool.mypy]
+explicit_package_bases = true
+mypy_path = ["src"]
+namespace_packages = true
+pretty = true
+python_version = "3.8"
+show_error_codes = true
+show_error_context = true
+strict = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = false
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["I"]

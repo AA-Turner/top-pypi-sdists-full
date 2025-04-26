@@ -1,0 +1,92 @@
+Metadata-Version: 2.1
+Name: async_factory_boy
+Version: 1.0.1
+Summary: factory_boy extension with asynchronous ORM support
+Home-page: https://github.com/kuzxnia/async_factory_boy
+Author: Kacper Kuźniarski
+License: MIT
+Keywords: factory_boy,factory,fixtures,async,SQLAlchemy,Tortoise,async_factory_boy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Provides-Extra: dev
+License-File: LICENSE
+
+async_factory_boy
+=================
+
+`factory_boy <https://github.com/FactoryBoy/factory_boy>`__ extension
+with asynchronous ORM support
+
+Requirements
+------------
+
+-  python (3.8, 3.9, 3.10)
+
+Instalation
+-----------
+
+Install using ``pip``
+
+::
+
+   pip install async_factory_boy
+
+Usage
+-----
+
+async_factory_boy integrate with Object Relational Mapping (ORM) through
+subclass of ``factory.Factory``. All supported are listed below.
+
+-  SQLAlchemy, with
+   ``async_factory_boy.factory.sqlalchemy.AsyncSQLAlchemyFactory``
+
+.. code:: python
+
+   from async_factory_boy.factory.sqlalchemy import AsyncSQLAlchemyFactory
+
+
+   class TestModelFactory(AsyncSQLAlchemyFactory):
+       class Meta:
+           model = TestModel
+           session = session
+
+       name = Faker("name")
+       created_at = Faker("date_time")
+
+-  Tortoise ORM, with
+   ``async_factory_boy.factory.tortoise.AsyncTortoiseFactory``
+
+.. code:: python
+
+   from async_factory_boy.factory.tortoise import AsyncTortoiseFactory
+
+
+   class TestModelFactory(AsyncTortoiseFactory):
+       class Meta:
+           model = TestModel
+
+       name = Faker("name")
+       created_at = Faker("date_time")
+
+and factory usage
+
+.. code:: python
+
+   test = await TestModelFactory.create()
+   test = await TestModelFactory.build()
+
+For test configuration examples check ``tests/`` directory.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

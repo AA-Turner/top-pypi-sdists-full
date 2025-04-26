@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=48", "wheel", "setuptools_scm[toml]>=6.3.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "dvc_s3/_dvc_s3_version.py"
+
+[project]
+name = "dvc-s3"
+description = "s3 plugin for dvc"
+readme = "README.rst"
+keywords = [
+    "dvc",
+    "s3",
+]
+license = { text = "Apache License 2.0" }
+maintainers = [{ name = "Iterative", email = "support@dvc.org" }]
+authors = [{ name = "Iterative", email = "support@dvc.org" }]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version"]
+dependencies = [
+    "dvc",
+    "s3fs>=2023.6.0",
+    "aiobotocore[boto3]>=2.5.0",
+    "flatten_dict>=0.4.1,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "dvc-s3[tests]",
+    "mypy==1.9.0",
+]
+tests = [
+    "dvc[testing]",
+    "pytest>=7,<9",
+    "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.2",
+    "pytest-servers[s3]>=0.4.0",
+]
+
+[project.urls]
+Documentation = "https://dvc.org/doc"
+Source = "https://github.com/iterative/dvc-s3"
+
+[tool.pytest.ini_options]
+log_level = "debug"
+addopts = "-ra -pdvc.testing.plugin"
+markers = [
+    "needs_internet: Might need network access for the tests",
+]
+
+[tool.mypy]
+# Error output
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+pretty = true
+# See https://mypy.readthedocs.io/en/latest/running_mypy.html#missing-imports.
+ignore_missing_imports = true
+check_untyped_defs = false
+# Warnings
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+files = ["dvc_s3"]
+
+[tool.ruff]
+output-format = "full"
+show-fixes = true
+
+[tool.ruff.lint]
+ignore = [
+    "N818", "S101", "ISC001", "PT004", "PT007", "RET502", "RET503", "SIM105", "SIM108", "SIM117",
+    "TRY003", "TRY300", "PLR2004", "PLW2901", "LOG007",
+]
+select = [
+    "F", "E", "W", "C90", "I", "N", "UP", "YTT", "ASYNC", "S", "BLE", "B", "A", "C4", "T10",
+    "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET",
+    "SLOT", "SIM", "TID", "TCH", "ARG", "PGH", "PLC", "PLE", "PLR", "PLW", "TRY",
+    "FLY", "PERF101", "LOG", "RUF", "RUF022", "RUF023", "RUF024", "RUF025", "RUF026",
+]
+preview = true
+explicit-preview-rules = true
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+raises-extend-require-match-for = ["dvc.exceptions.DvcException"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["dvc", "dvc_data", "dvc_objects"]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["M", "SCM"]
+
+[tool.ruff.lint.pylint]
+max-args = 10
+
+[tool.ruff.lint.per-file-ignores]
+"dvc_s3/tests/**" = ["S", "ARG001", "ARG002", "TRY002", "TRY301"]

@@ -1,0 +1,113 @@
+Metadata-Version: 2.2
+Name: launchable
+Version: 1.98.0
+Summary: Launchable CLI
+Home-page: https://launchableinc.com/
+Author: Launchable, Inc.
+Author-email: info@launchableinc.com
+License: Apache Software License v2
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: click<8.1,>=8.0; python_version == "3.6"
+Requires-Dist: click>=8.1; python_version > "3.6"
+Requires-Dist: requests>=2.25; python_version >= "3.6"
+Requires-Dist: urllib3>=1.26
+Requires-Dist: junitparser>=2.0.0
+Requires-Dist: setuptools
+Requires-Dist: more_itertools>=7.1.0; python_version >= "3.6"
+Requires-Dist: python-dateutil
+Requires-Dist: tabulate
+
+# Usage
+
+See https://www.launchableinc.com/docs/resources/cli-reference/ and
+https://www.launchableinc.com/docs/getting-started/.
+
+# Development
+
+## Preparation
+
+We recommend Pipenv
+
+```shell
+pip install pipenv==2021.5.29
+pipenv install --dev
+```
+
+In order to automatically format files with autopep8, this repository contains a
+configuration for [pre-commit](https://pre-commit.com). Install the hook with
+`pipenv run pre-commit install`.
+
+## Load development environment
+
+```shell
+pipenv shell
+```
+
+## Run tests cli
+
+```shell
+pipenv run test
+```
+
+## Run tests exe_deploy.jar
+
+```
+bazel test ...
+```
+
+## Add dependency
+
+```shell
+pipenv install --dev some-what-module
+```
+
+# How to release
+
+Create new release on Github, then Github Actions automatically uploads the
+module to PyPI.
+
+## How to update launchable/jar/exe_deploy.jar
+
+```
+./build-java.sh
+```
+
+# Installing CLI
+
+You can install the `launchable` command from either source or [pypi](https://pypi.org/project/launchable/).
+
+## Prerequisite
+
+- \>= Python 3.6
+- \>= Java 8
+
+## Install from source
+
+```sh
+$ pwd
+~/cli
+
+$ python setup.py install
+```
+
+## Install from pypi
+
+```sh
+$ pip3 install --user --upgrade launchable~=1.0
+```
+
+## Versioning
+
+This module follows [Semantic versioning](https://semver.org/) such as X.Y.Z.
+
+* Major (X)
+  * Drastic update breaking backward compatibility
+* Minor (Y)
+  * Add new plugins, options with backward compatibility
+* Patch (Z)-
+  * Fix bugs or minor behaviors

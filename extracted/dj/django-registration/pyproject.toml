@@ -1,0 +1,151 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    { name = "James Bennett" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+name = "django-registration"
+description = "An extensible user-registration application for Django."
+keywords = [
+    "django",
+    "security",
+    "auth",
+    "authentication",
+]
+readme = "README.rst"
+requires-python = ">=3.9"
+version = "5.2.1"
+dependencies = [
+    "Django>=4.2,!=5.0.*",
+    "confusable-homoglyphs>=3.0",
+]
+
+[project.license]
+text = "BSD-3-Clause"
+
+[project.urls]
+Documentation = "https://django-registration.readthedocs.io/"
+"Source Code" = "https://github.com/ubernostrum/django-registration"
+
+[dependency-groups]
+tests = [
+    "nox",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    "src/django_registration/_backports.py",
+]
+skips = [
+    "B101",
+]
+
+[tool.black]
+target-version = [
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+]
+
+[tool.check-manifest]
+ignore-bad-ideas = [
+    "*.mo",
+]
+
+[tool.check-wheel-contents]
+ignore = [
+    "W004",
+]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".nox/tests_with_coverage*/**/site-packages",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __str__",
+    "raise NotImplementedError",
+]
+fail_under = 100
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+    "*/_backports.py",
+]
+source = [
+    "django-registration",
+]
+
+[tool.interrogate]
+exclude = [
+    "src/django_registration/_backports.py",
+    "src/django_registration/migrations",
+    "tests/migrations",
+]
+fail-under = 100
+ignore-regex = [
+    ".*Meta.*",
+]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+
+[tool.isort]
+profile = "black"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+source-includes = [
+    ".editorconfig",
+    ".flake8",
+    ".pre-commit-config.yaml",
+    ".readthedocs.yaml",
+    "AUTHORS",
+    "CONTRIBUTING.rst",
+    "docs/",
+    "noxfile.py",
+    "pdm.lock",
+    "runtests.py",
+    "tests/",
+]
+
+[tool.pylint]
+disable = [
+    "duplicate-code",
+    "logging-fstring-interpolation",
+    "missing-class-docstring",
+    "missing-module-docstring",
+    "too-many-ancestors",
+]

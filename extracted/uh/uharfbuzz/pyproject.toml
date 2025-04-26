@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    # pin setuptools on pypy to workaround this bug: https://github.com/pypa/distutils/issues/283
+    "setuptools >= 36.4, < 72.2; platform_python_implementation == 'PyPy'",
+    "setuptools >= 36.4; platform_python_implementation != 'PyPy'",
+    "wheel",
+    "setuptools_scm >= 2.1",
+    "cython >= 0.28.1",
+    "pkgconfig"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+# Skip unsupported Python versions, and only build for 64-bit on Linux
+skip = ["cp36-*", "cp37-*", "*-manylinux_i686", "*-musllinux_i686"]
+
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "universal2", "arm64"]
+before-all = "brew install ccache"
+before-test = "ccache --show-stats"
+
+[tool.cibuildwheel.macos.environment]
+CC = "/opt/homebrew/opt/ccache/libexec/cc"
+
+[tool.cibuildwheel.linux]
+before-all = [
+    "yum install -y ccache",
+    "ln -s $(which ccache) /usr/lib64/ccache/gcc",
+]
+before-test = "ccache --show-stats"
+
+[tool.cibuildwheel.linux.environment]
+CC = "/usr/lib64/ccache/gcc"
+CFLAGS = "-g0"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = "apk add ccache"
+environment = {CC = "/usr/lib/ccache/bin/gcc"}
+
+[tool.black]
+extend-exclude = "harfbuzz"

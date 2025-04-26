@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flake8-isort"
+version = "6.1.2"
+authors = [
+  { name="Gil Forcada Codinachs", email="gil.gnome@gmail.com" },
+]
+description = "flake8 plugin that integrates isort"
+keywords = ["pep8", "flake8", "python", "isort", "imports"]
+license = {file = "LICENSE"}
+readme = "README.rst"
+requires-python = ">=3.9"
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Framework :: Flake8",
+        'Framework :: Plone',
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["flake8", "isort >= 5.0.0, <7"]
+
+[project.urls]
+"Homepage" = "https://github.com/gforcada/flake8-isort"
+"Bug Tracker" = "https://github.com/gforcada/flake8-isort/issues"
+"Changelog" = "https://github.com/gforcada/flake8-isort/blob/main/CHANGES.rst"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.entry-points."flake8.extension"]
+I00 = "flake8_isort:Flake8Isort"
+
+[tool.isort]
+profile = "plone"
+
+[tool.black]
+target-version = ["py39"]
+skip-string-normalization = true
+
+[tool.check-manifest]
+ignore = [
+    ".vscode/*",
+    "venv/*",
+]

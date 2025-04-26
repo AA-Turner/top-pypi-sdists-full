@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: wx_siplib
+Version: 12.14.0
+Summary: The sip module support for wx
+Home-page: https://github.com/Python-SIP/sip
+Author: Phil Thompson
+Author-email: phil@riverbankcomputing.com
+License: SIP
+Platform: X11
+Platform: macOS
+Platform: Windows
+Requires-Python: >=3.8
+License-File: LICENSE
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+
+sip Extension Module
+====================
+
+The sip extension module provides support for the wx package.

@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: jupyter_http_over_ws
+Version: 0.0.8
+Summary: Jupyter support for HTTP-over-ws
+Home-page: https://github.com/googlecolab/jupyter_http_over_ws
+Author: Google Colaboratory team
+Author-email: colaboratory-team@google.com
+License: Apache 2.0
+Description: Jupyter support for HTTP-over-ws
+Keywords: google colab ipython jupyter http_over_ws
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: WWW/HTTP

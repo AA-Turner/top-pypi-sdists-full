@@ -1,0 +1,153 @@
+[build-system]
+requires = [
+  "setuptools",
+  "wheel",
+]
+
+[tool.ruff]
+target-version = "py39"
+
+line-length = 120
+format.preview = true
+lint.select = [
+  "D",      # see: https://pypi.org/project/pydocstyle
+  "E",
+  "F",      # see: https://pypi.org/project/pyflakes
+  "I",      #see: https://pypi.org/project/isort/
+  "N",      # see: https://pypi.org/project/pep8-naming
+  "RUF100", # see: https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
+  "S",      # see: https://pypi.org/project/flake8-bandit
+  "UP",     # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+  "W",      # see: https://pypi.org/project/pycodestyle
+]
+lint.extend-select = [
+  "A",   # see: https://pypi.org/project/flake8-builtins
+  "ANN", # see: https://pypi.org/project/flake8-annotations
+  "B",   # see: https://pypi.org/project/flake8-bugbear
+  "C4",  # see: https://pypi.org/project/flake8-comprehensions
+  "EXE", # see: https://pypi.org/project/flake8-executable
+  "ISC", # see: https://pypi.org/project/flake8-implicit-str-concat
+  "PIE", # see: https://pypi.org/project/flake8-pie
+  "PLE", # see: https://pypi.org/project/pylint/
+  "PT",  # see: https://pypi.org/project/flake8-pytest-style
+  "Q",   # see: https://pypi.org/project/flake8-quotes
+  "RET", # see: https://pypi.org/project/flake8-return
+  "RUF", # Ruff-specific rules
+  "SIM", # see: https://pypi.org/project/flake8-simplify
+  "T10", # see: https://pypi.org/project/flake8-debugger
+  "TID", # see: https://pypi.org/project/flake8-tidy-imports/
+  "YTT", # see: https://pypi.org/project/flake8-2020
+]
+lint.ignore = [
+  "E731",
+]
+lint.per-file-ignores."__about__.py" = [
+  "D100",
+]
+lint.per-file-ignores."__init__.py" = [
+  "D100",
+]
+lint.per-file-ignores."docs/source/conf.py" = [
+  "A001",
+  "ANN001",
+  "ANN201",
+  "D100",
+  "D103",
+]
+lint.per-file-ignores."setup.py" = [
+  "ANN202",
+  "D100",
+  "SIM115",
+]
+lint.per-file-ignores."src/**" = [
+  "ANN101", # Missing type annotation for `self` in method
+  "ANN102", # Missing type annotation for `cls` in classmethod
+  "ANN401", # Dynamically typed expressions (typing.Any)
+  "B905",   # `zip()` without an explicit `strict=` parameter
+  "D100",   # Missing docstring in public module
+  "D107",   # Missing docstring in `__init__`
+]
+lint.per-file-ignores."tests/**" = [
+  "ANN001", # Missing type annotation for function argument
+  "ANN101", # Missing type annotation for `self` in method
+  "ANN201", #  Missing return type annotation for public function
+  "ANN202", # Missing return type annotation for private function
+  "ANN204", # Missing return type annotation for special method
+  "ANN401", # Dynamically typed expressions (typing.Any)
+  "B028",   # No explicit `stacklevel` keyword argument found
+  "B905",   # `zip()` without an explicit `strict=` parameter
+  "D100",   # Missing docstring in public module
+  "D101",   # Missing docstring in public class
+  "D102",   # Missing docstring in public method
+  "D103",   # Missing docstring in public function
+  "D104",   # Missing docstring in public package
+  "D105",   # Missing docstring in magic method
+  "D107",   # Missing docstring in `__init__`
+  "S101",   # Use of `assert` detected
+  "S311",   # Standard pseudo-random generators are not suitable for cryptographic purposes
+]
+lint.mccabe.max-complexity = 10
+# Use Google-style docstrings.
+lint.pydocstyle.convention = "google"
+
+[tool.codespell]
+#skip = '*.py'
+quiet-level = 3
+# comma separated list of words; waiting for:
+#  https://github.com/codespell-project/codespell/issues/2839#issuecomment-1731601603
+# also adding links until they ignored by its: nature
+#  https://github.com/codespell-project/codespell/issues/2243#issuecomment-1732019960
+#ignore-words-list = ""
+
+[tool.docformatter]
+recursive = true
+# this need to be shorter as some docstings are r"""...
+wrap-summaries = 119
+wrap-descriptions = 120
+blank = true
+
+[tool.check-manifest]
+ignore = [
+  "*.yml",
+  ".github",
+  ".github/*",
+]
+
+[tool.pytest.ini_options]
+norecursedirs = [
+  ".git",
+  ".github",
+  "dist",
+  "build",
+  "docs",
+]
+addopts = [
+  "--strict-markers",
+  "--doctest-modules",
+  "--durations=25",
+  "--color=yes",
+  "--disable-pytest-warnings",
+]
+markers = [
+  "online: run tests that require internet connection",
+]
+filterwarnings = [
+  "error::FutureWarning",
+] # todo: "error::DeprecationWarning"
+xfail_strict = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "pass",
+]
+[tool.coverage.run]
+parallel = true
+concurrency = "thread"
+relative_files = true
+
+[tool.mypy]
+files = [
+  "src/lightning_utilities",
+]
+disallow_untyped_defs = true

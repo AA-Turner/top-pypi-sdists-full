@@ -1,0 +1,117 @@
+# PEP-517 build
+
+[build-system]
+requires = ["poetry_core>=1.0.8"]
+build-backend = "poetry.core.masonry.api"
+
+# Poetry tooling configuration
+
+[tool.poetry]
+name = "josepy"
+version = "2.0.0"
+description = "JOSE protocol implementation in Python"
+license = "Apache License 2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security",
+]
+homepage = "https://github.com/certbot/josepy"
+authors = ["Certbot Project <certbot-dev@eff.org>"]
+readme = "README.rst"
+include = [
+    "CHANGELOG.rst",
+    "CONTRIBUTING.md",
+    "docs", "tests",
+]
+
+[tool.poetry.dependencies]
+# This should be kept in sync with the value of target-version in our
+# configuration for black below.
+python = "^3.9"
+# load_pem_private/public_key (>=0.6)
+# rsa_recover_prime_factors (>=0.8)
+# add sign() and verify() to asymetric keys (RSA >=1.4, ECDSA >=1.5)
+cryptography = ">=1.5"
+# >=4.3.0 is needed for Python 3.10 support
+sphinx = {version = ">=4.3.0", optional = true}
+sphinx-rtd-theme = {version = ">=1.0", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+# coverage[toml] extra is required to read the coverage config from pyproject.toml
+coverage = {version = ">=4.0", extras = ["toml"]}
+mypy = "*"
+types-pyRFC3339 = "*"
+types-requests = "*"
+types-setuptools = "*"
+typing-extensions = "*"
+pre-commit = "*"
+pytest = ">=2.8.0"
+pytest-cov = "*"
+tox = "*"
+twine = "*"
+
+[tool.poetry.extras]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[tool.poetry.scripts]
+jws = "josepy.jws:CLI.run"
+
+# Black tooling configuration
+[tool.black]
+line-length = 100
+# This should be kept in sync with the version of Python specified in poetry's
+# dependencies above.
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+
+# Mypy tooling configuration
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unused_ignores = true
+show_error_codes = true
+disallow_untyped_defs = true
+
+# Pytest tooling configuration
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+]
+norecursedirs = "*.egg .eggs dist build docs .tox"
+
+# Isort tooling configuration
+
+[tool.isort]
+combine_as_imports = false
+default_section = "THIRDPARTY"
+known_first_party = "josepy"
+line_length = 79
+profile = "black"
+
+# Coverage tooling configuration
+
+[tool.coverage.run]
+branch = true
+source = ["josepy"]
+
+[tool.coverage.paths]
+source = [
+   ".tox/*/lib/python*/site-packages/josepy",
+   ".tox/pypy*/site-packages/josepy",
+]
+
+[tool.coverage.report]
+show_missing = true

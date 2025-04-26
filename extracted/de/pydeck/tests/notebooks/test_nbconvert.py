@@ -1,0 +1,23 @@
+import pytest
+import glob
+import os
+
+from .notebook_utils import nbconvert
+
+here = os.path.dirname(os.path.abspath(__file__))
+nb_path = os.path.join(here, "../../examples")
+nb_glob = os.path.join(nb_path, "*.ipynb")
+
+
+@pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Skipping in CI tests")
+def test_nbconvert():
+    for fname in glob.glob(nb_glob):
+        # NOTE Massive data sets notebook takes too long to render, skipping for now
+        # NOTE skipping 03 (which contains live singapore taxi data) until I can provide a static version of that data
+        if "04" in fname or "06" in fname or "03" in fname:
+            continue
+        # NOTE Jupyter-specific features not currently supported in pydeck v0.9.
+        if "01" in fname or "02" in fname:
+            continue
+        print(fname)
+        assert nbconvert(fname)

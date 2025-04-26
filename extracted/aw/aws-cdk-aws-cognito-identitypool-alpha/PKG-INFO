@@ -1,0 +1,422 @@
+Metadata-Version: 2.1
+Name: aws-cdk.aws-cognito-identitypool-alpha
+Version: 2.186.0a0
+Summary: This module is deprecated. All constructs are now available under aws-cdk-lib/aws-cognito-identitypool
+Home-page: https://github.com/aws/aws-cdk
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/aws/aws-cdk.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 7 - Inactive
+Classifier: License :: OSI Approved
+Classifier: Framework :: AWS CDK
+Classifier: Framework :: AWS CDK :: 2
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.186.0
+Requires-Dist: constructs<11.0.0,>=10.0.0
+Requires-Dist: jsii<2.0.0,>=1.109.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+# Amazon Cognito Identity Pool Construct Library
+
+<!--BEGIN STABILITY BANNER-->---
+
+
+![Deprecated](https://img.shields.io/badge/deprecated-critical.svg?style=for-the-badge)
+
+> This API may emit warnings. Backward compatibility is not guaranteed.
+
+---
+<!--END STABILITY BANNER-->
+
+All constructs moved to `aws-cdk-lib/aws-cognito-identitypool`.
+
+> **Identity Pools are in a separate module while the API is being stabilized. Once we stabilize the module, they will**
+> **be included into the stable [aws-cognito](../aws-cognito) library. Please provide feedback on this experience by**
+> **creating an [issue here](https://github.com/aws/aws-cdk/issues/new/choose)**
+
+[Amazon Cognito Identity Pools](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-identity.html) enable you to grant your users access to other AWS services.
+
+Identity Pools are one of the two main components of [Amazon Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html), which provides authentication, authorization, and
+user management for your web and mobile apps. Your users can sign in through a a trusted identity provider, like a user
+pool or a SAML 2.0 service, as well as with third party providers such as Facebook, Amazon, Google or Apple.
+
+The other main component in Amazon Cognito is [user pools](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html). User Pools are user directories that provide sign-up and
+sign-in options for your app users.
+
+This module is part of the [AWS Cloud Development Kit](https://github.com/aws/aws-cdk) project.
+
+```python
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPool, UserPoolAuthenticationProvider
+```
+
+## Table of Contents
+
+* [Identity Pools](#identity-pools)
+
+  * [Authenticated and Unauthenticated Identities](#authenticated-and-unauthenticated-identities)
+  * [Authentication Providers](#authentication-providers)
+
+    * [User Pool Authentication Provider](#user-pool-authentication-provider)
+    * [Server Side Token Check](#server-side-token-check)
+    * [Associating an External Provider Directly](#associating-an-external-provider-directly)
+    * [OpenIdConnect and Saml](#openid-connect-and-saml)
+    * [Custom Providers](#custom-providers)
+  * [Role Mapping](#role-mapping)
+
+    * [Provider Urls](#provider-urls)
+  * [Authentication Flow](#authentication-flow)
+  * [Cognito Sync](#cognito-sync)
+  * [Importing Identity Pools](#importing-identity-pools)
+
+## Identity Pools
+
+Identity pools provide temporary AWS credentials for users who are guests (unauthenticated) and for users who have
+authenticated by presenting a token from another identity provider. An identity pool is a store of user identity data
+specific to an account.
+
+Identity pools can be used in conjunction with Cognito User Pools or by accessing external federated identity providers
+directly. Learn more at [Amazon Cognito Identity Pools](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-identity.html).
+
+### Authenticated and Unauthenticated Identities
+
+Identity pools define two types of identities: authenticated(`user`) and unauthenticated (`guest`). Every identity in
+an identity pool is either authenticated or unauthenticated. Each identity pool has a default role for authenticated
+identities, and a default role for unauthenticated identities. Absent other overriding rules (see below), these are the
+roles that will be assumed by the corresponding users in the authentication process.
+
+A basic Identity Pool with minimal configuration has no required props, with default authenticated (user) and
+unauthenticated (guest) roles applied to the identity pool:
+
+```python
+IdentityPool(self, "myIdentityPool")
+```
+
+By default, both the authenticated and unauthenticated roles will have no permissions attached. When granting permissions,
+you should ensure that you are granting the least privileged permissions required for your use case. Grant permissions
+to roles using the public `authenticatedRole` and `unauthenticatedRole` properties:
+
+```python
+import aws_cdk.aws_dynamodb as dynamodb
+# table: dynamodb.Table
+
+
+identity_pool = IdentityPool(self, "myIdentityPool")
+
+# Grant permissions to authenticated users
+table.grant_read_write_data(identity_pool.authenticated_role)
+# Grant permissions to unauthenticated guest users
+table.grant_read_data(identity_pool.unauthenticated_role)
+
+# Or add policy statements straight to the role
+identity_pool.authenticated_role.add_to_principal_policy(iam.PolicyStatement(
+    effect=iam.Effect.ALLOW,
+    actions=["dynamodb:UpdateItem"],
+    resources=[table.table_arn]
+))
+```
+
+The default roles can also be supplied in `IdentityPoolProps`:
+
+```python
+stack = Stack()
+authenticated_role = iam.Role(self, "authRole",
+    assumed_by=iam.ServicePrincipal("service.amazonaws.com")
+)
+unauthenticated_role = iam.Role(self, "unauthRole",
+    assumed_by=iam.ServicePrincipal("service.amazonaws.com")
+)
+identity_pool = IdentityPool(self, "TestIdentityPoolActions",
+    authenticated_role=authenticated_role,
+    unauthenticated_role=unauthenticated_role
+)
+```
+
+### Authentication Providers
+
+Authenticated identities belong to users who are authenticated by a public login provider (Amazon Cognito user pools,
+Login with Amazon, Sign in with Apple, Facebook, Google, SAML, or any OpenID Connect Providers) or a developer provider
+(your own backend authentication process).
+
+[Authentication providers](https://docs.aws.amazon.com/cognito/latest/developerguide/external-identity-providers.html) can be associated with an Identity Pool by first associating them with a Cognito User Pool or by
+associating the provider directly with the identity pool.
+
+#### User Pool Authentication Provider
+
+In order to attach a user pool to an identity pool as an authentication provider, the identity pool needs properties
+from both the user pool and the user pool client. For this reason identity pools use a `UserPoolAuthenticationProvider`
+to gather the necessary properties from the user pool constructs.
+
+```python
+user_pool = cognito.UserPool(self, "Pool")
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    authentication_providers=IdentityPoolAuthenticationProviders(
+        user_pools=[UserPoolAuthenticationProvider(user_pool=user_pool)]
+    )
+)
+```
+
+User pools can also be associated with an identity pool after instantiation. The Identity Pool's `addUserPoolAuthentication` method
+returns the User Pool Client that has been created:
+
+```python
+# identity_pool: IdentityPool
+
+user_pool = cognito.UserPool(self, "Pool")
+user_pool_client = identity_pool.add_user_pool_authentication(UserPoolAuthenticationProvider(
+    user_pool=user_pool
+))
+```
+
+#### Server Side Token Check
+
+With the `IdentityPool` CDK Construct, by default the pool is configured to check with the integrated user pools to
+make sure that the user has not been globally signed out or deleted before the identity pool provides an OIDC token or
+AWS credentials for the user.
+
+If the user is signed out or deleted, the identity pool will return a 400 Not Authorized error. This setting can be
+disabled, however, in several ways.
+
+Setting `disableServerSideTokenCheck` to true will change the default behavior to no server side token check. Learn
+more [here](https://docs.aws.amazon.com/cognitoidentity/latest/APIReference/API_CognitoIdentityProvider.html#CognitoIdentity-Type-CognitoIdentityProvider-ServerSideTokenCheck):
+
+```python
+# identity_pool: IdentityPool
+
+user_pool = cognito.UserPool(self, "Pool")
+identity_pool.add_user_pool_authentication(UserPoolAuthenticationProvider(
+    user_pool=user_pool,
+    disable_server_side_token_check=True
+))
+```
+
+#### Associating an External Provider Directly
+
+One or more [external identity providers](https://docs.aws.amazon.com/cognito/latest/developerguide/external-identity-providers.html) can be associated with an identity pool directly using
+`authenticationProviders`:
+
+```python
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    authentication_providers=IdentityPoolAuthenticationProviders(
+        amazon=IdentityPoolAmazonLoginProvider(
+            app_id="amzn1.application.12312k3j234j13rjiwuenf"
+        ),
+        facebook=IdentityPoolFacebookLoginProvider(
+            app_id="1234567890123"
+        ),
+        google=IdentityPoolGoogleLoginProvider(
+            client_id="12345678012.apps.googleusercontent.com"
+        ),
+        apple=IdentityPoolAppleLoginProvider(
+            services_id="com.myappleapp.auth"
+        ),
+        twitter=IdentityPoolTwitterLoginProvider(
+            consumer_key="my-twitter-id",
+            consumer_secret="my-twitter-secret"
+        )
+    )
+)
+```
+
+To associate more than one provider of the same type with the identity pool, use User
+Pools, OpenIdConnect, or SAML. Only one provider per external service can be attached directly to the identity pool.
+
+#### OpenId Connect and Saml
+
+[OpenID Connect](https://docs.aws.amazon.com/cognito/latest/developerguide/open-id.html) is an open standard for
+authentication that is supported by a number of login providers. Amazon Cognito supports linking of identities with
+OpenID Connect providers that are configured through [AWS Identity and Access Management](http://aws.amazon.com/iam/).
+
+An identity provider that supports [Security Assertion Markup Language 2.0 (SAML 2.0)](https://docs.aws.amazon.com/cognito/latest/developerguide/saml-identity-provider.html) can be used to provide a simple
+onboarding flow for users. The SAML-supporting identity provider specifies the IAM roles that can be assumed by users
+so that different users can be granted different sets of permissions. Associating an OpenId Connect or Saml provider
+with an identity pool:
+
+```python
+# open_id_connect_provider: iam.OpenIdConnectProvider
+# saml_provider: iam.SamlProvider
+
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    authentication_providers=IdentityPoolAuthenticationProviders(
+        open_id_connect_providers=[open_id_connect_provider],
+        saml_providers=[saml_provider]
+    )
+)
+```
+
+#### Custom Providers
+
+The identity pool's behavior can be customized further using custom [developer authenticated identities](https://docs.aws.amazon.com/cognito/latest/developerguide/developer-authenticated-identities.html).
+With developer authenticated identities, users can be registered and authenticated via an existing authentication
+process while still using Amazon Cognito to synchronize user data and access AWS resources.
+
+Like the supported external providers, though, only one custom provider can be directly associated with the identity
+pool.
+
+```python
+# open_id_connect_provider: iam.OpenIdConnectProvider
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    authentication_providers=IdentityPoolAuthenticationProviders(
+        google=IdentityPoolGoogleLoginProvider(
+            client_id="12345678012.apps.googleusercontent.com"
+        ),
+        open_id_connect_providers=[open_id_connect_provider],
+        custom_provider="my-custom-provider.example.com"
+    )
+)
+```
+
+### Role Mapping
+
+In addition to setting default roles for authenticated and unauthenticated users, identity pools can also be used to
+define rules to choose the role for each user based on claims in the user's ID token by using Role Mapping. When using
+role mapping, it's important to be aware of some of the permissions the role will need, and that the least privileged
+roles necessary are given for your specific use case. An in depth
+review of roles and role mapping can be found [here](https://docs.aws.amazon.com/cognito/latest/developerguide/role-based-access-control.html).
+
+Using a [token-based approach](https://docs.aws.amazon.com/cognito/latest/developerguide/role-based-access-control.html#using-tokens-to-assign-roles-to-users) to role mapping will allow mapped roles to be passed through the `cognito:roles` or
+`cognito:preferred_role` claims from the identity provider:
+
+```python
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPoolProviderUrl
+
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    role_mappings=[IdentityPoolRoleMapping(
+        provider_url=IdentityPoolProviderUrl.AMAZON,
+        use_token=True
+    )]
+)
+```
+
+Using a rule-based approach to role mapping allows roles to be assigned based on custom claims passed from the identity provider:
+
+```python
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPoolProviderUrl, RoleMappingMatchType
+
+# admin_role: iam.Role
+# non_admin_role: iam.Role
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    # Assign specific roles to users based on whether or not the custom admin claim is passed from the identity provider
+    role_mappings=[IdentityPoolRoleMapping(
+        provider_url=IdentityPoolProviderUrl.AMAZON,
+        rules=[RoleMappingRule(
+            claim="custom:admin",
+            claim_value="admin",
+            mapped_role=admin_role
+        ), RoleMappingRule(
+            claim="custom:admin",
+            claim_value="admin",
+            match_type=RoleMappingMatchType.NOTEQUAL,
+            mapped_role=non_admin_role
+        )
+        ]
+    )]
+)
+```
+
+#### Provider Urls
+
+Role mappings must be associated with the url of an Identity Provider which can be supplied
+`IdentityPoolProviderUrl`. Supported Providers have static Urls that can be used:
+
+```python
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPoolProviderUrl
+
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    role_mappings=[IdentityPoolRoleMapping(
+        provider_url=IdentityPoolProviderUrl.FACEBOOK,
+        use_token=True
+    )]
+)
+```
+
+For identity providers that don't have static Urls, a custom Url can be supplied:
+
+```python
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPoolProviderUrl
+
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    role_mappings=[IdentityPoolRoleMapping(
+        provider_url=IdentityPoolProviderUrl.custom("my-custom-provider.com"),
+        use_token=True
+    )
+    ]
+)
+```
+
+If a provider URL is a CDK Token, as it will be if you are trying to use a previously defined Cognito User Pool, you will need to also provide a mappingKey.
+This is because by default, the key in the Cloudformation role mapping hash is the providerUrl, and Cloudformation map keys must be concrete strings, they
+cannot be references. For example:
+
+```python
+from aws_cdk.aws_cognito import UserPool, UserPoolClient
+from aws_cdk.aws_cognito_identitypool_alpha import IdentityPoolProviderUrl
+
+# user_pool: UserPool
+# user_pool_client: UserPoolClient
+
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    role_mappings=[IdentityPoolRoleMapping(
+        mapping_key="cognito",
+        provider_url=IdentityPoolProviderUrl.user_pool(user_pool, user_pool_client),
+        use_token=True
+    )]
+)
+```
+
+See [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-identitypoolroleattachment-rolemapping.html#cfn-cognito-identitypoolroleattachment-rolemapping-identityprovider) for more information.
+
+### Authentication Flow
+
+Identity Pool [Authentication Flow](https://docs.aws.amazon.com/cognito/latest/developerguide/authentication-flow.html) defaults to the enhanced, simplified flow. The Classic (basic) Authentication Flow
+can also be implemented using `allowClassicFlow`:
+
+```python
+IdentityPool(self, "myidentitypool",
+    identity_pool_name="myidentitypool",
+    allow_classic_flow=True
+)
+```
+
+### Cognito Sync
+
+It's now recommended to integrate [AWS AppSync](https://aws.amazon.com/appsync/) for synchronizing app data across devices, so
+Cognito Sync features like `PushSync`, `CognitoEvents`, and `CognitoStreams` are not a part of `IdentityPool`. More
+information can be found [here](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-sync.html).
+
+### Importing Identity Pools
+
+You can import existing identity pools into your stack using Identity Pool static methods with the Identity Pool Id or
+Arn:
+
+```python
+IdentityPool.from_identity_pool_id(self, "my-imported-identity-pool", "us-east-1:dj2823ryiwuhef937")
+IdentityPool.from_identity_pool_arn(self, "my-imported-identity-pool", "arn:aws:cognito-identity:us-east-1:123456789012:identitypool/us-east-1:dj2823ryiwuhef937")
+```

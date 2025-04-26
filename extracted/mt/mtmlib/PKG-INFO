@@ -1,0 +1,73 @@
+Metadata-Version: 2.1
+Name: mtmlib
+Version: 0.4.202
+Summary: 
+License: MIT
+Author: John Smith
+Author-email: john@example.com
+Requires-Python: >=3.10,<3.13
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: beautifulsoup4 (>=4.12.2)
+Requires-Dist: colorama (>=0.4.6,<0.5.0)
+Requires-Dist: email-validator (>=2.2.0,<3.0.0)
+Requires-Dist: emails (>=0.6,<0.7)
+Requires-Dist: fastapi (>=0.104.1)
+Requires-Dist: httpx (>=0.27.0,<0.28.0)
+Requires-Dist: jinja2 (>=3.1.4,<4.0.0)
+Requires-Dist: json_repair (>=0.25.2)
+Requires-Dist: langchain-core (>=0.3.6,<0.4.0)
+Requires-Dist: langchain_community (>=0.3,<0.4)
+Requires-Dist: langgraph (>=0.2.13)
+Requires-Dist: markdown (>=3.6,<4.0)
+Requires-Dist: nanoid (>=2.0.0,<3.0.0)
+Requires-Dist: pgvector (>=0.3.2,<0.4.0)
+Requires-Dist: pillow (>=10.4.0,<11.0.0)
+Requires-Dist: psycopg (>=3.2.1)
+Requires-Dist: psycopg_pool (>=3.2.2)
+Requires-Dist: pydantic (>=2.5.1)
+Requires-Dist: pygithub (>=2.3.0,<3.0.0)
+Requires-Dist: pyjwt (>=2.9.0,<3.0.0)
+Requires-Dist: python-dotenv (>=1.0.0)
+Requires-Dist: python-logging-loki (>=0.3.1,<0.4.0)
+Requires-Dist: python-multipart (>=0.0.6)
+Requires-Dist: sqlmodel (>=0.0.21,<0.0.22)
+Requires-Dist: wikipedia (>=1.4.0,<2.0.0)
+Description-Content-Type: text/markdown
+
+# Python Workers Examples
+
+This is a collection of examples for [writing Cloudflare Workers in Python](https://developers.cloudflare.com/workers/languages/python). Use these examples to learn how Python Workers work.
+
+## Get started
+
+1. `git clone https://github.com/cloudflare/python-workers-examples`
+2. `cd hello`
+3. `npx wrangler@latest dev`
+4. Press the `b` key to open a browser tab, and make a request to your Worker
+
+You can run `npx wrangler@latest dev` in any example project directory to run a local development server using [Wrangler](https://developers.cloudflare.com/workers/wrangler/), the CLI for Cloudflare Workers. This local development server is powered by [workerd](https://github.com/cloudflare/workerd), the open-source Workers runtime.
+
+Need to deploy your Worker to Cloudflare? Python Workers are in open beta and have a few [limitations](#open-beta-and-limits).
+
+## Examples
+
+- [**`01-hello/`**](01-hello) — the most basic Python Worker
+- [**`02-binding/`**](02-binding) — shows how [bindings](https://developers.cloudflare.com/workers/configuration/bindings/) work in Python Workers. Put a key into Workers KV, and then read it.
+- [**`03-fastapi/`**](03-fastapi) — demonstrates how to use the [FastAPI](https://fastapi.tiangolo.com/) package with Python Workers
+- [**`04-langchain/`**](04-langchain) — demonstrates how to use the [LangChain](https://pypi.org/project/langchain/) package with Python Workers
+
+## Open Beta and Limits
+
+- Python Workers are in open beta. Currently, you can only deploy Python Workers that use the standard library. [Packages](https://developers.cloudflare.com/workers/languages/python/packages/#supported-packages) **cannot be deployed** and will only work in local development for the time being.
+- You must add the `python_workers` compatibility flag to your Worker, while Python Workers are in open beta.
+
+We’d love your feedback. Join the `#python-workers channel` in the [Cloudflare Developers Discord](https://discord.cloudflare.com/) and let us know what you’d like to see next.
+
+## License
+
+The [Apache 2.0 license](LICENSE).
+

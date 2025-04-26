@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: coiled
+Version: 1.93.0
+Summary: Python client for coiled.io dask clusters
+Project-URL: Homepage, https://coiled.io
+Maintainer-email: Coiled <info@coiled.io>
+License-File: LICENSE
+Requires-Python: >=3.9
+Requires-Dist: aiohttp
+Requires-Dist: backoff
+Requires-Dist: boto3
+Requires-Dist: click>=7.1
+Requires-Dist: dask>=2022.02.1
+Requires-Dist: distributed>=2022.02.1
+Requires-Dist: fabric>=3.0
+Requires-Dist: filelock
+Requires-Dist: gilknocker>=0.4.1
+Requires-Dist: httpx[http2]>=0.15
+Requires-Dist: importlib-metadata
+Requires-Dist: invoke>=2.0
+Requires-Dist: ipywidgets
+Requires-Dist: jmespath
+Requires-Dist: jsondiff
+Requires-Dist: packaging
+Requires-Dist: paramiko>=2.4
+Requires-Dist: pip-requirements-parser
+Requires-Dist: pip>=19.3
+Requires-Dist: prometheus-client
+Requires-Dist: rich>=11.2.0
+Requires-Dist: setuptools>=49.3.0
+Requires-Dist: toml
+Requires-Dist: typing-extensions
+Requires-Dist: wheel
+Provides-Extra: azure
+Requires-Dist: azure-identity; extra == 'azure'
+Requires-Dist: azure-mgmt-resource; extra == 'azure'
+Requires-Dist: azure-mgmt-subscription; extra == 'azure'
+Provides-Extra: notebook
+Requires-Dist: distributed>=2022.8.1; extra == 'notebook'
+Requires-Dist: jupyter-server-proxy; extra == 'notebook'
+Requires-Dist: jupyterlab; extra == 'notebook'
+Description-Content-Type: text/markdown
+
+
+<p align="center">
+<img src="https://raw.githubusercontent.com/coiled/logos/master/Coiled-Logo_Horizontal_Black-RGB.png" width="200" style="max-width: 200px;" alt="Coiled">
+</p>
+
+<p align="center">
+  <a href="https://coiled.io">Coiled.io</a> •
+  <a href="https://docs.coiled.io/user_guide/index.html">Documentation</a> •
+  <a href="https://join.slack.com/t/coiled-users/shared_invite/zt-hx1fnr7k-In~Q8ui3XkQfvQon0yN5WQ">Community</a> •
+  <a href="https://docs.coiled.io/user_guide/support.html">Support</a>
+</p>
+
+Coiled is a deployment-as-a-service library for scaling Python with Dask, a popular open source library for parallel analytics. Coiled manages cloud resources, networking, software environments, and everything you need to scale Python in the cloud robustly and easily.
+
+Go to https://cloud.coiled.io to get started with Coiled.

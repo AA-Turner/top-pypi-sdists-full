@@ -1,0 +1,34 @@
+[tool.pytest.ini_options]
+addopts = "--pdbcls=IPython.terminal.debugger:Pdb"
+
+[tool.pkgmt]
+github = "ploomber/jupysql"
+env_name = "jupysql"
+package_name = "sql"
+
+[tool.pkgmt.check_links]
+extensions = ["md", "rst", "py", "ipynb"]
+ignore_substrings = [
+    "d37ci6vzurychx.cloudfront.net",
+    "https://bornsql.ca",
+    "127.0.0.1",
+    "http://localhost",
+    "https://localhost",
+    "platform.ploomber.io",
+    "https://ourworldindata.org",
+]
+
+[tool.nbqa.addopts]
+flake8 = [
+    # notebooks allow non-top imports
+    "--extend-ignore=E402",
+    # jupysql notebooks might have "undefined name" errors
+    # due to the << operator
+    # W503, W504 ignore line break after/before 
+    # binary operator since they are conflicting 
+    "--ignore=F821, W503, W504",
+]
+
+[tool.codespell]
+skip = '.git,_build,build,*.drawio,*.ipynb'
+ignore-words-list = 'whis'

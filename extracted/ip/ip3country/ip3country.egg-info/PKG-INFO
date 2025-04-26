@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: ip3country
+Version: 0.3.0
+Summary: A zero-dependency, local, fast, tiny ip-address to country lookup
+Home-page: https://github.com/statsig-io/ip3country-py
+Author: Statsig
+Author-email: tore@statsig.com
+License: ISC
+Keywords: ip,country,lookup,statsig
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+See https://github.com/statsig-io/ip3country-py

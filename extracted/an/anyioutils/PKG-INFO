@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: anyioutils
+Version: 0.7.3
+Summary: Utility classes and functions for AnyIO
+Project-URL: Repository, https://github.com/davidbrochart/anyioutils.git
+Author-email: David Brochart <david.brochart@gmail.com>
+License: Copyright (c) 2024 David Brochart
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+License-File: LICENSE.txt
+Keywords: asyncio,trio
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Requires-Python: >=3.9
+Requires-Dist: anyio<5.0.0,>=4.8.0
+Requires-Dist: exceptiongroup; python_version < '3.11'
+Requires-Dist: outcome<2.0.0,>=1.3.0
+Requires-Dist: typing-extensions; python_version < '3.10'
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == 'docs'
+Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Provides-Extra: test
+Requires-Dist: aioguest; extra == 'test'
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: mypy; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: trio; extra == 'test'
+Description-Content-Type: text/markdown
+
+[![Build Status](https://github.com/davidbrochart/anyioutils/actions/workflows/test.yml/badge.svg?query=branch%3Amain++)](https://github.com/davidbrochart/anyioutils/actions/workflows/test.yml/badge.svg?query=branch%3Amain++)
+[![Code Coverage](https://img.shields.io/badge/coverage-100%25-green)](https://img.shields.io/badge/coverage-100%25-green)
+
+# anyioutils
+
+Utility classes and functions for AnyIO.
+
+See the [documentation](https://davidbrochart.github.io/anyioutils).

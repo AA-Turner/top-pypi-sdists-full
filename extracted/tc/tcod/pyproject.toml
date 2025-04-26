@@ -1,0 +1,180 @@
+[build-system]
+requires = [
+    # setuptools >=64.0.0 might break editable installs
+    # https://github.com/pypa/setuptools/issues/3548
+    "setuptools >=61.0.0",
+    "setuptools_scm[toml]>=6.2",
+    "wheel>=0.37.1",
+    "cffi>=1.15",
+    "pycparser>=2.14",
+    "pcpp==1.30",
+    "requests>=2.28.1",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tcod"
+dynamic = ["version"]
+description = "The official Python port of libtcod."
+authors = [{ name = "Kyle Benesch", email = "4b796c65+tcod@gmail.com" }]
+readme = "README.rst"
+requires-python = ">=3.8"
+license = { text = "Simplified BSD License" }
+dependencies = [
+    "cffi>=1.15",
+    'numpy>=1.21.4; implementation_name != "pypy"',
+    "typing_extensions>=4.12.2",
+]
+keywords = [
+    "roguelike",
+    "cffi",
+    "Unicode",
+    "libtcod",
+    "field-of-view",
+    "pathfinding",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Environment :: X11 Applications",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "tcod.__pyinstaller:get_hook_dirs"
+
+[project.urls]
+Homepage = "https://github.com/libtcod/python-tcod"
+Documentation = "https://python-tcod.readthedocs.io"
+Changelog = "https://github.com/libtcod/python-tcod/blob/main/CHANGELOG.md"
+Source = "https://github.com/libtcod/python-tcod"
+Tracker = "https://github.com/libtcod/python-tcod/issues"
+Forum = "https://github.com/libtcod/python-tcod/discussions"
+
+[tool.distutils.bdist_wheel]
+py-limited-api = "cp38"
+
+[tool.setuptools_scm]
+write_to = "tcod/version.py"
+
+[tool.black]
+line-length = 120
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+py_version = "38"
+skip_gitignore = true
+line_length = 120
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+required_plugins = ["pytest-cov", "pytest-benchmark"]
+testpaths = ["tcod/", "tests/", "docs/"]
+addopts = [
+    "--doctest-modules",
+    "--doctest-glob='*.rst'",
+    "--cov=tcod",
+    "--capture=sys",
+    "--ignore=tcod/__pyinstaller",
+]
+log_file_level = "DEBUG"
+faulthandler_timeout = 5
+filterwarnings = [
+    "ignore:This function may be deprecated in the future:PendingDeprecationWarning",
+    "ignore:This class may perform poorly and is no longer needed.::tcod.map",
+    "ignore:'import tcod as libtcodpy' is preferred.",
+]
+
+[tool.mypy]
+files = ["."]
+python_version = "3.9"
+warn_unused_configs = true
+show_error_codes = true
+disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+implicit_reexport = false
+strict_equality = true
+exclude = [
+    "build/",
+    "venv/",
+    "libtcod/",
+    "docs/",
+    "distribution/",
+    "termbox/",
+    "samples_libtcodpy.py",
+]
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tcod.version"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tcod._libtcod"
+ignore_missing_imports = true
+
+[tool.ruff]
+extend-exclude = ["libtcod"] # Ignore submodule
+line-length = 120
+
+[tool.ruff.lint] # https://docs.astral.sh/ruff/rules/
+select = ["ALL"]
+ignore = [
+    "COM",    # flake8-commas
+    "D203",   # one-blank-line-before-class
+    "D204",   # one-blank-line-after-class
+    "D213",   # multi-line-summary-second-line
+    "D407",   # dashed-underline-after-section
+    "D408",   # section-underline-after-name
+    "D409",   # section-underline-matches-section-length
+    "D206",   # indent-with-spaces
+    "E501",   # line-too-long
+    "PYI064", # redundant-final-literal
+    "S101",   # assert
+    "S301",   # suspicious-pickle-usage
+    "S311",   # suspicious-non-cryptographic-random-usage
+    "SLF001", # private-member-access
+    "W191",   # tab-indentation
+]
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = [
+    "D103", # undocumented-public-function
+]
+"**/{tests,docs,examples,scripts}/*" = [
+    "D103", # undocumented-public-function
+    "T201", # print
+]
+
+[tool.ruff.lint.pydocstyle] # https://docs.astral.sh/ruff/settings/#lintpydocstyle
+convention = "google"
