@@ -4,6 +4,8 @@ Makernote (proprietary) tag definitions for Canon.
 http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/Canon.html
 """
 
+from typing import Callable, Dict, Tuple
+
 
 def add_one(value):
     return value + 1
@@ -17,7 +19,7 @@ def convert_temp(value):
     return "%d C" % (value - 128)
 
 
-TAGS = {
+TAGS: Dict[int, Tuple] = {
     0x0003: ("FlashInfo",),
     0x0006: ("ImageType",),
     0x0007: ("FirmwareVersion",),
@@ -28,6 +30,13 @@ TAGS = {
     0x0010: (
         "ModelID",
         {
+            0x412: "EOS M50 / Kiss M",
+            0x801: "PowerShot SX740 HS",
+            0x804: "PowerShot G5 X Mark II",
+            0x805: "PowerShot SX70 HS",
+            0x808: "PowerShot G7 X Mark III",
+            0x811: "EOS M6 Mark II",
+            0x812: "EOS M200",
             0x1010000: "PowerShot A30",
             0x1040000: "PowerShot S300 / Digital IXUS 300 / IXY Digital 300",
             0x1060000: "PowerShot A20",
@@ -149,7 +158,7 @@ TAGS = {
             0x2770000: "PowerShot SD940 IS / Digital IXUS 120 IS / IXY Digital 220 IS",
             0x2800000: "PowerShot A495",
             0x2810000: "PowerShot A490",
-            0x2820000: "PowerShot A3100 IS / A3150 IS",
+            0x2820000: "PowerShot A3100/A3150 IS",
             0x2830000: "PowerShot A3000 IS",
             0x2840000: "PowerShot SD1400 IS / IXUS 130 / IXY 400F",
             0x2850000: "PowerShot SD1300 IS / IXUS 105 / IXY 200F",
@@ -176,8 +185,9 @@ TAGS = {
             0x3090000: "PowerShot SX150 IS",
             0x3100000: "PowerShot ELPH 510 HS / IXUS 1100 HS / IXY 51S",
             0x3110000: "PowerShot S100 (new)",
-            0x3130000: "PowerShot SX40 HS",
             0x3120000: "PowerShot ELPH 310 HS / IXUS 230 HS / IXY 600F",
+            0x3130000: "PowerShot SX40 HS",
+            0x3140000: "IXY 32S",
             0x3160000: "PowerShot A1300",
             0x3170000: "PowerShot A810",
             0x3180000: "PowerShot ELPH 320 HS / IXUS 240 HS / IXY 420F",
@@ -191,8 +201,9 @@ TAGS = {
             0x3260000: "PowerShot A3400 IS",
             0x3270000: "PowerShot A2400 IS",
             0x3280000: "PowerShot A2300",
+            0x3320000: "PowerShot S100V",
             0x3330000: "PowerShot G15",
-            0x3340000: "PowerShot SX50",
+            0x3340000: "PowerShot SX50 HS",
             0x3350000: "PowerShot SX160 IS",
             0x3360000: "PowerShot S110 (new)",
             0x3370000: "PowerShot SX500 IS",
@@ -202,6 +213,7 @@ TAGS = {
             0x3410000: "PowerShot SX270 HS",
             0x3420000: "PowerShot A3500 IS",
             0x3430000: "PowerShot A2600",
+            0x3440000: "PowerShot SX275 HS",
             0x3450000: "PowerShot A1400",
             0x3460000: "PowerShot ELPH 130 IS / IXUS 140 / IXY 110F",
             0x3470000: "PowerShot ELPH 115/120 IS / IXUS 132/135 / IXY 90F/100F",
@@ -231,10 +243,32 @@ TAGS = {
             0x3800000: "PowerShot SX530 HS",
             0x3820000: "PowerShot SX710 HS",
             0x3830000: "PowerShot SX610 HS",
+            0x3840000: "EOS M10",
+            0x3850000: "PowerShot G3 X",
+            0x3860000: "PowerShot ELPH 165 HS / IXUS 165 / IXY 160",
             0x3870000: "PowerShot ELPH 160 / IXUS 160",
+            0x3880000: "PowerShot ELPH 350 HS / IXUS 275 HS / IXY 640",
             0x3890000: "PowerShot ELPH 170 IS / IXUS 170",
             0x3910000: "PowerShot SX410 IS",
+            0x3930000: "PowerShot G9 X",
+            0x3940000: "EOS M5",
+            0x3950000: "PowerShot G5 X",
+            0x3970000: "PowerShot G7 X Mark II",
+            0x3980000: "EOS M100",
+            0x3990000: "PowerShot ELPH 360 HS / IXUS 285 HS / IXY 650",
+            0x4010000: "PowerShot SX540 HS",
+            0x4020000: "PowerShot SX420 IS",
+            0x4030000: "PowerShot ELPH 190 IS / IXUS 180 / IXY 190",
             0x4040000: "PowerShot G1",
+            0x4040001: "PowerShot ELPH 180 IS / IXUS 175 / IXY 180",
+            0x4050000: "PowerShot SX720 HS",
+            0x4060000: "PowerShot SX620 HS",
+            0x4070000: "EOS M6",
+            0x4100000: "PowerShot G9 X Mark II",
+            0x4150000: "PowerShot ELPH 185 / IXUS 185 / IXY 200",
+            0x4160000: "PowerShot SX430 IS",
+            0x4170000: "PowerShot SX730 HS",
+            0x4180000: "PowerShot G1 X Mark III",
             0x6040000: "PowerShot S100 / Digital IXUS / IXY Digital",
             0x4007D673: "DC19/DC21/DC22",
             0x4007D674: "XH A1",
@@ -264,7 +298,10 @@ TAGS = {
             0x4007DA8F: "HF M30/M31/M36/M300/M306",
             0x4007DA90: "HF S20/S21/S200",
             0x4007DA92: "FS31/FS36/FS37/FS300/FS305/FS306/FS307",
+            0x4007DCA0: "EOS C300",
             0x4007DDA9: "HF G25",
+            0x4007DFB4: "XC10",
+            0x4007E1C3: "EOS C200",
             0x80000001: "EOS-1D",
             0x80000167: "EOS-1DS",
             0x80000168: "EOS 10D",
@@ -306,14 +343,46 @@ TAGS = {
             0x80000324: "EOS-1D C",
             0x80000325: "EOS 70D",
             0x80000326: "EOS Rebel T5i / 700D / Kiss X7i",
-            0x80000327: "EOS Rebel T5 / 1200D / Kiss X70",
+            0x80000327: "EOS Rebel T5 / 1200D / Kiss X70 / Hi",
+            0x80000328: "EOS-1D X Mark II",
             0x80000331: "EOS M",
-            0x80000355: "EOS M2",
             0x80000346: "EOS Rebel SL1 / 100D / Kiss X7",
             0x80000347: "EOS Rebel T6s / 760D / 8000D",
+            0x80000349: "EOS 5D Mark IV",
+            0x80000350: "EOS 80D",
+            0x80000355: "EOS M2",
             0x80000382: "EOS 5DS",
             0x80000393: "EOS Rebel T6i / 750D / Kiss X8i",
             0x80000401: "EOS 5DS R",
+            0x80000404: "EOS Rebel T6 / 1300D / Kiss X80",
+            0x80000405: "EOS Rebel T7i / 800D / Kiss X9i",
+            0x80000406: "EOS 6D Mark II",
+            0x80000408: "EOS 77D / 9000D",
+            0x80000417: "EOS Rebel SL2 / 200D / Kiss X9",
+            0x80000421: "EOS R5",
+            0x80000422: "EOS Rebel T100 / 4000D / 3000D",
+            0x80000424: "EOS R",
+            0x80000428: "EOS-1D X Mark III",
+            0x80000432: "EOS Rebel T7 / 2000D / 1500D / Kiss X90",
+            0x80000433: "EOS RP",
+            0x80000435: "EOS Rebel T8i / 850D / X10i",
+            0x80000436: "EOS SL3 / 250D / Kiss X10",
+            0x80000437: "EOS 90D",
+            0x80000450: "EOS R3",
+            0x80000453: "EOS R6",
+            0x80000464: "EOS R7",
+            0x80000465: "EOS R10",
+            0x80000467: "PowerShot ZOOM",
+            0x80000468: "EOS M50 Mark II / Kiss M2",
+            0x80000480: "EOS R50",
+            0x80000481: "EOS R6 Mark II",
+            0x80000487: "EOS R8",
+            0x80000491: "PowerShot V10",
+            0x80000495: "EOS R1",
+            0x80000496: "R5 Mark II",
+            0x80000498: "EOS R100",
+            0x80000520: "EOS D2000C",
+            0x80000560: "EOS D6000C",
         },
     ),
     0x0013: ("ThumbnailImageValidArea",),
@@ -339,13 +408,25 @@ TAGS = {
 
 # this is in element offset, name, optional value dictionary format
 # 0x0001
-CAMERA_SETTINGS = {
+_CAMERA_SETTINGS: Dict[int, Tuple] = {
     1: ("Macromode", {1: "Macro", 2: "Normal"}),
     2: ("SelfTimer",),
-    3: ("Quality", {1: "Economy", 2: "Normal", 3: "Fine", 5: "Superfine"}),
+    3: (
+        "Quality",
+        {
+            -1: "n/a",
+            1: "Economy",
+            2: "Normal",
+            3: "Fine",
+            4: "RAW",
+            5: "Superfine",
+            7: "CRAW",
+        },
+    ),
     4: (
         "FlashMode",
         {
+            -1: "n/a",
             0: "Flash Not Fired",
             1: "Auto",
             2: "On",
@@ -386,10 +467,22 @@ CAMERA_SETTINGS = {
             5: "TIF+JPEG",
             6: "CR2",
             7: "CR2+JPEG",
-            9: "Video",
+            9: "MOV",
+            10: "MP4",
+            11: "CRM",
         },
     ),
-    10: ("ImageSize", {0: "Large", 1: "Medium", 2: "Small"}),
+    10: (
+        "ImageSize",
+        {
+            -1: "n/a",
+            0: "Large",
+            1: "Medium",
+            2: "Small",
+            8: "Postcard",
+            9: "Widescreen",
+        },
+    ),
     11: (
         "EasyShootingMode",
         {
@@ -459,10 +552,181 @@ CAMERA_SETTINGS = {
             5: "A-DEP",
         },
     ),
-    22: ("LensType",),
+    22: (
+        "LensType",
+        {
+            -1: "n/a",
+            1: "Canon EF 50mm f/1.8",
+            3: "Canon EF 135mm f/2.8 Soft",
+            5: "Canon EF 35-70mm f/3.5-4.5",
+            7: "Canon EF 100-300mm f/5.6L",
+            11: "Canon EF 35mm f/2",
+            13: "Canon EF 15mm f/2.8 Fisheye",
+            14: "Canon EF 50-200mm f/3.5-4.5L",
+            15: "Canon EF 50-200mm f/3.5-4.5",
+            16: "Canon EF 35-135mm f/3.5-4.5",
+            17: "Canon EF 35-70mm f/3.5-4.5A",
+            18: "Canon EF 28-70mm f/3.5-4.5",
+            20: "Canon EF 100-200mm f/4.5A",
+            21: "Canon EF 80-200mm f/2.8L",
+            23: "Canon EF 35-105mm f/3.5-4.5",
+            24: "Canon EF 35-80mm f/4-5.6 Power Zoom",
+            25: "Canon EF 35-80mm f/4-5.6 Power Zoom",
+            27: "Canon EF 35-80mm f/4-5.6",
+            29: "Canon EF 50mm f/1.8 II",
+            30: "Canon EF 35-105mm f/4.5-5.6",
+            35: "Canon EF 35-80mm f/4-5.6",
+            36: "Canon EF 38-76mm f/4.5-5.6",
+            38: "Canon EF 80-200mm f/4.5-5.6 II",
+            39: "Canon EF 75-300mm f/4-5.6",
+            40: "Canon EF 28-80mm f/3.5-5.6",
+            41: "Canon EF 28-90mm f/4-5.6",
+            43: "Canon EF 28-105mm f/4-5.6",
+            44: "Canon EF 90-300mm f/4.5-5.6",
+            45: "Canon EF-S 18-55mm f/3.5-5.6 [II]",
+            46: "Canon EF 28-90mm f/4-5.6",
+            48: "Canon EF-S 18-55mm f/3.5-5.6 IS",
+            49: "Canon EF-S 55-250mm f/4-5.6 IS",
+            50: "Canon EF-S 18-200mm f/3.5-5.6 IS",
+            51: "Canon EF-S 18-135mm f/3.5-5.6 IS",
+            52: "Canon EF-S 18-55mm f/3.5-5.6 IS II",
+            53: "Canon EF-S 18-55mm f/3.5-5.6 III",
+            54: "Canon EF-S 55-250mm f/4-5.6 IS II",
+            63: "Irix 30mm F1.4 Dragonfly",
+            80: "Canon TS-E 50mm f/2.8L Macro",
+            81: "Canon TS-E 90mm f/2.8L Macro",
+            82: "Canon TS-E 135mm f/4L Macro",
+            94: "Canon TS-E 17mm f/4L",
+            95: "Canon TS-E 24mm f/3.5L II",
+            106: "Rokinon SP / Samyang XP 35mm f/1.2",
+            124: "Canon MP-E 65mm f/2.8 1-5x Macro Photo",
+            125: "Canon TS-E 24mm f/3.5L",
+            126: "Canon TS-E 45mm f/2.8",
+            129: "Canon EF 300mm f/2.8L USM",
+            130: "Canon EF 50mm f/1.0L USM",
+            132: "Canon EF 1200mm f/5.6L USM",
+            134: "Canon EF 600mm f/4L IS USM",
+            135: "Canon EF 200mm f/1.8L USM",
+            138: "Canon EF 28-80mm f/2.8-4L",
+            139: "Canon EF 400mm f/2.8L USM",
+            140: "Canon EF 500mm f/4.5L USM",
+            141: "Canon EF 500mm f/4.5L USM",
+            142: "Canon EF 300mm f/2.8L IS USM",
+            144: "Canon EF 35-135mm f/4-5.6 USM",
+            145: "Canon EF 100-300mm f/4.5-5.6 USM",
+            146: "Canon EF 70-210mm f/3.5-4.5 USM",
+            147: "Canon EF 35-135mm f/4-5.6 USM",
+            148: "Canon EF 28-80mm f/3.5-5.6 USM",
+            149: "Canon EF 100mm f/2 USM",
+            151: "Canon EF 200mm f/2.8L USM",
+            162: "Canon EF 200mm f/2.8L USM",
+            163: "Canon EF 300mm f/4L",
+            164: "Canon EF 400mm f/5.6L",
+            165: "Canon EF 70-200mm f/2.8L USM",
+            166: "Canon EF 70-200mm f/2.8L USM + 1.4x",
+            167: "Canon EF 70-200mm f/2.8L USM + 2x",
+            171: "Canon EF 300mm f/4L USM",
+            175: "Canon EF 400mm f/2.8L USM",
+            176: "Canon EF 24-85mm f/3.5-4.5 USM",
+            177: "Canon EF 300mm f/4L IS USM",
+            178: "Canon EF 28-135mm f/3.5-5.6 IS",
+            179: "Canon EF 24mm f/1.4L USM",
+            184: "Canon EF 400mm f/2.8L USM + 2x",
+            185: "Canon EF 600mm f/4L IS USM",
+            186: "Canon EF 70-200mm f/4L USM",
+            187: "Canon EF 70-200mm f/4L USM + 1.4x",
+            188: "Canon EF 70-200mm f/4L USM + 2x",
+            189: "Canon EF 70-200mm f/4L USM + 2.8x",
+            190: "Canon EF 100mm f/2.8 Macro USM",
+            193: "Canon EF 35-80mm f/4-5.6 USM",
+            194: "Canon EF 80-200mm f/4.5-5.6 USM",
+            195: "Canon EF 35-105mm f/4.5-5.6 USM",
+            196: "Canon EF 75-300mm f/4-5.6 USM",
+            199: "Canon EF 28-80mm f/3.5-5.6 USM",
+            200: "Canon EF 75-300mm f/4-5.6 USM",
+            201: "Canon EF 28-80mm f/3.5-5.6 USM",
+            202: "Canon EF 28-80mm f/3.5-5.6 USM IV",
+            208: "Canon EF 22-55mm f/4-5.6 USM",
+            209: "Canon EF 55-200mm f/4.5-5.6",
+            210: "Canon EF 28-90mm f/4-5.6 USM",
+            211: "Canon EF 28-200mm f/3.5-5.6 USM",
+            212: "Canon EF 28-105mm f/4-5.6 USM",
+            214: "Canon EF-S 18-55mm f/3.5-5.6 USM",
+            215: "Canon EF 55-200mm f/4.5-5.6 II USM",
+            217: "Tamron AF 18-270mm f/3.5-6.3 Di II VC PZD",
+            220: "Yongnuo YN 50mm f/1.8",
+            224: "Canon EF 70-200mm f/2.8L IS USM",
+            225: "Canon EF 70-200mm f/2.8L IS USM + 1.4x",
+            226: "Canon EF 70-200mm f/2.8L IS USM + 2x",
+            227: "Canon EF 70-200mm f/2.8L IS USM + 2.8x",
+            228: "Canon EF 28-105mm f/3.5-4.5 USM",
+            229: "Canon EF 16-35mm f/2.8L USM",
+            230: "Canon EF 24-70mm f/2.8L USM",
+            232: "Canon EF 70-300mm f/4.5-5.6 DO IS USM",
+            233: "Canon EF 28-300mm f/3.5-5.6L IS USM",
+            235: "Canon EF-S 10-22mm f/3.5-4.5 USM",
+            236: "Canon EF-S 60mm f/2.8 Macro USM",
+            237: "Canon EF 24-105mm f/4L IS USM",
+            238: "Canon EF 70-300mm f/4-5.6 IS USM",
+            241: "Canon EF 50mm f/1.2L USM",
+            242: "Canon EF 70-200mm f/4L IS USM",
+            243: "Canon EF 70-200mm f/4L IS USM + 1.4x",
+            244: "Canon EF 70-200mm f/4L IS USM + 2x",
+            245: "Canon EF 70-200mm f/4L IS USM + 2.8x",
+            246: "Canon EF 16-35mm f/2.8L II USM",
+            247: "Canon EF 14mm f/2.8L II USM",
+            249: "Canon EF 800mm f/5.6L IS USM",
+            488: "Canon EF-S 15-85mm f/3.5-5.6 IS USM",
+            489: "Canon EF 70-300mm f/4-5.6L IS USM",
+            490: "Canon EF 8-15mm f/4L Fisheye USM",
+            492: "Canon EF 400mm f/2.8L IS II USM",
+            494: "Canon EF 600mm f/4L IS II USM",
+            496: "Canon EF 200-400mm f/4L IS USM",
+            499: "Canon EF 200-400mm f/4L IS USM + 1.4x",
+            503: "Canon EF 24mm f/2.8 IS USM",
+            504: "Canon EF 24-70mm f/4L IS USM",
+            505: "Canon EF 35mm f/2 IS USM",
+            506: "Canon EF 400mm f/4 DO IS II USM",
+            507: "Canon EF 16-35mm f/4L IS USM",
+            751: "Canon EF 16-35mm f/2.8L III USM",
+            752: "Canon EF 24-105mm f/4L IS II USM",
+            753: "Canon EF 85mm f/1.4L IS USM",
+            754: "Canon EF 70-200mm f/4L IS II USM",
+            757: "Canon EF 400mm f/2.8L IS III USM",
+            758: "Canon EF 600mm f/4L IS III USM",
+            1136: "Sigma 24-70mm f/2.8 DG OS HSM | A",
+            4142: "Canon EF-S 18-135mm f/3.5-5.6 IS STM",
+            4144: "Canon EF 40mm f/2.8 STM",
+            4145: "Canon EF-M 22mm f/2 STM",
+            4146: "Canon EF-S 18-55mm f/3.5-5.6 IS STM",
+            4147: "Canon EF-M 11-22mm f/4-5.6 IS STM",
+            4148: "Canon EF-S 55-250mm f/4-5.6 IS STM",
+            4149: "Canon EF-M 55-200mm f/4.5-6.3 IS STM",
+            4150: "Canon EF-S 10-18mm f/4.5-5.6 IS STM",
+            4152: "Canon EF 24-105mm f/3.5-5.6 IS STM",
+            4153: "Canon EF-M 15-45mm f/3.5-6.3 IS STM",
+            4154: "Canon EF-S 24mm f/2.8 STM",
+            4155: "Canon EF-M 28mm f/3.5 Macro IS STM",
+            4156: "Canon EF 50mm f/1.8 STM",
+            4157: "Canon EF-M 18-150mm f/3.5-6.3 IS STM",
+            4158: "Canon EF-S 18-55mm f/4-5.6 IS STM",
+            4159: "Canon EF-M 32mm f/1.4 STM",
+            4160: "Canon EF-S 35mm f/2.8 Macro IS STM",
+            36910: "Canon EF 70-300mm f/4-5.6 IS II USM",
+            36912: "Canon EF-S 18-135mm f/3.5-5.6 IS USM",
+            61491: "Canon CN-E 14mm T3.1 L F",
+            61492: "Canon CN-E 24mm T1.5 L F",
+            61494: "Canon CN-E 85mm T1.3 L F",
+            61495: "Canon CN-E 135mm T2.2 L F",
+            61496: "Canon CN-E 35mm T1.5 L F",
+            65535: "n/a",
+        },
+    ),
     23: ("LongFocalLengthOfLensInFocalUnits",),
     24: ("ShortFocalLengthOfLensInFocalUnits",),
     25: ("FocalUnitsPerMM",),
+    26: ("MaxAperture",),
+    27: ("MinAperture",),
     28: ("FlashActivity", {0: "Did Not Fire", 1: "Fired"}),
     29: (
         "FlashDetails",
@@ -512,7 +776,7 @@ CAMERA_SETTINGS = {
 }
 
 # 0x0002
-FOCAL_LENGTH = {
+_FOCAL_LENGTH: Dict[int, Tuple] = {
     1: (
         "FocalType",
         {
@@ -524,22 +788,32 @@ FOCAL_LENGTH = {
 }
 
 # 0x0004
-SHOT_INFO = {
+_SHOT_INFO: Dict[int, Tuple] = {
+    1: ("AutoISO",),
+    2: ("BaseISO",),
+    3: ("MeasuredEV",),
+    4: ("TargetAperture",),
+    5: ("TargetExposureTime",),
+    6: ("ExposureCompensation",),
     7: (
         "WhiteBalance",
         {
             0: "Auto",
-            1: "Sunny",
+            1: "Daylight",
             2: "Cloudy",
             3: "Tungsten",
             4: "Fluorescent",
             5: "Flash",
             6: "Custom",
+            7: "Black & White",
+            8: "Shade",
         },
     ),
     8: ("SlowShutter", {-1: "n/a", 0: "Off", 1: "Night Scene", 2: "On", 3: "None"}),
     9: ("SequenceNumber",),
+    10: ("OpticalZoomCode",),
     12: ("CameraTemperature", convert_temp),
+    13: ("FlashGuideNumber",),
     14: ("AFPointUsed",),
     15: (
         "FlashBias",
@@ -563,11 +837,29 @@ SHOT_INFO = {
             0x0040: "2 EV",
         },
     ),
+    16: (
+        "AutoExposureBracketing",
+        {
+            -1: "On",
+            0: "Off",
+            1: "On (shot 1)",
+            2: "On (shot 2)",
+            3: "On (shot 3)",
+        },
+    ),
+    18: (
+        "ControlMode",
+        {
+            0: "n/a",
+            1: "Camera Local Control",
+            3: "Computer Remote Control",
+        },
+    ),
     19: ("SubjectDistance",),
 }
 
 # 0x0026
-AF_INFO_2 = {
+_AF_INFO_2: Dict[int, Tuple] = {
     2: (
         "AFAreaMode",
         {
@@ -589,7 +881,7 @@ AF_INFO_2 = {
 }
 
 # 0x0093
-FILE_INFO = {
+_FILE_INFO: Dict[int, Tuple] = {
     1: ("FileNumber",),
     3: (
         "BracketMode",
@@ -664,19 +956,19 @@ FILE_INFO = {
 # specified offset.
 CAMERA_INFO_TAG_NAME = "MakerNote Tag 0x000D"
 
-CAMERA_INFO_5D = {
+CAMERA_INFO_5D: Dict[int, Tuple[str, str, Callable]] = {
     23: ("CameraTemperature", "<B", convert_temp),
     204: ("DirectoryIndex", "<L", subtract_one),
     208: ("FileIndex", "<H", add_one),
 }
 
-CAMERA_INFO_5DMKII = {
+CAMERA_INFO_5DMKII: Dict[int, Tuple[str, str, Callable]] = {
     25: ("CameraTemperature", "<B", convert_temp),
     443: ("FileIndex", "<L", add_one),
     455: ("DirectoryIndex", "<L", subtract_one),
 }
 
-CAMERA_INFO_5DMKIII = {
+CAMERA_INFO_5DMKIII: Dict[int, Tuple[str, str, Callable]] = {
     27: ("CameraTemperature", "<B", convert_temp),
     652: ("FileIndex", "<L", add_one),
     656: ("FileIndex2", "<L", add_one),
@@ -684,16 +976,24 @@ CAMERA_INFO_5DMKIII = {
     668: ("DirectoryIndex2", "<L", subtract_one),
 }
 
-CAMERA_INFO_600D = {
+CAMERA_INFO_600D: Dict[int, Tuple[str, str, Callable]] = {
     25: ("CameraTemperature", "<B", convert_temp),
     475: ("FileIndex", "<L", add_one),
     487: ("DirectoryIndex", "<L", subtract_one),
 }
 
 # A map of regular expressions on 'Image Model' to the CameraInfo spec
-CAMERA_INFO_MODEL_MAP = {
+CAMERA_INFO_MODEL_MAP: Dict[str, dict] = {
     r"EOS 5D$": CAMERA_INFO_5D,
     r"EOS 5D Mark II$": CAMERA_INFO_5DMKII,
     r"EOS 5D Mark III$": CAMERA_INFO_5DMKIII,
     r"\b(600D|REBEL T3i|Kiss X5)\b": CAMERA_INFO_600D,
+}
+
+OFFSET_TAGS: Dict[int, Dict] = {
+    0x0001: _CAMERA_SETTINGS,
+    0x0002: _FOCAL_LENGTH,
+    0x0004: _SHOT_INFO,
+    0x0026: _AF_INFO_2,
+    0x0093: _FILE_INFO,
 }

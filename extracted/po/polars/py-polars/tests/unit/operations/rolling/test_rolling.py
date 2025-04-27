@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -21,11 +20,7 @@ from tests.unit.conftest import INTEGER_DTYPES
 if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
 
-    from polars._typing import (
-        ClosedInterval,
-        PolarsDataType,
-        TimeUnit,
-    )
+    from polars._typing import ClosedInterval, PolarsDataType, TimeUnit
 
 
 @pytest.fixture
@@ -201,34 +196,6 @@ def test_rolling_skew() -> None:
     )
 
 
-def test_rolling_kurtosis() -> None:
-    s = pl.Series([1, 2, 3, 3, 2, 10, 8])
-    assert s.rolling_kurtosis(window_size=4, bias=True).to_list() == pytest.approx(
-        [
-            None,
-            None,
-            None,
-            -1.371900826446281,
-            -1.9999999999999991,
-            -0.7055324211778693,
-            -1.7878967572797346,
-        ]
-    )
-    assert s.rolling_kurtosis(
-        window_size=4, bias=True, fisher=False
-    ).to_list() == pytest.approx(
-        [
-            None,
-            None,
-            None,
-            1.628099173553719,
-            1.0000000000000009,
-            2.2944675788221307,
-            1.2121032427202654,
-        ]
-    )
-
-
 @pytest.mark.parametrize("time_zone", [None, "US/Central"])
 @pytest.mark.parametrize(
     ("rolling_fn", "expected_values", "expected_dtype"),
@@ -291,140 +258,63 @@ def test_rolling_by_non_temporal_window_size() -> None:
         df.with_columns(pl.col("a").rolling_sum_by("b", "2i", closed="left"))
 
 
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        pl.UInt8,
-        pl.Int64,
-        pl.Float32,
-        pl.Float64,
-        pl.Time,
-        pl.Date,
-        pl.Datetime("ms"),
-        pl.Datetime("us"),
-        pl.Datetime("ns"),
-        pl.Datetime("ns", "Asia/Kathmandu"),
-        pl.Duration("ms"),
-        pl.Duration("us"),
-        pl.Duration("ns"),
-    ],
-)
-def test_rolling_extrema(dtype: PolarsDataType) -> None:
+def test_rolling_extrema() -> None:
     # sorted data and nulls flags trigger different kernels
     df = (
-        (
-            pl.DataFrame(
-                {
-                    "col1": pl.int_range(0, 7, eager=True),
-                    "col2": pl.int_range(0, 7, eager=True).reverse(),
-                }
-            )
+        pl.DataFrame(
+            {
+                "col1": pl.int_range(0, 7, eager=True),
+                "col2": pl.int_range(0, 7, eager=True).reverse(),
+            }
         )
-        .with_columns(
-            pl.when(pl.int_range(0, pl.len(), eager=False) < 2)
-            .then(None)
-            .otherwise(pl.all())
-            .name.suffix("_nulls")
-        )
-        .cast(dtype)
+    ).with_columns(
+        pl.when(pl.int_range(0, pl.len(), eager=False) < 2)
+        .then(None)
+        .otherwise(pl.all())
+        .name.suffix("_nulls")
     )
 
-    expected = {
+    assert df.select([pl.all().rolling_min(3)]).to_dict(as_series=False) == {
         "col1": [None, None, 0, 1, 2, 3, 4],
         "col2": [None, None, 4, 3, 2, 1, 0],
         "col1_nulls": [None, None, None, None, 2, 3, 4],
         "col2_nulls": [None, None, None, None, 2, 1, 0],
     }
-    result = df.select([pl.all().rolling_min(3)])
-    assert result.to_dict(as_series=False) == {
-        k: pl.Series(v, dtype=dtype).to_list() for k, v in expected.items()
-    }
 
-    expected = {
+    assert df.select([pl.all().rolling_max(3)]).to_dict(as_series=False) == {
         "col1": [None, None, 2, 3, 4, 5, 6],
         "col2": [None, None, 6, 5, 4, 3, 2],
         "col1_nulls": [None, None, None, None, 4, 5, 6],
         "col2_nulls": [None, None, None, None, 4, 3, 2],
     }
-    result = df.select([pl.all().rolling_max(3)])
-    assert result.to_dict(as_series=False) == {
-        k: pl.Series(v, dtype=dtype).to_list() for k, v in expected.items()
-    }
 
     # shuffled data triggers other kernels
     df = df.select([pl.all().shuffle(0)])
-    expected = {
+    assert df.select([pl.all().rolling_min(3)]).to_dict(as_series=False) == {
         "col1": [None, None, 0, 0, 1, 2, 2],
         "col2": [None, None, 0, 2, 1, 1, 1],
         "col1_nulls": [None, None, None, None, None, 2, 2],
         "col2_nulls": [None, None, None, None, None, 1, 1],
     }
-    result = df.select([pl.all().rolling_min(3)])
-    assert result.to_dict(as_series=False) == {
-        k: pl.Series(v, dtype=dtype).to_list() for k, v in expected.items()
-    }
 
-    result = df.select([pl.all().rolling_max(3)])
-    expected = {
+    assert df.select([pl.all().rolling_max(3)]).to_dict(as_series=False) == {
         "col1": [None, None, 6, 4, 5, 5, 5],
         "col2": [None, None, 6, 6, 5, 4, 4],
         "col1_nulls": [None, None, None, None, None, 5, 5],
         "col2_nulls": [None, None, None, None, None, 4, 4],
     }
-    assert result.to_dict(as_series=False) == {
-        k: pl.Series(v, dtype=dtype).to_list() for k, v in expected.items()
-    }
 
 
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        pl.UInt8,
-        pl.Int64,
-        pl.Float32,
-        pl.Float64,
-        pl.Time,
-        pl.Date,
-        pl.Datetime("ms"),
-        pl.Datetime("us"),
-        pl.Datetime("ns"),
-        pl.Datetime("ns", "Asia/Kathmandu"),
-        pl.Duration("ms"),
-        pl.Duration("us"),
-        pl.Duration("ns"),
-    ],
-)
-def test_rolling_group_by_extrema(dtype: PolarsDataType) -> None:
+def test_rolling_group_by_extrema() -> None:
     # ensure we hit different branches so create
 
     df = pl.DataFrame(
         {
             "col1": pl.arange(0, 7, eager=True).reverse(),
         }
-    ).with_columns(
-        pl.col("col1").reverse().alias("index"),
-        pl.col("col1").cast(dtype),
-    )
+    ).with_columns(pl.col("col1").reverse().alias("index"))
 
-    expected = {
-        "col1_list": pl.Series(
-            [
-                [6],
-                [6, 5],
-                [6, 5, 4],
-                [5, 4, 3],
-                [4, 3, 2],
-                [3, 2, 1],
-                [2, 1, 0],
-            ],
-            dtype=pl.List(dtype),
-        ).to_list(),
-        "col1_min": pl.Series([6, 5, 4, 3, 2, 1, 0], dtype=dtype).to_list(),
-        "col1_max": pl.Series([6, 6, 6, 5, 4, 3, 2], dtype=dtype).to_list(),
-        "col1_first": pl.Series([6, 6, 6, 5, 4, 3, 2], dtype=dtype).to_list(),
-        "col1_last": pl.Series([6, 5, 4, 3, 2, 1, 0], dtype=dtype).to_list(),
-    }
-    result = (
+    assert (
         df.rolling(
             index_column="index",
             period="3i",
@@ -439,8 +329,21 @@ def test_rolling_group_by_extrema(dtype: PolarsDataType) -> None:
             ]
         )
         .select(["col1_list", "col1_min", "col1_max", "col1_first", "col1_last"])
-    )
-    assert result.to_dict(as_series=False) == expected
+    ).to_dict(as_series=False) == {
+        "col1_list": [
+            [6],
+            [6, 5],
+            [6, 5, 4],
+            [5, 4, 3],
+            [4, 3, 2],
+            [3, 2, 1],
+            [2, 1, 0],
+        ],
+        "col1_min": [6, 5, 4, 3, 2, 1, 0],
+        "col1_max": [6, 6, 6, 5, 4, 3, 2],
+        "col1_first": [6, 6, 6, 5, 4, 3, 2],
+        "col1_last": [6, 5, 4, 3, 2, 1, 0],
+    }
 
     # ascending order
 
@@ -448,12 +351,9 @@ def test_rolling_group_by_extrema(dtype: PolarsDataType) -> None:
         {
             "col1": pl.arange(0, 7, eager=True),
         }
-    ).with_columns(
-        pl.col("col1").alias("index"),
-        pl.col("col1").cast(dtype),
-    )
+    ).with_columns(pl.col("col1").alias("index"))
 
-    result = (
+    assert (
         df.rolling(
             index_column="index",
             period="3i",
@@ -468,38 +368,30 @@ def test_rolling_group_by_extrema(dtype: PolarsDataType) -> None:
             ]
         )
         .select(["col1_list", "col1_min", "col1_max", "col1_first", "col1_last"])
-    )
-    expected = {
-        "col1_list": pl.Series(
-            [
-                [0],
-                [0, 1],
-                [0, 1, 2],
-                [1, 2, 3],
-                [2, 3, 4],
-                [3, 4, 5],
-                [4, 5, 6],
-            ],
-            dtype=pl.List(dtype),
-        ).to_list(),
-        "col1_min": pl.Series([0, 0, 0, 1, 2, 3, 4], dtype=dtype).to_list(),
-        "col1_max": pl.Series([0, 1, 2, 3, 4, 5, 6], dtype=dtype).to_list(),
-        "col1_first": pl.Series([0, 0, 0, 1, 2, 3, 4], dtype=dtype).to_list(),
-        "col1_last": pl.Series([0, 1, 2, 3, 4, 5, 6], dtype=dtype).to_list(),
+    ).to_dict(as_series=False) == {
+        "col1_list": [
+            [0],
+            [0, 1],
+            [0, 1, 2],
+            [1, 2, 3],
+            [2, 3, 4],
+            [3, 4, 5],
+            [4, 5, 6],
+        ],
+        "col1_min": [0, 0, 0, 1, 2, 3, 4],
+        "col1_max": [0, 1, 2, 3, 4, 5, 6],
+        "col1_first": [0, 0, 0, 1, 2, 3, 4],
+        "col1_last": [0, 1, 2, 3, 4, 5, 6],
     }
-    assert result.to_dict(as_series=False) == expected
 
     # shuffled data.
     df = pl.DataFrame(
         {
             "col1": pl.arange(0, 7, eager=True).shuffle(1),
         }
-    ).with_columns(
-        pl.col("col1").cast(dtype),
-        pl.col("col1").sort().alias("index"),
-    )
+    ).with_columns(pl.col("col1").sort().alias("index"))
 
-    result = (
+    assert (
         df.rolling(
             index_column="index",
             period="3i",
@@ -512,24 +404,19 @@ def test_rolling_group_by_extrema(dtype: PolarsDataType) -> None:
             ]
         )
         .select(["col1_list", "col1_min", "col1_max"])
-    )
-    expected = {
-        "col1_list": pl.Series(
-            [
-                [3],
-                [3, 4],
-                [3, 4, 5],
-                [4, 5, 6],
-                [5, 6, 2],
-                [6, 2, 1],
-                [2, 1, 0],
-            ],
-            dtype=pl.List(dtype),
-        ).to_list(),
-        "col1_min": pl.Series([3, 3, 3, 4, 2, 1, 0], dtype=dtype).to_list(),
-        "col1_max": pl.Series([3, 4, 5, 6, 6, 6, 2], dtype=dtype).to_list(),
+    ).to_dict(as_series=False) == {
+        "col1_list": [
+            [3],
+            [3, 4],
+            [3, 4, 5],
+            [4, 5, 6],
+            [5, 6, 2],
+            [6, 2, 1],
+            [2, 1, 0],
+        ],
+        "col1_min": [3, 3, 3, 4, 2, 1, 0],
+        "col1_max": [3, 4, 5, 6, 6, 6, 2],
     }
-    assert result.to_dict(as_series=False) == expected
 
 
 def test_rolling_slice_pushdown() -> None:
@@ -585,31 +472,26 @@ def test_overlapping_groups_4628() -> None:
     }
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Minor numerical diff")
 def test_rolling_skew_lagging_null_5179() -> None:
     s = pl.Series([None, 3, 4, 1, None, None, None, None, 3, None, 5, 4, 7, 2, 1, None])
-    result = s.rolling_skew(3, min_samples=1).fill_nan(-1.0)
-    expected = pl.Series(
-        [
-            None,
-            -1.0,
-            0.0,
-            -0.3818017741606059,
-            0.0,
-            -1.0,
-            None,
-            None,
-            -1.0,
-            -1.0,
-            0.0,
-            0.0,
-            0.38180177416060695,
-            0.23906314692954517,
-            0.6309038567106234,
-            0.0,
-        ]
-    )
-    assert_series_equal(result, expected, check_names=False)
+    assert s.rolling_skew(3).fill_nan(-1.0).to_list() == [
+        None,
+        None,
+        0.0,
+        -0.3818017741606059,
+        0.0,
+        -1.0,
+        None,
+        None,
+        -1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.38180177416060695,
+        0.23906314692954517,
+        0.6309038567106234,
+        0.0,
+    ]
 
 
 def test_rolling_var_numerical_stability_5197() -> None:

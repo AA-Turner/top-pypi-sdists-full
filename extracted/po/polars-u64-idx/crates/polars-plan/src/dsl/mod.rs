@@ -1050,8 +1050,19 @@ impl Expr {
     #[cfg(feature = "is_in")]
     pub fn is_in<E: Into<Expr>>(self, other: E, nulls_equal: bool) -> Self {
         let other = other.into();
+        let other_constant = is_column_independent(&other);
+        let returns_scalar = all_return_scalar(&self);
+
         let function = BooleanFunction::IsIn { nulls_equal };
-        let options = function.function_options();
+        let mut options = function.function_options();
+        if !other_constant {
+            // we don't have to apply on groups, so this is faster
+            // TODO: this optimization should be done during conversion to IR.
+            options.collect_groups = ApplyOptions::GroupWise;
+        }
+        if returns_scalar {
+            options.flags |= FunctionFlags::RETURNS_SCALAR;
+        }
         let function = function.into();
         Expr::Function {
             input: vec![self, other],
@@ -1153,8 +1164,7 @@ impl Expr {
     }
 
     #[cfg(feature = "interpolate")]
-    /// Interpolate intermediate values.
-    /// Nulls at the beginning and end of the series remain null.
+    /// Fill null values using interpolation.
     pub fn interpolate(self, method: InterpolationMethod) -> Expr {
         self.map_unary(FunctionExpr::Interpolate(method))
     }
@@ -1174,9 +1184,7 @@ impl Expr {
     }
 
     #[cfg(feature = "interpolate_by")]
-    /// Interpolate intermediate values.
-    /// Nulls at the beginning and end of the series remain null.
-    /// The `by` column provides the x-coordinates for interpolation and must not contain nulls.
+    /// Fill null values using interpolation.
     pub fn interpolate_by(self, by: Expr) -> Expr {
         self.map_binary(FunctionExpr::InterpolateBy, by)
     }
@@ -1326,15 +1334,11 @@ impl Expr {
     /// Apply a rolling skew.
     #[cfg(feature = "rolling_window")]
     #[cfg(feature = "moment")]
-    pub fn rolling_skew(self, options: RollingOptionsFixedWindow) -> Expr {
-        self.finish_rolling(options, RollingFunction::Skew)
-    }
-
-    /// Apply a rolling skew.
-    #[cfg(feature = "rolling_window")]
-    #[cfg(feature = "moment")]
-    pub fn rolling_kurtosis(self, options: RollingOptionsFixedWindow) -> Expr {
-        self.finish_rolling(options, RollingFunction::Kurtosis)
+    pub fn rolling_skew(self, window_size: usize, bias: bool) -> Expr {
+        self.map_unary(FunctionExpr::RollingExpr(RollingFunction::Skew(
+            window_size,
+            bias,
+        )))
     }
 
     #[cfg(feature = "rolling_window")]

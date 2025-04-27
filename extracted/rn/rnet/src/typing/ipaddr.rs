@@ -1,35 +1,25 @@
+use crate::{define_into_pyobject_todo, define_py_stub_gen};
 use pyo3::{IntoPyObjectExt, prelude::*};
 #[cfg(feature = "docs")]
-use pyo3_stub_gen::{
-    PyStubType, TypeInfo,
-    derive::{gen_stub_pyclass, gen_stub_pymethods},
-};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
 /// An IP address.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IpAddr(std::net::IpAddr);
+pub struct IpAddrExtractor(pub std::net::IpAddr);
 
-impl From<IpAddr> for std::net::IpAddr {
-    fn from(ip: IpAddr) -> Self {
-        ip.0
-    }
-}
-
-impl FromPyObject<'_> for IpAddr {
+impl FromPyObject<'_> for IpAddrExtractor {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        ob.extract().map(IpAddr)
+        ob.extract().map(IpAddrExtractor)
     }
 }
 
-#[cfg(feature = "docs")]
-impl PyStubType for IpAddr {
-    fn type_output() -> TypeInfo {
-        TypeInfo::with_module(
-            "typing.Optional[typing.Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]",
-            "ipaddress".into(),
-        )
-    }
-}
+define_into_pyobject_todo!(IpAddrExtractor);
+
+define_py_stub_gen!(
+    IpAddrExtractor,
+    "typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]",
+    "ipaddress"
+);
 
 /// A IP socket address.
 #[cfg_attr(feature = "docs", gen_stub_pyclass)]

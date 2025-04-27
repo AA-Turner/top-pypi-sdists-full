@@ -231,12 +231,24 @@ def test_parquet_eq_statistics(
         assert_frame_equal(result, df.filter(pred))
 
     captured = capfd.readouterr().err
-    assert (
-        "[ParquetFileReader]: Predicate pushdown: reading 1 / 1 row groups" in captured
-    )
-    assert (
-        "[ParquetFileReader]: Predicate pushdown: reading 0 / 1 row groups" in captured
-    )
+    if streaming:
+        assert (
+            "[ParquetFileReader]: Predicate pushdown: reading 1 / 1 row groups"
+            in captured
+        )
+        assert (
+            "[ParquetFileReader]: Predicate pushdown: reading 0 / 1 row groups"
+            in captured
+        )
+    else:
+        assert (
+            "parquet row group must be read, statistics not sufficient for predicate."
+            in captured
+        )
+        assert (
+            "parquet row group can be skipped, the statistics were sufficient"
+            " to apply the predicate." in captured
+        )
 
 
 @pytest.mark.write_disk

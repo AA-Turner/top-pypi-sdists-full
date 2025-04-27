@@ -1,8 +1,8 @@
 use crate::{
     extract_option,
     typing::{
-        HeaderMapExtractor, HeadersOrderExtractor, ImpersonateExtractor, IpAddr, LookupIpStrategy,
-        SslVerify, TlsVersion, proxy::ProxyListExtractor,
+        HeaderMapExtractor, HeadersOrderExtractor, ImpersonateExtractor, IpAddrExtractor,
+        LookupIpStrategy, SslVerify, TlsVersion, proxy::ProxyListExtractor,
     },
 };
 use pyo3::{prelude::*, pybacked::PyBackedStr};
@@ -101,7 +101,7 @@ pub struct ClientParams {
     pub proxies: Option<ProxyListExtractor>,
 
     /// Bind to a local IP Address.
-    pub local_address: Option<IpAddr>,
+    pub local_address: Option<IpAddrExtractor>,
 
     /// Bind to an interface by `SO_BINDTODEVICE`.
     pub interface: Option<String>,
@@ -121,7 +121,6 @@ pub struct ClientParams {
 }
 
 /// The parameters for updating a client.
-#[derive(Default)]
 pub struct UpdateClientParams {
     /// The impersonation settings for the request.
     pub impersonate: Option<ImpersonateExtractor>,
@@ -137,7 +136,7 @@ pub struct UpdateClientParams {
     pub proxies: Option<ProxyListExtractor>,
 
     /// Bind to a local IP Address.
-    pub local_address: Option<IpAddr>,
+    pub local_address: Option<IpAddrExtractor>,
 
     /// Bind to an interface by `SO_BINDTODEVICE`.
     pub interface: Option<String>,
@@ -188,28 +187,8 @@ impl<'py> FromPyObject<'py> for ClientParams {
     }
 }
 
-impl<'py> FromPyObject<'py> for UpdateClientParams {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let mut params = Self::default();
-        extract_option!(ob, params, impersonate);
-        extract_option!(ob, params, headers);
-        extract_option!(ob, params, headers_order);
-        extract_option!(ob, params, proxies);
-        extract_option!(ob, params, local_address);
-        extract_option!(ob, params, interface);
-        Ok(params)
-    }
-}
-
 #[cfg(feature = "docs")]
 impl PyStubType for ClientParams {
-    fn type_output() -> TypeInfo {
-        TypeInfo::with_module("typing.Dict[str, typing.Any]", "typing".into())
-    }
-}
-
-#[cfg(feature = "docs")]
-impl PyStubType for UpdateClientParams {
     fn type_output() -> TypeInfo {
         TypeInfo::with_module("typing.Dict[str, typing.Any]", "typing".into())
     }

@@ -101,20 +101,19 @@ impl IR {
                 hive_parts,
                 output_schema,
                 predicate,
-                unified_scan_args,
+                file_options: options,
                 scan_type,
             } => {
                 let mut new_predicate = None;
                 if predicate.is_some() {
                     new_predicate = exprs.pop()
                 }
-
                 Scan {
                     sources: sources.clone(),
                     file_info: file_info.clone(),
                     hive_parts: hive_parts.clone(),
                     output_schema: output_schema.clone(),
-                    unified_scan_args: unified_scan_args.clone(),
+                    file_options: options.clone(),
                     predicate: new_predicate,
                     scan_type: scan_type.clone(),
                 }

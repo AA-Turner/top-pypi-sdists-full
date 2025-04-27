@@ -15,7 +15,6 @@ from polars._utils.various import (
     is_path_or_str_sequence,
     is_str_sequence,
     normalize_filepath,
-    qualified_type_name,
 )
 from polars._utils.wrap import wrap_df, wrap_ldf
 from polars.datatypes import N_INFER_DEFAULT, String, parse_into_dtype
@@ -627,7 +626,7 @@ def _read_csv_impl(
         elif isinstance(schema_overrides, Sequence):
             dtype_slice = schema_overrides
         else:
-            msg = f"`schema_overrides` should be of type list or dict, got {qualified_type_name(schema_overrides)!r}"
+            msg = f"`schema_overrides` should be of type list or dict, got {type(schema_overrides).__name__!r}"
             raise TypeError(msg)
 
     processed_null_values = _process_null_values(null_values)
@@ -1113,8 +1112,7 @@ def scan_csv(
     schema
         Provide the schema. This means that polars doesn't do schema inference.
         This argument expects the complete schema, whereas `schema_overrides` can be
-        used to partially overwrite a schema. Note that the order of the columns in
-        the provided `schema` must match the order of the columns in the CSV being read.
+        used to partially overwrite a schema.
     schema_overrides
         Overwrite dtypes during inference; should be a {colname:dtype,} dict or,
         if providing a list of strings to `new_columns`, a list of dtypes of
@@ -1289,7 +1287,7 @@ def scan_csv(
         raise TypeError(msg)
 
     if not new_columns and isinstance(schema_overrides, Sequence):
-        msg = f"expected 'schema_overrides' dict, found {qualified_type_name(schema_overrides)!r}"
+        msg = f"expected 'schema_overrides' dict, found {type(schema_overrides).__name__!r}"
         raise TypeError(msg)
     elif new_columns:
         if with_column_names:

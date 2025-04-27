@@ -1551,12 +1551,11 @@ impl SQLFunctionVisitor<'_> {
             })
             .collect::<PolarsResult<Vec<_>>>()?;
 
-        Ok(self
-            .ctx
+        self.ctx
             .function_registry
             .get_udf(func_name)?
             .ok_or_else(|| polars_err!(SQLInterface: "UDF {} not found", func_name))?
-            .call(args))
+            .call(args)
     }
 
     /// Window specs without partition bys are essentially cumulative functions

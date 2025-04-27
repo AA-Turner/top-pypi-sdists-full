@@ -5,7 +5,8 @@ use crate::{
     dns,
     error::Error,
     typing::{
-        Cookie, HeaderMap, Method, SslVerify, TlsVersion,
+        Cookie, HeaderMap, HeaderMapExtractor, HeadersOrderExtractor, ImpersonateExtractor,
+        IpAddrExtractor, Method, ProxyListExtractor, SslVerify, TlsVersion,
         param::{ClientParams, RequestParams, UpdateClientParams, WebSocketParams},
     },
 };
@@ -13,9 +14,13 @@ use pyo3::{prelude::*, pybacked::PyBackedStr};
 use pyo3_async_runtimes::tokio::future_into_py;
 #[cfg(feature = "docs")]
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rquest::{CertStore, Url, redirect::Policy};
+use rquest::{
+    CertStore, Url,
+    header::{Entry, OccupiedEntry},
+    redirect::Policy,
+};
+use std::ops::Deref;
 use std::time::Duration;
-use std::{net::IpAddr, ops::Deref};
 
 /// A client for making HTTP requests.
 #[cfg_attr(feature = "docs", gen_stub_pyclass)]
@@ -61,11 +66,6 @@ macro_rules! define_http_method {
             ///     json: typing.Optional[typing.Any]
             ///     body: typing.Optional[typing.Any]
             ///     multipart: typing.Optional[Multipart]
-            ///
-            /// # Returns
-            ///
-            /// A `Response` object.
-            ///
             $(#[$meta])*
             #[pyo3(signature = (url, **kwds))]
             #[inline(always)]
@@ -263,10 +263,6 @@ impl Client {
     ///     body: typing.Optional[typing.Any]
     ///     multipart: typing.Optional[Multipart]
     ///
-    /// # Returns
-    ///
-    /// A `Response` object.
-    ///
     /// # Examples
     ///
     /// ```python
@@ -318,10 +314,6 @@ impl Client {
     ///     max_message_size: typing.Optional[builtins.int]
     ///     max_frame_size: typing.Optional[builtins.int]
     ///     accept_unmasked_frames: typing.Optional[builtins.bool]
-    ///
-    /// # Returns
-    ///
-    /// A `WebSocket` object representing the WebSocket connection.
     ///
     /// # Examples
     ///
@@ -396,10 +388,6 @@ impl Client {
     ///     brotli: typing.Optional[builtins.bool]
     ///     deflate: typing.Optional[builtins.bool]
     ///     zstd: typing.Optional[builtins.bool]
-    ///
-    /// # Returns
-    ///
-    /// A new `Client` instance.
     ///
     /// # Examples
     ///
@@ -597,11 +585,10 @@ impl Client {
                 false
             );
             apply_option!(
-                apply_transformed_option,
+                apply_if_some_inner,
                 builder,
                 params.local_address,
-                local_address,
-                IpAddr::from
+                local_address
             );
             #[cfg(any(
                 target_os = "android",
@@ -631,10 +618,6 @@ impl Client {
 
     /// Returns the user agent of the client.
     ///
-    /// # Returns
-    ///
-    /// An optional string containing the user agent of the client.
-    ///
     /// # Examples
     ///
     /// ```python
@@ -654,10 +637,6 @@ impl Client {
     }
 
     /// Returns the headers of the client.
-    ///
-    /// # Returns
-    ///
-    /// A `HeaderMap` object containing the headers of the client.
     ///
     /// # Examples
     ///
@@ -762,14 +741,13 @@ impl Client {
     /// Updates the client with the given parameters.
     ///
     /// # Arguments
-    /// * `**kwds` - The parameters to update the client with.
     ///
-    ///     impersonate: typing.Optional[typing.Union[Impersonate, ImpersonateOption]]
-    ///     headers: typing.Optional[typing.Dict[str, bytes]]
-    ///     headers_order: typing.Optional[typing.List[str]]
-    ///     proxies: typing.Optional[builtins.list[Proxy]]
-    ///     local_address: typing.Optional[typing.Optional[typing.Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]]
-    ///     interface: typing.Optional[builtins.str]
+    /// * `impersonate` - The impersonation settings for the request.
+    /// * `headers` - The headers to use for the request.
+    /// * `headers_order` - The order of the headers to use for the request.
+    /// * `proxies` - The proxy to use for the request.
+    /// * `local_address` - The local IP address to bind to.
+    /// * `interface` - The interface to bind to.
     ///
     /// # Examples
     ///
@@ -783,20 +761,70 @@ impl Client {
     ///    proxies=[rnet.Proxy.all("http://proxy.example.com:8080")],
     /// )
     /// ```
-    #[pyo3(signature = (**kwds))]
-    pub fn update(&self, py: Python, mut kwds: Option<UpdateClientParams>) -> PyResult<()> {
+    #[pyo3(signature = (
+        impersonate=None,
+        headers=None,
+        headers_order=None,
+        proxies=None,
+        local_address=None,
+        interface=None,
+    ))]
+    pub fn update(
+        &self,
+        py: Python,
+        impersonate: Option<ImpersonateExtractor>,
+        headers: Option<HeaderMapExtractor>,
+        headers_order: Option<HeadersOrderExtractor>,
+        proxies: Option<ProxyListExtractor>,
+        local_address: Option<IpAddrExtractor>,
+        interface: Option<String>,
+    ) -> PyResult<()> {
         py.allow_threads(|| {
-            let params = kwds.get_or_insert_default();
+            // Create a new client with the current configuration.
+            let mut params = UpdateClientParams {
+                impersonate,
+                headers,
+                headers_order,
+                proxies,
+                local_address,
+                interface,
+            };
+
             let mut update = self.0.update();
 
             // Impersonation options.
-            if let Some(impersonate) = params.impersonate.take() {
-                update = update.emulation(impersonate.0);
-            }
+            apply_option!(apply_if_some_inner, update, params.impersonate, emulation);
 
-            // Default headers options.
-            if let Some(mut default_headers) = params.headers.take() {
-                update = update.headers(|headers| std::mem::swap(headers, &mut default_headers.0));
+            // Updated headers options.
+            if let Some(src) = params.headers.take() {
+                update = update.headers(|dst| {
+                    // IntoIter of HeaderMap yields (Option<HeaderName>, HeaderValue).
+                    // The first time a name is yielded, it will be Some(name), and if
+                    // there are more values with the same name, the next yield will be
+                    // None.
+
+                    let mut prev_entry: Option<OccupiedEntry<_>> = None;
+                    for (key, value) in src.0 {
+                        match key {
+                            Some(key) => match dst.entry(key) {
+                                Entry::Occupied(mut e) => {
+                                    e.insert(value);
+                                    prev_entry = Some(e);
+                                }
+                                Entry::Vacant(e) => {
+                                    let e = e.insert_entry(value);
+                                    prev_entry = Some(e);
+                                }
+                            },
+                            None => match prev_entry {
+                                Some(ref mut entry) => {
+                                    entry.append(value);
+                                }
+                                None => unreachable!("HeaderMap::into_iter yielded None first"),
+                            },
+                        }
+                    }
+                });
             }
 
             // Headers order options.
@@ -810,11 +838,10 @@ impl Client {
             // Network options.
             apply_option!(apply_if_some_inner, update, params.proxies, proxies);
             apply_option!(
-                apply_transformed_option,
+                apply_if_some_inner,
                 update,
                 params.local_address,
-                local_address,
-                IpAddr::from
+                local_address
             );
             #[cfg(any(
                 target_os = "android",

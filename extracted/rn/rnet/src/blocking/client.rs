@@ -1,8 +1,11 @@
 use super::{BlockingResponse, BlockingWebSocket};
 use crate::{
     async_impl::{self, execute_request, execute_websocket_request},
-    typing::param::{ClientParams, RequestParams, UpdateClientParams, WebSocketParams},
-    typing::{Cookie, HeaderMap, Method},
+    typing::{
+        Cookie, HeaderMap, HeaderMapExtractor, HeadersOrderExtractor, ImpersonateExtractor,
+        IpAddrExtractor, Method, ProxyListExtractor,
+        param::{ClientParams, RequestParams, WebSocketParams},
+    },
 };
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 #[cfg(feature = "docs")]
@@ -43,11 +46,6 @@ macro_rules! define_http_method {
             ///     json: typing.Optional[typing.Any]
             ///     body: typing.Optional[typing.Any]
             ///     multipart: typing.Optional[Multipart]
-            ///
-            /// # Returns
-            ///
-            /// A `Response` object.
-            ///
             $(#[$meta])*
             #[pyo3(signature = (url, **kwds))]
             #[inline(always)]
@@ -245,10 +243,6 @@ impl BlockingClient {
     ///     body: typing.Optional[typing.Any]
     ///     multipart: typing.Optional[Multipart]
     ///
-    /// # Returns
-    ///
-    /// A `Response` object.
-    ///
     /// # Examples
     ///
     /// ```python
@@ -304,10 +298,6 @@ impl BlockingClient {
     ///     max_message_size: typing.Optional[builtins.int]
     ///     max_frame_size: typing.Optional[builtins.int]
     ///     accept_unmasked_frames: typing.Optional[builtins.bool]
-    ///
-    /// # Returns
-    ///
-    /// A `WebSocket` object representing the WebSocket connection.
     ///
     /// # Examples
     ///
@@ -386,10 +376,6 @@ impl BlockingClient {
     ///     deflate: typing.Optional[builtins.bool]
     ///     zstd: typing.Optional[builtins.bool]
     ///
-    /// # Returns
-    ///
-    /// A new `BlockingClient` instance.
-    ///
     /// # Examples
     ///
     /// ```python
@@ -411,10 +397,6 @@ impl BlockingClient {
     }
 
     /// Returns the user agent of the client.
-    ///
-    /// # Returns
-    ///
-    /// An optional string containing the user agent of the client.
     #[getter]
     #[inline(always)]
     fn user_agent(&self, py: Python) -> Option<String> {
@@ -422,10 +404,6 @@ impl BlockingClient {
     }
 
     /// Returns the headers of the client.
-    ///
-    /// # Returns
-    ///
-    /// A `HeaderMap` object containing the headers of the client.
     #[getter]
     #[inline(always)]
     fn headers(&self) -> HeaderMap {
@@ -437,10 +415,6 @@ impl BlockingClient {
     /// # Arguments
     ///
     /// * `url` - The URL to get the cookies for.
-    ///
-    /// # Returns
-    ///
-    /// A list of cookie strings.
     #[pyo3(signature = (url))]
     #[inline(always)]
     pub fn get_cookies<'py>(
@@ -520,9 +494,33 @@ impl BlockingClient {
     ///    proxies=[rnet.Proxy.all("http://proxy.example.com:8080")],
     /// )
     /// ```
-    #[pyo3(signature = (**kwds))]
+    #[pyo3(signature = (
+        impersonate=None,
+        headers=None,
+        headers_order=None,
+        proxies=None,
+        local_address=None,
+        interface=None,
+    ))]
     #[inline(always)]
-    fn update(&self, py: Python, kwds: Option<UpdateClientParams>) -> PyResult<()> {
-        self.0.update(py, kwds)
+    fn update(
+        &self,
+        py: Python,
+        impersonate: Option<ImpersonateExtractor>,
+        headers: Option<HeaderMapExtractor>,
+        headers_order: Option<HeadersOrderExtractor>,
+        proxies: Option<ProxyListExtractor>,
+        local_address: Option<IpAddrExtractor>,
+        interface: Option<String>,
+    ) -> PyResult<()> {
+        self.0.update(
+            py,
+            impersonate,
+            headers,
+            headers_order,
+            proxies,
+            local_address,
+            interface,
+        )
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupytext
-Version: 1.17.0
+Version: 1.17.1
 Summary: Jupyter notebooks as Markdown documents, Julia, Python or R scripts
 Project-URL: Homepage, https://github.com/mwouts/jupytext
 Project-URL: Source Code, https://github.com/mwouts/jupytext

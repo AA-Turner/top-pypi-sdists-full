@@ -9,12 +9,7 @@ from re import DOTALL
 from types import NoneType
 from typing import TYPE_CHECKING, Any, override
 
-from utilities.datetime import (
-    is_instance_date_not_datetime,
-    is_subclass_date_not_datetime,
-)
 from utilities.enum import ParseEnumError, parse_enum
-from utilities.functions import is_subclass_int_not_bool
 from utilities.iterables import OneEmptyError, OneNonUniqueError, one, one_str
 from utilities.math import ParseNumberError, parse_number
 from utilities.re import ExtractGroupError, extract_group
@@ -31,15 +26,17 @@ from utilities.text import (
     split_key_value_pairs,
     split_str,
 )
-from utilities.types import Duration, Number, ParseObjectExtra
+from utilities.types import Duration, Number, ParseObjectExtra, SerializeObjectExtra
 from utilities.typing import (
     get_args,
     is_dict_type,
     is_frozenset_type,
+    is_instance_gen,
     is_list_type,
     is_literal_type,
     is_optional_type,
     is_set_type,
+    is_subclass_gen,
     is_tuple_type,
     is_union_type,
 )
@@ -63,15 +60,16 @@ def parse_object(
     extra: ParseObjectExtra | None = None,
 ) -> Any:
     """Parse text."""
+    if extra is not None:
+        with suppress(_ParseObjectParseError):
+            return _parse_object_extra(type_, text, extra)
     if type_ is None:
         try:
             return parse_none(text)
         except ParseNoneError:
             raise _ParseObjectParseError(type_=type_, text=text) from None
     if isinstance(type_, type):
-        return _parse_object_type(
-            type_, text, case_sensitive=case_sensitive, extra=extra
-        )
+        return _parse_object_type(type_, text, case_sensitive=case_sensitive)
     if is_dict_type(type_):
         return _parse_object_dict_type(
             type_,
@@ -149,17 +147,12 @@ def parse_object(
             extra=extra,
         )
     if is_union_type(type_):
-        return _parse_object_union_type(type_, text, extra=extra)
+        return _parse_object_union_type(type_, text)
     raise _ParseObjectParseError(type_=type_, text=text) from None
 
 
 def _parse_object_type(
-    cls: type[Any],
-    text: str,
-    /,
-    *,
-    case_sensitive: bool = False,
-    extra: ParseObjectExtra | None = None,
+    cls: type[Any], text: str, /, *, case_sensitive: bool = False
 ) -> Any:
     """Parse text."""
     if issubclass(cls, NoneType):
@@ -169,12 +162,12 @@ def _parse_object_type(
             raise _ParseObjectParseError(type_=cls, text=text) from None
     if issubclass(cls, str):
         return text
-    if issubclass(cls, bool):
+    if is_subclass_gen(cls, bool):
         try:
             return parse_bool(text)
         except ParseBoolError:
             raise _ParseObjectParseError(type_=cls, text=text) from None
-    if is_subclass_int_not_bool(cls):
+    if is_subclass_gen(cls, int):
         try:
             return int(text)
         except ValueError:
@@ -201,14 +194,14 @@ def _parse_object_type(
             return parse_version(text)
         except ParseVersionError:
             raise _ParseObjectParseError(type_=cls, text=text) from None
-    if is_subclass_date_not_datetime(cls):
+    if is_subclass_gen(cls, dt.date):
         from utilities.whenever import ParseDateError, parse_date
 
         try:
             return parse_date(text)
         except ParseDateError:
             raise _ParseObjectParseError(type_=cls, text=text) from None
-    if issubclass(cls, dt.datetime):
+    if is_subclass_gen(cls, dt.datetime):
         from utilities.whenever import ParseDateTimeError, parse_datetime
 
         try:
@@ -229,18 +222,7 @@ def _parse_object_type(
             return parse_timedelta(text)
         except ParseTimedeltaError:
             raise _ParseObjectParseError(type_=cls, text=text) from None
-    if extra is not None:
-        try:
-            parser = one(p for c, p in extra.items() if issubclass(cls, c))
-        except OneEmptyError:
-            pass
-        except OneNonUniqueError as error:
-            raise _ParseObjectExtraNonUniqueError(
-                type_=cls, text=text, first=error.first, second=error.second
-            ) from None
-        else:
-            return parser(text)
-    raise _ParseObjectParseError(type_=cls, text=text) from None
+    raise _ParseObjectParseError(type_=cls, text=text)
 
 
 def _parse_object_dict_type(
@@ -297,6 +279,21 @@ def _parse_object_dict_type(
         return dict(zip(keys, values, strict=True))
     except _ParseObjectParseError:
         raise _ParseObjectParseError(type_=type_, text=text) from None
+
+
+def _parse_object_extra(cls: Any, text: str, extra: ParseObjectExtra, /) -> Any:
+    try:
+        parser = one(
+            p for c, p in extra.items() if (cls is c) or is_subclass_gen(cls, c)
+        )
+    except (OneEmptyError, TypeError):
+        raise _ParseObjectParseError(type_=cls, text=text) from None
+    except OneNonUniqueError as error:
+        raise _ParseObjectExtraNonUniqueError(
+            type_=cls, text=text, first=error.first, second=error.second
+        ) from None
+    else:
+        return parser(text)
 
 
 def _parse_object_list_type(
@@ -371,9 +368,7 @@ def _parse_object_set_type(
         raise _ParseObjectParseError(type_=type_, text=text) from None
 
 
-def _parse_object_union_type(
-    type_: Any, text: str, /, *, extra: ParseObjectExtra | None = None
-) -> Any:
+def _parse_object_union_type(type_: Any, text: str, /) -> Any:
     if type_ is Number:
         try:
             return parse_number(text)
@@ -386,13 +381,6 @@ def _parse_object_union_type(
             return parse_duration(text)
         except ParseDurationError:
             raise _ParseObjectParseError(type_=type_, text=text) from None
-    if extra is not None:
-        try:
-            parser = one(p for c, p in extra.items() if c is type_)
-        except OneEmptyError:
-            pass
-        else:
-            return parser(text)
     raise _ParseObjectParseError(type_=type_, text=text) from None
 
 
@@ -466,17 +454,21 @@ def serialize_object(
     *,
     list_separator: str = LIST_SEPARATOR,
     pair_separator: str = PAIR_SEPARATOR,
+    extra: SerializeObjectExtra | None = None,
 ) -> str:
     """Convert an object to text."""
+    if extra is not None:
+        with suppress(_SerializeObjectSerializeError):
+            return _serialize_object_extra(obj, extra)
     if (obj is None) or isinstance(
         obj, bool | int | float | str | Path | Sentinel | Version
     ):
         return str(obj)
-    if is_instance_date_not_datetime(obj):
+    if is_instance_gen(obj, dt.date):
         from utilities.whenever import serialize_date
 
         return serialize_date(obj)
-    if isinstance(obj, dt.datetime):
+    if is_instance_gen(obj, dt.datetime):
         from utilities.whenever import serialize_datetime
 
         return serialize_datetime(obj)
@@ -506,7 +498,7 @@ def serialize_object(
         return _serialize_object_set(
             obj, list_separator=list_separator, pair_separator=pair_separator
         )
-    raise NotImplementedError(obj)
+    raise _SerializeObjectSerializeError(obj=obj)
 
 
 def _serialize_object_dict(
@@ -532,6 +524,21 @@ def _serialize_object_dict(
     joined_items = (join_strs(item, separator=pair_separator) for item in items)
     joined = join_strs(joined_items, separator=list_separator)
     return f"{{{joined}}}"
+
+
+def _serialize_object_extra(obj: Any, extra: SerializeObjectExtra, /) -> str:
+    try:
+        serializer = one(
+            s for c, s in extra.items() if (obj is c) or is_instance_gen(obj, c)
+        )
+    except OneEmptyError:
+        raise _SerializeObjectSerializeError(obj=obj) from None
+    except OneNonUniqueError as error:
+        raise _SerializeObjectExtraNonUniqueError(
+            obj=obj, first=error.first, second=error.second
+        ) from None
+    else:
+        return serializer(obj)
 
 
 def _serialize_object_list(
@@ -583,6 +590,27 @@ def _serialize_object_tuple(
     )
     joined = join_strs(items, separator=list_separator)
     return f"({joined})"
+
+
+@dataclass(kw_only=True, slots=True)
+class SerializeObjectError(Exception):
+    obj: Any
+
+
+class _SerializeObjectSerializeError(SerializeObjectError):
+    @override
+    def __str__(self) -> str:
+        return f"Unable to serialize object {self.obj!r}"
+
+
+@dataclass
+class _SerializeObjectExtraNonUniqueError(SerializeObjectError):
+    first: type[Any]
+    second: type[Any]
+
+    @override
+    def __str__(self) -> str:
+        return f"Unable to serialize object {self.obj!r} since `extra` must contain exactly one parent class; got {self.first!r}, {self.second!r} and perhaps more"
 
 
 __all__ = ["parse_object", "serialize_object"]

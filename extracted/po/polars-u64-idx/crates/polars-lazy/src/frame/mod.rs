@@ -703,12 +703,7 @@ impl LazyFrame {
         } else {
             true
         };
-        let physical_plan = create_physical_plan(
-            lp_top,
-            &mut lp_arena,
-            &mut expr_arena,
-            BUILD_STREAMING_EXECUTOR,
-        )?;
+        let physical_plan = create_physical_plan(lp_top, &mut lp_arena, &mut expr_arena)?;
 
         let state = ExecutionState::new();
         Ok((state, physical_plan, no_file_sink))
@@ -769,7 +764,7 @@ impl LazyFrame {
         #[cfg(feature = "new_streaming")]
         {
             if let Some(result) = self.try_new_streaming_if_requested() {
-                return result.map(|v| v.unwrap_single());
+                return result.map(|v| v.unwrap());
             }
         }
 
@@ -792,7 +787,7 @@ impl LazyFrame {
                     &mut alp_plan.expr_arena,
                 );
                 drop(string_cache_hold);
-                result.map(|v| v.unwrap_single())
+                result.map(|v| v.unwrap())
             }),
             _ if matches!(payload, SinkType::Partition { .. }) => Err(polars_err!(
                 InvalidOperation: "partition sinks are not supported on for the '{}' engine",
@@ -806,7 +801,6 @@ impl LazyFrame {
                     alp_plan.lp_top,
                     &mut alp_plan.lp_arena,
                     &mut alp_plan.expr_arena,
-                    BUILD_STREAMING_EXECUTOR,
                 )?;
                 let mut state = ExecutionState::new();
                 physical_plan.execute(&mut state)
@@ -860,7 +854,7 @@ impl LazyFrame {
         #[cfg(feature = "new_streaming")]
         {
             if let Some(result) = sink_multiple.try_new_streaming_if_requested() {
-                return result.map(|v| v.unwrap_multiple());
+                return result.map(|v| v.unwrap_err());
             }
         }
 
@@ -889,7 +883,7 @@ impl LazyFrame {
                     &mut alp_plan.expr_arena,
                 );
                 drop(string_cache_hold);
-                return result.map(|v| v.unwrap_multiple());
+                return result.map(|v| v.unwrap_err());
             });
         }
 
@@ -901,7 +895,6 @@ impl LazyFrame {
             inputs.clone().as_slice(),
             &mut alp_plan.lp_arena,
             &mut alp_plan.expr_arena,
-            BUILD_STREAMING_EXECUTOR,
         )?;
 
         match engine {
@@ -1166,7 +1159,7 @@ impl LazyFrame {
     #[cfg(feature = "new_streaming")]
     pub fn try_new_streaming_if_requested(
         &mut self,
-    ) -> Option<PolarsResult<polars_stream::QueryResult>> {
+    ) -> Option<PolarsResult<Result<DataFrame, Vec<DataFrame>>>> {
         let auto_new_streaming = std::env::var("POLARS_AUTO_NEW_STREAMING").as_deref() == Ok("1");
         let force_new_streaming = std::env::var("POLARS_FORCE_NEW_STREAMING").as_deref() == Ok("1");
 
@@ -2138,7 +2131,7 @@ impl LazyFrame {
             {
                 let DslPlan::Scan {
                     sources,
-                    mut unified_scan_args,
+                    mut file_options,
                     scan_type,
                     file_info,
                     cached_ir: _,
@@ -2147,14 +2140,14 @@ impl LazyFrame {
                     unreachable!()
                 };
 
-                unified_scan_args.row_index = Some(RowIndex {
+                file_options.row_index = Some(RowIndex {
                     name,
                     offset: offset.unwrap_or(0),
                 });
 
                 DslPlan::Scan {
                     sources,
-                    unified_scan_args,
+                    file_options,
                     scan_type,
                     file_info,
                     cached_ir: Default::default(),
@@ -2571,80 +2564,5 @@ impl JoinBuilder {
         };
 
         LazyFrame::from_logical_plan(lp, opt_state)
-    }
-}
-
-pub const BUILD_STREAMING_EXECUTOR: Option<polars_mem_engine::StreamingExecutorBuilder> = {
-    #[cfg(not(feature = "new_streaming"))]
-    {
-        None
-    }
-    #[cfg(feature = "new_streaming")]
-    {
-        Some(streaming_dispatch::build_streaming_query_executor)
-    }
-};
-#[cfg(feature = "new_streaming")]
-pub use streaming_dispatch::build_streaming_query_executor;
-
-#[cfg(feature = "new_streaming")]
-mod streaming_dispatch {
-    use std::sync::{Arc, Mutex};
-
-    use polars_core::error::PolarsResult;
-    use polars_core::frame::DataFrame;
-    use polars_expr::state::ExecutionState;
-    use polars_mem_engine::Executor;
-    use polars_plan::dsl::SinkTypeIR;
-    use polars_plan::plans::{AExpr, IR};
-    use polars_utils::arena::{Arena, Node};
-
-    pub fn build_streaming_query_executor(
-        node: Node,
-        ir_arena: &mut Arena<IR>,
-        expr_arena: &mut Arena<AExpr>,
-    ) -> PolarsResult<Box<dyn Executor>> {
-        let rechunk = match ir_arena.get(node) {
-            IR::Scan {
-                unified_scan_args, ..
-            } => unified_scan_args.rechunk,
-            _ => false,
-        };
-
-        let node = ir_arena.add(IR::Sink {
-            input: node,
-            payload: SinkTypeIR::Memory,
-        });
-
-        polars_stream::StreamingQuery::build(node, ir_arena, expr_arena)
-            .map(Some)
-            .map(Mutex::new)
-            .map(Arc::new)
-            .map(|x| StreamingQueryExecutor {
-                executor: x,
-                rechunk,
-            })
-            .map(|x| Box::new(x) as Box<dyn Executor>)
-    }
-
-    // Note: Arc/Mutex is because Executor requires Sync, but SlotMap is not Sync.
-    struct StreamingQueryExecutor {
-        executor: Arc<Mutex<Option<polars_stream::StreamingQuery>>>,
-        rechunk: bool,
-    }
-
-    impl Executor for StreamingQueryExecutor {
-        fn execute(&mut self, _cache: &mut ExecutionState) -> PolarsResult<DataFrame> {
-            let mut df = { self.executor.try_lock().unwrap().take() }
-                .expect("unhandled: execute() more than once")
-                .execute()
-                .map(|x| x.unwrap_single())?;
-
-            if self.rechunk {
-                df.as_single_chunk_par();
-            }
-
-            Ok(df)
-        }
     }
 }

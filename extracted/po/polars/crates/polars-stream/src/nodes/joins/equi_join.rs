@@ -117,12 +117,14 @@ fn postprocess_join(df: DataFrame, params: &EquiJoinParams) -> DataFrame {
         df.get_columns()
             .iter()
             .filter_map(|c| {
-                if params.left_key_schema.contains(c.name()) {
-                    let other = df
-                        .column(&format_pl_smallstr!("__POLARS_COALESCE_KEYCOL{key_idx}"))
-                        .unwrap();
-                    key_idx += 1;
-                    return Some(coalesce_columns(&[c.clone(), other.clone()]).unwrap());
+                if let Some((key_name, _)) = params.left_key_schema.get_at_index(key_idx) {
+                    if c.name() == key_name {
+                        let other = df
+                            .column(&format_pl_smallstr!("__POLARS_COALESCE_KEYCOL{key_idx}"))
+                            .unwrap();
+                        key_idx += 1;
+                        return Some(coalesce_columns(&[c.clone(), other.clone()]).unwrap());
+                    }
                 }
 
                 if c.name().starts_with("__POLARS_COALESCE_KEYCOL") {
@@ -650,7 +652,7 @@ impl BuildState {
                             // If we're the last thread to process this set of morsels we're probably
                             // falling behind the rest, since the drop can be quite expensive we skip
                             // a drop attempt hoping someone else will pick up the slack.
-                            drop(morsel_drop_q_send.try_send(l));
+                            morsel_drop_q_send.send(l).await.unwrap();
                             skip_drop_attempt = true;
                         } else {
                             skip_drop_attempt = false;

@@ -50,7 +50,6 @@ from polars._utils.various import (
     issue_warning,
     normalize_filepath,
     parse_percentiles,
-    qualified_type_name,
 )
 from polars._utils.wrap import wrap_df, wrap_expr
 from polars.datatypes import (
@@ -169,7 +168,7 @@ def _to_sink_target(
     elif isinstance(path, PartitioningScheme):
         return path._py_partitioning
     else:
-        msg = f"`path` argument has invalid type {qualified_type_name(path)!r}, and cannot be turned into a sink target"
+        msg = f"`path` argument has an invalid type '{type(path)}' and cannot be turned into a sink target"
         raise TypeError(msg)
 
 
@@ -2625,6 +2624,9 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
             selected engine, the query is run using the polars streaming
             engine.
 
+            .. note::
+               The GPU engine is currently not supported.
+
         Returns
         -------
         DataFrame
@@ -3168,6 +3170,9 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
             selected engine, the query is run using the polars streaming
             engine.
 
+            .. note::
+               The GPU engine is currently not supported.
+
         Returns
         -------
         DataFrame
@@ -3389,6 +3394,9 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
             environment variable. If it cannot run the query using the
             selected engine, the query is run using the polars streaming
             engine.
+
+            .. note::
+               The GPU engine is currently not supported.
 
         Returns
         -------
@@ -5318,7 +5326,7 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
         └─────────────┴────────────┴────────────┴──────┘
         """
         if not isinstance(other, LazyFrame):
-            msg = f"expected `other` join table to be a LazyFrame, not {qualified_type_name(other)!r}"
+            msg = f"expected `other` join table to be a LazyFrame, not a {type(other).__name__!r}"
             raise TypeError(msg)
 
         if isinstance(on, (str, pl.Expr)):
@@ -5569,7 +5577,7 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
         └─────┴─────┴─────┴───────┴───────────┘
         """
         if not isinstance(other, LazyFrame):
-            msg = f"expected `other` join table to be a LazyFrame, not {qualified_type_name(other)!r}"
+            msg = f"expected `other` join table to be a LazyFrame, not a {type(other).__name__!r}"
             raise TypeError(msg)
 
         if maintain_order is None:
@@ -5714,7 +5722,7 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
         └─────┴─────┴─────┴───────┴──────┴──────┴──────┴─────────────┘
         """
         if not isinstance(other, LazyFrame):
-            msg = f"expected `other` join table to be a LazyFrame, not {qualified_type_name(other)!r}"
+            msg = f"expected `other` join table to be a LazyFrame, not a {type(other).__name__!r}"
             raise TypeError(msg)
 
         pyexprs = parse_into_list_of_expressions(*predicates)
@@ -6057,7 +6065,7 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
         return self._from_pyldf(self._ldf.drop(drop_cols, strict=strict))
 
     def rename(
-        self, mapping: Mapping[str, str] | Callable[[str], str], *, strict: bool = True
+        self, mapping: dict[str, str] | Callable[[str], str], *, strict: bool = True
     ) -> LazyFrame:
         """
         Rename column names.
@@ -7541,8 +7549,6 @@ naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
     def interpolate(self) -> LazyFrame:
         """
         Interpolate intermediate values. The interpolation method is linear.
-
-        Nulls at the beginning and end of the series remain null.
 
         Examples
         --------

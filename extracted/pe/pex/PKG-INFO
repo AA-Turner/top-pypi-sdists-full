@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: pex
-Version: 2.33.10
+Version: 2.34.0
 Summary: The PEX packaging toolchain.
 Home-page: https://github.com/pex-tool/pex
-Download-URL: https://github.com/pex-tool/pex/releases/download/v2.33.10/pex
+Download-URL: https://github.com/pex-tool/pex/releases/download/v2.34.0/pex
 Author: The PEX developers
 Author-email: developers@pex-tool.org
-Project-URL: Changelog, https://github.com/pex-tool/pex/blob/v2.33.10/CHANGES.md
+Project-URL: Changelog, https://github.com/pex-tool/pex/blob/v2.34.0/CHANGES.md
 Project-URL: Documentation, https://docs.pex-tool.org/
-Project-URL: Source, https://github.com/pex-tool/pex/tree/v2.33.10
+Project-URL: Source, https://github.com/pex-tool/pex/tree/v2.34.0
 Keywords: package,executable,virtualenv,lock,freeze
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

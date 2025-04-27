@@ -13,7 +13,7 @@ use polars_io::{expand_paths, expand_paths_hive, expanded_from_single_directory}
 use polars_utils::mmap::MemSlice;
 use polars_utils::pl_str::PlSmallStr;
 
-use super::UnifiedScanArgs;
+use super::FileScanOptions;
 
 /// Set of sources to scan from
 ///
@@ -159,42 +159,42 @@ impl Eq for ScanSources {}
 impl ScanSources {
     pub fn expand_paths(
         &self,
-        scan_args: &UnifiedScanArgs,
+        file_options: &FileScanOptions,
         #[allow(unused_variables)] cloud_options: Option<&CloudOptions>,
     ) -> PolarsResult<Self> {
         match self {
             Self::Paths(paths) => Ok(Self::Paths(expand_paths(
                 paths,
-                scan_args.glob,
+                file_options.glob,
                 cloud_options,
             )?)),
             v => Ok(v.clone()),
         }
     }
 
-    /// This will update `scan_args.hive_options.enabled` to `true` if the existing value is `None`
+    /// This will update `file_options.hive_options.enabled` to `true` if the existing value is `None`
     /// and the paths are expanded from a single directory. Otherwise the existing value is maintained.
     #[cfg(any(feature = "ipc", feature = "parquet"))]
     pub fn expand_paths_with_hive_update(
         &self,
-        scan_args: &mut UnifiedScanArgs,
+        file_options: &mut FileScanOptions,
         #[allow(unused_variables)] cloud_options: Option<&CloudOptions>,
     ) -> PolarsResult<Self> {
         match self {
             Self::Paths(paths) => {
                 let (expanded_paths, hive_start_idx) = expand_paths_hive(
                     paths,
-                    scan_args.glob,
+                    file_options.glob,
                     cloud_options,
-                    scan_args.hive_options.enabled.unwrap_or(false),
+                    file_options.hive_options.enabled.unwrap_or(false),
                 )?;
 
-                if scan_args.hive_options.enabled.is_none()
+                if file_options.hive_options.enabled.is_none()
                     && expanded_from_single_directory(paths, expanded_paths.as_ref())
                 {
-                    scan_args.hive_options.enabled = Some(true);
+                    file_options.hive_options.enabled = Some(true);
                 }
-                scan_args.hive_options.hive_start_idx = hive_start_idx;
+                file_options.hive_options.hive_start_idx = hive_start_idx;
 
                 Ok(Self::Paths(expanded_paths))
             },

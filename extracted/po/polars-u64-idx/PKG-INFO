@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars-u64-idx
-Version: 1.28.0
+Version: 1.27.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research

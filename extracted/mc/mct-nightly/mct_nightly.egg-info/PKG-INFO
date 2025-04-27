@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mct-nightly
-Version: 2.3.0.20250426.524
+Version: 2.3.0.20250427.609
 Summary: A Model Compression Toolkit for neural networks
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License

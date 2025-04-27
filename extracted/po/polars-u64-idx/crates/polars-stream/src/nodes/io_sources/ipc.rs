@@ -47,7 +47,6 @@ pub mod builder {
 
     #[derive(Debug)]
     pub struct IpcReaderBuilder {
-        #[expect(unused)]
         pub first_metadata: Option<Arc<FileMetadata>>,
     }
 
@@ -67,20 +66,16 @@ pub mod builder {
             &self,
             source: ScanSource,
             cloud_options: Option<Arc<CloudOptions>>,
-            #[expect(unused)] scan_source_idx: usize,
+            scan_source_idx: usize,
         ) -> Box<dyn FileReader> {
             let scan_source = source;
             let verbose = config::verbose();
 
-            // FIXME: For some reason the metadata does not match on idx == 0, and we end up with
-            // * ComputeError: out-of-spec: InvalidBuffersLength { buffers_size: 1508, file_size: 763 }
-            //
-            // let metadata: Option<Arc<FileMetadata>> = if scan_source_idx == 0 {
-            //     self.first_metadata.clone()
-            // } else {
-            //     None
-            // };
-            let metadata = None;
+            let metadata: Option<Arc<FileMetadata>> = if scan_source_idx == 0 {
+                self.first_metadata.clone()
+            } else {
+                None
+            };
 
             let reader = IpcFileReader {
                 scan_source,

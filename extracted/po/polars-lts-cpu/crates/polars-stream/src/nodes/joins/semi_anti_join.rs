@@ -33,7 +33,7 @@ async fn select_keys(
         &keys,
         params.random_state,
         params.nulls_equal,
-        false,
+        true,
     ))
 }
 
@@ -224,7 +224,7 @@ impl BuildState {
                             // If we're the last thread to process this set of keys we're probably
                             // falling behind the rest, since the drop can be quite expensive we skip
                             // a drop attempt hoping someone else will pick up the slack.
-                            drop(key_drop_q_send.try_send(l));
+                            key_drop_q_send.send(l).await.unwrap();
                             skip_drop_attempt = true;
                         } else {
                             skip_drop_attempt = false;

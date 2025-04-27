@@ -1,12 +1,12 @@
 [project]
 name = "url-normalize"
-version = "2.2.0"
+version = "2.2.1"
 description = "URL normalization for Python"
 authors = [{ name = "Nikolay Panov", email = "github@npanov.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["url", "normalization", "normalize"]
+keywords = ["url", "normalization", "normalize", "normalizer"]
 dependencies = ["idna>=3.3"]
 
 [project.urls]
@@ -19,16 +19,7 @@ Changelog = "https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md"
 url-normalize = "url_normalize.cli:main"
 
 [project.optional-dependencies]
-dev = [
-  "mypy",
-  "pre-commit",
-  "pytest-cov",
-  "pytest-ruff",
-  "pytest-socket",
-  "pytest",
-  "ruff",
-  "tox",
-]
+dev = ["mypy", "pre-commit", "pytest-cov", "pytest-socket", "pytest", "ruff"]
 
 [tool.ruff]
 target-version = "py38"
@@ -71,11 +62,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 addopts = [
-  "--cov-fail-under=100",
   "--cov-report=term-missing:skip-covered",
   "--cov=url_normalize",
   "--disable-socket",
-  "--ruff",
   "-v",
 ]
 python_files = ["tests.py", "test_*.py", "*_tests.py"]

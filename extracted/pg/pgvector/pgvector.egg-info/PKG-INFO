@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pgvector
-Version: 0.4.0
+Version: 0.4.1
 Summary: pgvector support for Python
 Author-email: Andrew Kane <andrew@ankane.org>
 License: MIT
@@ -9,6 +9,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy
+Dynamic: license-file
 
 # pgvector-python
 
@@ -39,6 +40,7 @@ And follow the instructions for your database library:
 
 Or check out some examples:
 
+- [Retrieval-augmented generation](https://github.com/pgvector/pgvector-python/blob/master/examples/rag/example.py) with Ollama
 - [Embeddings](https://github.com/pgvector/pgvector-python/blob/master/examples/openai/example.py) with OpenAI
 - [Binary embeddings](https://github.com/pgvector/pgvector-python/blob/master/examples/cohere/example.py) with Cohere
 - [Sentence embeddings](https://github.com/pgvector/pgvector-python/blob/master/examples/sentence_transformers/example.py) with SentenceTransformers

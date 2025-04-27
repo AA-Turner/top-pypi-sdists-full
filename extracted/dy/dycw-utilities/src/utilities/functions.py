@@ -40,6 +40,7 @@ from utilities.types import (
     TCallable2,
     TSupportsRichComparison,
     TupleOrStrMapping,
+    TypeLike,
 )
 
 if TYPE_CHECKING:
@@ -181,9 +182,9 @@ def ensure_class(
     *,
     nullable: Literal[False] = False,
 ) -> _T1 | _T2 | _T3 | _T4 | _T5: ...
-def ensure_class(
-    obj: Any, cls: type[_T] | tuple[type[_T], ...], /, *, nullable: bool = False
-) -> Any:
+@overload
+def ensure_class(obj: Any, cls: TypeLike[_T], /, *, nullable: bool = False) -> Any: ...
+def ensure_class(obj: Any, cls: TypeLike[_T], /, *, nullable: bool = False) -> Any:
     """Ensure an object is of the required class."""
     if isinstance(obj, cls) or ((obj is None) and nullable):
         return obj
@@ -193,7 +194,7 @@ def ensure_class(
 @dataclass(kw_only=True, slots=True)
 class EnsureClassError(Exception):
     obj: Any
-    cls: type[Any] | tuple[type[Any], ...]
+    cls: TypeLike[Any]
     nullable: bool
 
     @override
@@ -658,14 +659,6 @@ def is_hashable(obj: Any, /) -> TypeGuard[Hashable]:
 ##
 
 
-def is_instance_int_not_bool(obj: Any, /) -> TypeGuard[int]:
-    """Check if an object is an integer, and not a boolean."""
-    return isinstance(obj, int) and not isinstance(obj, bool)
-
-
-##
-
-
 @overload
 def is_iterable_of(obj: Any, cls: type[_T], /) -> TypeGuard[Iterable[_T]]: ...
 @overload
@@ -686,7 +679,9 @@ def is_iterable_of(
 def is_iterable_of(
     obj: Any, cls: tuple[type[_T1], type[_T2], type[_T3], type[_T4], type[_T5]], /
 ) -> TypeGuard[Iterable[_T1 | _T2 | _T3 | _T4 | _T5]]: ...
-def is_iterable_of(obj: Any, cls: Any, /) -> TypeGuard[Iterable[Any]]:
+@overload
+def is_iterable_of(obj: Any, cls: TypeLike[_T], /) -> TypeGuard[Iterable[_T]]: ...
+def is_iterable_of(obj: Any, cls: TypeLike[_T], /) -> TypeGuard[Iterable[_T]]:
     """Check if an object is a iterable of tuple or string mappings."""
     return isinstance(obj, Iterable) and all(map(make_isinstance(cls), obj))
 
@@ -730,7 +725,9 @@ def is_sequence_of(
 def is_sequence_of(
     obj: Any, cls: tuple[type[_T1], type[_T2], type[_T3], type[_T4], type[_T5]], /
 ) -> TypeGuard[Sequence[_T1 | _T2 | _T3 | _T4 | _T5]]: ...
-def is_sequence_of(obj: Any, cls: Any, /) -> TypeGuard[Sequence[Any]]:
+@overload
+def is_sequence_of(obj: Any, cls: TypeLike[_T], /) -> TypeGuard[Sequence[_T]]: ...
+def is_sequence_of(obj: Any, cls: TypeLike[_T], /) -> TypeGuard[Sequence[_T]]:
     """Check if an object is a sequence of tuple or string mappings."""
     return isinstance(obj, Sequence) and is_iterable_of(obj, cls)
 
@@ -776,14 +773,6 @@ def is_string_mapping(obj: Any, /) -> TypeGuard[StrMapping]:
 ##
 
 
-def is_subclass_int_not_bool(cls: type[Any], /) -> TypeGuard[type[int]]:
-    """Check if a class is an integer, and not a boolean."""
-    return issubclass(cls, int) and not issubclass(cls, bool)
-
-
-##
-
-
 def is_tuple(obj: Any, /) -> TypeGuard[tuple[Any, ...]]:
     """Check if an object is a tuple or string mapping."""
     return make_isinstance(tuple)(obj)
@@ -820,19 +809,14 @@ def make_isinstance(
 def make_isinstance(
     cls: tuple[type[_T1], type[_T2], type[_T3], type[_T4], type[_T5]], /
 ) -> Callable[[Any], TypeGuard[_T1 | _T2 | _T3 | _T4 | _T5]]: ...
-def make_isinstance(
-    cls: type[_T] | tuple[type[_T], ...], /
-) -> Callable[[Any], TypeGuard[Any]]:
+@overload
+def make_isinstance(cls: TypeLike[_T], /) -> Callable[[Any], TypeGuard[_T]]: ...
+def make_isinstance(cls: TypeLike[_T], /) -> Callable[[Any], TypeGuard[_T]]:
     """Make a curried `isinstance` function."""
     return partial(_make_instance_core, cls=cls)
 
 
-##
-
-
-def _make_instance_core(
-    obj: Any, /, *, cls: type[_T] | tuple[type[_T], ...]
-) -> TypeGuard[_T]:
+def _make_instance_core(obj: Any, /, *, cls: TypeLike[_T]) -> TypeGuard[_T]:
     return isinstance(obj, cls)
 
 
@@ -1046,7 +1030,6 @@ __all__ = [
     "is_dataclass_class",
     "is_dataclass_instance",
     "is_hashable",
-    "is_instance_int_not_bool",
     "is_iterable_of",
     "is_none",
     "is_not_none",
@@ -1054,7 +1037,6 @@ __all__ = [
     "is_sized",
     "is_sized_not_str",
     "is_string_mapping",
-    "is_subclass_int_not_bool",
     "is_tuple",
     "is_tuple_or_str_mapping",
     "make_isinstance",

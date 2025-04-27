@@ -12,9 +12,8 @@ from typing import (
 
 from polars._typing import FrameType
 from polars._utils.deprecation import deprecate_renamed_parameter
-from polars._utils.pycapsule import is_pycapsule
 from polars._utils.unstable import issue_unstable_warning
-from polars._utils.various import _get_stack_locals, qualified_type_name
+from polars._utils.various import _get_stack_locals
 from polars._utils.wrap import wrap_ldf
 from polars.convert import from_arrow, from_pandas
 from polars.dataframe import DataFrame
@@ -53,14 +52,14 @@ if TYPE_CHECKING:
         pa.RecordBatch,
     ]
 
+
 __all__ = ["SQLContext"]
 
 
 def _compatible_frame(obj: Any) -> bool:
     """Check if the object can be converted to DataFrame."""
     return (
-        is_pycapsule(obj)
-        or isinstance(obj, LazyFrame)
+        isinstance(obj, (DataFrame, LazyFrame, Series))
         or (_check_for_pandas(obj) and isinstance(obj, (pd.DataFrame, pd.Series)))
         or (_check_for_pyarrow(obj) and isinstance(obj, (pa.Table, pa.RecordBatch)))
     )
@@ -69,19 +68,17 @@ def _compatible_frame(obj: Any) -> bool:
 def _ensure_lazyframe(obj: Any) -> LazyFrame:
     """Return LazyFrame from compatible input."""
     if isinstance(obj, (DataFrame, LazyFrame)):
-        return obj.lazy()
+        return obj if isinstance(obj, LazyFrame) else obj.lazy()
     elif isinstance(obj, Series):
         return obj.to_frame().lazy()
     elif _check_for_pandas(obj) and isinstance(obj, (pd.DataFrame, pd.Series)):
         if isinstance(frame := from_pandas(obj), Series):
             frame = frame.to_frame()
         return frame.lazy()
-    elif is_pycapsule(obj) or (
-        _check_for_pyarrow(obj) and isinstance(obj, (pa.Table, pa.RecordBatch))
-    ):
+    elif _check_for_pyarrow(obj) and isinstance(obj, (pa.Table, pa.RecordBatch)):
         return from_arrow(obj).lazy()  # type: ignore[union-attr]
     else:
-        msg = f"Unrecognised frame type: {qualified_type_name(obj)}"
+        msg = f"Unrecognised frame type: {type(obj)}"
         raise ValueError(msg)
 
 

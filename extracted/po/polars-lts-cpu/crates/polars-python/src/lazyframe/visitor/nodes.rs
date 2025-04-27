@@ -2,27 +2,24 @@
 use polars::prelude::JoinTypeOptionsIR;
 use polars::prelude::python_dsl::PythonScanSource;
 use polars_core::prelude::IdxSize;
-use polars_io::cloud::CloudOptions;
 use polars_ops::prelude::JoinType;
 use polars_plan::plans::IR;
-use polars_plan::prelude::{FileScan, FunctionIR, PythonPredicate, UnifiedScanArgs};
+use polars_plan::prelude::{FileCount, FileScan, FileScanOptions, FunctionIR, PythonPredicate};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyString;
 
 use super::expr_nodes::PyGroupbyOptions;
 use crate::PyDataFrame;
 use crate::lazyframe::visit::PyExprIR;
 
-fn scan_type_to_pyobject(
-    py: Python,
-    scan_type: &FileScan,
-    cloud_options: &Option<CloudOptions>,
-) -> PyResult<PyObject> {
+fn scan_type_to_pyobject(py: Python, scan_type: &FileScan) -> PyResult<PyObject> {
     match scan_type {
         #[cfg(feature = "csv")]
-        FileScan::Csv { options } => {
+        FileScan::Csv {
+            options,
+            cloud_options,
+        } => {
             let options = serde_json::to_string(options)
                 .map_err(|err| PyValueError::new_err(format!("{err:?}")))?;
             let cloud_options = serde_json::to_string(cloud_options)
@@ -30,7 +27,11 @@ fn scan_type_to_pyobject(
             Ok(("csv", options, cloud_options).into_py_any(py)?)
         },
         #[cfg(feature = "parquet")]
-        FileScan::Parquet { options, .. } => {
+        FileScan::Parquet {
+            options,
+            cloud_options,
+            ..
+        } => {
             let options = serde_json::to_string(options)
                 .map_err(|err| PyValueError::new_err(format!("{err:?}")))?;
             let cloud_options = serde_json::to_string(cloud_options)
@@ -79,22 +80,19 @@ pub struct Filter {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyFileOptions {
-    inner: UnifiedScanArgs,
+    inner: FileScanOptions,
 }
 
 #[pymethods]
 impl PyFileOptions {
     #[getter]
     fn n_rows(&self) -> Option<(i64, usize)> {
-        self.inner
-            .pre_slice
-            .clone()
-            .map(|slice| <(i64, usize)>::try_from(slice).unwrap())
+        self.inner.pre_slice
     }
     #[getter]
     fn with_columns(&self) -> Option<Vec<&str>> {
         self.inner
-            .projection
+            .with_columns
             .as_ref()?
             .iter()
             .map(|x| x.as_str())
@@ -115,6 +113,10 @@ impl PyFileOptions {
     #[getter]
     fn rechunk(&self, _py: Python<'_>) -> bool {
         self.inner.rechunk
+    }
+    #[getter]
+    fn file_counter(&self, _py: Python<'_>) -> FileCount {
+        self.inner.file_counter
     }
     #[getter]
     fn hive_options(&self, _py: Python<'_>) -> PyResult<PyObject> {
@@ -367,7 +369,7 @@ pub(crate) fn into_py(py: Python<'_>, plan: &IR) -> PyResult<PyObject> {
             predicate,
             output_schema: _,
             scan_type,
-            unified_scan_args,
+            file_options,
         } => Scan {
             paths: sources
                 .into_paths()
@@ -377,9 +379,9 @@ pub(crate) fn into_py(py: Python<'_>, plan: &IR) -> PyResult<PyObject> {
             file_info: py.None(),
             predicate: predicate.as_ref().map(|e| e.into()),
             file_options: PyFileOptions {
-                inner: (**unified_scan_args).clone(),
+                inner: (**file_options).clone(),
             },
-            scan_type: scan_type_to_pyobject(py, scan_type, &unified_scan_args.cloud_options)?,
+            scan_type: scan_type_to_pyobject(py, scan_type)?,
         }
         .into_py_any(py),
         IR::DataFrameScan {
@@ -609,7 +611,6 @@ pub(crate) fn into_py(py: Python<'_>, plan: &IR) -> PyResult<PyObject> {
                 FunctionIR::FastCount {
                     sources,
                     scan_type,
-                    cloud_options,
                     alias,
                 } => {
                     let sources = sources
@@ -619,7 +620,7 @@ pub(crate) fn into_py(py: Python<'_>, plan: &IR) -> PyResult<PyObject> {
                         })?
                         .into_py_any(py)?;
 
-                    let scan_type = scan_type_to_pyobject(py, scan_type, cloud_options)?;
+                    let scan_type = scan_type_to_pyobject(py, scan_type)?;
 
                     let alias = alias
                         .as_ref()
@@ -655,16 +656,12 @@ pub(crate) fn into_py(py: Python<'_>, plan: &IR) -> PyResult<PyObject> {
             contexts: contexts.iter().map(|n| n.0).collect(),
         }
         .into_py_any(py),
-        IR::Sink { input, payload } => Sink {
-            input: input.0,
-            payload: PyString::new(
-                py,
-                &serde_json::to_string(payload)
-                    .map_err(|err| PyValueError::new_err(format!("{err:?}")))?,
-            )
-            .into(),
-        }
-        .into_py_any(py),
+        IR::Sink {
+            input: _,
+            payload: _,
+        } => Err(PyNotImplementedError::new_err(
+            "Not expecting to see a Sink node",
+        )),
         IR::SinkMultiple { .. } => Err(PyNotImplementedError::new_err(
             "Not expecting to see a SinkMultiple node",
         )),

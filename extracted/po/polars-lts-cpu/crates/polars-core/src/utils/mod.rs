@@ -815,7 +815,7 @@ where
             return Err(width_mismatch(&acc_df, &df));
         }
 
-        acc_df.vstack_mut_owned(df)?;
+        acc_df.vstack_mut(&df)?;
     }
 
     Ok(acc_df)

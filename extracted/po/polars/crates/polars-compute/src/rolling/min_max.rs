@@ -61,7 +61,6 @@ impl<'a, T: NativeType, P: MinMaxPolicy> RollingAggWindowNulls<'a, T> for MinMax
         start: usize,
         end: usize,
         params: Option<RollingFnParams>,
-        _window_size: Option<usize>,
     ) -> Self {
         assert!(params.is_none());
         let mut slf = Self {
@@ -100,13 +99,7 @@ impl<'a, T: NativeType, P: MinMaxPolicy> RollingAggWindowNulls<'a, T> for MinMax
 }
 
 impl<'a, T: NativeType, P: MinMaxPolicy> RollingAggWindowNoNulls<'a, T> for MinMaxWindow<'a, T, P> {
-    fn new(
-        slice: &'a [T],
-        start: usize,
-        end: usize,
-        params: Option<RollingFnParams>,
-        _window_size: Option<usize>,
-    ) -> Self {
+    fn new(slice: &'a [T], start: usize, end: usize, params: Option<RollingFnParams>) -> Self {
         assert!(params.is_none());
         let mut slf = Self {
             values: slice,

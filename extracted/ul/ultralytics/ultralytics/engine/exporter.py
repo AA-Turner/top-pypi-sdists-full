@@ -238,9 +238,6 @@ class Exporter:
             _callbacks (dict, optional): Dictionary of callback functions.
         """
         self.args = get_cfg(cfg, overrides)
-        if self.args.format.lower() in {"coreml", "mlmodel"}:  # fix attempt for protobuf<3.20.x errors
-            os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"  # must run before TensorBoard callback
-
         self.callbacks = _callbacks or callbacks.get_default_callbacks()
         callbacks.add_integration_callbacks(self)
 
@@ -703,7 +700,7 @@ class Exporter:
 
     @try_export
     def export_mnn(self, prefix=colorstr("MNN:")):
-        """YOLOv8 MNN export using MNN https://github.com/alibaba/MNN."""
+        """YOLO MNN export using MNN https://github.com/alibaba/MNN."""
         f_onnx, _ = self.export_onnx()  # get onnx model first
 
         check_requirements("MNN>=2.9.6")

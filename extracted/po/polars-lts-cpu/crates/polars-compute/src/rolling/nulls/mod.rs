@@ -1,15 +1,15 @@
 mod mean;
 mod min_max;
-mod moment;
 mod quantile;
 mod sum;
+mod variance;
 
 use arrow::legacy::utils::CustomIterTools;
 pub use mean::*;
 pub use min_max::*;
-pub use moment::*;
 pub use quantile::*;
 pub use sum::*;
+pub use variance::*;
 
 use super::*;
 
@@ -22,7 +22,6 @@ pub trait RollingAggWindowNulls<'a, T: NativeType> {
         start: usize,
         end: usize,
         params: Option<RollingFnParams>,
-        window_size: Option<usize>,
     ) -> Self;
 
     /// # Safety
@@ -49,8 +48,7 @@ where
     let len = values.len();
     let (start, end) = det_offsets_fn(0, window_size, len);
     // SAFETY; we are in bounds
-    let mut agg_window =
-        unsafe { Agg::new(values, validity, start, end, params, Some(window_size)) };
+    let mut agg_window = unsafe { Agg::new(values, validity, start, end, params) };
 
     let mut validity = create_validity(min_periods, len, window_size, det_offsets_fn)
         .unwrap_or_else(|| {
@@ -179,7 +177,7 @@ mod test {
         assert_eq!(out, &[None, None, Some(2.0), Some(12.5)]);
 
         let testpars = Some(RollingFnParams::Var(RollingVarParams { ddof: 0 }));
-        let out = rolling_var(arr, 3, 1, false, None, testpars);
+        let out = rolling_var(arr, 3, 1, false, None, testpars.clone());
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
 
@@ -190,7 +188,7 @@ mod test {
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[None, None, Some(2.0), Some(6.333333333333334)]);
 
-        let out = rolling_var(arr, 4, 1, false, None, testpars);
+        let out = rolling_var(arr, 4, 1, false, None, testpars.clone());
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(

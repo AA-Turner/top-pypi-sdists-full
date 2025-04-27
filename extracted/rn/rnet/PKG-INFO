@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rnet
-Version: 2.2.1
+Version: 2.2.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -41,7 +41,7 @@ Project-URL: Repository, https://github.com/0x676e67/rnet
 
 > 🚀 Help me work seamlessly with open source sharing by [sponsoring me on GitHub](https://github.com/0x676e67/0x676e67/blob/main/SPONSOR.md)
 
-A blazing-fast Python HTTP client with TLS fingerprint, capable of mimicking `TLS` and `HTTP2` fingerprints of popular browsers like `Chrome`, `Safari`, `Firefox`, and `OkHttp`.
+A blazing-fast Python HTTP Client with advanced browser fingerprinting. Precisely emulates **Chrome**, **Firefox**, **Safari**, and **OkHttp**, accurately replicating **TLS/HTTP2** signatures. Built on [rquest](https://github.com/0x676e67/rquest) for exceptional speed and a clean, intuitive API.
 
 ## Features
 
@@ -76,16 +76,11 @@ from rnet import Impersonate, Client
 
 
 async def main():
+    # Build a client
     client = Client(impersonate=Impersonate.Firefox136)
-    resp = await client.get("https://tls.browserleaks.com")
-    print("Status Code: ", resp.status_code)
-    print("Version: ", resp.version)
-    print("Response URL: ", resp.url)
-    print("Headers: ", resp.headers)
-    print("Cookies: ", resp.cookies)
-    print("Encoding: ", resp.encoding)
-    print("Content-Length: ", resp.content_length)
-    print("Remote Address: ", resp.remote_addr)
+    # Use the API you're already familiar with
+    resp = await client.get("https://tls.peet.ws/api/all")
+    # Print the response
     print(await resp.text())
 
 
@@ -104,9 +99,8 @@ Additional learning resources include:
 
 1. Linux
 
+- **glibc >= 2.34**: `x86_64`, `aarch64`, `armv7`, `i686`
 - **musl**: `x86_64`, `aarch64`, `armv7`, `i686`
-- **glibc >= 2.17**: `x86_64`
-- **glibc >= 2.31**: `aarch64`, `armv7`, `i686`
 
 2. macOS: `x86_64`,`aarch64`
 
@@ -163,7 +157,7 @@ In fact, most device models share the same `TLS`/`HTTP2` configuration, with the
 
 | **Browser**   | **Versions**                                                                                     |
 |---------------|--------------------------------------------------------------------------------------------------|
-| **Chrome**    | `Chrome100`, `Chrome101`, `Chrome104`, `Chrome105`, `Chrome106`, `Chrome107`, `Chrome108`, `Chrome109`, `Chrome114`, `Chrome116`, `Chrome117`, `Chrome118`, `Chrome119`, `Chrome120`, `Chrome123`, `Chrome124`, `Chrome126`, `Chrome127`, `Chrome128`, `Chrome129`, `Chrome130`, `Chrome131`, `Chrome132`, `Chrome133`, `Chrome134` |
+| **Chrome**    | `Chrome100`, `Chrome101`, `Chrome104`, `Chrome105`, `Chrome106`, `Chrome107`, `Chrome108`, `Chrome109`, `Chrome110`, `Chrome114`, `Chrome116`, `Chrome117`, `Chrome118`, `Chrome119`, `Chrome120`, `Chrome123`, `Chrome124`, `Chrome126`, `Chrome127`, `Chrome128`, `Chrome129`, `Chrome130`, `Chrome131`, `Chrome132`, `Chrome133`, `Chrome134` |
 | **Edge**      | `Edge101`, `Edge122`, `Edge127`, `Edge131`, `Edge134`                                                       |
 | **Safari**    | `SafariIos17_2`, `SafariIos17_4_1`, `SafariIos16_5`, `Safari15_3`, `Safari15_5`, `Safari15_6_1`, `Safari16`, `Safari16_5`, `Safari17_0`, `Safari17_2_1`, `Safari17_4_1`, `Safari17_5`, `Safari18`, `SafariIPad18`, `Safari18_2`, `Safari18_1_1`, `Safari18_3`, `Safari18_3_1` |
 | **OkHttp**    | `OkHttp3_9`, `OkHttp3_11`, `OkHttp3_13`, `OkHttp3_14`, `OkHttp4_9`, `OkHttp4_10`, `OkHttp4_12`, `OkHttp5`         |
@@ -179,9 +173,9 @@ If you would like to submit your contribution, please open a [Pull Request](http
 
 ## Sponsors
 
-<a href="https://dashboard.capsolver.com/passport/register?inviteCode=y7CtB_a-3X6d" target="_blank"><img src="https://raw.githubusercontent.com/0x676e67/rnet/main/.github/assets/capsolver.jpg" height="47" width="149"></a>
+<a href="https://dashboard.capsolver.com/passport/register?inviteCode=y7CtB_a-3X6d" target="_blank"><img src="https://raw.githubusercontent.com/0x676e67/rquest/main/.github/assets/capsolver.jpg" height="47" width="149"></a>
 
-[CapSolver](https://www.capsolver.com/?utm_source=github&utm_medium=banner_repo&utm_campaign=rquest) uses AI-powered Auto Web Unblock to bypass Captchas for seamless data access. Fast, reliable, and cost-effective, it integrates with Colly, Puppeteer, and Playwright. 🎉 Use code **`RNET`** for a 6% bonus!
+[CapSolver](https://www.capsolver.com/?utm_source=github&utm_medium=banner_repo&utm_campaign=rquest) leverages AI-powered Auto Web Unblock to bypass Captchas effortlessly, providing fast, reliable, and cost-effective data access with seamless integration into Colly, Puppeteer, and Playwright—use code **`RNET`** for a 6% bonus!
 
 ## License
 

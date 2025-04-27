@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.4.5
+Version: 1.4.6
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip
@@ -15,12 +15,12 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
-Requires-Dist: sling-linux-arm64==1.4.5; sys_platform == "linux" and platform_machine == "aarch64"
-Requires-Dist: sling-linux-amd64==1.4.5; sys_platform == "linux" and platform_machine != "aarch64"
-Requires-Dist: sling-windows-amd64==1.4.5; sys_platform == "win32" and platform_machine == "ARM64"
-Requires-Dist: sling-windows-amd64==1.4.5; sys_platform == "win32" and platform_machine != "ARM64"
-Requires-Dist: sling-mac-arm64==1.4.5; sys_platform == "darwin" and platform_machine == "arm64"
-Requires-Dist: sling-mac-amd64==1.4.5; sys_platform == "darwin" and platform_machine != "arm64"
+Requires-Dist: sling-linux-arm64==1.4.6; sys_platform == "linux" and platform_machine == "aarch64"
+Requires-Dist: sling-linux-amd64==1.4.6; sys_platform == "linux" and platform_machine != "aarch64"
+Requires-Dist: sling-windows-amd64==1.4.6; sys_platform == "win32" and platform_machine == "ARM64"
+Requires-Dist: sling-windows-amd64==1.4.6; sys_platform == "win32" and platform_machine != "ARM64"
+Requires-Dist: sling-mac-arm64==1.4.6; sys_platform == "darwin" and platform_machine == "arm64"
+Requires-Dist: sling-mac-amd64==1.4.6; sys_platform == "darwin" and platform_machine != "arm64"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -3,7 +3,6 @@ use std::fmt::{self, Display, Formatter};
 use polars_core::schema::Schema;
 use polars_io::RowIndex;
 use polars_utils::format_list_truncated;
-use polars_utils::slice_enum::Slice;
 use recursive::recursive;
 
 use self::ir::dot::ScanSourcesDisplay;
@@ -69,7 +68,7 @@ fn write_scan(
     n_columns: i64,
     total_columns: usize,
     predicate: &Option<ExprIRDisplay<'_>>,
-    pre_slice: Option<Slice>,
+    slice: Option<(i64, usize)>,
     row_index: Option<&RowIndex>,
 ) -> fmt::Result {
     write!(
@@ -92,8 +91,8 @@ fn write_scan(
     if let Some(predicate) = predicate {
         write!(f, "\n{:indent$}SELECTION: {predicate}", "")?;
     }
-    if let Some(pre_slice) = pre_slice {
-        write!(f, "\n{:indent$}SLICE: {pre_slice:?}", "")?;
+    if let Some(slice) = slice {
+        write!(f, "\n{:indent$}SLICE: {slice:?}", "")?;
     }
     if let Some(row_index) = row_index {
         write!(f, "\n{:indent$}ROW_INDEX: {}", "", row_index.name)?;
@@ -189,9 +188,7 @@ impl<'a> IRDisplay<'a> {
                     n_columns,
                     total_columns,
                     &predicate,
-                    options
-                        .n_rows
-                        .map(|len| polars_utils::slice_enum::Slice::Positive { offset: 0, len }),
+                    options.n_rows.map(|x| (0, x)),
                     None,
                 )
             },
@@ -240,12 +237,11 @@ impl<'a> IRDisplay<'a> {
                 file_info,
                 predicate,
                 scan_type,
-                unified_scan_args,
-                hive_parts: _,
-                output_schema: _,
+                file_options,
+                ..
             } => {
-                let n_columns = unified_scan_args
-                    .projection
+                let n_columns = file_options
+                    .with_columns
                     .as_ref()
                     .map(|columns| columns.len() as i64)
                     .unwrap_or(-1);
@@ -260,8 +256,8 @@ impl<'a> IRDisplay<'a> {
                     n_columns,
                     file_info.schema.len(),
                     &predicate,
-                    unified_scan_args.pre_slice.clone(),
-                    unified_scan_args.row_index.as_ref(),
+                    file_options.pre_slice,
+                    file_options.row_index.as_ref(),
                 )
             },
             Filter { predicate, input } => {
@@ -634,7 +630,7 @@ impl Display for ExprIRDisplay<'_> {
                     Mean(expr) => write!(f, "{}.mean()", self.with_root(expr)),
                     First(expr) => write!(f, "{}.first()", self.with_root(expr)),
                     Last(expr) => write!(f, "{}.last()", self.with_root(expr)),
-                    Implode(expr) => write!(f, "{}.implode()", self.with_root(expr)),
+                    Implode(expr) => write!(f, "{}.list()", self.with_root(expr)),
                     NUnique(expr) => write!(f, "{}.n_unique()", self.with_root(expr)),
                     Sum(expr) => write!(f, "{}.sum()", self.with_root(expr)),
                     AggGroups(expr) => write!(f, "{}.groups()", self.with_root(expr)),

@@ -1,7 +1,7 @@
-use crate::error::Error;
+use crate::{define_into_pyobject_todo, define_py_stub_gen, error::Error};
 
 use super::HeaderMapExtractor;
-use pyo3::{prelude::*, types::PyList};
+use pyo3::{prelude::*, pybacked::PyBackedStr, types::PyList};
 #[cfg(feature = "docs")]
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rquest::header::HeaderValue;
@@ -70,10 +70,6 @@ proxy_method! {
         /// * `custom_http_headers` - Optional custom HTTP proxy headers.
         /// * `exclusion` - Optional list of domains to exclude from proxying.
         ///
-        /// # Returns
-        ///
-        /// A new `Proxy` instance.
-        ///
         /// # Examples
         ///
         /// ```python
@@ -98,10 +94,6 @@ proxy_method! {
         /// * `custom_http_headers` - Optional custom HTTP proxy headers.
         /// * `exclusion` - Optional list of domains to exclude from proxying.
         ///
-        /// # Returns
-        ///
-        /// A new `Proxy` instance.
-        ///
         /// # Examples
         ///
         /// ```python
@@ -125,10 +117,6 @@ proxy_method! {
         /// * `custom_http_auth` - Optional custom HTTP proxy authentication header value.
         /// * `custom_http_headers` - Optional custom HTTP proxy headers.
         /// * `exclusion` - Optional list of domains to exclude from proxying.
-        ///
-        /// # Returns
-        ///
-        /// A new `Proxy` instance.
         ///
         /// # Examples
         ///
@@ -181,6 +169,14 @@ pub struct ProxyExtractor(pub rquest::Proxy);
 
 impl FromPyObject<'_> for ProxyExtractor {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(proxy_str) = ob.extract::<PyBackedStr>() {
+            let proxy = rquest::Proxy::all(proxy_str.as_ref() as &str)
+                .map(Self)
+                .map_err(Error::RquestError)?;
+
+            return Ok(proxy);
+        }
+
         let proxy = ob.downcast::<Proxy>()?;
         let proxy = proxy.borrow().0.clone();
         Ok(Self(proxy))
@@ -188,6 +184,7 @@ impl FromPyObject<'_> for ProxyExtractor {
 }
 
 pub struct ProxyListExtractor(pub Vec<rquest::Proxy>);
+
 impl FromPyObject<'_> for ProxyListExtractor {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
         let proxies = ob.downcast::<PyList>()?;
@@ -202,3 +199,11 @@ impl FromPyObject<'_> for ProxyListExtractor {
             .map(Self)
     }
 }
+
+define_into_pyobject_todo!(ProxyExtractor);
+
+define_into_pyobject_todo!(ProxyListExtractor);
+
+define_py_stub_gen!(ProxyExtractor, "typing.Union[Proxy, str]", "typing");
+
+define_py_stub_gen!(ProxyListExtractor, "typing.List[Proxy]", "typing");

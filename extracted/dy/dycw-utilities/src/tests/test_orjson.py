@@ -23,7 +23,7 @@ from hypothesis.strategies import (
 )
 from orjson import JSONDecodeError
 from polars import Object, String, UInt64
-from pytest import approx, mark, raises
+from pytest import approx, raises
 
 from tests.conftest import SKIPIF_CI_AND_WINDOWS
 from tests.test_operator import (
@@ -51,7 +51,7 @@ from tests.test_typing_funcs.with_future import (
     DataClassFutureTypeLiteral,
     DataClassFutureTypeLiteralNullable,
 )
-from utilities.datetime import MINUTE, SECOND, get_now, get_now_local
+from utilities.datetime import MINUTE, SECOND, get_now
 from utilities.functions import is_sequence_of
 from utilities.hypothesis import (
     assume_does_not_raise,
@@ -83,6 +83,7 @@ from utilities.polars import check_polars_dataframe, zoned_datetime
 from utilities.sentinel import Sentinel, sentinel
 from utilities.types import DateOrDateTime, LogLevel, MaybeIterable, PathLike
 from utilities.typing import get_args
+from utilities.tzlocal import get_now_local
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -124,7 +125,7 @@ class TestGetLogRecords:
         assert record.name == str(tmp_path)
         assert record.message == ""
         assert record.level == WARNING
-        assert record.line_num == approx(92, rel=0.1)
+        assert record.line_num == approx(102, rel=0.1)
         assert abs(record.datetime - get_now()) <= MINUTE
         assert record.func_name == "test_main"
         assert record.stack_info is None
@@ -204,7 +205,6 @@ class TestGetLogRecords:
         min_log_file_line_num=integers() | none(),
         max_log_file_line_num=integers() | none(),
     )
-    @mark.flaky
     def test_filter(
         self,
         *,

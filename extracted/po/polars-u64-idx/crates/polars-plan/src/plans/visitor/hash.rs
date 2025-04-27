@@ -80,13 +80,13 @@ impl Hash for HashableEqLP<'_> {
                 predicate,
                 output_schema: _,
                 scan_type,
-                unified_scan_args,
+                file_options,
             } => {
                 // We don't have to traverse the schema, hive partitions etc. as they are derivative from the paths.
                 scan_type.hash(state);
                 sources.hash(state);
                 hash_option_expr(predicate, self.expr_arena, state);
-                unified_scan_args.hash(state);
+                file_options.hash(state);
             },
             IR::DataFrameScan {
                 df,
@@ -261,7 +261,7 @@ impl HashableEqLP<'_> {
                     predicate: pred_l,
                     output_schema: _,
                     scan_type: stl,
-                    unified_scan_args: ol,
+                    file_options: ol,
                 },
                 IR::Scan {
                     sources: pr,
@@ -270,10 +270,10 @@ impl HashableEqLP<'_> {
                     predicate: pred_r,
                     output_schema: _,
                     scan_type: str,
-                    unified_scan_args: or,
+                    file_options: or,
                 },
             ) => {
-                pl == pr
+                pl.as_paths() == pr.as_paths()
                     && stl == str
                     && ol == or
                     && opt_expr_ir_eq(pred_l, pred_r, self.expr_arena)
@@ -289,7 +289,7 @@ impl HashableEqLP<'_> {
                     schema: _,
                     output_schema: s_r,
                 },
-            ) => std::ptr::eq(Arc::as_ptr(dfl), Arc::as_ptr(dfr)) && s_l == s_r,
+            ) => Arc::as_ptr(dfl) == Arc::as_ptr(dfr) && s_l == s_r,
             (
                 IR::SimpleProjection {
                     input: _,

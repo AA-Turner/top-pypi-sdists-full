@@ -8,7 +8,7 @@ use super::*;
 #[cfg(feature = "cov")]
 use crate::dsl::pow::pow;
 
-#[derive(Clone, PartialEq, Debug, Hash)]
+#[derive(Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum RollingFunction {
     Min(RollingOptionsFixedWindow),
@@ -19,9 +19,7 @@ pub enum RollingFunction {
     Var(RollingOptionsFixedWindow),
     Std(RollingOptionsFixedWindow),
     #[cfg(feature = "moment")]
-    Skew(RollingOptionsFixedWindow),
-    #[cfg(feature = "moment")]
-    Kurtosis(RollingOptionsFixedWindow),
+    Skew(usize, bool),
     #[cfg(feature = "cov")]
     CorrCov {
         rolling_options: RollingOptionsFixedWindow,
@@ -36,28 +34,46 @@ impl Display for RollingFunction {
         use RollingFunction::*;
 
         let name = match self {
-            Min(_) => "min",
-            Max(_) => "max",
-            Mean(_) => "mean",
-            Sum(_) => "rsum",
-            Quantile(_) => "quantile",
-            Var(_) => "var",
-            Std(_) => "std",
+            Min(_) => "rolling_min",
+            Max(_) => "rolling_max",
+            Mean(_) => "rolling_mean",
+            Sum(_) => "rolling_sum",
+            Quantile(_) => "rolling_quantile",
+            Var(_) => "rolling_var",
+            Std(_) => "rolling_std",
             #[cfg(feature = "moment")]
-            Skew(..) => "skew",
-            #[cfg(feature = "moment")]
-            Kurtosis(..) => "kurtosis",
+            Skew(..) => "rolling_skew",
             #[cfg(feature = "cov")]
             CorrCov { is_corr, .. } => {
                 if *is_corr {
-                    "corr"
+                    "rolling_corr"
                 } else {
-                    "cov"
+                    "rolling_cov"
                 }
             },
         };
 
-        write!(f, "rolling_{name}")
+        write!(f, "{name}")
+    }
+}
+
+impl Hash for RollingFunction {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        use RollingFunction::*;
+
+        std::mem::discriminant(self).hash(state);
+        match self {
+            #[cfg(feature = "moment")]
+            Skew(window_size, bias) => {
+                window_size.hash(state);
+                bias.hash(state)
+            },
+            #[cfg(feature = "cov")]
+            CorrCov { is_corr, .. } => {
+                is_corr.hash(state);
+            },
+            _ => {},
+        }
     }
 }
 
@@ -114,20 +130,11 @@ pub(super) fn rolling_std(s: &Column, options: RollingOptionsFixedWindow) -> Pol
 }
 
 #[cfg(feature = "moment")]
-pub(super) fn rolling_skew(s: &Column, options: RollingOptionsFixedWindow) -> PolarsResult<Column> {
+pub(super) fn rolling_skew(s: &Column, window_size: usize, bias: bool) -> PolarsResult<Column> {
     // @scalar-opt
-    let s = s.as_materialized_series();
-    polars_ops::series::rolling_skew(s, options).map(Column::from)
-}
-
-#[cfg(feature = "moment")]
-pub(super) fn rolling_kurtosis(
-    s: &Column,
-    options: RollingOptionsFixedWindow,
-) -> PolarsResult<Column> {
-    // @scalar-opt
-    let s = s.as_materialized_series();
-    polars_ops::series::rolling_kurtosis(s, options).map(Column::from)
+    s.as_materialized_series()
+        .rolling_skew(window_size, bias)
+        .map(Column::from)
 }
 
 #[cfg(feature = "cov")]

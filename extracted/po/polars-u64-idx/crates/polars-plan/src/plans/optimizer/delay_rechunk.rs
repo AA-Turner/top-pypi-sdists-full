@@ -50,9 +50,10 @@ impl OptimizationRule for DelayRechunk {
                 if let Some(node) = input_node {
                     match lp_arena.get_mut(node) {
                         Scan {
-                            unified_scan_args, ..
+                            file_options: options,
+                            ..
                         } => {
-                            unified_scan_args.rechunk = false;
+                            options.rechunk = false;
                         },
                         Union { options, .. } => {
                             options.rechunk = false;

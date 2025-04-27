@@ -4,7 +4,8 @@ use super::ListArray;
 use crate::array::builder::{ArrayBuilder, ShareStrategy, StaticArrayBuilder};
 use crate::bitmap::OptBitmapBuilder;
 use crate::datatypes::ArrowDataType;
-use crate::offset::{Offset, Offsets, OffsetsBuffer};
+use crate::offset::{Offsets, OffsetsBuffer};
+use crate::types::Offset;
 
 pub struct ListArrayBuilder<O: Offset, B: ArrayBuilder> {
     dtype: ArrowDataType,
@@ -52,7 +53,7 @@ impl<O: Offset, B: ArrayBuilder> StaticArrayBuilder for ListArrayBuilder<O, B> {
     }
 
     fn len(&self) -> usize {
-        self.offsets.len_proxy()
+        self.offsets.len()
     }
 
     fn extend_nulls(&mut self, length: usize) {

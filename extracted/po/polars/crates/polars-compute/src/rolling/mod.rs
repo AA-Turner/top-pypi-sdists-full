@@ -1,10 +1,9 @@
 mod min_max;
-pub mod moment;
 pub mod no_nulls;
 pub mod nulls;
 pub mod quantile_filter;
-pub(super) mod window;
-use std::hash::Hash;
+mod window;
+
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 use arrow::array::{ArrayRef, PrimitiveArray};
@@ -39,13 +38,11 @@ pub enum QuantileMethod {
 #[deprecated(note = "use QuantileMethod instead")]
 pub type QuantileInterpolOptions = QuantileMethod;
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum RollingFnParams {
     Quantile(RollingQuantileParams),
     Var(RollingVarParams),
-    Skew { bias: bool },
-    Kurtosis { fisher: bool, bias: bool },
 }
 
 fn det_offsets(i: Idx, window_size: WindowSize, _len: Len) -> (usize, usize) {
@@ -100,7 +97,7 @@ where
 }
 
 // Parameters allowed for rolling operations.
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RollingVarParams {
     pub ddof: u8,
@@ -111,12 +108,4 @@ pub struct RollingVarParams {
 pub struct RollingQuantileParams {
     pub prob: f64,
     pub method: QuantileMethod,
-}
-
-impl Hash for RollingQuantileParams {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Will not be NaN, so hash + eq symmetry will hold.
-        self.prob.to_bits().hash(state);
-        self.method.hash(state);
-    }
 }

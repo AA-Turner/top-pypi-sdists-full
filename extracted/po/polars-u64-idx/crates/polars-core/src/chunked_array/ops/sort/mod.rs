@@ -719,44 +719,37 @@ impl ChunkSort<BooleanType> for BooleanChunked {
     fn sort_with(&self, mut options: SortOptions) -> ChunkedArray<BooleanType> {
         options.multithreaded &= POOL.current_num_threads() > 1;
         sort_with_fast_path!(self, options);
-        let mut bitmap = BitmapBuilder::with_capacity(self.len());
-        let mut validity =
-            (self.null_count() > 0).then(|| BitmapBuilder::with_capacity(self.len()));
+        assert!(
+            !options.nulls_last,
+            "null last not yet supported for bool dtype"
+        );
+        if self.null_count() == 0 {
+            let len = self.len();
+            let n_set = self.sum().unwrap() as usize;
+            let mut bitmap = BitmapBuilder::with_capacity(len);
+            let (first, second, n_set) = if options.descending {
+                (true, false, len - n_set)
+            } else {
+                (false, true, n_set)
+            };
+            bitmap.extend_constant(len - n_set, first);
+            bitmap.extend_constant(n_set, second);
+            let arr = BooleanArray::from_data_default(bitmap.freeze(), None);
 
-        if self.null_count() > 0 && !options.nulls_last {
-            bitmap.extend_constant(self.null_count(), false);
-            if let Some(validity) = &mut validity {
-                validity.extend_constant(self.null_count(), false);
-            }
+            return unsafe { self.with_chunks(vec![Box::new(arr) as ArrayRef]) };
         }
 
-        let n_valid = self.len() - self.null_count();
-        let n_set = self.sum().unwrap() as usize;
+        let mut vals = self.into_iter().collect::<Vec<_>>();
+
         if options.descending {
-            bitmap.extend_constant(n_set, true);
-            bitmap.extend_constant(n_valid - n_set, false);
+            vals.sort_by(|a, b| b.cmp(a))
         } else {
-            bitmap.extend_constant(n_valid - n_set, false);
-            bitmap.extend_constant(n_set, true);
-        }
-        if let Some(validity) = &mut validity {
-            validity.extend_constant(n_valid, true);
+            vals.sort()
         }
 
-        if self.null_count() > 0 && options.nulls_last {
-            bitmap.extend_constant(self.null_count(), false);
-            if let Some(validity) = &mut validity {
-                validity.extend_constant(self.null_count(), false);
-            }
-        }
-
-        Self::from_chunk_iter(
-            self.name().clone(),
-            Some(BooleanArray::from_data_default(
-                bitmap.freeze(),
-                validity.map(|v| v.freeze()),
-            )),
-        )
+        let mut ca: BooleanChunked = vals.into_iter().collect_trusted();
+        ca.rename(self.name().clone());
+        ca
     }
 
     fn sort(&self, descending: bool) -> BooleanChunked {

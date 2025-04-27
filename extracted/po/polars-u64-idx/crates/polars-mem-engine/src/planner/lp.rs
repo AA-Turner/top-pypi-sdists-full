@@ -16,9 +16,6 @@ use crate::ScanPredicate;
 use crate::executors::{CachePrefiller, SinkExecutor};
 use crate::predicate::PhysicalColumnPredicates;
 
-pub type StreamingExecutorBuilder =
-    fn(Node, &mut Arena<IR>, &mut Arena<AExpr>) -> PolarsResult<Box<dyn Executor>>;
-
 fn partitionable_gb(
     keys: &[ExprIR],
     aggs: &[ExprIR],
@@ -79,18 +76,10 @@ pub fn create_physical_plan(
     root: Node,
     lp_arena: &mut Arena<IR>,
     expr_arena: &mut Arena<AExpr>,
-    build_streaming_executor: Option<StreamingExecutorBuilder>,
 ) -> PolarsResult<Box<dyn Executor>> {
     let mut state = ConversionState::new()?;
     let mut cache_nodes = Default::default();
-    let plan = create_physical_plan_impl(
-        root,
-        lp_arena,
-        expr_arena,
-        &mut state,
-        &mut cache_nodes,
-        build_streaming_executor,
-    )?;
+    let plan = create_physical_plan_impl(root, lp_arena, expr_arena, &mut state, &mut cache_nodes)?;
 
     if cache_nodes.is_empty() {
         Ok(plan)
@@ -110,7 +99,6 @@ pub fn create_multiple_physical_plans(
     roots: &[Node],
     lp_arena: &mut Arena<IR>,
     expr_arena: &mut Arena<AExpr>,
-    build_streaming_executor: Option<StreamingExecutorBuilder>,
 ) -> PolarsResult<MultiplePhysicalPlans> {
     let mut state = ConversionState::new()?;
     let mut cache_nodes = Default::default();
@@ -118,14 +106,7 @@ pub fn create_multiple_physical_plans(
         roots
             .iter()
             .map(|&node| {
-                create_physical_plan_impl(
-                    node,
-                    lp_arena,
-                    expr_arena,
-                    new_state,
-                    &mut cache_nodes,
-                    build_streaming_executor,
-                )
+                create_physical_plan_impl(node, lp_arena, expr_arena, new_state, &mut cache_nodes)
             })
             .collect::<PolarsResult<Vec<_>>>()
     })?;
@@ -209,24 +190,16 @@ fn create_physical_plan_impl(
     state: &mut ConversionState,
     // Cache nodes in order of discovery
     cache_nodes: &mut PlIndexMap<usize, Box<dyn Executor>>,
-    build_streaming_executor: Option<StreamingExecutorBuilder>,
 ) -> PolarsResult<Box<dyn Executor>> {
     use IR::*;
 
     macro_rules! recurse {
         ($node:expr, $state: expr) => {
-            create_physical_plan_impl(
-                $node,
-                lp_arena,
-                expr_arena,
-                $state,
-                cache_nodes,
-                build_streaming_executor,
-            )
+            create_physical_plan_impl($node, lp_arena, expr_arena, $state, cache_nodes)
         };
     }
 
-    let logical_plan = if state.has_cache_parent || matches!(lp_arena.get(root), IR::Scan { .. }) {
+    let logical_plan = if state.has_cache_parent {
         lp_arena.get(root).clone()
     } else {
         lp_arena.take(root)
@@ -436,14 +409,12 @@ fn create_physical_plan_impl(
             output_schema,
             scan_type,
             predicate,
-            mut unified_scan_args,
+            mut file_options,
         } => {
-            unified_scan_args.pre_slice = if let Some(mut slice) = unified_scan_args.pre_slice {
-                *slice.len_mut() = _set_n_rows_for_scan(Some(slice.len())).unwrap();
-                Some(slice)
+            file_options.pre_slice = if let Some((offset, len)) = file_options.pre_slice {
+                Some((offset, _set_n_rows_for_scan(Some(len)).unwrap()))
             } else {
-                _set_n_rows_for_scan(None)
-                    .map(|len| polars_utils::slice_enum::Slice::Positive { offset: 0, len })
+                _set_n_rows_for_scan(None).map(|x| (0, x))
             };
 
             let mut state = ExpressionConversionState::new(true);
@@ -477,27 +448,63 @@ fn create_physical_plan_impl(
                 .transpose()?;
 
             match *scan_type {
+                #[cfg(feature = "csv")]
+                FileScan::Csv { options, .. } => Ok(Box::new(executors::CsvExec {
+                    sources,
+                    file_info,
+                    options,
+                    predicate,
+                    file_options,
+                })),
+                #[cfg(feature = "ipc")]
+                FileScan::Ipc {
+                    options,
+                    cloud_options,
+                    metadata,
+                } => Ok(Box::new(executors::IpcExec {
+                    sources,
+                    file_info,
+                    predicate,
+                    options,
+                    file_options: *file_options,
+                    hive_parts: hive_parts.map(|h| h.into_statistics()),
+                    cloud_options,
+                })),
+                #[cfg(feature = "parquet")]
+                FileScan::Parquet {
+                    options,
+                    cloud_options,
+                    metadata,
+                } => Ok(Box::new(executors::ParquetExec::new(
+                    sources,
+                    file_info,
+                    hive_parts.map(|h| h.into_statistics()),
+                    predicate,
+                    options,
+                    cloud_options,
+                    file_options,
+                    metadata,
+                ))),
+                #[cfg(feature = "json")]
+                FileScan::NDJson { options, .. } => Ok(Box::new(executors::JsonExec::new(
+                    sources,
+                    options,
+                    file_options,
+                    file_info,
+                    predicate,
+                ))),
                 FileScan::Anonymous { function, .. } => {
                     Ok(Box::new(executors::AnonymousScanExec {
                         function,
                         predicate,
-                        unified_scan_args,
+                        file_options,
                         file_info,
                         output_schema,
                         predicate_has_windows: state.has_windows,
                     }))
                 },
-                #[allow(unreachable_patterns)]
-                _ => {
-                    let build_func = build_streaming_executor
-                        .expect("invalid build. Missing feature new-streaming");
-                    return build_func(root, lp_arena, expr_arena);
-                },
-                #[allow(unreachable_patterns)]
-                _ => unreachable!(),
             }
         },
-
         Select {
             expr,
             input,

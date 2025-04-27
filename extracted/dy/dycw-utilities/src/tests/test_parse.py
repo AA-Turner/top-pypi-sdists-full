@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 from types import NoneType
 from typing import Final, Literal
@@ -16,6 +15,7 @@ from hypothesis.strategies import (
     frozensets,
     integers,
     lists,
+    none,
     sampled_from,
     sets,
     times,
@@ -25,10 +25,13 @@ from pytest import raises
 from tests.test_operator import TruthEnum
 from tests.test_typing_funcs.with_future import (
     DataClassFutureInt,
+    DataClassFutureIntChild,
     DataClassFutureIntEven,
     DataClassFutureIntEvenOrOddTypeUnion,
     DataClassFutureIntEvenOrOddUnion,
     DataClassFutureIntOdd,
+    DataClassFutureIntParentFirst,
+    DataClassFutureIntParentSecond,
     TrueOrFalseFutureLit,
     TrueOrFalseFutureTypeLit,
 )
@@ -48,6 +51,8 @@ from utilities.math import is_equal
 from utilities.parse import (
     _ParseObjectExtraNonUniqueError,
     _ParseObjectParseError,
+    _SerializeObjectExtraNonUniqueError,
+    _SerializeObjectSerializeError,
     parse_object,
     serialize_object,
 )
@@ -57,11 +62,11 @@ from utilities.version import Version
 
 
 class TestSerializeAndParseObject:
-    @given(value=booleans())
-    def test_bool(self, *, value: bool) -> None:
-        serialized = serialize_object(value)
+    @given(bool_=booleans())
+    def test_bool(self, *, bool_: bool) -> None:
+        serialized = serialize_object(bool_)
         result = parse_object(bool, serialized)
-        assert result is value
+        assert result is bool_
 
     @given(date=dates())
     def test_date(self, *, date: dt.date) -> None:
@@ -75,11 +80,11 @@ class TestSerializeAndParseObject:
         result = parse_object(dt.datetime, serialized)
         assert result == datetime
 
-    @given(value=dictionaries(dates(), zoned_datetimes()))
-    def test_dict(self, *, value: dict[dt.date, dt.datetime]) -> None:
-        serialized = serialize_object(value)
+    @given(mapping=dictionaries(dates(), zoned_datetimes()))
+    def test_dict(self, *, mapping: dict[dt.date, dt.datetime]) -> None:
+        serialized = serialize_object(mapping)
         result = parse_object(dict[dt.date, dt.datetime], serialized)
-        assert result == value
+        assert result == mapping
 
     @given(duration=datetime_durations(two_way=True))
     def test_duration(self, *, duration: Duration) -> None:
@@ -93,26 +98,22 @@ class TestSerializeAndParseObject:
         result = parse_object(TruthEnum, serialized)
         assert result is truth
 
-    @given(value=integers())
-    def test_extra_type(self, *, value: int) -> None:
-        serialized = serialize_object(value)
+    @given(int_=integers())
+    def test_extra_type(self, *, int_: int) -> None:
+        serialized = serialize_object(int_)
         result = parse_object(
             DataClassFutureInt,
             serialized,
-            extra={
-                DataClassFutureInt: lambda serialized: DataClassFutureInt(
-                    int_=int(serialized)
-                )
-            },
+            extra={DataClassFutureInt: lambda text: DataClassFutureInt(int_=int(text))},
         )
-        expected = DataClassFutureInt(int_=value)
+        expected = DataClassFutureInt(int_=int_)
         assert result == expected
 
-    @given(value=floats())
-    def test_float(self, *, value: float) -> None:
-        serialized = serialize_object(value)
+    @given(float_=floats())
+    def test_float(self, *, float_: float) -> None:
+        serialized = serialize_object(float_)
         result = parse_object(float, serialized)
-        assert is_equal(result, value)
+        assert is_equal(result, float_)
 
     @given(values=frozensets(dates()))
     def test_frozenset(self, *, values: frozenset[dt.date]) -> None:
@@ -120,11 +121,11 @@ class TestSerializeAndParseObject:
         result = parse_object(frozenset[dt.date], serialized)
         assert result == values
 
-    @given(value=integers())
-    def test_int(self, *, value: int) -> None:
-        serialized = serialize_object(value)
+    @given(int_=integers())
+    def test_int(self, *, int_: int) -> None:
+        serialized = serialize_object(int_)
         result = parse_object(int, serialized)
-        assert result == value
+        assert result == int_
 
     @given(values=lists(dates()))
     def test_list(self, *, values: list[dt.date]) -> None:
@@ -193,11 +194,11 @@ class TestSerializeAndParseObject:
         result = parse_object(int | None, serialized)
         assert result is None
 
-    @given(value=integers())
-    def test_nullable_int_int(self, *, value: int) -> None:
-        serialized = serialize_object(value)
+    @given(int_=integers())
+    def test_nullable_int_int(self, *, int_: int) -> None:
+        serialized = serialize_object(int_)
         result = parse_object(int | None, serialized)
-        assert result == value
+        assert result == int_
 
     def test_sentinel(self) -> None:
         serialized = serialize_object(sentinel)
@@ -238,58 +239,58 @@ class TestSerializeAndParseObject:
         result = parse_object(TrueOrFalseFutureTypeLit, truth)
         assert result == truth
 
-    @given(value=integers())
-    def test_type_union_with_extra(self, *, value: int) -> None:
-        def parse_even_or_odd(text: str, /) -> DataClassFutureIntEvenOrOddTypeUnion:
-            value = int(text)
-            match value % 2:
+    @given(int_=integers())
+    def test_type_union_with_extra(self, *, int_: int) -> None:
+        def parser(text: str, /) -> DataClassFutureIntEvenOrOddTypeUnion:
+            int_ = int(text)
+            match int_ % 2:
                 case 0:
-                    return DataClassFutureIntEven(even_int=value)
+                    return DataClassFutureIntEven(even_int=int_)
                 case 1:
-                    return DataClassFutureIntOdd(odd_int=value)
+                    return DataClassFutureIntOdd(odd_int=int_)
                 case _:
-                    raise ImpossibleCaseError(case=[f"{value=}"])
+                    raise ImpossibleCaseError(case=[f"{int_=}"])
 
-        serialized = serialize_object(value)
+        serialized = serialize_object(int_)
         result = parse_object(
             DataClassFutureIntEvenOrOddTypeUnion,
             serialized,
-            extra={DataClassFutureIntEvenOrOddTypeUnion: parse_even_or_odd},
+            extra={DataClassFutureIntEvenOrOddTypeUnion: parser},
         )
-        match value % 2:
+        match int_ % 2:
             case 0:
-                expected = DataClassFutureIntEven(even_int=value)
+                expected = DataClassFutureIntEven(even_int=int_)
             case 1:
-                expected = DataClassFutureIntOdd(odd_int=value)
+                expected = DataClassFutureIntOdd(odd_int=int_)
             case _:
-                raise ImpossibleCaseError(case=[f"{value=}"])
+                raise ImpossibleCaseError(case=[f"{int_=}"])
         assert result == expected
 
-    @given(value=integers())
-    def test_union_with_extra(self, *, value: int) -> None:
-        def parse_even_or_odd(text: str, /) -> DataClassFutureIntEvenOrOddUnion:
-            value = int(text)
-            match value % 2:
+    @given(int_=integers())
+    def test_union_with_extra(self, *, int_: int) -> None:
+        def parser(text: str, /) -> DataClassFutureIntEvenOrOddUnion:
+            int_ = int(text)
+            match int_ % 2:
                 case 0:
-                    return DataClassFutureIntEven(even_int=value)
+                    return DataClassFutureIntEven(even_int=int_)
                 case 1:
-                    return DataClassFutureIntOdd(odd_int=value)
+                    return DataClassFutureIntOdd(odd_int=int_)
                 case _:
-                    raise ImpossibleCaseError(case=[f"{value=}"])
+                    raise ImpossibleCaseError(case=[f"{int_=}"])
 
-        serialized = serialize_object(value)
+        serialized = serialize_object(int_)
         result = parse_object(
             DataClassFutureIntEvenOrOddUnion,
             serialized,
-            extra={DataClassFutureIntEvenOrOddUnion: parse_even_or_odd},
+            extra={DataClassFutureIntEvenOrOddUnion: parser},
         )
-        match value % 2:
+        match int_ % 2:
             case 0:
-                expected = DataClassFutureIntEven(even_int=value)
+                expected = DataClassFutureIntEven(even_int=int_)
             case 1:
-                expected = DataClassFutureIntOdd(odd_int=value)
+                expected = DataClassFutureIntOdd(odd_int=int_)
             case _:
-                raise ImpossibleCaseError(case=[f"{value=}"])
+                raise ImpossibleCaseError(case=[f"{int_=}"])
         assert result == expected
 
     @given(version=versions())
@@ -299,7 +300,56 @@ class TestSerializeAndParseObject:
         assert result == version
 
 
-class TestParseSerialized:
+class TestParseObject:
+    @given(text=sampled_from(["F_a_l_s_e", "T_r_u_e"]))
+    def test_bool_custom(self, *, text: str) -> None:
+        def parser(text: str, /) -> bool:
+            match text:
+                case "F_a_l_s_e":
+                    return False
+                case "T_r_u_e":
+                    return True
+                case _:
+                    raise ImpossibleCaseError(case=[f"{text=}"])
+
+        bool_ = parse_object(bool, text, extra={bool: parser})
+        match text:
+            case "F_a_l_s_e":
+                expected = False
+            case "T_r_u_e":
+                expected = True
+            case _:
+                raise ImpossibleCaseError(case=[f"{text=}"])
+        assert bool_ is expected
+
+    @given(text=sampled_from(["F_a_l_s_e", "T_r_u_e"]))
+    def test_bool_extra_not_used(self, *, text: str) -> None:
+        def parser(text: str, /) -> bool:
+            match text:
+                case "F_a_l_s_e":
+                    return False
+                case "T_r_u_e":
+                    return True
+                case _:
+                    raise ImpossibleCaseError(case=[f"{text=}"])
+
+        with raises(
+            _ParseObjectParseError, match="Unable to parse <class 'bool'>; got '.*'"
+        ):
+            _ = parse_object(bool, text, extra={int: parser})
+
+    @given(value=text_ascii(min_size=10) | none())
+    def test_optional_type_with_union_extra_not_used(
+        self, *, value: str | None
+    ) -> None:
+        text = serialize_object(value)
+
+        def parser(text: str, /) -> Number:
+            return int(text)
+
+        result = parse_object(str | None, text, extra={Number: parser})
+        assert result == value
+
     def test_error_bool(self) -> None:
         with raises(
             _ParseObjectParseError,
@@ -355,29 +405,22 @@ class TestParseSerialized:
         ):
             _ = parse_object(DataClassFutureInt, "invalid", extra={})
 
-    @given(value=integers())
-    def test_error_extra_non_unique(self, *, value: int) -> None:
-        @dataclass(kw_only=True)
-        class Parent1:
-            x: int = 0
-
-        @dataclass(kw_only=True)
-        class Parent2:
-            y: int = 0
-
-        @dataclass(kw_only=True)
-        class Child(Parent1, Parent2): ...
-
+    @given(int_=integers())
+    def test_error_extra_non_unique(self, *, int_: int) -> None:
         with raises(
             _ParseObjectExtraNonUniqueError,
             match="Unable to parse <class '.*'> since `extra` must contain exactly one parent class; got <function .*>, <function .*> and perhaps more",
         ):
             _ = parse_object(
-                Child,
-                serialize_object(value),
+                DataClassFutureIntChild,
+                serialize_object(int_),
                 extra={
-                    Parent1: lambda serialized: Child(x=int(serialized)),
-                    Parent2: lambda serialized: Child(y=int(serialized)),
+                    DataClassFutureIntParentFirst: lambda text: DataClassFutureIntChild(
+                        int1=int(text), int2=0
+                    ),
+                    DataClassFutureIntParentSecond: lambda text: DataClassFutureIntChild(
+                        int1=0, int2=int(text)
+                    ),
                 },
             )
 
@@ -538,6 +581,116 @@ class TestParseSerialized:
 
 
 class TestSerializeObject:
+    @given(bool_=booleans())
+    def test_bool_custom(self, *, bool_: bool) -> None:
+        def serializer(bool_: bool, /) -> str:  # noqa: FBT001
+            match bool_:
+                case True:
+                    return "1"
+                case False:
+                    return "0"
+
+        serialized = serialize_object(bool_, extra={bool: serializer})
+        match bool_:
+            case True:
+                expected = "1"
+            case False:
+                expected = "0"
+        assert serialized == expected
+
+    @given(bool_=booleans())
+    def test_bool_extra_not_used(self, *, bool_: bool) -> None:
+        def serializer(int_: int, /) -> str:
+            return f"({int_})"
+
+        serialized = serialize_object(bool_, extra={int: serializer})
+        expected = str(bool_)
+        assert serialized == expected
+
+    @given(int_=integers())
+    def test_type_with_extra(self, *, int_: int) -> None:
+        obj = DataClassFutureInt(int_=int_)
+
+        def serializer(obj: DataClassFutureInt, /) -> str:
+            return str(obj.int_)
+
+        serialized = serialize_object(obj, extra={DataClassFutureInt: serializer})
+        expected = str(int_)
+        assert serialized == expected
+
+    @given(int_=integers())
+    def test_type_union_with_extra(self, *, int_: int) -> None:
+        match int_ % 2:
+            case 0:
+                obj = DataClassFutureIntEven(even_int=int_)
+            case 1:
+                obj = DataClassFutureIntOdd(odd_int=int_)
+            case _:
+                raise ImpossibleCaseError(case=[f"{int_=}"])
+
+        def serializer(obj: DataClassFutureIntEvenOrOddTypeUnion, /) -> str:
+            match obj:
+                case DataClassFutureIntEven():
+                    return str(obj.even_int)
+                case DataClassFutureIntOdd():
+                    return str(obj.odd_int)
+
+        serialized = serialize_object(
+            obj, extra={DataClassFutureIntEvenOrOddTypeUnion: serializer}
+        )
+        expected = str(int_)
+        assert serialized == expected
+
+    @given(int_=integers())
+    def test_union_with_extra(self, *, int_: int) -> None:
+        match int_ % 2:
+            case 0:
+                obj = DataClassFutureIntEven(even_int=int_)
+            case 1:
+                obj = DataClassFutureIntOdd(odd_int=int_)
+            case _:
+                raise ImpossibleCaseError(case=[f"{int_=}"])
+
+        def serializer(obj: DataClassFutureIntEvenOrOddUnion, /) -> str:
+            match obj:
+                case DataClassFutureIntEven():
+                    return str(obj.even_int)
+                case DataClassFutureIntOdd():
+                    return str(obj.odd_int)
+
+        serialized = serialize_object(
+            obj, extra={DataClassFutureIntEvenOrOddUnion: serializer}
+        )
+        expected = str(int_)
+        assert serialized == expected
+
+    def test_error_extra_empty(self) -> None:
+        with raises(
+            _SerializeObjectSerializeError,
+            match=r"Unable to serialize object typing\.Final",
+        ):
+            _ = serialize_object(Final, extra={})
+
+    @given(int1=integers(), int2=integers())
+    def test_error_extra_non_unique(self, *, int1: int, int2: int) -> None:
+        def serializer1(obj: DataClassFutureIntParentFirst, /) -> str:
+            return str(obj.int1)
+
+        def serializer2(obj: DataClassFutureIntParentSecond, /) -> str:
+            return str(obj.int2)
+
+        with raises(
+            _SerializeObjectExtraNonUniqueError,
+            match=r"Unable to serialize object DataClassFutureIntChild\(.*\) since `extra` must contain exactly one parent class; got <function .*>, <function .*> and perhaps more",
+        ):
+            _ = serialize_object(
+                DataClassFutureIntChild(int1=int1, int2=int2),
+                extra={
+                    DataClassFutureIntParentFirst: serializer1,
+                    DataClassFutureIntParentSecond: serializer2,
+                },
+            )
+
     def test_error_not_implemented(self) -> None:
-        with raises(NotImplementedError):
+        with raises(_SerializeObjectSerializeError):
             _ = serialize_object(Final)

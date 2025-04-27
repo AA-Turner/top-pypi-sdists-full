@@ -22,13 +22,8 @@ from utilities.math import SafeRoundError, round_, safe_round
 from utilities.platform import SYSTEM
 from utilities.sentinel import Sentinel, sentinel
 from utilities.types import MaybeStr
-from utilities.zoneinfo import (
-    UTC,
-    HongKong,
-    Tokyo,
-    ensure_time_zone,
-    get_time_zone_name,
-)
+from utilities.typing import is_instance_gen
+from utilities.zoneinfo import UTC, ensure_time_zone, get_time_zone_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -140,9 +135,9 @@ def are_equal_dates_or_datetimes(
     x: DateOrDateTime, y: DateOrDateTime, /, *, strict: bool = False
 ) -> bool:
     """Check if x == y for dates/datetimes."""
-    if is_instance_date_not_datetime(x) and is_instance_date_not_datetime(y):
+    if is_instance_gen(x, dt.date) and is_instance_gen(y, dt.date):
         return x == y
-    if isinstance(x, dt.datetime) and isinstance(y, dt.datetime):
+    if is_instance_gen(x, dt.datetime) and is_instance_gen(y, dt.datetime):
         return are_equal_datetimes(x, y, strict=strict)
     raise AreEqualDatesOrDateTimesError(x=x, y=y)
 
@@ -210,7 +205,7 @@ def are_equal_months(x: DateOrMonth, y: DateOrMonth, /) -> bool:
 
 def check_date_not_datetime(date: dt.date, /) -> None:
     """Check if a date is not a datetime."""
-    if not is_instance_date_not_datetime(date):
+    if not is_instance_gen(date, dt.date):
         raise CheckDateNotDateTimeError(date=date)
 
 
@@ -524,28 +519,6 @@ def get_now(*, time_zone: TimeZoneLike = UTC) -> dt.datetime:
 NOW_UTC = get_now(time_zone=UTC)
 
 
-def get_now_hk() -> dt.datetime:
-    """Get the current time in Hong Kong."""
-    return dt.datetime.now(tz=HongKong)
-
-
-NOW_HK = get_now_hk()
-
-
-def get_now_local() -> dt.datetime:
-    """Get the current time in local."""
-    return get_now(time_zone="local")
-    # don't define `NOW_LOCAL` as this would require `tzlocal`
-
-
-def get_now_tokyo() -> dt.datetime:
-    """Get the current time in Tokyo."""
-    return dt.datetime.now(tz=Tokyo)
-
-
-NOW_TOKYO = get_now_tokyo()
-
-
 ##
 
 
@@ -569,27 +542,6 @@ def get_today(*, time_zone: TimeZoneLike = UTC) -> dt.date:
 TODAY_UTC = get_today(time_zone=UTC)
 
 
-def get_today_hk() -> dt.date:
-    """Get the current date in Hong Kong."""
-    return get_now_hk().date()
-
-
-TODAY_HK = get_today_hk()
-
-
-def get_today_local() -> dt.date:
-    """Get the current, timezone-aware local date."""
-    return get_now_local().date()
-
-
-def get_today_tokyo() -> dt.date:
-    """Get the current date in Tokyo."""
-    return get_now_tokyo().date()
-
-
-TODAY_TOKYO = get_today_tokyo()
-
-
 ##
 
 
@@ -599,14 +551,6 @@ def get_years(*, n: int = 1) -> dt.timedelta:
 
 
 YEAR = get_years(n=1)
-
-
-##
-
-
-def is_instance_date_not_datetime(obj: Any, /) -> TypeGuard[dt.date]:
-    """Check if an object is a date, and not a datetime."""
-    return isinstance(obj, dt.date) and not isinstance(obj, dt.datetime)
 
 
 ##
@@ -623,14 +567,6 @@ def is_integral_timedelta(timedelta: dt.timedelta, /) -> bool:
 def is_local_datetime(obj: Any, /) -> TypeGuard[dt.datetime]:
     """Check if an object is a local datetime."""
     return isinstance(obj, dt.datetime) and (obj.tzinfo is None)
-
-
-##
-
-
-def is_subclass_date_not_datetime(cls: type[Any], /) -> TypeGuard[type[dt.date]]:
-    """Check if a class is a date, and not a datetime."""
-    return issubclass(cls, dt.date) and not issubclass(cls, dt.datetime)
 
 
 ##
@@ -1294,13 +1230,9 @@ __all__ = [
     "MIN_DATE_TWO_DIGIT_YEAR",
     "MIN_MONTH",
     "MONTH",
-    "NOW_HK",
-    "NOW_TOKYO",
     "NOW_UTC",
     "QUARTER",
     "SECOND",
-    "TODAY_HK",
-    "TODAY_TOKYO",
     "TODAY_UTC",
     "WEEK",
     "YEAR",
@@ -1350,19 +1282,11 @@ __all__ = [
     "get_half_years",
     "get_months",
     "get_now",
-    "get_now_hk",
-    "get_now_local",
-    "get_now_tokyo",
     "get_quarters",
     "get_today",
-    "get_today_hk",
-    "get_today_local",
-    "get_today_tokyo",
     "get_years",
-    "is_instance_date_not_datetime",
     "is_integral_timedelta",
     "is_local_datetime",
-    "is_subclass_date_not_datetime",
     "is_weekday",
     "is_zero_time",
     "is_zoned_datetime",

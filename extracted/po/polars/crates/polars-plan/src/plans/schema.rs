@@ -29,7 +29,7 @@ impl DslPlan {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FileInfo {
     /// Schema of the physical file.
@@ -44,17 +44,6 @@ pub struct FileInfo {
     /// - known size
     /// - estimated size (set to usize::max if unknown).
     pub row_estimation: (Option<usize>, usize),
-}
-
-// Manual default because `row_estimation.1` needs to be `usize::MAX`.
-impl Default for FileInfo {
-    fn default() -> Self {
-        FileInfo {
-            schema: Default::default(),
-            reader_schema: None,
-            row_estimation: (None, usize::MAX),
-        }
-    }
 }
 
 impl FileInfo {

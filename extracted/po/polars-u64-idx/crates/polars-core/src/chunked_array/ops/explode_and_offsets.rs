@@ -240,13 +240,9 @@ impl ChunkExplode for ArrayChunked {
         let arr = ca.downcast_iter().next().unwrap();
         // fast-path for non-null array.
         if arr.null_count() == 0 {
-            let s = unsafe {
-                Series::from_chunks_and_dtype_unchecked(
-                    self.name().clone(),
-                    vec![arr.values().clone()],
-                    ca.inner_dtype(),
-                )
-            };
+            let s = Series::try_from((self.name().clone(), arr.values().clone()))
+                .unwrap()
+                .cast(ca.inner_dtype())?;
             let width = self.width() as i64;
             let offsets = (0..self.len() + 1)
                 .map(|i| {

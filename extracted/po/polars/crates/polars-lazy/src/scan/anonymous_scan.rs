@@ -1,6 +1,5 @@
 use polars_core::prelude::*;
-use polars_io::{HiveOptions, RowIndex};
-use polars_utils::slice_enum::Slice;
+use polars_io::RowIndex;
 
 use crate::prelude::*;
 
@@ -31,31 +30,13 @@ impl LazyFrame {
         function: Arc<dyn AnonymousScan>,
         args: ScanArgsAnonymous,
     ) -> PolarsResult<Self> {
-        let schema = match args.schema {
-            Some(s) => s,
-            None => function.schema(args.infer_schema_length)?,
-        };
-
         let mut lf: LazyFrame = DslBuilder::anonymous_scan(
             function,
-            AnonymousScanOptions {
-                skip_rows: args.skip_rows,
-                fmt_str: args.name,
-            },
-            UnifiedScanArgs {
-                schema: Some(schema),
-                cloud_options: None,
-                hive_options: HiveOptions::new_disabled(),
-                rechunk: false,
-                cache: false,
-                glob: false,
-                projection: None,
-                row_index: None,
-                pre_slice: args.n_rows.map(|len| Slice::Positive { offset: 0, len }),
-                cast_columns_policy: CastColumnsPolicy::ErrorOnMismatch,
-                missing_columns_policy: MissingColumnsPolicy::Raise,
-                include_file_paths: None,
-            },
+            args.schema,
+            args.infer_schema_length,
+            args.skip_rows,
+            args.n_rows,
+            args.name,
         )?
         .build()
         .into();

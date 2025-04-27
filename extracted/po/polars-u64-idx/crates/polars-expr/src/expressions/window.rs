@@ -408,18 +408,7 @@ impl PhysicalExpr for WindowExpr {
 
         if df.is_empty() {
             let field = self.phys_function.to_field(df.schema())?;
-            match self.mapping {
-                WindowMapping::Join => {
-                    return Ok(Column::full_null(
-                        field.name().clone(),
-                        0,
-                        &DataType::List(Box::new(field.dtype().clone())),
-                    ));
-                },
-                _ => {
-                    return Ok(Column::full_null(field.name().clone(), 0, field.dtype()));
-                },
-            }
+            return Ok(Column::full_null(field.name().clone(), 0, field.dtype()));
         }
 
         let group_by_columns = self

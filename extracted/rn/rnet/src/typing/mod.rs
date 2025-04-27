@@ -4,11 +4,14 @@ mod enums;
 mod headers;
 mod ipaddr;
 mod json;
+mod macros;
 mod multipart;
 pub mod param;
 mod proxy;
 mod ssl;
 mod status;
+
+use crate::{define_into_pyobject_todo, define_py_stub_gen};
 
 pub use self::{
     body::BodyExtractor,
@@ -18,10 +21,10 @@ pub use self::{
         HeaderMap, HeaderMapExtractor, HeaderMapItemsIter, HeaderMapKeysIter, HeaderMapValuesIter,
         HeadersOrderExtractor,
     },
-    ipaddr::{IpAddr, SocketAddr},
+    ipaddr::{IpAddrExtractor, SocketAddr},
     json::Json,
     multipart::{Multipart, Part},
-    proxy::{Proxy, ProxyExtractor},
+    proxy::{Proxy, ProxyExtractor, ProxyListExtractor},
     ssl::SslVerify,
     status::StatusCode,
 };
@@ -81,6 +84,14 @@ impl FromPyObject<'_> for ImpersonateExtractor {
         ))
     }
 }
+
+define_into_pyobject_todo!(ImpersonateExtractor);
+
+define_py_stub_gen!(
+    ImpersonateExtractor,
+    "typing.Union[Impersonate, ImpersonateOption]",
+    "typing"
+);
 
 /// A struct to represent the `ImpersonateOption` class.
 #[cfg_attr(feature = "docs", gen_stub_pyclass)]

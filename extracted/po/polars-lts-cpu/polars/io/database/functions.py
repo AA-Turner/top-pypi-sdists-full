@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-from polars._utils.various import qualified_type_name
 from polars.datatypes import N_INFER_DEFAULT
 from polars.dependencies import import_optional
 from polars.io.database._cursor_proxies import ODBCCursorProxy
@@ -423,7 +422,7 @@ def read_database_uri(
     from polars.io.database._utils import _read_sql_adbc, _read_sql_connectorx
 
     if not isinstance(uri, str):
-        msg = f"expected connection to be a URI string; found {qualified_type_name(uri)!r}"
+        msg = f"expected connection to be a URI string; found {type(uri).__name__!r}"
         raise TypeError(msg)
     elif engine is None:
         engine = "connectorx"

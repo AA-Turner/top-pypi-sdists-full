@@ -63,10 +63,8 @@ fn test_cse_unions() -> PolarsResult<()> {
                 cache_count += 1;
                 true
             },
-            Scan {
-                unified_scan_args, ..
-            } => {
-                if let Some(columns) = &unified_scan_args.projection {
+            Scan { file_options, .. } => {
+                if let Some(columns) = &file_options.with_columns {
                     columns.len() == 2
                 } else {
                     false

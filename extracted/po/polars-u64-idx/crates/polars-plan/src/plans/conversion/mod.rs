@@ -69,17 +69,17 @@ impl IR {
                     predicate: _,
                     scan_type,
                     output_schema: _,
-                    unified_scan_args,
+                    file_options,
                 } = ir.clone()
                 else {
                     unreachable!()
                 };
 
                 DslPlan::Scan {
-                    sources,
-                    file_info: Some(file_info),
-                    scan_type,
-                    unified_scan_args,
+                    sources: sources.clone(),
+                    file_info: Some(file_info.clone()),
+                    scan_type: scan_type.clone(),
+                    file_options: file_options.clone(),
                     cached_ir: Arc::new(Mutex::new(Some(ir))),
                 }
             },

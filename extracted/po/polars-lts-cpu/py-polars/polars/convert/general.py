@@ -21,11 +21,7 @@ from polars._utils.deprecation import (
     issue_deprecation_warning,
 )
 from polars._utils.pycapsule import is_pycapsule, pycapsule_to_frame
-from polars._utils.various import (
-    _cast_repr_strings_with_schema,
-    issue_warning,
-    qualified_type_name,
-)
+from polars._utils.various import _cast_repr_strings_with_schema, issue_warning
 from polars._utils.wrap import wrap_df, wrap_s
 from polars.datatypes import N_INFER_DEFAULT, Categorical, String
 from polars.dependencies import _check_for_pyarrow
@@ -497,7 +493,7 @@ def from_arrow(
             )
         )
 
-    msg = f"expected PyArrow Table, Array, or one or more RecordBatches; got {qualified_type_name(data)!r}"
+    msg = f"expected PyArrow Table, Array, or one or more RecordBatches; got {type(data).__name__!r}"
     raise TypeError(msg)
 
 
@@ -620,7 +616,7 @@ def from_pandas(
             )
         )
     else:
-        msg = f"expected pandas DataFrame or Series, got {qualified_type_name(data)!r}"
+        msg = f"expected pandas DataFrame or Series, got {type(data).__name__!r}"
         raise TypeError(msg)
 
 

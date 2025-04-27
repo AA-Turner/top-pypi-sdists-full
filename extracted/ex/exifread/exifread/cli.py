@@ -21,8 +21,8 @@ import sys
 import timeit
 
 from exifread import __version__, exif_log, process_file
-from exifread.exceptions import ExifError
-from exifread.tags import FIELD_TYPES
+from exifread.core.exceptions import ExifError
+from exifread.tags.fields import FIELD_DEFINITIONS
 
 logger = exif_log.get_logger()
 
@@ -146,7 +146,7 @@ def run_cli(args: argparse.Namespace) -> None:
                     logger.info(
                         "%s (%s): %s",
                         field,
-                        FIELD_TYPES[value.field_type][2],
+                        FIELD_DEFINITIONS[value.field_type][1],
                         value.printable,
                     )
             except (ExifError, ValueError):

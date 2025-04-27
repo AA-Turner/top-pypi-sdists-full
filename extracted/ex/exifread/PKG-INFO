@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ExifRead
-Version: 3.1.0
+Version: 3.2.0
 Summary: Library to extract Exif information from digital camera image files.
 Author: Ianaré Sévi
 License: 
@@ -53,11 +53,31 @@ Provides-Extra: dev
 Requires-Dist: pre-commit~=2.21; extra == "dev"
 Requires-Dist: pylint~=3.0; extra == "dev"
 Requires-Dist: build~=1.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest~=7.4; extra == "test"
 Dynamic: license-file
 
 *******
 EXIF.py
 *******
+
+.. image:: https://img.shields.io/github/license/ianare/exif-py
+    :target: https://opensource.org/license/bsd-3-clause
+    :alt: BSD-3-clause
+.. image:: https://img.shields.io/pypi/v/ExifRead
+    :target: https://pypi.org/project/ExifRead
+    :alt: PyPi
+.. image:: https://img.shields.io/pypi/dm/ExifRead
+    :target: https://opensource.org/license/bsd-3-clause
+    :alt: BSD-3-clause
+.. image:: http://www.mypy-lang.org/static/mypy_badge.svg
+    :target: http://mypy-lang.org/
+    :alt: Checked with mypy
+.. image:: https://img.shields.io/github/actions/workflow/status/ianare/exif-py/test.yml
+    :target: https://github.com/ianare/exif-py
+    :alt: Tests
+
+|
 
 Easy to use Python module to extract Exif metadata from digital image files.
 
@@ -91,7 +111,7 @@ Development Version
 
 After cloning the repo, use the provided Makefile::
 
-  make venv install-dev
+  make venv install-all
 
 Which will create a virtual environment and install development dependencies.
 
@@ -290,4 +310,4 @@ Originally written by Gene Cash & Thierry Bousch.
 
 Available as open source under the terms of the **BSD-3-Clause license**.
 
-See LICENSE.txt file for details.
+See the LICENSE file for details.

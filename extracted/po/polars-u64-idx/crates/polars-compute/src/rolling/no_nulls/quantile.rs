@@ -28,28 +28,22 @@ impl<
         + Sub<Output = T>,
 > RollingAggWindowNoNulls<'a, T> for QuantileWindow<'a, T>
 {
-    fn new(
-        slice: &'a [T],
-        start: usize,
-        end: usize,
-        params: Option<RollingFnParams>,
-        window_size: Option<usize>,
-    ) -> Self {
+    fn new(slice: &'a [T], start: usize, end: usize, params: Option<RollingFnParams>) -> Self {
         let params = params.unwrap();
         let RollingFnParams::Quantile(params) = params else {
             unreachable!("expected Quantile params");
         };
 
         Self {
-            sorted: SortedBuf::new(slice, start, end, window_size),
+            sorted: SortedBuf::new(slice, start, end),
             prob: params.prob,
             method: params.method,
         }
     }
 
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {
-        self.sorted.update(start, end);
-        let length = self.sorted.len();
+        let vals = self.sorted.update(start, end);
+        let length = vals.len();
 
         let idx = match self.method {
             Linear => {
@@ -60,11 +54,11 @@ impl<
                 let float_idx_top = (length_f - 1.0) * self.prob;
                 let top_idx = float_idx_top.ceil() as usize;
                 return if idx == top_idx {
-                    Some(self.sorted.get(idx))
+                    Some(unsafe { *vals.get_unchecked(idx) })
                 } else {
                     let proportion = T::from(float_idx_top - idx as f64).unwrap();
-                    let vi = self.sorted.get(idx);
-                    let vj = self.sorted.get(top_idx);
+                    let vi = unsafe { *vals.get_unchecked(idx) };
+                    let vj = unsafe { *vals.get_unchecked(top_idx) };
 
                     Some(proportion * (vj - vi) + vi)
                 };
@@ -76,9 +70,14 @@ impl<
 
                 let top_idx = ((length_f - 1.0) * self.prob).ceil() as usize;
                 return if top_idx == idx {
-                    Some(self.sorted.get(idx))
+                    // SAFETY:
+                    // we are in bounds
+                    Some(unsafe { *vals.get_unchecked(idx) })
                 } else {
-                    let (mid, mid_plus_1) = (self.sorted.get(idx), (self.sorted.get(idx + 1)));
+                    // SAFETY:
+                    // we are in bounds
+                    let (mid, mid_plus_1) =
+                        unsafe { (*vals.get_unchecked(idx), *vals.get_unchecked(idx + 1)) };
 
                     Some((mid + mid_plus_1) / (T::one() + T::one()))
                 };
@@ -95,7 +94,9 @@ impl<
             Equiprobable => ((length as f64 * self.prob).ceil() - 1.0).max(0.0) as usize,
         };
 
-        Some(self.sorted.get(idx))
+        // SAFETY:
+        // we are in bounds
+        Some(unsafe { *vals.get_unchecked(idx) })
     }
 }
 
@@ -279,27 +280,27 @@ mod test {
             prob: 0.5,
             method: Linear,
         }));
-        let out = rolling_quantile(values, 2, 2, false, None, med_pars).unwrap();
+        let out = rolling_quantile(values, 2, 2, false, None, med_pars.clone()).unwrap();
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[None, Some(1.5), Some(2.5), Some(3.5)]);
 
-        let out = rolling_quantile(values, 2, 1, false, None, med_pars).unwrap();
+        let out = rolling_quantile(values, 2, 1, false, None, med_pars.clone()).unwrap();
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[Some(1.0), Some(1.5), Some(2.5), Some(3.5)]);
 
-        let out = rolling_quantile(values, 4, 1, false, None, med_pars).unwrap();
+        let out = rolling_quantile(values, 4, 1, false, None, med_pars.clone()).unwrap();
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[Some(1.0), Some(1.5), Some(2.0), Some(2.5)]);
 
-        let out = rolling_quantile(values, 4, 1, true, None, med_pars).unwrap();
+        let out = rolling_quantile(values, 4, 1, true, None, med_pars.clone()).unwrap();
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[Some(1.5), Some(2.0), Some(2.5), Some(3.0)]);
 
-        let out = rolling_quantile(values, 4, 4, true, None, med_pars).unwrap();
+        let out = rolling_quantile(values, 4, 4, true, None, med_pars.clone()).unwrap();
         let out = out.as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         let out = out.into_iter().map(|v| v.copied()).collect::<Vec<_>>();
         assert_eq!(out, &[None, None, Some(2.5), None]);

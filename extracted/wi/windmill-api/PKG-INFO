@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: windmill-api
-Version: 1.483.2
+Version: 1.484.0
 Summary: A client library for accessing Windmill API
 License: Apache-2.0
 Author: Ruben Fiszel

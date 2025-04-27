@@ -1,32 +1,48 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pysnmp
-Version: 7.1.17
+Version: 7.1.18
 Summary: A Python library for SNMP
-License: BSD-2-Clause
-Author: Ilya Etingof
-Author-email: etingof@gmail.com
-Requires-Python: >=3.9,<4.0
+Author-email: Ilya Etingof <etingof@gmail.com>, "LeXtudio Inc." <support@lextudio.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-Expression: BSD-2-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Telecommunications Industry
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Communications
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: pyasn1 (>=0.4.8,!=0.5.0)
+License-File: LICENSE.rst
+Requires-Dist: pyasn1>=0.4.8,!=0.5.0
+Requires-Dist: codecov>=2.1.12 ; extra == "dev"
+Requires-Dist: pytest>=7.2.0 ; extra == "dev"
+Requires-Dist: pytest-codecov>=0.4.0 ; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0 ; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.1 ; extra == "dev"
+Requires-Dist: Sphinx>=7.0.0 ; extra == "dev"
+Requires-Dist: sphinx-copybutton>=0.5.2 ; extra == "dev"
+Requires-Dist: sphinx-notfound-page>=1.0.0 ; extra == "dev"
+Requires-Dist: sphinx-sitemap-lextudio>=2.5.2 ; extra == "dev"
+Requires-Dist: sphinx-polyversion>=1.0.0 ; extra == "dev"
+Requires-Dist: furo>=2023.1.1 ; extra == "dev"
+Requires-Dist: black==23.1.0 ; extra == "dev"
+Requires-Dist: pre-commit==2.21.0 ; extra == "dev"
+Requires-Dist: doc8>=1.0.0 ; extra == "dev"
+Requires-Dist: flake8>=5.0.4 ; extra == "dev"
+Requires-Dist: flake8-import-order>=0.18.2 ; extra == "dev"
+Requires-Dist: flake8-docstrings>=1.7.0 ; extra == "dev"
+Requires-Dist: flake8-rst-docstrings>=0.3.0 ; extra == "dev"
+Requires-Dist: pep8-naming>=0.14.1 ; extra == "dev"
+Requires-Dist: cryptography>=43.0.1 ; extra == "dev"
+Requires-Dist: pysmi>=1.6.1 ; extra == "dev"
+Requires-Dist: bump2version>=1.0.1 ; extra == "dev"
 Project-URL: Homepage, https://pysnmp.com
 Project-URL: Repository, https://github.com/lextudio/pysnmp
-Description-Content-Type: text/markdown
+Provides-Extra: dev
 
 
 SNMP Library for Python

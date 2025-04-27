@@ -3,6 +3,7 @@
 
 import builtins
 import datetime
+import ipaddress
 import typing
 from enum import Enum, auto
 
@@ -12,8 +13,71 @@ class BlockingClient:
     """
 
     user_agent: typing.Optional[builtins.str]
+    r"""
+    Returns the user agent of the client.
+    """
     headers: HeaderMap
-    def __new__(cls, **kwds): ...
+    r"""
+    Returns the headers of the client.
+    """
+    def __new__(cls, **kwds) -> BlockingClient:
+        r"""
+        Creates a new BlockingClient instance.
+
+        # Arguments
+
+        * `**kwds` - Optional request parameters as a dictionary.
+
+            impersonate: typing.Optional[typing.Union[Impersonate, ImpersonateOption]]
+            user_agent: typing.Optional[str]
+            default_headers: typing.Optional[typing.Dict[str, bytes]]
+            headers_order: typing.Optional[typing.List[str]]
+            referer: typing.Optional[builtins.bool]
+            allow_redirects: typing.Optional[builtins.bool]
+            max_redirects: typing.Optional[builtins.int]
+            cookie_store: typing.Optional[builtins.bool]
+            lookup_ip_strategy: typing.Optional[LookupIpStrategy]
+            timeout: typing.Optional[builtins.int]
+            connect_timeout: typing.Optional[builtins.int]
+            read_timeout: typing.Optional[builtins.int]
+            no_keepalive: typing.Optional[builtins.bool]
+            tcp_keepalive: typing.Optional[builtins.int]
+            pool_idle_timeout: typing.Optional[builtins.int]
+            pool_max_idle_per_host: typing.Optional[builtins.int]
+            pool_max_size: typing.Optional[builtins.int]
+            http1_only: typing.Optional[builtins.bool]
+            http2_only: typing.Optional[builtins.bool]
+            https_only: typing.Optional[builtins.bool]
+            tcp_nodelay: typing.Optional[builtins.bool]
+            http2_max_retry_count: typing.Optional[builtins.int]
+            verify: Optional[Union[bool, Path]]
+            tls_info: typing.Optional[builtins.bool]
+            min_tls_version: typing.Optional[TlsVersion]
+            max_tls_version: typing.Optional[TlsVersion]
+            no_proxy: typing.Optional[builtins.bool]
+            proxies: typing.Optional[builtins.list[Proxy]]
+            local_address: typing.Optional[typing.Optional[typing.Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]]
+            interface: typing.Optional[builtins.str]
+            gzip: typing.Optional[builtins.bool]
+            brotli: typing.Optional[builtins.bool]
+            deflate: typing.Optional[builtins.bool]
+            zstd: typing.Optional[builtins.bool]
+
+        # Examples
+
+        ```python
+        import asyncio
+        import rnet
+
+        client = rnet.BlockingClient(
+            user_agent="my-app/0.0.1",
+            timeout=10,
+        )
+        response = client.get('https://httpbin.org/get')
+        print(response.text())
+        ```
+        """
+
     def get_cookies(self, url: str) -> typing.Optional[typing.Any]:
         r"""
         Returns the cookies for the given URL.
@@ -21,12 +85,7 @@ class BlockingClient:
         # Arguments
 
         * `url` - The URL to get the cookies for.
-
-        # Returns
-
-        A list of cookie strings.
         """
-        ...
 
     def set_cookie(self, url: str, cookie: Cookie) -> None:
         r"""
@@ -45,7 +104,6 @@ class BlockingClient:
         client.set_cookie("https://example.com", rnet.Cookie(name="foo", value="bar"))
         ```
         """
-        ...
 
     def remove_cookie(self, url: str, name: str) -> None:
         r"""
@@ -63,15 +121,25 @@ class BlockingClient:
         client = rnet.Client(cookie_store=True)
         client.remove_cookie("https://example.com", "foo")
         """
-        ...
 
     def clear_cookies(self) -> None:
         r"""
         Clears the cookies for the given URL.
         """
-        ...
 
-    def update(self, **kwds) -> None:
+    def update(
+        self,
+        impersonate: typing.Optional[
+            typing.Union[Impersonate, ImpersonateOption]
+        ] = None,
+        headers: typing.Optional[typing.Union[typing.Dict[str, str], HeaderMap]] = None,
+        headers_order: typing.Optional[typing.List[str]] = None,
+        proxies: typing.Optional[typing.List[Proxy]] = None,
+        local_address: typing.Optional[
+            typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+        ] = None,
+        interface: typing.Optional[builtins.str] = None,
+    ) -> None:
         r"""
         Updates the client with the given parameters.
 
@@ -98,7 +166,6 @@ class BlockingClient:
         )
         ```
         """
-        ...
 
     def request(
         self,
@@ -134,10 +201,6 @@ class BlockingClient:
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
 
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -153,7 +216,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def websocket(self, url: str, **kwds) -> BlockingWebSocket:
         r"""
@@ -182,10 +244,6 @@ class BlockingClient:
             max_frame_size: typing.Optional[builtins.int]
             accept_unmasked_frames: typing.Optional[builtins.bool]
 
-        # Returns
-
-        A `WebSocket` object representing the WebSocket connection.
-
         # Examples
 
         ```python
@@ -203,7 +261,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def trace(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -232,11 +289,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -252,7 +304,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def options(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -281,11 +332,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -301,7 +347,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def head(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -330,11 +375,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -350,7 +390,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def delete(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -379,11 +418,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -399,7 +433,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def patch(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -428,11 +461,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -448,7 +476,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def put(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -477,11 +504,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -497,7 +519,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def post(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -526,11 +547,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -546,7 +562,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
     def get(self, url: str, **kwds) -> BlockingResponse:
         r"""
@@ -575,11 +590,6 @@ class BlockingClient:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -595,7 +605,6 @@ class BlockingClient:
         asyncio.run(main())
         ```
         """
-        ...
 
 class BlockingResponse:
     r"""
@@ -603,15 +612,45 @@ class BlockingResponse:
     """
 
     url: builtins.str
+    r"""
+    Returns the URL of the response.
+    """
     ok: builtins.bool
+    r"""
+    Returns whether the response is successful.
+    """
     status: builtins.int
+    r"""
+    Returns the status code as integer of the response.
+    """
     status_code: StatusCode
+    r"""
+    Returns the status code of the response.
+    """
     version: Version
+    r"""
+    Returns the HTTP version of the response.
+    """
     headers: HeaderMap
+    r"""
+    Returns the headers of the response.
+    """
     cookies: builtins.list[Cookie]
+    r"""
+    Returns the cookies of the response.
+    """
     content_length: builtins.int
+    r"""
+    Returns the content length of the response.
+    """
     remote_addr: typing.Optional[SocketAddr]
+    r"""
+    Returns the remote address of the response.
+    """
     encoding: builtins.str
+    r"""
+    Encoding to decode with when accessing text.
+    """
     def __enter__(self) -> BlockingResponse: ...
     def __exit__(
         self, _exc_type: typing.Any, _exc_value: typing.Any, _traceback: typing.Any
@@ -619,22 +658,12 @@ class BlockingResponse:
     def peer_certificate(self) -> typing.Optional[typing.Any]:
         r"""
         Returns the TLS peer certificate of the response.
-
-        # Returns
-
-        A Python object representing the TLS peer certificate of the response.
         """
-        ...
 
     def text(self) -> builtins.str:
         r"""
         Returns the text content of the response.
-
-        # Returns
-
-        A Python object representing the text content of the response.
         """
-        ...
 
     def text_with_charset(self, encoding: builtins.str) -> builtins.str:
         r"""
@@ -642,49 +671,28 @@ class BlockingResponse:
 
         # Arguments
 
-        * `default_encoding` - The default encoding to use if the charset is not specified.
-
-        # Returns
-
-        A Python object representing the text content of the response.
+        * `encoding` - The default encoding to use if the charset is not specified.
         """
-        ...
 
     def json(self) -> typing.Dict[str, typing.Any]:
         r"""
         Returns the JSON content of the response.
-
-        # Returns
-
-        A Python object representing the JSON content of the response.
         """
-        ...
 
     def bytes(self) -> typing.Any:
         r"""
         Returns the bytes content of the response.
-
-        # Returns
-
-        A Python object representing the bytes content of the response.
         """
-        ...
 
     def stream(self) -> BlockingStreamer:
         r"""
         Convert the response into a `Stream` of `Bytes` from the body.
-
-        # Returns
-
-        A Python object representing the stream content of the response.
         """
-        ...
 
     def close(self) -> None:
         r"""
         Closes the response connection.
         """
-        ...
 
 class BlockingStreamer:
     r"""
@@ -708,12 +716,33 @@ class BlockingWebSocket:
     """
 
     ok: builtins.bool
+    r"""
+    Returns whether the response is successful.
+    """
     status: builtins.int
+    r"""
+    Returns the status code as integer of the response.
+    """
     status_code: StatusCode
+    r"""
+    Returns the status code of the response.
+    """
     version: Version
+    r"""
+    Returns the HTTP version of the response.
+    """
     headers: HeaderMap
+    r"""
+    Returns the headers of the response.
+    """
     cookies: builtins.list[Cookie]
+    r"""
+    Returns the cookies of the response.
+    """
     remote_addr: typing.Optional[SocketAddr]
+    r"""
+    Returns the remote address of the response.
+    """
     def __iter__(self) -> BlockingWebSocket: ...
     def __next__(self) -> Message: ...
     def __enter__(self) -> BlockingWebSocket: ...
@@ -723,18 +752,12 @@ class BlockingWebSocket:
     def protocol(self) -> typing.Optional[builtins.str]:
         r"""
         Returns the WebSocket protocol.
-
-        # Returns
-
-        An optional string representing the WebSocket protocol.
         """
-        ...
 
     def recv(self) -> typing.Optional[Message]:
         r"""
         Receives a message from the WebSocket.
         """
-        ...
 
     def send(self, message: Message) -> None:
         r"""
@@ -744,7 +767,6 @@ class BlockingWebSocket:
 
         * `message` - The message to send.
         """
-        ...
 
     def close(
         self,
@@ -759,7 +781,6 @@ class BlockingWebSocket:
         * `code` - An optional close code.
         * `reason` - An optional reason for closing.
         """
-        ...
 
 class Client:
     r"""
@@ -767,8 +788,92 @@ class Client:
     """
 
     user_agent: typing.Optional[builtins.str]
+    r"""
+    Returns the user agent of the client.
+    
+    # Examples
+    
+    ```python
+    import rnet
+    
+    client = rnet.Client()
+    user_agent = client.user_agent()
+    print(user_agent)
+    ```
+    """
     headers: HeaderMap
-    def __new__(cls, **kwds): ...
+    r"""
+    Returns the headers of the client.
+    
+    # Examples
+    
+    ```python
+    import rnet
+    
+    client = rnet.Client()
+    headers = client.headers()
+    print(headers)
+    ```
+    """
+    def __new__(cls, **kwds) -> Client:
+        r"""
+        Creates a new Client instance.
+
+        # Arguments
+
+        * `**kwds` - Optional request parameters as a dictionary.
+
+            impersonate: typing.Optional[typing.Union[Impersonate, ImpersonateOption]]
+            base_url: typing.Optional[str]
+            user_agent: typing.Optional[str]
+            default_headers: typing.Optional[typing.Dict[str, bytes]]
+            headers_order: typing.Optional[typing.List[str]]
+            referer: typing.Optional[builtins.bool]
+            allow_redirects: typing.Optional[builtins.bool]
+            max_redirects: typing.Optional[builtins.int]
+            cookie_store: typing.Optional[builtins.bool]
+            lookup_ip_strategy: typing.Optional[LookupIpStrategy]
+            timeout: typing.Optional[builtins.int]
+            connect_timeout: typing.Optional[builtins.int]
+            read_timeout: typing.Optional[builtins.int]
+            no_keepalive: typing.Optional[builtins.bool]
+            tcp_keepalive: typing.Optional[builtins.int]
+            pool_idle_timeout: typing.Optional[builtins.int]
+            pool_max_idle_per_host: typing.Optional[builtins.int]
+            pool_max_size: typing.Optional[builtins.int]
+            http1_only: typing.Optional[builtins.bool]
+            http2_only: typing.Optional[builtins.bool]
+            https_only: typing.Optional[builtins.bool]
+            tcp_nodelay: typing.Optional[builtins.bool]
+            http2_max_retry_count: typing.Optional[builtins.int]
+            verify: Optional[Union[bool, Path]]
+            tls_info: typing.Optional[builtins.bool]
+            min_tls_version: typing.Optional[TlsVersion]
+            max_tls_version: typing.Optional[TlsVersion]
+            no_proxy: typing.Optional[builtins.bool]
+            proxies: typing.Optional[builtins.list[Proxy]]
+            local_address: typing.Optional[typing.Optional[typing.Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]]
+            interface: typing.Optional[builtins.str]
+            gzip: typing.Optional[builtins.bool]
+            brotli: typing.Optional[builtins.bool]
+            deflate: typing.Optional[builtins.bool]
+            zstd: typing.Optional[builtins.bool]
+
+        # Examples
+
+        ```python
+        import asyncio
+        import rnet
+
+        client = rnet.Client(
+            user_agent="my-app/0.0.1",
+            timeout=10,
+        )
+        response = await client.get('https://httpbin.org/get')
+        print(response.text)
+        ```
+        """
+
     def get_cookies(self, url: str) -> typing.Optional[typing.Any]:
         r"""
         Returns the cookies for the given URL.
@@ -791,7 +896,6 @@ class Client:
         print(cookies)
         ```
         """
-        ...
 
     def set_cookie(self, url: str, cookie: Cookie) -> None:
         r"""
@@ -810,7 +914,6 @@ class Client:
         client.set_cookie("https://example.com", rnet.Cookie(name="foo", value="bar"))
         ```
         """
-        ...
 
     def remove_cookie(self, url: str, name: str) -> None:
         r"""
@@ -828,27 +931,36 @@ class Client:
         client = rnet.Client(cookie_store=True)
         client.remove_cookie("https://example.com", "foo")
         """
-        ...
 
     def clear_cookies(self) -> None:
         r"""
         Clears the cookies for the given URL.
         """
-        ...
 
-    def update(self, **kwds) -> None:
+    def update(
+        self,
+        impersonate: typing.Optional[
+            typing.Union[Impersonate, ImpersonateOption]
+        ] = None,
+        headers: typing.Optional[typing.Union[typing.Dict[str, str], HeaderMap]] = None,
+        headers_order: typing.Optional[typing.List[str]] = None,
+        proxies: typing.Optional[typing.List[Proxy]] = None,
+        local_address: typing.Optional[
+            typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+        ] = None,
+        interface: typing.Optional[builtins.str] = None,
+    ) -> None:
         r"""
         Updates the client with the given parameters.
 
         # Arguments
-        * `**kwds` - The parameters to update the client with.
 
-            impersonate: typing.Optional[typing.Union[Impersonate, ImpersonateOption]]
-            headers: typing.Optional[typing.Dict[str, bytes]]
-            headers_order: typing.Optional[typing.List[str]]
-            proxies: typing.Optional[builtins.list[Proxy]]
-            local_address: typing.Optional[typing.Optional[typing.Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]]
-            interface: typing.Optional[builtins.str]
+        * `impersonate` - The impersonation settings for the request.
+        * `headers` - The headers to use for the request.
+        * `headers_order` - The order of the headers to use for the request.
+        * `proxies` - The proxy to use for the request.
+        * `local_address` - The local IP address to bind to.
+        * `interface` - The interface to bind to.
 
         # Examples
 
@@ -863,7 +975,6 @@ class Client:
         )
         ```
         """
-        ...
 
     def request(self, method: Method, url: str, **kwds) -> typing.Any:
         r"""
@@ -894,10 +1005,6 @@ class Client:
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
 
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -913,7 +1020,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def websocket(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -942,10 +1048,6 @@ class Client:
             max_frame_size: typing.Optional[builtins.int]
             accept_unmasked_frames: typing.Optional[builtins.bool]
 
-        # Returns
-
-        A `WebSocket` object representing the WebSocket connection.
-
         # Examples
 
         ```python
@@ -963,7 +1065,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def trace(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -992,11 +1093,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1012,7 +1108,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def options(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1041,11 +1136,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1061,7 +1151,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def patch(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1090,11 +1179,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1110,7 +1194,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def delete(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1139,11 +1222,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1159,7 +1237,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def put(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1188,11 +1265,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1208,7 +1280,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def post(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1237,11 +1308,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1257,7 +1323,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def head(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1286,11 +1351,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1306,7 +1366,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
     def get(self, url: str, **kwds) -> typing.Any:
         r"""
@@ -1335,11 +1394,6 @@ class Client:
             json: typing.Optional[typing.Any]
             body: typing.Optional[typing.Any]
             multipart: typing.Optional[Multipart]
-
-        # Returns
-
-        A `Response` object.
-
         # Examples
 
         ```python
@@ -1355,7 +1409,6 @@ class Client:
         asyncio.run(main())
         ```
         """
-        ...
 
 class Cookie:
     r"""
@@ -1363,15 +1416,45 @@ class Cookie:
     """
 
     name: builtins.str
+    r"""
+    The name of the cookie.
+    """
     value: builtins.str
+    r"""
+    The value of the cookie.
+    """
     http_only: builtins.bool
+    r"""
+    Returns true if the 'HttpOnly' directive is enabled.
+    """
     secure: builtins.bool
+    r"""
+    Returns true if the 'Secure' directive is enabled.
+    """
     same_site_lax: builtins.bool
+    r"""
+    Returns true if  'SameSite' directive is 'Lax'.
+    """
     same_site_strict: builtins.bool
+    r"""
+    Returns true if  'SameSite' directive is 'Strict'.
+    """
     path: typing.Optional[builtins.str]
+    r"""
+    Returns the path directive of the cookie, if set.
+    """
     domain: typing.Optional[builtins.str]
+    r"""
+    Returns the domain directive of the cookie, if set.
+    """
     max_age: typing.Optional[datetime.timedelta]
+    r"""
+    Get the Max-Age information.
+    """
     expires: typing.Optional[datetime.datetime]
+    r"""
+    The cookie expiration time.
+    """
     def __new__(
         cls,
         name: builtins.str,
@@ -1383,7 +1466,11 @@ class Cookie:
         http_only: builtins.bool = False,
         secure: builtins.bool = False,
         same_site: typing.Optional[SameSite] = None,
-    ): ...
+    ) -> Cookie:
+        r"""
+        Create a new cookie.
+        """
+
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
 
@@ -1392,7 +1479,6 @@ class HeaderMap:
     A HTTP header map.
     """
 
-    def __new__(cls, init: typing.Optional[dict]): ...
     def __getitem__(self, key: str) -> typing.Optional[typing.Any]: ...
     def __setitem__(self, key: str, value: str) -> None: ...
     def __delitem__(self, key: str) -> None: ...
@@ -1401,17 +1487,16 @@ class HeaderMap:
     def __iter__(self) -> HeaderMapKeysIter: ...
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
+    def __new__(cls, init: typing.Optional[dict]) -> HeaderMap: ...
     def get_all(self, key: str) -> HeaderMapValuesIter:
         r"""
         Returns multiple value sequences of key mapping
         """
-        ...
 
     def items(self) -> HeaderMapItemsIter:
         r"""
         Returns key-value pairs in the order they were added.
         """
-        ...
 
 class HeaderMapItemsIter:
     r"""
@@ -1450,8 +1535,38 @@ class ImpersonateOption:
         impersonate_os: typing.Optional[ImpersonateOS] = None,
         skip_http2: typing.Optional[builtins.bool] = None,
         skip_headers: typing.Optional[builtins.bool] = None,
-    ): ...
-    ...
+    ) -> ImpersonateOption:
+        r"""
+        Create a new impersonation option instance.
+
+        This class allows you to configure browser/client impersonation settings
+        including the browser type, operating system, and HTTP protocol options.
+
+        Args:
+            impersonate (Impersonate): The browser/client type to impersonate
+            impersonate_os (Optional[ImpersonateOS]): The operating system to impersonate, defaults to None
+            skip_http2 (Optional[bool]): Whether to disable HTTP/2 support, defaults to False
+            skip_headers (Optional[bool]): Whether to skip default request headers, defaults to False
+
+        Returns:
+            ImpersonateOption: A new impersonation option instance
+
+        Examples:
+            ```python
+            from rnet import ImpersonateOption, Impersonate, ImpersonateOS
+
+            # Basic Chrome 120 impersonation
+            option = ImpersonateOption(Impersonate.Chrome120)
+
+            # Firefox 136 on Windows with custom options
+            option = ImpersonateOption(
+                impersonate=Impersonate.Firefox136,
+                impersonate_os=ImpersonateOS.Windows,
+                skip_http2=False,
+                skip_headers=True
+            )
+            ```
+        """
 
 class Message:
     r"""
@@ -1459,11 +1574,29 @@ class Message:
     """
 
     data: typing.Optional[typing.Any]
+    r"""
+    Returns the data of the message as bytes.
+    """
     text: typing.Optional[builtins.str]
+    r"""
+    Returns the text content of the message if it is a text message.
+    """
     binary: typing.Optional[typing.Any]
+    r"""
+    Returns the binary data of the message if it is a binary message.
+    """
     ping: typing.Optional[typing.Any]
+    r"""
+    Returns the ping data of the message if it is a ping message.
+    """
     pong: typing.Optional[typing.Any]
+    r"""
+    Returns the pong data of the message if it is a pong message.
+    """
     close: typing.Optional[tuple[builtins.int, typing.Optional[builtins.str]]]
+    r"""
+    Returns the close code and reason of the message if it is a close message.
+    """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
     @staticmethod
@@ -1473,12 +1606,7 @@ class Message:
 
         # Arguments
         * `json` - The JSON representation of the message.
-
-        # Returns
-
-        A new `Message` instance containing the message.
         """
-        ...
 
     @staticmethod
     def binary_from_json(json: typing.Dict[str, typing.Any]) -> Message:
@@ -1487,12 +1615,7 @@ class Message:
 
         # Arguments
         * `json` - The JSON representation of the message.
-
-        # Returns
-
-        A new `Message` instance containing the message.
         """
-        ...
 
     @staticmethod
     def from_text(text: str) -> Message:
@@ -1502,12 +1625,7 @@ class Message:
         # Arguments
 
         * `text` - The text content of the message.
-
-        # Returns
-
-        A new `Message` instance containing the text message.
         """
-        ...
 
     @staticmethod
     def from_binary(data: bytes) -> Message:
@@ -1517,12 +1635,7 @@ class Message:
         # Arguments
 
         * `data` - The binary data of the message.
-
-        # Returns
-
-        A new `Message` instance containing the binary message.
         """
-        ...
 
     @staticmethod
     def from_ping(data: bytes) -> Message:
@@ -1532,12 +1645,7 @@ class Message:
         # Arguments
 
         * `data` - The ping data of the message.
-
-        # Returns
-
-        A new `Message` instance containing the ping message.
         """
-        ...
 
     @staticmethod
     def from_pong(data: bytes) -> Message:
@@ -1547,12 +1655,7 @@ class Message:
         # Arguments
 
         * `data` - The pong data of the message.
-
-        # Returns
-
-        A new `Message` instance containing the pong message.
         """
-        ...
 
     @staticmethod
     def from_close(code: builtins.int, reason: typing.Optional[str] = None) -> Message:
@@ -1563,26 +1666,22 @@ class Message:
 
         * `code` - The close code.
         * `reason` - An optional reason for closing.
-
-        # Returns
-
-        A new `Message` instance containing the close message.
         """
-        ...
 
     def json(self) -> typing.Dict[str, typing.Any]:
         r"""
         Returns the JSON representation of the message.
         """
-        ...
 
 class Multipart:
     r"""
     A multipart form for a request.
     """
 
-    def __new__(cls, *parts): ...
-    ...
+    def __new__(cls, *parts) -> Multipart:
+        r"""
+        Creates a new multipart form.
+        """
 
 class Part:
     r"""
@@ -1595,8 +1694,16 @@ class Part:
         value: typing.Any,
         filename: typing.Optional[builtins.str] = None,
         mime: typing.Optional[builtins.str] = None,
-    ): ...
-    ...
+    ) -> Part:
+        r"""
+        Creates a new part.
+
+        # Arguments
+        - `name` - The name of the part.
+        - `value` - The value of the part, either text, bytes, a file path, or a async or sync stream.
+        - `filename` - The filename of the part.
+        - `mime` - The MIME type of the part.
+        """
 
 class Proxy:
     r"""
@@ -1629,10 +1736,6 @@ class Proxy:
         * `custom_http_headers` - Optional custom HTTP proxy headers.
         * `exclusion` - Optional list of domains to exclude from proxying.
 
-        # Returns
-
-        A new `Proxy` instance.
-
         # Examples
 
         ```python
@@ -1641,7 +1744,6 @@ class Proxy:
         proxy = rnet.Proxy.http("http://proxy.example.com")
         ```
         """
-        ...
 
     @staticmethod
     def https(
@@ -1668,10 +1770,6 @@ class Proxy:
         * `custom_http_headers` - Optional custom HTTP proxy headers.
         * `exclusion` - Optional list of domains to exclude from proxying.
 
-        # Returns
-
-        A new `Proxy` instance.
-
         # Examples
 
         ```python
@@ -1680,7 +1778,6 @@ class Proxy:
         proxy = rnet.Proxy.https("https://proxy.example.com")
         ```
         """
-        ...
 
     @staticmethod
     def all(
@@ -1707,10 +1804,6 @@ class Proxy:
         * `custom_http_headers` - Optional custom HTTP proxy headers.
         * `exclusion` - Optional list of domains to exclude from proxying.
 
-        # Returns
-
-        A new `Proxy` instance.
-
         # Examples
 
         ```python
@@ -1719,7 +1812,6 @@ class Proxy:
         proxy = rnet.Proxy.all("https://proxy.example.com")
         ```
         """
-        ...
 
 class Response:
     r"""
@@ -1750,15 +1842,45 @@ class Response:
     """
 
     url: builtins.str
+    r"""
+    Returns the URL of the response.
+    """
     ok: builtins.bool
+    r"""
+    Returns whether the response is successful.
+    """
     status: builtins.int
+    r"""
+    Returns the status code as integer of the response.
+    """
     status_code: StatusCode
+    r"""
+    Returns the status code of the response.
+    """
     version: Version
+    r"""
+    Returns the HTTP version of the response.
+    """
     headers: HeaderMap
+    r"""
+    Returns the headers of the response.
+    """
     cookies: builtins.list[Cookie]
+    r"""
+    Returns the cookies of the response.
+    """
     content_length: builtins.int
+    r"""
+    Returns the content length of the response.
+    """
     remote_addr: typing.Optional[SocketAddr]
+    r"""
+    Returns the remote address of the response.
+    """
     encoding: builtins.str
+    r"""
+    Encoding to decode with when accessing text.
+    """
     def __aenter__(self) -> typing.Any: ...
     def __aexit__(
         self, _exc_type: typing.Any, _exc_value: typing.Any, _traceback: typing.Any
@@ -1766,72 +1888,41 @@ class Response:
     def peer_certificate(self) -> typing.Optional[typing.Any]:
         r"""
         Returns the TLS peer certificate of the response.
-
-        # Returns
-
-        A Python object representing the TLS peer certificate of the response.
         """
-        ...
 
     def text(self) -> typing.Any:
         r"""
         Returns the text content of the response.
-
-        # Returns
-
-        A Python object representing the text content of the response.
         """
-        ...
 
     def text_with_charset(self, encoding: builtins.str) -> typing.Any:
         r"""
         Returns the text content of the response with a specific charset.
-        c
+
         # Arguments
 
-        * `default_encoding` - The default encoding to use if the charset is not specified.
-
-        # Returns
-
-        A Python object representing the text content of the response.
+        * `encoding` - The default encoding to use if the charset is not specified.
         """
-        ...
 
     def json(self) -> typing.Any:
         r"""
         Returns the JSON content of the response.
-
-        # Returns
-
-        A Python object representing the JSON content of the response.
         """
-        ...
 
     def bytes(self) -> typing.Any:
         r"""
         Returns the bytes content of the response.
-
-        # Returns
-
-        A Python object representing the bytes content of the response.
         """
-        ...
 
     def stream(self) -> Streamer:
         r"""
         Convert the response into a `Stream` of `Bytes` from the body.
-
-        # Returns
-
-        A Python object representing the stream content of the response.
         """
-        ...
 
     def close(self) -> None:
         r"""
         Closes the response connection.
         """
-        ...
 
 class SocketAddr:
     r"""
@@ -1843,13 +1934,11 @@ class SocketAddr:
         r"""
         Returns the IP address of the socket address.
         """
-        ...
 
     def port(self) -> builtins.int:
         r"""
         Returns the port number of the socket address.
         """
-        ...
 
 class StatusCode:
     r"""
@@ -1862,37 +1951,31 @@ class StatusCode:
         r"""
         Return the status code as an integer.
         """
-        ...
 
     def is_informational(self) -> builtins.bool:
         r"""
         Check if status is within 100-199.
         """
-        ...
 
     def is_success(self) -> builtins.bool:
         r"""
         Check if status is within 200-299.
         """
-        ...
 
     def is_redirection(self) -> builtins.bool:
         r"""
         Check if status is within 300-399.
         """
-        ...
 
     def is_client_error(self) -> builtins.bool:
         r"""
         Check if status is within 400-499.
         """
-        ...
 
     def is_server_error(self) -> builtins.bool:
         r"""
         Check if status is within 500-599.
         """
-        ...
 
 class Streamer:
     r"""
@@ -1942,12 +2025,33 @@ class WebSocket:
     """
 
     ok: builtins.bool
+    r"""
+    Returns whether the response is successful.
+    """
     status: builtins.int
+    r"""
+    Returns the status code as integer of the response.
+    """
     status_code: StatusCode
+    r"""
+    Returns the status code of the response.
+    """
     version: Version
+    r"""
+    Returns the HTTP version of the response.
+    """
     headers: HeaderMap
+    r"""
+    Returns the headers of the response.
+    """
     cookies: builtins.list[Cookie]
+    r"""
+    Returns the cookies of the response.
+    """
     remote_addr: typing.Optional[SocketAddr]
+    r"""
+    Returns the remote address of the response.
+    """
     def __aiter__(self) -> WebSocket: ...
     def __anext__(self) -> typing.Any: ...
     def __aenter__(self) -> typing.Any: ...
@@ -1957,18 +2061,12 @@ class WebSocket:
     def protocol(self) -> typing.Optional[builtins.str]:
         r"""
         Returns the WebSocket protocol.
-
-        # Returns
-
-        An optional string representing the WebSocket protocol.
         """
-        ...
 
     def recv(self) -> typing.Any:
         r"""
         Receives a message from the WebSocket.
         """
-        ...
 
     def send(self, message: Message) -> typing.Any:
         r"""
@@ -1978,7 +2076,6 @@ class WebSocket:
 
         * `message` - The message to send.
         """
-        ...
 
     def close(
         self,
@@ -1993,7 +2090,6 @@ class WebSocket:
         * `code` - An optional close code.
         * `reason` - An optional reason for closing.
         """
-        ...
 
 class Impersonate(Enum):
     r"""
@@ -2008,6 +2104,7 @@ class Impersonate(Enum):
     Chrome107 = auto()
     Chrome108 = auto()
     Chrome109 = auto()
+    Chrome110 = auto()
     Chrome114 = auto()
     Chrome116 = auto()
     Chrome117 = auto()
@@ -2173,7 +2270,6 @@ def delete(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def get(url: str, **kwds) -> typing.Any:
     r"""
@@ -2217,7 +2313,6 @@ def get(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def head(url: str, **kwds) -> typing.Any:
     r"""
@@ -2260,7 +2355,6 @@ def head(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def options(url: str, **kwds) -> typing.Any:
     r"""
@@ -2303,7 +2397,6 @@ def options(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def patch(url: str, **kwds) -> typing.Any:
     r"""
@@ -2347,7 +2440,6 @@ def patch(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def post(url: str, **kwds) -> typing.Any:
     r"""
@@ -2391,7 +2483,6 @@ def post(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def put(url: str, **kwds) -> typing.Any:
     r"""
@@ -2435,7 +2526,6 @@ def put(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def request(method: Method, url: str, **kwds) -> typing.Any:
     r"""
@@ -2481,7 +2571,6 @@ def request(method: Method, url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def trace(url: str, **kwds) -> typing.Any:
     r"""
@@ -2524,7 +2613,6 @@ def trace(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...
 
 def websocket(url: str, **kwds) -> typing.Any:
     r"""
@@ -2570,4 +2658,3 @@ def websocket(url: str, **kwds) -> typing.Any:
     asyncio.run(run())
     ```
     """
-    ...

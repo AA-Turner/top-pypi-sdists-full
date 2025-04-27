@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: Red-DiscordBot
-Version: 3.5.18
+Version: 3.5.19
 Summary: A highly customisable Discord bot
 Author: Cog Creators
 Project-URL: Homepage, https://github.com/Cog-Creators/Red-DiscordBot
@@ -45,7 +45,7 @@ Requires-Dist: markdown-it-py==3.0.0
 Requires-Dist: mdurl==0.1.2
 Requires-Dist: multidict==6.1.0
 Requires-Dist: orjson==3.10.15
-Requires-Dist: packaging==24.2
+Requires-Dist: packaging==25.0
 Requires-Dist: platformdirs==4.3.6
 Requires-Dist: propcache==0.2.0
 Requires-Dist: psutil==7.0.0
@@ -55,10 +55,10 @@ Requires-Dist: pyyaml==6.0.2
 Requires-Dist: rapidfuzz==3.9.7
 Requires-Dist: red-commons==1.0.0
 Requires-Dist: red-lavalink==0.11.0
-Requires-Dist: rich==13.9.4
+Requires-Dist: rich==14.0.0
 Requires-Dist: schema==0.7.7
 Requires-Dist: six==1.17.0
-Requires-Dist: typing-extensions==4.13.0
+Requires-Dist: typing-extensions==4.13.2
 Requires-Dist: yarl==1.15.2
 Requires-Dist: zstandard==0.23.0
 Requires-Dist: async-timeout==4.0.3; python_version != "3.11"
@@ -68,30 +68,9 @@ Requires-Dist: importlib-metadata==8.5.0; python_version != "3.10" and python_ve
 Requires-Dist: pytz==2025.2; python_version == "3.8"
 Requires-Dist: uvloop==0.21.0; (sys_platform != "win32" and platform_python_implementation == "CPython") and sys_platform != "win32"
 Requires-Dist: zipp==3.20.2; python_version != "3.10" and python_version != "3.11"
-Provides-Extra: test
-Requires-Dist: astroid==3.2.4; extra == "test"
-Requires-Dist: dill==0.3.9; extra == "test"
-Requires-Dist: iniconfig==2.1.0; extra == "test"
-Requires-Dist: isort==5.13.2; extra == "test"
-Requires-Dist: mccabe==0.7.0; extra == "test"
-Requires-Dist: pluggy==1.5.0; extra == "test"
-Requires-Dist: pylint==3.2.7; extra == "test"
-Requires-Dist: pytest==7.4.4; extra == "test"
-Requires-Dist: pytest-asyncio==0.21.2; extra == "test"
-Requires-Dist: pytest-mock==3.14.0; extra == "test"
-Requires-Dist: tomlkit==0.13.2; extra == "test"
-Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "test"
-Requires-Dist: tomli==2.2.1; python_version != "3.11" and extra == "test"
-Provides-Extra: postgres
-Requires-Dist: asyncpg==0.30.0; extra == "postgres"
-Provides-Extra: style
-Requires-Dist: black==23.12.1; extra == "style"
-Requires-Dist: mypy-extensions==1.0.0; extra == "style"
-Requires-Dist: pathspec==0.12.1; extra == "style"
-Requires-Dist: tomli==2.2.1; extra == "style"
 Provides-Extra: doc
 Requires-Dist: alabaster==0.7.13; extra == "doc"
-Requires-Dist: certifi==2025.1.31; extra == "doc"
+Requires-Dist: certifi==2025.4.26; extra == "doc"
 Requires-Dist: charset-normalizer==3.4.1; extra == "doc"
 Requires-Dist: docutils==0.20.1; extra == "doc"
 Requires-Dist: imagesize==1.4.1; extra == "doc"
@@ -114,49 +93,70 @@ Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "doc"
 Requires-Dist: sphinxcontrib-trio==1.1.2; extra == "doc"
 Requires-Dist: urllib3==2.2.3; extra == "doc"
 Requires-Dist: zipp==3.20.2; extra == "doc"
+Provides-Extra: postgres
+Requires-Dist: asyncpg==0.30.0; extra == "postgres"
+Provides-Extra: style
+Requires-Dist: black==23.12.1; extra == "style"
+Requires-Dist: mypy-extensions==1.1.0; extra == "style"
+Requires-Dist: pathspec==0.12.1; extra == "style"
+Requires-Dist: tomli==2.2.1; extra == "style"
+Provides-Extra: test
+Requires-Dist: astroid==3.2.4; extra == "test"
+Requires-Dist: dill==0.4.0; extra == "test"
+Requires-Dist: iniconfig==2.1.0; extra == "test"
+Requires-Dist: isort==5.13.2; extra == "test"
+Requires-Dist: mccabe==0.7.0; extra == "test"
+Requires-Dist: pluggy==1.5.0; extra == "test"
+Requires-Dist: pylint==3.2.7; extra == "test"
+Requires-Dist: pytest==7.4.4; extra == "test"
+Requires-Dist: pytest-asyncio==0.21.2; extra == "test"
+Requires-Dist: pytest-mock==3.14.0; extra == "test"
+Requires-Dist: tomlkit==0.13.2; extra == "test"
+Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "test"
+Requires-Dist: tomli==2.2.1; python_version != "3.11" and extra == "test"
 Provides-Extra: dev
-Requires-Dist: sphinx-prompt==1.7.0; extra == "dev"
-Requires-Dist: astroid==3.2.4; extra == "dev"
-Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "dev"
-Requires-Dist: docutils==0.20.1; extra == "dev"
-Requires-Dist: zipp==3.20.2; extra == "dev"
-Requires-Dist: alabaster==0.7.13; extra == "dev"
-Requires-Dist: sphinxcontrib-jquery==4.1; extra == "dev"
-Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "dev"
-Requires-Dist: charset-normalizer==3.4.1; extra == "dev"
-Requires-Dist: pytest-asyncio==0.21.2; extra == "dev"
-Requires-Dist: isort==5.13.2; extra == "dev"
-Requires-Dist: pytest-mock==3.14.0; extra == "dev"
-Requires-Dist: sphinxcontrib-applehelp==1.0.4; extra == "dev"
-Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "dev"
 Requires-Dist: tomli==2.2.1; python_version != "3.11" and extra == "dev"
-Requires-Dist: mccabe==0.7.0; extra == "dev"
-Requires-Dist: markupsafe==2.1.5; extra == "dev"
-Requires-Dist: imagesize==1.4.1; extra == "dev"
-Requires-Dist: pathspec==0.12.1; extra == "dev"
-Requires-Dist: sphinx==7.1.2; extra == "dev"
-Requires-Dist: mypy-extensions==1.0.0; extra == "dev"
-Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "dev"
-Requires-Dist: tomli==2.2.1; extra == "dev"
-Requires-Dist: importlib-metadata==8.5.0; extra == "dev"
-Requires-Dist: certifi==2025.1.31; extra == "dev"
-Requires-Dist: pylint==3.2.7; extra == "dev"
-Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "dev"
-Requires-Dist: urllib3==2.2.3; extra == "dev"
-Requires-Dist: tomlkit==0.13.2; extra == "dev"
-Requires-Dist: pytest==7.4.4; extra == "dev"
-Requires-Dist: iniconfig==2.1.0; extra == "dev"
-Requires-Dist: black==23.12.1; extra == "dev"
-Requires-Dist: asyncpg==0.30.0; extra == "dev"
-Requires-Dist: pytz==2025.2; extra == "dev"
-Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "dev"
+Requires-Dist: alabaster==0.7.13; extra == "dev"
 Requires-Dist: sphinxcontrib-trio==1.1.2; extra == "dev"
-Requires-Dist: dill==0.3.9; extra == "dev"
+Requires-Dist: imagesize==1.4.1; extra == "dev"
+Requires-Dist: zipp==3.20.2; extra == "dev"
 Requires-Dist: pluggy==1.5.0; extra == "dev"
-Requires-Dist: requests==2.32.3; extra == "dev"
-Requires-Dist: jinja2==3.1.6; extra == "dev"
+Requires-Dist: charset-normalizer==3.4.1; extra == "dev"
+Requires-Dist: tomli==2.2.1; extra == "dev"
+Requires-Dist: pylint==3.2.7; extra == "dev"
+Requires-Dist: sphinxcontrib-devhelp==1.0.2; extra == "dev"
+Requires-Dist: importlib-metadata==8.5.0; extra == "dev"
+Requires-Dist: pytest-mock==3.14.0; extra == "dev"
+Requires-Dist: asyncpg==0.30.0; extra == "dev"
+Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "dev"
+Requires-Dist: mypy-extensions==1.1.0; extra == "dev"
+Requires-Dist: pathspec==0.12.1; extra == "dev"
+Requires-Dist: sphinx-prompt==1.7.0; extra == "dev"
+Requires-Dist: tomlkit==0.13.2; extra == "dev"
+Requires-Dist: pytest-asyncio==0.21.2; extra == "dev"
 Requires-Dist: snowballstemmer==2.2.0; extra == "dev"
+Requires-Dist: pytz==2025.2; extra == "dev"
+Requires-Dist: black==23.12.1; extra == "dev"
+Requires-Dist: iniconfig==2.1.0; extra == "dev"
+Requires-Dist: sphinxcontrib-jquery==4.1; extra == "dev"
+Requires-Dist: isort==5.13.2; extra == "dev"
+Requires-Dist: pytest==7.4.4; extra == "dev"
+Requires-Dist: sphinx==7.1.2; extra == "dev"
+Requires-Dist: mccabe==0.7.0; extra == "dev"
+Requires-Dist: jinja2==3.1.6; extra == "dev"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.5; extra == "dev"
+Requires-Dist: docutils==0.20.1; extra == "dev"
+Requires-Dist: exceptiongroup==1.2.2; python_version != "3.11" and extra == "dev"
+Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "dev"
+Requires-Dist: requests==2.32.3; extra == "dev"
+Requires-Dist: sphinxcontrib-qthelp==1.0.3; extra == "dev"
+Requires-Dist: dill==0.4.0; extra == "dev"
+Requires-Dist: certifi==2025.4.26; extra == "dev"
 Requires-Dist: sphinxcontrib-htmlhelp==2.0.1; extra == "dev"
+Requires-Dist: astroid==3.2.4; extra == "dev"
+Requires-Dist: sphinxcontrib-applehelp==1.0.4; extra == "dev"
+Requires-Dist: urllib3==2.2.3; extra == "dev"
+Requires-Dist: markupsafe==2.1.5; extra == "dev"
 Provides-Extra: all
 Requires-Dist: asyncpg==0.30.0; extra == "all"
 

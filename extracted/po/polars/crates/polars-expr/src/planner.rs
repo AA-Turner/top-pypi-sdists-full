@@ -18,7 +18,7 @@ pub fn get_expr_depth_limit() -> PolarsResult<u16> {
     Ok(depth)
 }
 
-fn ok_checker(_i: usize, _state: &ExpressionConversionState) -> PolarsResult<()> {
+fn ok_checker(_state: &ExpressionConversionState) -> PolarsResult<()> {
     Ok(())
 }
 
@@ -41,15 +41,14 @@ pub(crate) fn create_physical_expressions_check_state<F>(
     checker: F,
 ) -> PolarsResult<Vec<Arc<dyn PhysicalExpr>>>
 where
-    F: Fn(usize, &ExpressionConversionState) -> PolarsResult<()>,
+    F: Fn(&ExpressionConversionState) -> PolarsResult<()>,
 {
     exprs
         .iter()
-        .enumerate()
-        .map(|(i, e)| {
+        .map(|e| {
             state.reset();
             let out = create_physical_expr(e, context, expr_arena, schema, state);
-            checker(i, state)?;
+            checker(state)?;
             out
         })
         .collect()
@@ -76,15 +75,14 @@ pub(crate) fn create_physical_expressions_from_nodes_check_state<F>(
     checker: F,
 ) -> PolarsResult<Vec<Arc<dyn PhysicalExpr>>>
 where
-    F: Fn(usize, &ExpressionConversionState) -> PolarsResult<()>,
+    F: Fn(&ExpressionConversionState) -> PolarsResult<()>,
 {
     exprs
         .iter()
-        .enumerate()
-        .map(|(i, e)| {
+        .map(|e| {
             state.reset();
             let out = create_physical_expr_inner(*e, context, expr_arena, schema, state);
-            checker(i, state)?;
+            checker(state)?;
             out
         })
         .collect()
@@ -449,8 +447,21 @@ fn create_physical_expr_inner(
                 .get(expression)
                 .to_field(schema, ctxt, expr_arena)?;
 
-            let input =
-                create_physical_expressions_from_irs(input, ctxt, expr_arena, schema, state)?;
+            let is_reducing_aggregation = options.flags.contains(FunctionFlags::RETURNS_SCALAR)
+                && matches!(options.collect_groups, ApplyOptions::GroupWise);
+            // Will be reset in the function so get that here.
+            let has_window = state.local.has_window;
+            let input = create_physical_expressions_check_state(
+                input,
+                ctxt,
+                expr_arena,
+                schema,
+                state,
+                |state| {
+                    polars_ensure!(!((is_reducing_aggregation || has_window) && state.has_implode() && matches!(ctxt, Context::Aggregation)), InvalidOperation: "'implode' followed by an aggregation is not allowed");
+                    Ok(())
+                },
+            )?;
 
             Ok(Arc::new(ApplyExpr::new(
                 input,
@@ -472,8 +483,21 @@ fn create_physical_expr_inner(
             let output_field = expr_arena
                 .get(expression)
                 .to_field(schema, ctxt, expr_arena)?;
-            let input =
-                create_physical_expressions_from_irs(input, ctxt, expr_arena, schema, state)?;
+            let is_reducing_aggregation = options.flags.contains(FunctionFlags::RETURNS_SCALAR)
+                && matches!(options.collect_groups, ApplyOptions::GroupWise);
+            // Will be reset in the function so get that here.
+            let has_window = state.local.has_window;
+            let input = create_physical_expressions_check_state(
+                input,
+                ctxt,
+                expr_arena,
+                schema,
+                state,
+                |state| {
+                    polars_ensure!(!((is_reducing_aggregation || has_window) && state.has_implode() && matches!(ctxt, Context::Aggregation)), InvalidOperation: "'implode' followed by an aggregation is not allowed");
+                    Ok(())
+                },
+            )?;
 
             Ok(Arc::new(ApplyExpr::new(
                 input,

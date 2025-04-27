@@ -8,7 +8,7 @@ use polars_error::{PolarsResult, polars_bail};
 use polars_expr::state::ExecutionState;
 use polars_mem_engine::create_physical_plan;
 use polars_plan::dsl::{
-    ExtraColumnsPolicy, FileScan, FileSinkType, PartitionSinkTypeIR, PartitionVariantIR, SinkTypeIR,
+    FileScan, FileSinkType, PartitionSinkTypeIR, PartitionVariantIR, SinkTypeIR,
 };
 use polars_plan::plans::expr_ir::{ExprIR, OutputName};
 use polars_plan::plans::{AExpr, Context, FunctionIR, IR, IRAggExpr, LiteralValue};
@@ -435,58 +435,68 @@ pub fn lower_ir(
                 output_schema: _,
                 scan_type,
                 predicate,
-                unified_scan_args,
+                file_options,
             } = v.clone()
             else {
                 unreachable!();
             };
 
-            if scan_sources.is_empty()
-                || unified_scan_args
-                    .pre_slice
-                    .as_ref()
-                    .is_some_and(|slice| slice.len() == 0)
-            {
+            if scan_sources.is_empty() || file_options.pre_slice.is_some_and(|(_, len)| len == 0) {
                 // If there are no sources, just provide an empty in-memory source with the right
                 // schema.
                 PhysNodeKind::InMemorySource {
                     df: Arc::new(DataFrame::empty_with_schema(output_schema.as_ref())),
                 }
             } else {
-                let file_reader_builder = match &*scan_type {
+                let (file_reader_builder, cloud_options) = match &*scan_type {
                     #[cfg(feature = "parquet")]
                     FileScan::Parquet {
                         options,
+                        cloud_options,
                         metadata: first_metadata,
-                    } => Arc::new(
-                        crate::nodes::io_sources::parquet::builder::ParquetReaderBuilder {
-                            options: Arc::new(options.clone()),
-                            first_metadata: first_metadata.clone(),
-                        },
-                    ) as Arc<dyn FileReaderBuilder>,
+                    } => (
+                        Arc::new(
+                            crate::nodes::io_sources::parquet::builder::ParquetReaderBuilder {
+                                options: Arc::new(options.clone()),
+                                first_metadata: first_metadata.clone(),
+                            },
+                        ) as Arc<dyn FileReaderBuilder>,
+                        cloud_options,
+                    ),
                     #[cfg(feature = "ipc")]
                     FileScan::Ipc {
                         options: polars_io::ipc::IpcScanOptions {},
+                        cloud_options,
                         metadata: first_metadata,
-                    } => Arc::new(crate::nodes::io_sources::ipc::builder::IpcReaderBuilder {
-                        first_metadata: first_metadata.clone(),
-                    }) as Arc<dyn FileReaderBuilder>,
+                    } => (
+                        Arc::new(crate::nodes::io_sources::ipc::builder::IpcReaderBuilder {
+                            first_metadata: first_metadata.clone(),
+                        }) as Arc<dyn FileReaderBuilder>,
+                        cloud_options,
+                    ),
 
                     #[cfg(feature = "csv")]
-                    FileScan::Csv { options } => {
-                        Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>
-                    },
+                    FileScan::Csv {
+                        options,
+                        cloud_options,
+                    } => (
+                        Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>,
+                        cloud_options,
+                    ),
 
                     #[cfg(feature = "json")]
-                    FileScan::NDJson { options } => {
-                        Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>
-                    },
+                    FileScan::NDJson {
+                        options,
+                        cloud_options,
+                    } => (
+                        Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>,
+                        cloud_options,
+                    ),
 
                     _ => todo!(),
                 };
 
                 {
-                    let cloud_options = &unified_scan_args.cloud_options;
                     let output_schema =
                         if std::env::var("POLARS_FORCE_EMPTY_PROJECT").as_deref() == Ok("1") {
                             Default::default()
@@ -497,28 +507,14 @@ pub fn lower_ir(
                     let cloud_options = cloud_options.clone().map(Arc::new);
                     let file_schema = file_info.schema.clone();
 
-                    let (projected_file_schema, file_schema) =
+                    let projected_file_schema =
                         multi_file_reader::initialization::projection::resolve_projections(
                             &output_schema,
                             &file_schema,
                             &mut hive_parts,
-                            unified_scan_args
-                                .row_index
-                                .as_ref()
-                                .map(|ri| ri.name.as_str()),
-                            unified_scan_args
-                                .include_file_paths
-                                .as_ref()
-                                .map(|x| x.as_str()),
+                            file_options.row_index.as_ref().map(|ri| ri.name.as_str()),
+                            file_options.include_file_paths.as_ref().map(|x| x.as_str()),
                         );
-                    let has_projection = unified_scan_args.projection.is_some();
-
-                    // TODO: Add this to unified scan args.
-                    let extra_columns_policy = if has_projection {
-                        ExtraColumnsPolicy::Ignore
-                    } else {
-                        ExtraColumnsPolicy::Raise
-                    };
 
                     let mut multi_scan_node = PhysNodeKind::MultiScan {
                         scan_sources,
@@ -530,10 +526,8 @@ pub fn lower_ir(
                         pre_slice: None,
                         predicate: None,
                         hive_parts,
-                        cast_columns_policy: unified_scan_args.cast_columns_policy,
-                        missing_columns_policy: unified_scan_args.missing_columns_policy,
-                        extra_columns_policy,
-                        include_file_paths: unified_scan_args.include_file_paths,
+                        allow_missing_columns: file_options.allow_missing_columns,
+                        include_file_paths: file_options.include_file_paths,
                         file_schema,
                     };
 
@@ -548,9 +542,9 @@ pub fn lower_ir(
                         unreachable!()
                     };
 
-                    let pre_slice = unified_scan_args.pre_slice.clone();
+                    let pre_slice = file_options.pre_slice.map(Slice::from);
 
-                    let mut row_index_post = unified_scan_args.row_index;
+                    let mut row_index_post = file_options.row_index;
                     let mut pre_slice_post = pre_slice.clone();
                     let mut predicate_post = predicate.clone();
 
@@ -857,7 +851,6 @@ pub fn lower_ir(
                     distinct_lp_node,
                     &mut lp_arena,
                     expr_arena,
-                    None,
                 )?);
 
                 let distinct_node = PhysNode {

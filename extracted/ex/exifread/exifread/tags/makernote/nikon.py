@@ -1,8 +1,10 @@
 """
 Makernote (proprietary) tag definitions for Nikon.
 """
+from typing import Dict, Tuple
 
-from exifread.utils import Ratio, make_string
+from exifread.tags.str_utils import make_string
+from exifread.utils import Ratio
 
 
 def ev_bias(seq) -> str:
@@ -15,6 +17,7 @@ def ev_bias(seq) -> str:
     reading the Nikon MakerNote.
     http://tomtia.plala.jp/DigitalCamera/MakerNote/index.asp
     """
+
     if len(seq) < 4:
         return ""
     if seq == [252, 1, 6, 0]:
@@ -55,7 +58,7 @@ def ev_bias(seq) -> str:
 
 
 # Nikon E99x MakerNote Tags
-TAGS_NEW = {
+TAGS_NEW: Dict[int, Tuple] = {
     0x0001: ("MakernoteVersion", make_string),  # Sometimes binary
     0x0002: ("ISOSetting",),
     0x0003: ("ColorMode",),
@@ -197,7 +200,7 @@ TAGS_NEW = {
     0x0E22: ("NEFBitDepth",),
 }
 
-TAGS_OLD = {
+TAGS_OLD: Dict[int, Tuple] = {
     0x0003: (
         "Quality",
         {

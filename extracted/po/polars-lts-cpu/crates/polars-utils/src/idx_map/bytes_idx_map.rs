@@ -56,11 +56,11 @@ impl<V> BytesIndexMap<V> {
     }
 
     pub fn len(&self) -> IdxSize {
-        self.tuples.len() as IdxSize
+        self.table.len() as IdxSize
     }
 
     pub fn is_empty(&self) -> bool {
-        self.tuples.is_empty()
+        self.table.is_empty()
     }
 
     pub fn get(&self, hash: u64, key: &[u8]) -> Option<&V> {

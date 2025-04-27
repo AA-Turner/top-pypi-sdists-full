@@ -23,10 +23,9 @@ impl<
         start: usize,
         end: usize,
         params: Option<RollingFnParams>,
-        window_size: Option<usize>,
     ) -> Self {
         Self {
-            sum: SumWindow::new(slice, validity, start, end, params, window_size),
+            sum: SumWindow::new(slice, validity, start, end, params),
         }
     }
 
