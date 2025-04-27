@@ -5,6 +5,7 @@
 # ///
 
 import concurrent.futures
+import json
 import shutil
 import tarfile
 import time
@@ -66,12 +67,15 @@ def main() -> int:
     start = time.perf_counter()
 
     rows = http.request('GET', PACKAGES_URL).json()['rows'][:10_000]
-    project_names = [row['project'] for row in rows]
+    project_names = [
+        (row['project'], row['download_count'], rank)
+        for rank, row in enumerate(rows, start=1)
+    ]
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
-            executor.submit(process_project, index, proj)
-            for index, proj in enumerate(project_names, start=1)
+            executor.submit(process_project, index, proj, download_count, rank)
+            for index, (proj, download_count, rank) in enumerate(project_names, start=1)
         }
         sdists = {fut.result() for fut in concurrent.futures.as_completed(futures)}
     sdists.discard(None)
@@ -81,10 +85,12 @@ def main() -> int:
     return 0
 
 
-def process_project(index, proj):
+def process_project(index, proj, download_count, rank):
     try:
-        if (url := sdist_url(http, index, proj)) is None:
+        metadata = sdist_url(http, index, proj)
+        if metadata is None:
             return None
+        url, upload_time = metadata
         filename = url.rpartition('/')[2]
         archive_data = http.request('GET', url).data
         print(f'{index:6,}: Downloaded {filename} for {proj!r}')
@@ -92,6 +98,19 @@ def process_project(index, proj):
         # Group projects by first two letters, excluding 'py'
         prefix = proj.removeprefix('py').removeprefix('-')[:2] or proj
         project_root = EXTRACTED_ROOT / prefix / proj
+        project_root.mkdir(parents=True, exist_ok=True)
+
+        sdist_metadata = {
+            'url': url,
+            'filename': filename,
+            'upload_time': upload_time,
+            'download_count': download_count,
+            'rank': rank,
+        }
+        (project_root / '__sdist_metadata__.json').write_text(
+            json.dumps(sdist_metadata, ensure_ascii=False, indent=0),
+            encoding='utf-8',
+        )
 
         extract_archive(index, filename, archive_data, project_root)
         return filename
@@ -100,11 +119,13 @@ def process_project(index, proj):
         traceback.print_exc()
 
 
-def sdist_url(http: urllib3.PoolManager, index: int, project_name: str) -> str | None:
+def sdist_url(
+    http: urllib3.PoolManager, index: int, project_name: str
+) -> tuple[str, str] | None:
     data = http.request('GET', f'https://pypi.org/pypi/{project_name}/json').json()
     for entry in data['urls']:
         if entry['packagetype'] == 'sdist':
-            return entry['url']
+            return entry['url'], entry['upload_time_iso_8601']
     print(f'{index:6,}: No source distribution for {project_name!r}')
     return None
 
