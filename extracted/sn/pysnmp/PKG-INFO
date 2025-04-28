@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysnmp
-Version: 7.1.18
+Version: 7.1.19
 Summary: A Python library for SNMP
 Author-email: Ilya Etingof <etingof@gmail.com>, "LeXtudio Inc." <support@lextudio.com>
 Requires-Python: >=3.9
@@ -23,7 +23,7 @@ Requires-Dist: pytest>=7.2.0 ; extra == "dev"
 Requires-Dist: pytest-codecov>=0.4.0 ; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0 ; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.1 ; extra == "dev"
-Requires-Dist: Sphinx>=7.0.0 ; extra == "dev"
+Requires-Dist: Sphinx>=7.0.0,<8.0.0 ; extra == "dev"
 Requires-Dist: sphinx-copybutton>=0.5.2 ; extra == "dev"
 Requires-Dist: sphinx-notfound-page>=1.0.0 ; extra == "dev"
 Requires-Dist: sphinx-sitemap-lextudio>=2.5.2 ; extra == "dev"
@@ -117,8 +117,8 @@ Documentation
 PySNMP documentation is hosted at the [docs site](https://www.pysnmp.com/pysnmp/).
 
 * Copyright (c) 1999-2020, [Ilya Etingof](https://lists.openstack.org/pipermail/openstack-discuss/2022-August/030062.html)
-* Copyright (c) 2022-2024, [LeXtudio Inc.](mailto:support@lextudio.com)
-* Copyright (c) 1999-2024, [Other PySNMP contributors](https://github.com/lextudio/pysnmp/THANKS.txt)
+* Copyright (c) 2022-2025, [LeXtudio Inc.](mailto:support@lextudio.com)
+* Copyright (c) 1999-2025, [Other PySNMP contributors](https://github.com/lextudio/pysnmp/THANKS.txt)
 
 All rights reserved.
 

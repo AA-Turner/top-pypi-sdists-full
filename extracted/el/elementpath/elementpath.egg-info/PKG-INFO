@@ -1,22 +1,18 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: elementpath
-Version: 4.8.0
+Version: 5.0.0
 Summary: XPath 1.0/2.0/3.0/3.1 parsers and selectors for ElementTree and lxml
-Home-page: https://github.com/sissaschool/elementpath
-Author: Davide Brunato
-Author-email: brunato@sissa.it
-License: MIT
-Keywords: XPath,XPath2,XPath3,XPath31,Pratt-parser,ElementTree,lxml
+Author-email: Davide Brunato <brunato@sissa.it>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/sissaschool/elementpath
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,29 +23,24 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Python: >=3.8
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
-Requires-Dist: tox; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
-Requires-Dist: lxml; extra == "dev"
-Requires-Dist: xmlschema>=3.3.2; extra == "dev"
-Requires-Dist: Sphinx; extra == "dev"
-Requires-Dist: memory-profiler; extra == "dev"
-Requires-Dist: memray; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: lxml; extra == "dev"
 Requires-Dist: lxml-stubs; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: memray; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: xmlschema>=4.0.1; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: readthedocs-sphinx-search; extra == "docs"
+Dynamic: license-file
 
 ***********
 elementpath
@@ -81,7 +72,7 @@ has it's own implementation of XPath 1.0.
 Installation and usage
 ======================
 
-You can install the package with *pip* in a Python 3.8+ environment::
+You can install the package with *pip* in a Python 3.9+ environment::
 
     pip install elementpath
 

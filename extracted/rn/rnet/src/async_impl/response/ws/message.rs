@@ -3,8 +3,6 @@ use pyo3::{
     prelude::*,
     pybacked::{PyBackedBytes, PyBackedStr},
 };
-#[cfg(feature = "docs")]
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rquest::Utf8Bytes;
 
 use crate::{
@@ -14,12 +12,10 @@ use crate::{
 };
 
 /// A WebSocket message.
-#[cfg_attr(feature = "docs", gen_stub_pyclass)]
 #[pyclass]
 #[derive(Clone)]
 pub struct Message(pub rquest::Message);
 
-#[cfg_attr(feature = "docs", gen_stub_pymethods)]
 #[pymethods]
 impl Message {
     /// Returns the JSON representation of the message.
@@ -96,16 +92,11 @@ impl Message {
     }
 }
 
-#[cfg_attr(feature = "docs", gen_stub_pymethods)]
 #[pymethods]
 impl Message {
     /// Creates a new text message from the JSON representation.
-    ///
-    /// # Arguments
-    /// * `json` - The JSON representation of the message.
     #[staticmethod]
     #[pyo3(signature = (json))]
-    #[inline(always)]
     pub fn text_from_json(py: Python, json: Json) -> PyResult<Self> {
         py.allow_threads(|| {
             rquest::Message::text_from_json(&json)
@@ -116,12 +107,8 @@ impl Message {
     }
 
     /// Creates a new binary message from the JSON representation.
-    ///
-    /// # Arguments
-    /// * `json` - The JSON representation of the message.
     #[staticmethod]
     #[pyo3(signature = (json))]
-    #[inline(always)]
     pub fn binary_from_json(py: Python, json: Json) -> PyResult<Self> {
         py.allow_threads(|| {
             rquest::Message::binary_from_json(&json)
@@ -132,66 +119,40 @@ impl Message {
     }
 
     /// Creates a new text message.
-    ///
-    /// # Arguments
-    ///
-    /// * `text` - The text content of the message.
     #[staticmethod]
     #[pyo3(signature = (text))]
-    #[inline(always)]
     pub fn from_text(text: PyBackedStr) -> Self {
         let msg = rquest::Message::text(Utf8Bytes::from_bytes_unchecked(Bytes::from_owner(text)));
         Message(msg)
     }
 
     /// Creates a new binary message.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The binary data of the message.
     #[staticmethod]
     #[pyo3(signature = (data))]
-    #[inline(always)]
     pub fn from_binary(data: PyBackedBytes) -> Self {
         let msg = rquest::Message::binary(Bytes::from_owner(data));
         Message(msg)
     }
 
     /// Creates a new ping message.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The ping data of the message.
     #[staticmethod]
     #[pyo3(signature = (data))]
-    #[inline(always)]
     pub fn from_ping(data: PyBackedBytes) -> Self {
         let msg = rquest::Message::ping(Bytes::from_owner(data));
         Message(msg)
     }
 
     /// Creates a new pong message.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The pong data of the message.
     #[staticmethod]
     #[pyo3(signature = (data))]
-    #[inline(always)]
     pub fn from_pong(data: PyBackedBytes) -> Self {
         let msg = rquest::Message::pong(Bytes::from_owner(data));
         Message(msg)
     }
 
     /// Creates a new close message.
-    ///
-    /// # Arguments
-    ///
-    /// * `code` - The close code.
-    /// * `reason` - An optional reason for closing.
     #[staticmethod]
     #[pyo3(signature = (code, reason=None))]
-    #[inline(always)]
     pub fn from_close(code: u16, reason: Option<PyBackedStr>) -> Self {
         let reason = reason
             .map(Bytes::from_owner)
@@ -203,17 +164,11 @@ impl Message {
         });
         Message(msg)
     }
-}
 
-#[cfg_attr(feature = "docs", gen_stub_pymethods)]
-#[pymethods]
-impl Message {
-    #[inline(always)]
     fn __str__(&self) -> String {
         format!("{:?}", self.0)
     }
 
-    #[inline(always)]
     fn __repr__(&self) -> String {
         self.__str__()
     }

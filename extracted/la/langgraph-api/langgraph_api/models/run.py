@@ -181,9 +181,9 @@ def translate_pattern(pat: str) -> re.Pattern[str]:
 
 
 @functools.lru_cache(maxsize=1)
-def get_header_patterns() -> (
-    tuple[list[re.Pattern[str] | None], list[re.Pattern[str] | None]]
-):
+def get_header_patterns() -> tuple[
+    list[re.Pattern[str] | None], list[re.Pattern[str] | None]
+]:
     from langgraph_api import config
 
     if not config.HTTP_CONFIG:

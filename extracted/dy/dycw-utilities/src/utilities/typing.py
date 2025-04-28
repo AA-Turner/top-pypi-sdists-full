@@ -48,14 +48,14 @@ def contains_self(obj: Any, /) -> bool:
 ##
 
 
-def get_args(obj: Any, /) -> tuple[Any, ...]:
+def get_args(obj: Any, /, *, optional_drop_none: bool = False) -> tuple[Any, ...]:
     """Get the arguments of an annotation."""
     if isinstance(obj, TypeAliasType):
         return get_args(obj.__value__)
-    if is_optional_type(obj):
-        args = _get_args(obj)
-        return tuple(a for a in args if a is not NoneType)
-    return _get_args(obj)
+    args = _get_args(obj)
+    if is_optional_type(obj) and optional_drop_none:
+        args = tuple(a for a in args if a is not NoneType)
+    return args
 
 
 ##
@@ -230,10 +230,26 @@ def is_instance_gen(
 def is_instance_gen(obj: Any, type_: Any, /) -> bool: ...
 def is_instance_gen(obj: Any, type_: Any, /) -> bool:
     """Check if an instance relationship holds, except bool<int."""
-    return any(_is_instance_gen_one(obj, t) for t in get_type_classes(type_))
+    # parent
+    if isinstance(type_, tuple):
+        return any(is_instance_gen(obj, t) for t in type_)
+    if is_literal_type(type_):
+        return obj in get_args(type_)
+    if is_union_type(type_):
+        return any(is_instance_gen(obj, t) for t in get_args(type_))
+    # tuple vs tuple
+    if isinstance(obj, tuple) and is_tuple_type(type_):
+        type_args = get_args(type_)
+        return (len(obj) == len(type_args)) and all(
+            is_instance_gen(o, t) for o, t in zip(obj, type_args, strict=True)
+        )
+    # basic
+    if isinstance(type_, type):
+        return any(_is_instance_gen_type(obj, t) for t in get_type_classes(type_))
+    raise IsInstanceGenError(obj=obj, type_=type_)
 
 
-def _is_instance_gen_one(obj: Any, type_: type[_T], /) -> TypeGuard[_T]:
+def _is_instance_gen_type(obj: Any, type_: type[_T], /) -> TypeGuard[_T]:
     return (
         isinstance(obj, type_)
         and not (
@@ -247,6 +263,16 @@ def _is_instance_gen_one(obj: Any, type_: type[_T], /) -> TypeGuard[_T]:
             and not issubclass(type_, dt.datetime)
         )
     )
+
+
+@dataclass(kw_only=True, slots=True)
+class IsInstanceGenError(Exception):
+    obj: Any
+    type_: Any
+
+    @override
+    def __str__(self) -> str:
+        return f"Invalid arguments; got {self.obj!r} and {self.type_!r}"
 
 
 ##
@@ -350,13 +376,41 @@ def is_subclass_gen(
     /,
 ) -> TypeGuard[type[_T1 | _T2 | _T3 | _T4 | _T5]]: ...
 @overload
-def is_subclass_gen(cls: type[Any], parent: Any, /) -> bool: ...
-def is_subclass_gen(cls: type[Any], parent: Any, /) -> bool:
+def is_subclass_gen(cls: Any, parent: Any, /) -> bool: ...
+def is_subclass_gen(cls: Any, parent: Any, /) -> bool:
     """Generalized `issubclass`."""
-    return any(_is_subclass_gen_one(cls, p) for p in get_type_classes(parent))
+    # child
+    if isinstance(cls, tuple):
+        return all(is_subclass_gen(c, parent) for c in cls)
+    if is_literal_type(cls):
+        types = tuple(map(type, get_args(cls)))
+        return (
+            is_literal_type(parent) and set(get_args(cls)).issubset(get_args(parent))
+        ) or is_subclass_gen(types, parent)
+    if is_union_type(cls):
+        return all(is_subclass_gen(c, parent) for c in get_args(cls))
+    # parent
+    if isinstance(parent, tuple):
+        return any(is_subclass_gen(cls, p) for p in parent)
+    if is_literal_type(parent):
+        return is_literal_type(cls) and set(get_args(cls)).issubset(get_args(parent))
+    if is_union_type(parent):
+        return any(is_subclass_gen(cls, p) for p in get_args(parent))
+    # tuple vs tuple
+    if is_tuple_type(cls) and is_tuple_type(parent):
+        cls_args, parent_args = get_args(cls), get_args(parent)
+        return (len(cls_args) == len(parent_args)) and all(
+            is_subclass_gen(c, p) for c, p in zip(cls_args, parent_args, strict=True)
+        )
+    if is_tuple_type(cls) is not is_tuple_type(parent):
+        return False
+    # basic
+    if isinstance(cls, type):
+        return any(_is_subclass_gen_type(cls, p) for p in get_type_classes(parent))
+    raise IsSubclassGenError(cls=cls)
 
 
-def _is_subclass_gen_one(cls: type[Any], parent: type[_T], /) -> TypeGuard[type[_T]]:
+def _is_subclass_gen_type(cls: type[Any], parent: type[_T], /) -> TypeGuard[type[_T]]:
     return (
         issubclass(cls, parent)
         and not (
@@ -370,6 +424,15 @@ def _is_subclass_gen_one(cls: type[Any], parent: type[_T], /) -> TypeGuard[type[
             and not issubclass(parent, dt.datetime)
         )
     )
+
+
+@dataclass(kw_only=True, slots=True)
+class IsSubclassGenError(Exception):
+    cls: Any
+
+    @override
+    def __str__(self) -> str:
+        return f"Argument must be a class; got {self.cls!r}"
 
 
 ##
@@ -402,6 +465,8 @@ def _is_annotation_of_type(obj: Any, origin: Any, /) -> bool:
 __all__ = [
     "GetTypeClassesError",
     "GetUnionTypeClassesError",
+    "IsInstanceGenError",
+    "IsSubclassGenError",
     "contains_self",
     "get_literal_elements",
     "get_type_classes",

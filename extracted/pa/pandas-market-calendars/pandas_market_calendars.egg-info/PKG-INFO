@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas_market_calendars
-Version: 5.0.0
+Version: 5.1.0
 Summary: Market and exchange trading calendars for pandas
 Author-email: Ryan Sheftel <rsheftel@alumni.upenn.edu>
 License: MIT

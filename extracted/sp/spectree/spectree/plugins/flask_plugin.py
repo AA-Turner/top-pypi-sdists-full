@@ -1,4 +1,4 @@
-from typing import Any, Callable, Mapping, Optional, Tuple, get_type_hints
+from typing import Any, Callable, Mapping, Optional, Tuple
 
 import flask
 from flask import Blueprint, abort, current_app, jsonify, make_response, request
@@ -9,6 +9,7 @@ from spectree._types import ModelType
 from spectree.plugins.base import BasePlugin, Context, validate_response
 from spectree.response import Response
 from spectree.utils import (
+    cached_type_hints,
     flask_response_unpack,
     get_multidict_items,
     werkzeug_parse_rule,
@@ -197,18 +198,19 @@ class FlaskPlugin(BasePlugin):
                 )
                 response = make_response(jsonify(errors), validation_error_status)
 
+        before(request, response, req_validation_error, None)
+
+        if req_validation_error is not None:
+            assert response  # make mypy happy
+            abort(response)
+
         if self.config.annotations:
-            annotations = get_type_hints(func)
+            annotations = cached_type_hints(func)
             for name in ("query", "json", "form", "headers", "cookies"):
                 if annotations.get(name):
                     kwargs[name] = getattr(
                         getattr(request, "context", None), name, None
                     )
-
-        before(request, response, req_validation_error, None)
-        if req_validation_error:
-            assert response  # make mypy happy
-            abort(response)
 
         result = func(*args, **kwargs)
 

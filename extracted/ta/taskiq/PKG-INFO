@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: taskiq
-Version: 0.11.16
+Version: 0.11.17
 Summary: Distributed task queue with full async support
 License: LICENSE
 Keywords: taskiq,tasks,distributed,async

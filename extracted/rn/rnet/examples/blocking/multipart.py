@@ -17,17 +17,17 @@ def main():
             Part(name="def", value="111", filename="def.txt", mime="text/plain"),
             # Upload binary data
             Part(name="abc", value=b"000", filename="abc.txt", mime="text/plain"),
-            # Uoload file data
+            # Unload file data
             Part(
                 name="LICENSE",
-                value=Path("./LICENSE"),
+                value=Path("../../LICENSE"),
                 filename="LICENSE",
                 mime="text/plain",
             ),
             # Upload bytes stream file data
             Part(
                 name="README",
-                value=file_to_bytes_stream("./README.md"),
+                value=file_to_bytes_stream("../../README.md"),
                 filename="README.md",
                 mime="text/plain",
             ),

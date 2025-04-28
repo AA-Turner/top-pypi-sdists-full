@@ -28,6 +28,8 @@ MMTEB_CITATION = """@article{enevoldsen2025mmtebmassivemultilingualtext,
 
 MTEB_EN = Benchmark(
     name="MTEB(eng, v2)",
+    display_name="English",
+    icon="https://github.com/lipis/flag-icons/raw/refs/heads/main/flags/4x3/us.svg",
     tasks=MTEBTasks(
         get_tasks(
             tasks=[
@@ -97,6 +99,8 @@ The original MTEB leaderboard is available under the [MTEB(eng, v1)](http://mteb
 
 MTEB_ENG_CLASSIC = Benchmark(
     name="MTEB(eng, v1)",
+    display_name="English Legacy",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/gb.svg",
     tasks=MTEBTasks(
         get_tasks(
             tasks=[
@@ -189,6 +193,8 @@ We recommend that you use [MTEB(eng, v2)](http://mteb-leaderboard.hf.space/?benc
 
 MTEB_MAIN_RU = Benchmark(
     name="MTEB(rus, v1)",
+    display_name="Russian",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/ru.svg",
     tasks=get_tasks(
         languages=["rus"],
         tasks=[
@@ -220,9 +226,12 @@ MTEB_MAIN_RU = Benchmark(
             "RuBQRetrieval",
             # STS
             "RUParaPhraserSTS",
-            "RuSTSBenchmarkSTS",
             "STS22",
         ],
+    )
+    + get_tasks(
+        tasks=["RuSTSBenchmarkSTS"],
+        eval_splits=["test"],
     ),
     description="A Russian version of the Massive Text Embedding Benchmark with a number of novel Russian tasks in all task categories of the original MTEB.",
     reference="https://aclanthology.org/2023.eacl-main.148/",
@@ -239,6 +248,7 @@ MTEB_MAIN_RU = Benchmark(
 
 MTEB_RETRIEVAL_WITH_INSTRUCTIONS = Benchmark(
     name="FollowIR",
+    display_name="Instruction Following",
     tasks=get_tasks(
         tasks=[
             "Robust04InstructionRetrieval",
@@ -260,6 +270,8 @@ MTEB_RETRIEVAL_WITH_INSTRUCTIONS = Benchmark(
 
 MTEB_RETRIEVAL_LAW = Benchmark(
     name="MTEB(Law, v1)",  # This benchmark is likely in the need of an update
+    display_name="Legal",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-map-library.svg",
     tasks=get_tasks(
         tasks=[
             "AILACasedocs",
@@ -279,6 +291,8 @@ MTEB_RETRIEVAL_LAW = Benchmark(
 
 MTEB_RETRIEVAL_MEDICAL = Benchmark(
     name="MTEB(Medical, v1)",
+    display_name="Medical",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-map-hospital.svg",
     tasks=get_tasks(
         tasks=[
             "CUREv1",
@@ -328,6 +342,8 @@ MTEB_MINERS_BITEXT_MINING = Benchmark(
 
 SEB = Benchmark(
     name="MTEB(Scandinavian, v1)",
+    display_name="Scandinavian",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/dk.svg",
     tasks=get_tasks(
         tasks=[
             # Bitext
@@ -379,6 +395,7 @@ SEB = Benchmark(
 
 CoIR = Benchmark(
     name="CoIR",
+    display_name="Code Information Retrieval",
     tasks=get_tasks(
         tasks=[
             "AppsRetrieval",
@@ -408,6 +425,7 @@ CoIR = Benchmark(
 
 RAR_b = Benchmark(
     name="RAR-b",
+    display_name="Reasoning retrieval",
     tasks=get_tasks(
         tasks=[
             "ARCChallenge",
@@ -442,6 +460,8 @@ RAR_b = Benchmark(
 
 MTEB_FRA = Benchmark(
     name="MTEB(fra, v1)",
+    display_name="French",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/fr.svg",
     tasks=MTEBTasks(
         get_tasks(
             languages=["fra"],
@@ -496,6 +516,8 @@ MTEB_FRA = Benchmark(
 
 MTEB_DEU = Benchmark(
     name="MTEB(deu, v1)",
+    display_name="German",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/de.svg",
     tasks=get_tasks(
         languages=["deu"],
         exclusive_language_filter=True,
@@ -543,6 +565,8 @@ MTEB_DEU = Benchmark(
 
 MTEB_KOR = Benchmark(
     name="MTEB(kor, v1)",
+    display_name="Korean",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/kr.svg",
     tasks=get_tasks(
         languages=["kor"],
         tasks=[  # @KennethEnevoldsen: We could probably expand this to a more solid benchamrk, but for now I have left it as is.
@@ -565,6 +589,8 @@ MTEB_KOR = Benchmark(
 
 MTEB_POL = Benchmark(
     name="MTEB(pol, v1)",
+    display_name="Polish",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/pl.svg",
     tasks=MTEBTasks(
         get_tasks(
             languages=["pol"],
@@ -610,6 +636,8 @@ two novel clustering tasks.""",  # Rephrased from the abstract
 
 MTEB_code = Benchmark(
     name="MTEB(Code, v1)",
+    display_name="Code",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-tech-electronics.svg",
     tasks=get_tasks(
         tasks=[
             # Retrieval
@@ -649,6 +677,8 @@ MTEB_code = Benchmark(
 
 MTEB_multilingual = Benchmark(
     name="MTEB(Multilingual, v1)",
+    display_name="Multilingual",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-gui-globe.svg",
     tasks=get_tasks(
         tasks=[
             "BornholmBitextMining",
@@ -793,6 +823,8 @@ MTEB_multilingual = Benchmark(
 
 MTEB_JPN = Benchmark(
     name="MTEB(jpn, v1)",
+    display_name="Japanese",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/jp.svg",
     tasks=get_tasks(
         languages=["jpn"],
         tasks=[
@@ -861,6 +893,8 @@ indic_languages = [
 
 MTEB_INDIC = Benchmark(
     name="MTEB(Indic, v1)",
+    display_name="Indic",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/in.svg",
     tasks=MTEBTasks(
         get_tasks(
             tasks=[
@@ -952,6 +986,8 @@ eu_languages = [
 
 MTEB_EU = Benchmark(
     name="MTEB(Europe, v1)",
+    display_name="European",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/eu.svg",
     tasks=get_tasks(
         tasks=[
             "BornholmBitextMining",
@@ -1040,6 +1076,7 @@ MTEB_EU = Benchmark(
 
 LONG_EMBED = Benchmark(
     name="LongEmbed",
+    display_name="Long-context Retrieval",
     tasks=get_tasks(
         tasks=[
             "LEMBNarrativeQARetrieval",
@@ -1130,7 +1167,6 @@ CODE_RAG = Benchmark(
     primaryClass={cs.SE},
     url={https://arxiv.org/abs/2406.14497},
 }""",
-    display_on_leaderboard=False,
 )
 
 BEIR = Benchmark(
@@ -1191,6 +1227,8 @@ NANOBEIR = Benchmark(
 
 C_MTEB = Benchmark(
     name="MTEB(cmn, v1)",
+    display_name="Chinese",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/cn.svg",
     tasks=MTEBTasks(
         get_tasks(
             tasks=[
@@ -1253,6 +1291,8 @@ C_MTEB = Benchmark(
 
 FA_MTEB = Benchmark(
     name="MTEB(fas, beta)",
+    display_name="Farsi (BETA)",
+    icon="https://github.com/lipis/flag-icons/raw/260c91531be024944c6514130c5defb2ebb02b7d/flags/4x3/ir.svg",
     tasks=get_tasks(
         languages=["fas"],
         tasks=[
@@ -1333,6 +1373,8 @@ FA_MTEB = Benchmark(
 
 CHEMTEB = Benchmark(
     name="ChemTEB",
+    display_name="Chemical",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-gui-purge.svg",
     tasks=get_tasks(
         tasks=[
             "PubChemSMILESBitextMining",
@@ -1546,6 +1588,8 @@ MIEB_common_tasks = [
 
 MIEB_ENG = Benchmark(
     name="MIEB(eng)",
+    display_name="Images, English",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-gui-picture.svg",
     tasks=get_tasks(
         tasks=MIEB_common_tasks
         + [
@@ -1571,6 +1615,8 @@ MIEB_ENG = Benchmark(
 
 MIEB_MULTILINGUAL = Benchmark(
     name="MIEB(Multilingual)",
+    display_name="Images, Multilingual",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-gui-pictures.svg",
     tasks=get_tasks(
         tasks=MIEB_common_tasks
         + [
@@ -1602,6 +1648,8 @@ MIEB_MULTILINGUAL = Benchmark(
 
 MIEB_LITE = Benchmark(
     name="MIEB(lite)",
+    display_name="Images, Lite",
+    icon="https://github.com/DennisSuitters/LibreICONS/raw/2d2172d15e3c6ca03c018629d60050e4b99e5c55/svg-color/libre-map-landscape.svg",
     tasks=get_tasks(
         tasks=[
             # Image Classification
@@ -1699,4 +1747,44 @@ BUILT_MTEB = Benchmark(
     year={2024}
 }""",
     contacts=["mehrzadshm"],
+)
+
+ENCODECHKA = Benchmark(
+    name="Encodechka",
+    tasks=MTEBTasks(
+        get_tasks(
+            tasks=[
+                # PI
+                "RUParaPhraserSTS",
+                # SA
+                "SentiRuEval2016",
+                # TI
+                "RuToxicOKMLCUPClassification",
+                # IA
+                "InappropriatenessClassificationv2",
+                # IC, ICX
+                "RuNLUIntentClassification",
+            ]
+        )
+        +
+        # NLI
+        get_tasks(tasks=["XNLI"], eval_splits=["test"], languages=["rus-Cyrl"])
+        # STS
+        + get_tasks(
+            tasks=["RuSTSBenchmarkSTS"],
+            eval_splits=["validation"],
+            languages=["rus-Cyrl"],
+        ),
+    ),
+    description="A benchmark for evaluating text embedding models on Russian data.",
+    reference="https://github.com/avidale/encodechka",
+    citation="""@misc{dale_encodechka,
+   author = "Dale, David",
+   title  = "Russian rating of sentence encoders",
+   editor = "habr.com",
+   url    = "https://habr.com/ru/articles/669674/",
+   month  = {June},
+   year   = {2022},
+   note = {[Online; posted 12-June-2022]},
+}""",
 )

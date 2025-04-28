@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyarrow
-Version: 19.0.1
+Version: 20.0.0
 Summary: Python library for Apache Arrow
 Maintainer-email: Apache Arrow Developers <dev@arrow.apache.org>
 License: Apache Software License

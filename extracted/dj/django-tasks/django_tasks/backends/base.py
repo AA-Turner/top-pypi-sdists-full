@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable
 from inspect import iscoroutinefunction
-from typing import Any, Iterable, TypeVar
+from typing import Any, TypeVar
 
 from asgiref.sync import sync_to_async
 from django.core.checks import messages
@@ -41,17 +42,14 @@ class BaseTaskBackend(metaclass=ABCMeta):
     def _get_enqueue_on_commit_for_task(self, task: Task) -> bool:
         """
         Determine the correct `enqueue_on_commit` setting to use for a given task.
-
-        If the task defines it, use that, otherwise, fall back to the backend.
         """
-        # If this project doesn't use a database, there's nothing to commit to
-        if not connections.settings:
-            return False
 
-        if task.enqueue_on_commit is not None:
-            return task.enqueue_on_commit
-
-        return self.enqueue_on_commit
+        # If the task defines it, use that, otherwise, fall back to the backend.
+        return (
+            task.enqueue_on_commit
+            if task.enqueue_on_commit is not None
+            else self.enqueue_on_commit
+        )
 
     def validate_task(self, task: Task) -> None:
         """
@@ -85,7 +83,10 @@ class BaseTaskBackend(metaclass=ABCMeta):
 
     @abstractmethod
     def enqueue(
-        self, task: Task[P, T], args: P.args, kwargs: P.kwargs
+        self,
+        task: Task[P, T],
+        args: P.args,  # type:ignore[valid-type]
+        kwargs: P.kwargs,  # type:ignore[valid-type]
     ) -> TaskResult[T]:
         """
         Queue up a task to be executed
@@ -93,7 +94,10 @@ class BaseTaskBackend(metaclass=ABCMeta):
         ...
 
     async def aenqueue(
-        self, task: Task[P, T], args: P.args, kwargs: P.kwargs
+        self,
+        task: Task[P, T],
+        args: P.args,  # type:ignore[valid-type]
+        kwargs: P.kwargs,  #  type:ignore[valid-type]
     ) -> TaskResult[T]:
         """
         Queue up a task function (or coroutine) to be executed
@@ -120,9 +124,8 @@ class BaseTaskBackend(metaclass=ABCMeta):
         )
 
     def check(self, **kwargs: Any) -> Iterable[messages.CheckMessage]:
-        if self.enqueue_on_commit and not connections.settings:
-            yield messages.CheckMessage(
-                messages.ERROR,
+        if self.enqueue_on_commit and not connections._settings:  # type: ignore[attr-defined]
+            yield messages.Error(
                 "`ENQUEUE_ON_COMMIT` cannot be used when no databases are configured",
                 hint="Set `ENQUEUE_ON_COMMIT` to False",
             )

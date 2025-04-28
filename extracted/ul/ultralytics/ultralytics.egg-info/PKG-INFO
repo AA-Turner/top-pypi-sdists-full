@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.3.118
+Version: 8.3.119
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation and image classification.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -32,7 +32,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<=2.1.1,>=1.23.0
+Requires-Dist: numpy>=1.23.0
 Requires-Dist: matplotlib>=3.3.0
 Requires-Dist: opencv-python>=4.6.0
 Requires-Dist: pillow>=7.1.2
@@ -61,20 +61,19 @@ Requires-Dist: mkdocs-macros-plugin>=1.0.5; extra == "dev"
 Provides-Extra: export
 Requires-Dist: onnx>=1.12.0; extra == "export"
 Requires-Dist: coremltools>=8.0; (platform_system != "Windows" and python_version <= "3.13") and extra == "export"
-Requires-Dist: scikit-learn>=1.3.2; (platform_system != "Windows" and python_version <= "3.12") and extra == "export"
+Requires-Dist: scikit-learn>=1.3.2; (platform_system != "Windows" and python_version <= "3.13") and extra == "export"
 Requires-Dist: openvino>=2024.0.0; extra == "export"
 Requires-Dist: tensorflow>=2.0.0; extra == "export"
 Requires-Dist: tensorflowjs>=2.0.0; extra == "export"
 Requires-Dist: tensorstore>=0.1.63; (platform_machine == "aarch64" and python_version >= "3.9") and extra == "export"
-Requires-Dist: keras; extra == "export"
 Requires-Dist: h5py!=3.11.0; platform_machine == "aarch64" and extra == "export"
 Provides-Extra: solutions
 Requires-Dist: shapely<2.1.0,>=2.0.0; extra == "solutions"
 Requires-Dist: streamlit<1.44.0,>=1.29.0; extra == "solutions"
 Provides-Extra: logging
-Requires-Dist: comet; extra == "logging"
-Requires-Dist: tensorboard>=2.13.0; extra == "logging"
-Requires-Dist: dvclive>=2.12.0; extra == "logging"
+Requires-Dist: wandb; extra == "logging"
+Requires-Dist: tensorboard; extra == "logging"
+Requires-Dist: mlflow; extra == "logging"
 Provides-Extra: extra
 Requires-Dist: hub-sdk>=0.0.12; extra == "extra"
 Requires-Dist: ipython; extra == "extra"

@@ -120,7 +120,7 @@ def test_hive_partitioned_predicate_pushdown_skips_correct_number_of_files(
 
     q = pl.scan_parquet(root / "**/*.parquet", hive_partitioning=True)
     assert q.filter(pl.col("a").is_in([1, 4])).collect().shape == (2, 2)
-    assert "hive partitioning: skipped 3 files" in capfd.readouterr().err
+    assert "allows skipping 3 / 5" in capfd.readouterr().err
 
     # Ensure the CSE can work with hive partitions.
     q = q.filter(pl.col("a").gt(2))
@@ -168,7 +168,6 @@ def test_hive_partitioned_slice_pushdown(
         df.to_arrow(),
         root_path=root,
         partition_cols=["category", "fats_g"],
-        use_legacy_dataset=True,
     )
 
     q = pl.scan_parquet(root / "**/*.parquet", hive_partitioning=True)
@@ -206,7 +205,6 @@ def test_hive_partitioned_projection_pushdown(
         df.to_arrow(),
         root_path=root,
         partition_cols=["category", "fats_g"],
-        use_legacy_dataset=True,
     )
 
     q = pl.scan_parquet(root / "**/*.parquet", hive_partitioning=True)
@@ -834,7 +832,7 @@ def test_hive_predicate_dates_14712(
         tmp_path, partition_by="a"
     )
     pl.scan_parquet(tmp_path).filter(pl.col("a") != datetime(2024, 1, 1)).collect()
-    assert "hive partitioning: skipped 1 files" in capfd.readouterr().err
+    assert "allows skipping 1 / 1" in capfd.readouterr().err
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Test is only for Windows paths")

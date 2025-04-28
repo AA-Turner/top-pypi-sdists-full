@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymdown-extensions
-Version: 10.14.3
+Version: 10.15
 Summary: Extension pack for Python Markdown.
 Project-URL: Homepage, https://github.com/facelessuser/pymdown-extensions
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>

@@ -6,8 +6,6 @@ use crate::{
     },
 };
 use pyo3::{prelude::*, pybacked::PyBackedStr};
-#[cfg(feature = "docs")]
-use pyo3_stub_gen::{PyStubType, TypeInfo};
 
 /// The parameters for a request.
 #[derive(Default)]
@@ -121,6 +119,7 @@ pub struct ClientParams {
 }
 
 /// The parameters for updating a client.
+#[derive(Default)]
 pub struct UpdateClientParams {
     /// The impersonation settings for the request.
     pub impersonate: Option<ImpersonateExtractor>,
@@ -187,9 +186,15 @@ impl<'py> FromPyObject<'py> for ClientParams {
     }
 }
 
-#[cfg(feature = "docs")]
-impl PyStubType for ClientParams {
-    fn type_output() -> TypeInfo {
-        TypeInfo::with_module("typing.Dict[str, typing.Any]", "typing".into())
+impl<'py> FromPyObject<'py> for UpdateClientParams {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let mut params = Self::default();
+        extract_option!(ob, params, impersonate);
+        extract_option!(ob, params, headers);
+        extract_option!(ob, params, headers_order);
+        extract_option!(ob, params, proxies);
+        extract_option!(ob, params, local_address);
+        extract_option!(ob, params, interface);
+        Ok(params)
     }
 }

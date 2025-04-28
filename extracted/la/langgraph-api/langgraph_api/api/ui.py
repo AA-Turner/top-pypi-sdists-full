@@ -60,8 +60,8 @@ async def handle_ui(request: ApiRequest) -> Response:
         elif ext == ".js":
             result.append(
                 f'<script src="//{host}/ui/{graph_id}/{basename}" '
-                f'onload=\'__LGUI_{graph_id}.render({json.dumps(message["name"])}, "{{{{shadowRootId}}}}")\'>'
-                '</script>'
+                f"onload='__LGUI_{graph_id}.render({json.dumps(message['name'])}, \"{{{{shadowRootId}}}}\")'>"
+                "</script>"
             )
 
     return Response(content="\n".join(result), headers={"Content-Type": "text/html"})

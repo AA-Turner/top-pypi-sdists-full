@@ -1,7 +1,7 @@
 import asyncio
 import signal
 import rnet
-from rnet import Message
+from rnet import Message, WebSocket
 
 
 async def send_message(ws):
@@ -30,7 +30,8 @@ async def receive_message(ws):
 
 
 async def main():
-    async with await rnet.websocket("wss://echo.websocket.org") as ws:
+    ws: WebSocket = await rnet.websocket("wss://echo.websocket.org")
+    async with ws:
         print("Status Code: ", ws.status)
         print("Version: ", ws.version)
         print("Headers: ", ws.headers)

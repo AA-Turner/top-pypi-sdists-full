@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: img2pdf
-Version: 0.6.0
+Version: 0.6.1
 Summary: Convert images to PDF via direct JPEG inclusion.
 Home-page: https://gitlab.mister-muffin.de/josch/img2pdf
-Download-URL: https://gitlab.mister-muffin.de/josch/img2pdf/repository/archive.tar.gz?ref=0.6.0
+Download-URL: https://gitlab.mister-muffin.de/josch/img2pdf/repository/archive.tar.gz?ref=0.6.1
 Author: Johannes Schauer Marin Rodrigues
 Author-email: josch@mister-muffin.de
 License: LGPL
@@ -152,7 +152,7 @@ You can then test the converter using:
 	$ ve/bin/img2pdf -o test.pdf src/tests/test.jpg
 
 If you don't want to setup Python on Windows, then head to the
-[releases](/josch/img2pdf/releases) section and download the latest
+[releases](https://gitlab.mister-muffin.de/josch/img2pdf/releases) section and download the latest
 `img2pdf.exe`.
 
 GUI

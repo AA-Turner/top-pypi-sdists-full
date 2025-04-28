@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: robyn
-Version: 0.65.0
+Version: 0.66.2
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
@@ -29,9 +29,9 @@ Author-email: Sanskar Jethi <sansyrox@gmail.com>
 License: BSD License (BSD)
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Repository, https://github.com/sparckles/robyn
-Project-URL: Documentation, https://robyn.tech/
 Project-URL: Issues, https://github.com/sparckles/robyn/issues
 Project-URL: Changelog, https://github.com/sparckles/robyn/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://robyn.tech/
 
 <p align="center"><img alt="Robyn Logo" src="https://user-images.githubusercontent.com/29942790/140995889-5d91dcff-3aa7-4cfb-8a90-2cddf1337dca.png" width="250" /><p>
 

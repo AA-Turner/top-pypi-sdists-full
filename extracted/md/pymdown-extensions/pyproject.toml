@@ -76,6 +76,19 @@ include = [
 
 [tool.hatch.metadata.hooks.custom]
 
+[tool.mypy]
+files = [
+    "pymdownx/blocks/block.py"
+]
+strict = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pymdownx.superfences"
+]
+ignore_errors = true
+
 [tool.ruff]
 line-length = 120
 
@@ -134,6 +147,7 @@ legacy_tox_ini = """
         .[extra]
         -r requirements/test.txt
     commands=
+        "{envpython}" -m mypy
         {envbindir}/py.test --cov pymdownx --cov-append {toxinidir}
         {envbindir}/coverage html -d {envtmpdir}/coverage
         {envbindir}/coverage xml

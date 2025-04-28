@@ -1,14 +1,10 @@
-use crate::{define_into_pyobject_todo, define_py_stub_gen, error::Error};
-
 use super::HeaderMapExtractor;
+use crate::error::Error;
 use pyo3::{prelude::*, pybacked::PyBackedStr, types::PyList};
-#[cfg(feature = "docs")]
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rquest::header::HeaderValue;
 
 macro_rules! proxy_method {
     ( $( { $(#[$meta:meta])* $name:ident, $proxy_fn:path} ),* ) => {
-        #[cfg_attr(feature = "docs", gen_stub_pymethods)]
         #[pymethods]
         impl Proxy {
             $(
@@ -51,7 +47,6 @@ macro_rules! proxy_method {
 
 /// A proxy server for a request.
 /// Supports HTTP, HTTPS, SOCKS4, SOCKS4a, SOCKS5, and SOCKS5h protocols.
-#[cfg_attr(feature = "docs", gen_stub_pyclass)]
 #[pyclass]
 pub struct Proxy(pub rquest::Proxy);
 
@@ -60,23 +55,6 @@ proxy_method! {
         /// Creates a new HTTP proxy.
         ///
         /// This method sets up a proxy server for HTTP requests.
-        ///
-        /// # Arguments
-        ///
-        /// * `url` - The URL of the proxy server.
-        /// * `username` - Optional username for proxy authentication.
-        /// * `password` - Optional password for proxy authentication.
-        /// * `custom_http_auth` - Optional custom HTTP proxy authentication header value.
-        /// * `custom_http_headers` - Optional custom HTTP proxy headers.
-        /// * `exclusion` - Optional list of domains to exclude from proxying.
-        ///
-        /// # Examples
-        ///
-        /// ```python
-        /// import rnet
-        ///
-        /// proxy = rnet.Proxy.http("http://proxy.example.com")
-        /// ```
         http,
         rquest::Proxy::http
     },
@@ -84,23 +62,6 @@ proxy_method! {
         /// Creates a new HTTPS proxy.
         ///
         /// This method sets up a proxy server for HTTPS requests.
-        ///
-        /// # Arguments
-        ///
-        /// * `url` - The URL of the proxy server.
-        /// * `username` - Optional username for proxy authentication.
-        /// * `password` - Optional password for proxy authentication.
-        /// * `custom_http_auth` - Optional custom HTTP proxy authentication header value.
-        /// * `custom_http_headers` - Optional custom HTTP proxy headers.
-        /// * `exclusion` - Optional list of domains to exclude from proxying.
-        ///
-        /// # Examples
-        ///
-        /// ```python
-        /// import rnet
-        ///
-        /// proxy = rnet.Proxy.https("https://proxy.example.com")
-        /// ```
         https,
         rquest::Proxy::https
     },
@@ -108,23 +69,6 @@ proxy_method! {
         /// Creates a new proxy for all protocols.
         ///
         /// This method sets up a proxy server for all types of requests (HTTP, HTTPS, etc.).
-        ///
-        /// # Arguments
-        ///
-        /// * `url` - The URL of the proxy server.
-        /// * `username` - Optional username for proxy authentication.
-        /// * `password` - Optional password for proxy authentication.
-        /// * `custom_http_auth` - Optional custom HTTP proxy authentication header value.
-        /// * `custom_http_headers` - Optional custom HTTP proxy headers.
-        /// * `exclusion` - Optional list of domains to exclude from proxying.
-        ///
-        /// # Examples
-        ///
-        /// ```python
-        /// import rnet
-        ///
-        /// proxy = rnet.Proxy.all("https://proxy.example.com")
-        /// ```
         all,
         rquest::Proxy::all
     }
@@ -199,11 +143,3 @@ impl FromPyObject<'_> for ProxyListExtractor {
             .map(Self)
     }
 }
-
-define_into_pyobject_todo!(ProxyExtractor);
-
-define_into_pyobject_todo!(ProxyListExtractor);
-
-define_py_stub_gen!(ProxyExtractor, "typing.Union[Proxy, str]", "typing");
-
-define_py_stub_gen!(ProxyListExtractor, "typing.List[Proxy]", "typing");

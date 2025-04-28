@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <concepts>
 #include <initializer_list>
-#include <optional>
 #include <source_location>
 #include <type_traits>
 #include <utility>
@@ -233,10 +232,11 @@ class SLEIPNIR_DLLEXPORT Variable {
    * @return The value of this variable.
    */
   double value() {
-    if (!m_graph) {
+    if (!m_graph_initialized) {
       m_graph = detail::topological_sort(expr);
+      m_graph_initialized = true;
     }
-    detail::update_values(m_graph.value());
+    detail::update_values(m_graph);
 
     return expr->val;
   }
@@ -250,13 +250,16 @@ class SLEIPNIR_DLLEXPORT Variable {
   ExpressionType type() const { return expr->type(); }
 
  private:
-  /// The expression node.
+  /// The expression node
   detail::ExpressionPtr expr =
       detail::make_expression_ptr<detail::DecisionVariableExpression>();
 
-  /// Updates the value of this variable based on the values of its dependent
-  /// variables
-  std::optional<small_vector<detail::Expression*>> m_graph;
+  /// Used to update the value of this variable based on the values of its
+  /// dependent variables
+  small_vector<detail::Expression*> m_graph;
+
+  /// Used for lazy initialization of m_graph
+  bool m_graph_initialized = false;
 
   friend SLEIPNIR_DLLEXPORT Variable abs(const Variable& x);
   friend SLEIPNIR_DLLEXPORT Variable acos(const Variable& x);

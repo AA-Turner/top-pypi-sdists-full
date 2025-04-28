@@ -21,7 +21,7 @@ async def thread_ttl_sweep_loop():
     strategy = thread_ttl_config.get("strategy", "delete")
     if strategy != "delete":
         raise NotImplementedError(
-            f"Unrecognized thread deletion strategy: {strategy}." " Expected 'delete'."
+            f"Unrecognized thread deletion strategy: {strategy}. Expected 'delete'."
         )
     sweep_interval_minutes = thread_ttl_config.get("sweep_interval_minutes", 5)
     await logger.ainfo(

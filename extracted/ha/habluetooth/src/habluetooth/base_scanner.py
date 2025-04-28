@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Final, Iterable, final
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bluetooth_adapters import DiscoveredDeviceAdvertisementData, adapter_human_name
-from bluetooth_data_tools import monotonic_time_coarse
+from bluetooth_data_tools import monotonic_time_coarse, parse_advertisement_data_bytes
 
 from .central_manager import get_manager
 from .const import (
@@ -32,6 +32,7 @@ SCANNER_WATCHDOG_INTERVAL_SECONDS: Final = SCANNER_WATCHDOG_INTERVAL.total_secon
 _LOGGER = logging.getLogger(__name__)
 
 
+_bytes = bytes
 _float = float
 _int = int
 _str = str
@@ -269,6 +270,7 @@ class BaseHaRemoteScanner(BaseHaScanner):
                 self.connectable,
                 discovered_device_timestamps[address],
                 adv.tx_power,
+                b"",
             )
             for address, (
                 device,
@@ -391,6 +393,28 @@ class BaseHaRemoteScanner(BaseHaScanner):
             return info.device, info.advertisement
         return None
 
+    def _async_on_raw_advertisement(
+        self,
+        address: _str,
+        rssi: _int,
+        raw: _bytes,
+        details: dict[str, Any],
+        advertisement_monotonic_time: _float,
+    ) -> None:
+        parsed = parse_advertisement_data_bytes(raw)
+        self._async_on_advertisement_internal(
+            address,
+            rssi,
+            parsed[0],
+            parsed[1],
+            parsed[2],
+            parsed[3],
+            parsed[4],
+            details,
+            advertisement_monotonic_time,
+            raw,
+        )
+
     def _async_on_advertisement(
         self,
         address: _str,
@@ -402,6 +426,32 @@ class BaseHaRemoteScanner(BaseHaScanner):
         tx_power: _int | None,
         details: dict[Any, Any],
         advertisement_monotonic_time: _float,
+    ) -> None:
+        self._async_on_advertisement_internal(
+            address,
+            rssi,
+            local_name,
+            service_uuids,
+            service_data,
+            manufacturer_data,
+            tx_power,
+            details,
+            advertisement_monotonic_time,
+            None,
+        )
+
+    def _async_on_advertisement_internal(
+        self,
+        address: _str,
+        rssi: _int,
+        local_name: _str | None,
+        service_uuids: list[str],
+        service_data: dict[str, bytes],
+        manufacturer_data: dict[int, bytes],
+        tx_power: _int | None,
+        details: dict[Any, Any],
+        advertisement_monotonic_time: _float,
+        raw: _bytes | None,
     ) -> None:
         """Call the registered callback."""
         self.scanning = not self._connecting
@@ -509,6 +559,7 @@ class BaseHaRemoteScanner(BaseHaScanner):
         info.connectable = self.connectable
         info.time = advertisement_monotonic_time
         info.tx_power = tx_power
+        info.raw = raw
         self._previous_service_info[address] = info
         self._manager.scanner_adv_received(info)
 

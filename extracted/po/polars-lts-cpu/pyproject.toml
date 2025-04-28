@@ -119,3 +119,11 @@ fail_under = 85
 skip_covered = true
 show_missing = true
 exclude_lines = ["pragma: no cover", "@overload", "except ImportError", "if TYPE_CHECKING:", "from typing_extensions import "]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.sources.torch]]
+index = "pytorch"

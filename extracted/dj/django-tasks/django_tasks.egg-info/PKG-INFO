@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-tasks
-Version: 0.6.1
+Version: 0.7.0
 Summary: An implementation and backport of background workers and tasks in Django
 Author: Jake Howard
 License: Copyright (c) Jake Howard and individual contributors.
@@ -37,7 +37,6 @@ Project-URL: Changelog, https://github.com/RealOrangeOne/django-tasks/releases
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -50,12 +49,13 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django>=4.2
@@ -66,10 +66,16 @@ Requires-Dist: ruff; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: django-stubs[compatible-mypy]; extra == "dev"
 Requires-Dist: dj-database-url; extra == "dev"
+Requires-Dist: django-tasks[rq]; extra == "dev"
+Requires-Dist: fakeredis; extra == "dev"
 Provides-Extra: mysql
 Requires-Dist: mysqlclient; extra == "mysql"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]; extra == "postgres"
+Provides-Extra: rq
+Requires-Dist: django-rq; extra == "rq"
+Requires-Dist: rq_scheduler; extra == "rq"
+Dynamic: license-file
 
 # Django Tasks
 
@@ -115,6 +121,7 @@ A few backends are included by default:
 - `django_tasks.backends.dummy.DummyBackend`: Don't execute the tasks, just store them. This is especially useful for testing.
 - `django_tasks.backends.immediate.ImmediateBackend`: Execute the task immediately in the current thread
 - `django_tasks.backends.database.DatabaseBackend`: Store tasks in the database (via Django's ORM), and retrieve and execute them using the `db_worker` management command
+- `django_tasks.backends.rq.RQBackend`: A backend which enqueues tasks using [RQ](https://python-rq.org/) via [`django-rq`](https://github.com/rq/django-rq) (requires installing `django-tasks[rq]`).
 
 Note: `DatabaseBackend` additionally requires `django_tasks.backends.database` adding to `INSTALLED_APPS`.
 
@@ -230,6 +237,8 @@ Finally, you can run the `db_worker` command to run tasks as they're created. Ch
 ./manage.py db_worker
 ```
 
+In `DEBUG`, the worker will automatically reload when code is changed (or by using `--reload`). This is not recommended in production environments as tasks may not be stopped cleanly.
+
 ### Pruning old tasks
 
 After a while, tasks may start to build up in your database. This can be managed using the `prune_db_task_results` management command, which deletes completed tasks according to the given retention policy. Check the `--help` for the available options.
@@ -257,7 +266,7 @@ default_task_backend.get_result(result_id)
 
 ### Return values
 
-If your task returns something, it can be retrieved from the `.return_value` attribute on a `TaskResult`. Accessing this property on an unfinished task (ie not `SUCCEEDED` or `FAILED`) will raise a `ValueError`.
+If your task returns something, it can be retrieved from the `.return_value` attribute on a `TaskResult`. Accessing this property on an unsuccessful task (ie not `SUCCEEDED`) will raise a `ValueError`.
 
 ```python
 assert result.status == ResultStatus.SUCCEEDED
@@ -310,6 +319,37 @@ Whilst signals are available, they may not be the most maintainable approach.
 
 - `django_tasks.signals.task_enqueued`: Called when a task is enqueued. The sender is the backend class. Also called with the enqueued `task_result`.
 - `django_tasks.signals.task_finished`: Called when a task finishes (`SUCCEEDED` or `FAILED`). The sender is the backend class. Also called with the finished `task_result`.
+
+## RQ
+
+The RQ-based backend acts as an interface between `django_tasks` and `RQ`, allowing tasks to be defined and enqueued using `django_tasks`, but stored in Redis and executed using RQ's workers.
+
+Once RQ is configured as necessary, the relevant `django_tasks` configuration can be added:
+
+```python
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks.backends.rq.RQBackend",
+        "QUEUES": ["default"]
+    }
+}
+```
+
+Any queues defined in `QUEUES` must also be defined in `django-rq`'s `RQ_QUEUES` setting.
+
+### Job class
+
+To use `rq` with `django-tasks`, a custom `Job` class must be used. This can be passed to the worker using `--job-class`:
+
+```shell
+./manage.py rqworker --job-class django_tasks.backend.rq.Job
+```
+
+### Priorities
+
+`rq` has no native concept of priorities - instead relying on workers to define which queues they should pop tasks from in order. Therefore, `task.priority` has little effect on execution priority.
+
+If a task has a priority of `100`, it is enqueued at the top of the queue, and will be the next task executed by a worker. All other priorities will enqueue the task to the back of the queue. The queue value is not stored, and will always be `0`.
 
 ## Contributing
 

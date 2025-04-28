@@ -1,6 +1,14 @@
 from setuptools import setup, find_packages
 
-v = '0.2.1'
+# To RELEASE:
+#
+# $ pip install --upgrade build setuptools wheel twine  # update tools
+# $ rm -rf dist build *.egg-info
+# $ python -m build
+# $ cd dist
+# $ twine upload antlr4_tools-0.2.2.tar.gz antlr4_tools-0.2.2-py3-none-any.whl
+
+v = '0.2.2'
 
 setup(
     name='antlr4-tools',
@@ -10,7 +18,7 @@ setup(
         "install-jdk"
     ],
     url='http://www.antlr.org',
-    license='BSD',
+    license='MIT',
     author='Terence Parr',
     author_email='parrt@antlr.org',
     entry_points={'console_scripts': [
@@ -18,5 +26,7 @@ setup(
         'antlr4-parse=antlr4_tool_runner:interp'
     ]
     },
-    description='Tools to run ANTLR4 tool and grammar interpreter/profiler'
+    description='Tools to run ANTLR4 tool and grammar interpreter/profiler',
+    classifiers=['License :: OSI Approved :: MIT License',
+                 'Intended Audience :: Developers']
 )

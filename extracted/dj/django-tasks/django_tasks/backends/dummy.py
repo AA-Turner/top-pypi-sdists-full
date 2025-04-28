@@ -1,6 +1,6 @@
 from copy import deepcopy
 from functools import partial
-from typing import List, TypeVar
+from typing import TypeVar
 
 from django.db import transaction
 from django.utils import timezone
@@ -20,7 +20,7 @@ P = ParamSpec("P")
 class DummyBackend(BaseTaskBackend):
     supports_defer = True
     supports_async_task = True
-    results: List[TaskResult]
+    results: list[TaskResult]
 
     def __init__(self, alias: str, params: dict) -> None:
         super().__init__(alias, params)
@@ -33,7 +33,10 @@ class DummyBackend(BaseTaskBackend):
         task_enqueued.send(type(self), task_result=result)
 
     def enqueue(
-        self, task: Task[P, T], args: P.args, kwargs: P.kwargs
+        self,
+        task: Task[P, T],
+        args: P.args,  # type:ignore[valid-type]
+        kwargs: P.kwargs,  # type:ignore[valid-type]
     ) -> TaskResult[T]:
         self.validate_task(task)
 

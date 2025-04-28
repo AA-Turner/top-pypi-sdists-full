@@ -7,16 +7,10 @@ use pyo3::{
     prelude::*,
     pybacked::{PyBackedBytes, PyBackedStr},
 };
-#[cfg(feature = "docs")]
-use pyo3_stub_gen::{
-    PyStubType, TypeInfo,
-    derive::{gen_stub_pyclass, gen_stub_pymethods},
-};
 use rquest::Body;
 use std::path::PathBuf;
 
 /// A part of a multipart form.
-#[cfg_attr(feature = "docs", gen_stub_pyclass)]
 #[pyclass]
 pub struct Part {
     pub name: Option<String>,
@@ -32,23 +26,9 @@ pub enum PartExtractor {
     AsyncStream(AsyncStream),
 }
 
-#[cfg(feature = "docs")]
-impl PyStubType for PartExtractor {
-    fn type_output() -> TypeInfo {
-        TypeInfo::any()
-    }
-}
-
-#[cfg_attr(feature = "docs", gen_stub_pymethods)]
 #[pymethods]
 impl Part {
     /// Creates a new part.
-    ///
-    /// # Arguments
-    /// - `name` - The name of the part.
-    /// - `value` - The value of the part, either text, bytes, a file path, or a async or sync stream.
-    /// - `filename` - The filename of the part.
-    /// - `mime` - The MIME type of the part.
     #[new]
     #[pyo3(signature = (name, value, filename = None, mime = None))]
     pub fn new(
