@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgspecial
-Version: 2.2.0
+Version: 2.2.1
 Summary: Meta-commands handler for Postgres Database.
 Author-email: Pgcli Core Team <pgcli-dev@googlegroups.com>
 License: BSD

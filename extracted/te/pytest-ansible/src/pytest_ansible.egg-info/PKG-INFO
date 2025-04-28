@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-ansible
-Version: 25.4.0
+Version: 25.4.1
 Summary: Plugin for pytest to simplify calling ansible modules from tests or fixtures
 Author-email: Ansible by Red Hat <info@ansible.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.4.0 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.4.1 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -618,8 +618,23 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.4.0) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.4.1) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
+def change_dtype(model, new_dtype, exclude_buffers = False):
+    for submodule_name, submodule in model.named_modules():  
+        if hasattr(submodule, "_lock_dtype"):
+            continue
+        for n, p in submodule.named_parameters(recurse = False):
+            if p.data.dtype != new_dtype:
+                p.data = p.data.to(new_dtype)
+
+        if not exclude_buffers:
+            for p in submodule.buffers(recurse=False):
+                if p.data.dtype != new_dtype:
+                    p.data = p.data.to(new_dtype)
+
+    return model
+            
 def _extract_num_from_str(num_in_str):
     size = len(num_in_str)
     for i in range(size):
@@ -760,7 +775,11 @@ def _quantize(model_to_quantize, weights=qint8, verboseLevel = 1, threshold = 2*
         for p in submodule.buffers(recurse=False):
             size  += torch.numel(p.data) * sizeofhalffloat
 
-
+        already_added = False
+        if hasattr(submodule, "_lock_dtype"):
+            submodule_size += size
+            submodule_names.append(submodule_name)
+            already_added = True
 
         if not any(submodule_name.startswith(pre) for pre in tower_names):
             flush = False
@@ -778,8 +797,9 @@ def _quantize(model_to_quantize, weights=qint8, verboseLevel = 1, threshold = 2*
                 submodule_size = 0
                 submodule_names = []
             prev_blocks_prefix = cur_blocks_prefix
-            submodule_size += size
-            submodule_names.append(submodule_name)
+            if not already_added:
+                submodule_size += size
+                submodule_names.append(submodule_name)
         total_size += size
 
     if submodule_size >0  : 
@@ -1347,9 +1367,13 @@ def load_model_data(model, file_path: str, do_quantize = False, quantizationType
             if k.endswith(missing_keys[0]):
                 base_model_prefix = k[:-len(missing_keys[0])]
                 break
-        state_dict = filter_state_dict(state_dict,base_model_prefix)
+        if base_model_prefix == None:
+            raise Exception("Missing keys: {missing_keys}")
+        state_dict = filter_state_dict(state_dict, base_model_prefix)
         missing_keys , unexpected_keys = model.load_state_dict(state_dict, False,  assign = True )
     del state_dict
+    if len(unexpected_keys) > 0 and verboseLevel >=2:
+        print(f"Unexpected keys while loading '{file_path}': {unexpected_keys}")
 
     for k,p in model.named_parameters():
         if p.is_meta:
@@ -1962,7 +1986,10 @@ class offload:
 
         
     def hook_change_module(self, target_module, model, model_id, module_id, previous_method):
-        dtype = model._dtype
+        if hasattr(target_module, "_lock_dtype"):
+            dtype = target_module._lock_dtype 
+        else:
+            dtype = model._dtype
 
         def check_change_module(module, *args, **kwargs):            
             self.ensure_model_loaded(model_id)
@@ -2207,35 +2234,39 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
         modelPinned = (pinAllModels or model_id in modelsToPin) and not hasattr(current_model,"_already_pinned")
 
         current_model_size = 0
-        model_dtype = None 
-        for n, p in current_model.named_parameters():
-            p.requires_grad = False
-            if isinstance(p, QTensor):
-                if p._qtype == qint4:
-                    if hasattr(p,"_scale_shift"):
-                        current_model_size +=  torch.numel(p._scale_shift) * p._scale_shift.element_size()
+        model_dtype = None
+        
+        for _ , m in current_model.named_modules():
+            ignore_dtype = hasattr(m, "_lock_dtype")
+            for n, p in m.named_parameters(recurse = False):
+                p.requires_grad = False
+                if isinstance(p, QTensor):
+                    if p._qtype == qint4:
+                        if hasattr(p,"_scale_shift"):
+                            current_model_size +=  torch.numel(p._scale_shift) * p._scale_shift.element_size()
+                        else:
+                            current_model_size +=  torch.numel(p._scale) * p._shift.element_size() + torch.numel(p._scale) * p._shift.element_size()
+
+                        current_model_size +=  torch.numel(p._data._data) * p._data._data.element_size()
+
                     else:
-                        current_model_size +=  torch.numel(p._scale) * p._shift.element_size() + torch.numel(p._scale) * p._shift.element_size()
-
-                    current_model_size +=  torch.numel(p._data._data) * p._data._data.element_size()
+                        current_model_size +=  torch.numel(p._scale) * p._scale.element_size()
+                        current_model_size +=  torch.numel(p._data) * p._data.element_size()
+                    dtype = p._scale.dtype
 
                 else:
-                    current_model_size +=  torch.numel(p._scale) * p._scale.element_size()
-                    current_model_size +=  torch.numel(p._data) * p._data.element_size()
-                dtype = p._scale.dtype
-
-            else:
-                dtype = p.data.dtype
-                if convertWeightsFloatTo != None and  dtype == torch.float32:
-                    # convert any left overs float32 weight to bfloat16 / float16 to divide by 2 the model memory footprint
-                    dtype = convertWeightsFloatTo if model_dtype == None else model_dtype
-                    p.data = p.data.to(dtype)
-                if model_dtype== None:
-                    model_dtype = dtype
-                else:
-                    assert model_dtype == dtype
-                current_model_size +=  torch.numel(p.data) * p.data.element_size()
-            current_model._dtype = model_dtype
+                    if not ignore_dtype:
+                        dtype = p.data.dtype
+                        if convertWeightsFloatTo != None and  dtype == torch.float32 :
+                            # convert any left overs float32 weight to bfloat16 / float16 to divide by 2 the model memory footprint
+                            dtype = convertWeightsFloatTo if model_dtype == None else model_dtype
+                            p.data = p.data.to(dtype)
+                        if model_dtype== None:
+                            model_dtype = dtype
+                        else:
+                            assert model_dtype == dtype
+                    current_model_size +=  torch.numel(p.data) * p.data.element_size()
+                current_model._dtype = model_dtype
         for b in current_model.buffers():
             # do not convert 32 bits float to 16 bits since buffers are few (and potential gain low) and usually they are needed for precision calculation (for instance Rope)
             current_model_size +=  torch.numel(b.data) * b.data.element_size()

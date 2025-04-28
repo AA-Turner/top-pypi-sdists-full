@@ -4,7 +4,6 @@ import os
 import re
 
 import requests
-from requests.utils import cookiejar_from_dict
 from retrying import retry
 from urllib.parse import quote
 from dotenv import load_dotenv
@@ -19,13 +18,23 @@ WEREAD_REVIEW_LIST_URL = "https://i.weread.qq.com/review/list"
 WEREAD_BOOK_INFO = "https://i.weread.qq.com/book/info"
 WEREAD_READDATA_DETAIL = "https://i.weread.qq.com/readdata/detail"
 WEREAD_HISTORY_URL = "https://i.weread.qq.com/readdata/summary?synckey=0"
-
+headers = {
+    'User-Agent': "WeRead/8.2.5 WRBrand/xiaomi Dalvik/2.1.0 (Linux; U; Android 12; Redmi Note 7 Pro Build/SQ3A.220705.004)",
+    'Connection': "Keep-Alive",
+    'Accept-Encoding': "gzip",
+    'baseapi': "32",
+    'appver': "8.2.5.10163885",
+    'osver': "12",
+    'channelId': "11",
+    'basever': "8.2.5.10163885",
+    'Content-Type': "application/json; charset=UTF-8"
+}
 
 class WeReadApi:
     def __init__(self):
-        self.cookie = self.get_cookie()
+        self.cookie =  os.getenv("WEREAD_COOKIE")
         self.session = requests.Session()
-        self.session.cookies = self.parse_cookie_string()
+        self.session.headers=self.parse_cookie_string()
 
     def try_get_cloud_cookie(self, url, id, password):
         if url.endswith("/"):
@@ -45,35 +54,31 @@ class WeReadApi:
                 result = cookie_str
         return result
 
-    def get_cookie(self):
-        url = os.getenv("CC_URL")
-        if not url:
-            url = "https://cookiecloud.malinkang.com/"
-        id = os.getenv("CC_ID")
-        password = os.getenv("CC_PASSWORD")
-        cookie = os.getenv("WEREAD_COOKIE")
-        if url and id and password:
-            cookie = self.try_get_cloud_cookie(url, id, password)
-        if not cookie or not cookie.strip():
-            raise Exception("没有找到cookie，请按照文档填写cookie")
-        return cookie
+    # def get_cookie(self):
+    #     url = os.getenv("CC_URL")
+    #     if not url:
+    #         url = "https://cookiecloud.malinkang.com/"
+    #     id = os.getenv("CC_ID")
+    #     password = os.getenv("CC_PASSWORD")
+    #     cookie = os.getenv("WEREAD_COOKIE")
+    #     if url and id and password:
+    #         cookie = self.try_get_cloud_cookie(url, id, password)
+    #     if not cookie or not cookie.strip():
+    #         raise Exception("没有找到cookie，请按照文档填写cookie")
+    #     return cookie
 
     def parse_cookie_string(self):
-        cookies_dict = {}
+        # 将 cookie 字符串按 & 分割
+        cookie_pairs = self.cookie.split('&')
         
-        # 使用正则表达式解析 cookie 字符串
-        pattern = re.compile(r'([^=]+)=([^;]+);?\s*')
-        matches = pattern.findall(self.cookie)
+        # 遍历每个键值对并添加到请求头
+        for pair in cookie_pairs:
+            key, value = pair.split('=')
+            headers[key] = value
+        return headers
         
-        for key, value in matches:
-            cookies_dict[key] = value.encode('unicode_escape').decode('ascii')
-        # 直接使用 cookies_dict 创建 cookiejar
-        cookiejar = cookiejar_from_dict(cookies_dict)
-        
-        return cookiejar
 
     def get_bookshelf(self):
-        self.session.get(WEREAD_URL)
         r = self.session.get(
             "https://i.weread.qq.com/shelf/sync?synckey=0&teenmode=0&album=1&onlyBookid=0"
         )
@@ -91,7 +96,6 @@ class WeReadApi:
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_notebooklist(self):
         """获取笔记本列表"""
-        self.session.get(WEREAD_URL)
         r = self.session.get(WEREAD_NOTEBOOKS_URL)
         if r.ok:
             data = r.json()
@@ -106,7 +110,6 @@ class WeReadApi:
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_bookinfo(self, bookId):
         """获取书的详情"""
-        self.session.get(WEREAD_URL)
         params = dict(bookId=bookId)
         r = self.session.get(WEREAD_BOOK_INFO, params=params)
         if r.ok:
@@ -119,7 +122,6 @@ class WeReadApi:
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_bookmark_list(self, bookId):
-        self.session.get(WEREAD_URL)
         params = dict(bookId=bookId)
         r = self.session.get(WEREAD_BOOKMARKLIST_URL, params=params)
         if r.ok:
@@ -134,7 +136,6 @@ class WeReadApi:
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_read_info(self, bookId):
-        self.session.get(WEREAD_URL)
         params = dict(
             noteCount=1,
             readingDetail=1,
@@ -162,7 +163,6 @@ class WeReadApi:
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_review_list(self, bookId):
-        self.session.get(WEREAD_URL)
         params = dict(bookId=bookId, listType=11, mine=1, syncKey=0)
         r = self.session.get(WEREAD_REVIEW_LIST_URL, params=params)
         if r.ok:
@@ -182,7 +182,6 @@ class WeReadApi:
 
     
     def get_api_data(self):
-        self.session.get(WEREAD_URL)
         r = self.session.get(WEREAD_HISTORY_URL)
         if r.ok:
             return r.json()
@@ -195,7 +194,6 @@ class WeReadApi:
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_chapter_info(self, bookId):
-        self.session.get(WEREAD_URL)
         body = {"bookIds": [bookId], "synckeys": [0], "teenmode": 0}
         r = self.session.post(WEREAD_CHAPTER_INFO, json=body)
         if (

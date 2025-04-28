@@ -1,20 +1,14 @@
-Metadata-Version: 2.4
-Name: types-aws-xray-sdk
-Version: 2.14.0.20250428
-Summary: Typing stubs for aws-xray-sdk
-License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/python/typeshed
-Project-URL: GitHub, https://github.com/python/typeshed
-Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/aws-xray-sdk.md
-Project-URL: Issue tracker, https://github.com/python/typeshed/issues
-Project-URL: Chat, https://gitter.im/python/typing
-Classifier: Programming Language :: Python :: 3
-Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Dynamic: license-file
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.3"]
 
+[project]
+name = "types-aws-xray-sdk"
+version = "2.14.0.20250428"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for aws-xray-sdk"
+readme = { text = """\
 ## Typing stubs for aws-xray-sdk
 
 This is a [PEP 561](https://peps.python.org/pep-0561/)
@@ -45,3 +39,21 @@ pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
 [`0dedc39f22a63fa01609a7d9fb3396e3087ce9b3`](https://github.com/python/typeshed/commit/0dedc39f22a63fa01609a7d9fb3396e3087ce9b3).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/aws-xray-sdk.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['aws_xray_sdk-stubs']
+include-package-data = false

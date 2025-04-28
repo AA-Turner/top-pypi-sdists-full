@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: texterrors
-Version: 1.0.8
+Version: 1.0.9
 Summary: For WER
 Home-page: https://github.com/RuABraun/texterrors
 Author: Rudolf A Braun
@@ -16,12 +16,14 @@ Requires-Dist: loguru
 Requires-Dist: termcolor
 Requires-Dist: Levenshtein
 Requires-Dist: regex
+Requires-Dist: pytest
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
