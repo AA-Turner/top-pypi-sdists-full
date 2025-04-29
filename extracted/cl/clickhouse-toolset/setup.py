@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'clickhouse-toolset'
-VERSION = '0.36.dev0'
+VERSION = '0.37.dev0'
 
 try:
     from conf import *
@@ -17,7 +17,9 @@ try:
                  'functions/Tables.h',
                  'functions/TBQueryParser.h',
                  'functions/Validation.h',
-                 'functions/JSONPath.h',
+                 'functions/simdjsonHelpers.h',
+                 'functions/JSONPathQuery.h',
+                 'functions/JSONPathTree.h',
                  'functions/DateTimeParser.h',
                  'functions/RowBinaryEncoder.h',
                  'src/PythonThreadHandler.h',

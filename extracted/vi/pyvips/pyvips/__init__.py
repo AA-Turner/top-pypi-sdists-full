@@ -10,7 +10,18 @@ logger = logging.getLogger(__name__)
 # user code can override this null handler
 logger.addHandler(logging.NullHandler())
 
-# pull in our module version number, see also setup.py
+def library_name(name, abi_number):
+    is_windows = os.name == 'nt'
+    is_mac = sys.platform == 'darwin'
+
+    if is_windows:
+        return f'lib{name}-{abi_number}.dll'
+    elif is_mac:
+        return f'lib{name}.{abi_number}.dylib'
+    else:
+        return f'lib{name}.so.{abi_number}'
+
+# pull in our module version number
 from .version import __version__
 
 # try to import our binary interface ... if that works, we are in API mode
@@ -32,9 +43,8 @@ try:
     lib_minor = vips_lib.vips_version(1)
     wrap_major = vips_lib.VIPS_MAJOR_VERSION
     wrap_minor = vips_lib.VIPS_MINOR_VERSION
-    logger.debug('Module generated for libvips %s.%s' %
-                 (wrap_major, wrap_minor))
-    logger.debug('Linked to libvips %s.%s' % (lib_major, lib_minor))
+    logger.debug(f'Module generated for libvips {wrap_major}.{wrap_minor}')
+    logger.debug(f'Linked to libvips {lib_major}.{lib_minor}')
 
     if wrap_major != lib_major or wrap_minor != lib_minor:
         raise Exception('bad wrapper version')
@@ -42,47 +52,18 @@ try:
     API_mode = True
 
 except Exception as e:
-    logger.debug('Binary module load failed: %s' % e)
+    logger.debug(f'Binary module load failed: {e}')
     logger.debug('Falling back to ABI mode')
 
     from cffi import FFI
 
     ffi = FFI()
 
-    _is_windows = os.name == 'nt'
-    _is_mac = sys.platform == 'darwin'
-
-    # yuk
-    if _is_windows:
-        vips_lib = ffi.dlopen('libvips-42.dll')
-    elif _is_mac:
-        vips_lib = ffi.dlopen('libvips.42.dylib')
-    else:
-        vips_lib = ffi.dlopen('libvips.so.42')
+    vips_lib = ffi.dlopen(library_name('vips', 42))
+    glib_lib = vips_lib
+    gobject_lib = vips_lib
 
     logger.debug('Loaded lib %s', vips_lib)
-
-    if _is_windows:
-        # On Windows, `GetProcAddress()` can only search in a specified DLL and
-        # doesn't look into its dependent libraries for symbols. Therefore, we
-        # check if the GLib DLLs are available. If these can not be found, we
-        # assume that GLib is statically linked into libvips.
-        try:
-            glib_lib = ffi.dlopen('libglib-2.0-0.dll')
-            gobject_lib = ffi.dlopen('libgobject-2.0-0.dll')
-
-            logger.debug('Loaded lib %s', glib_lib)
-            logger.debug('Loaded lib %s', gobject_lib)
-        except Exception:
-            glib_lib = vips_lib
-            gobject_lib = vips_lib
-    else:
-        # macOS and *nix uses `dlsym()`, which also searches for named symbols
-        # in the dependencies of the shared library. Therefore, we can support
-        # a single shared libvips library with all dependencies statically
-        # linked.
-        glib_lib = vips_lib
-        gobject_lib = vips_lib
 
     ffi.cdef('''
         int vips_init (const char* argv0);
@@ -108,6 +89,25 @@ if not API_mode:
     }
 
     ffi.cdef(cdefs(features))
+
+    # We can sometimes get dependent libraries from libvips -- either the platform
+    # will open dependencies for us automatically, or the libvips binary has been
+    # built to includes all main dependencies (common on windows, can happen
+    # elsewhere).
+    #
+    # We must get glib functions from libvips if we can, since it will be the
+    # one that libvips itself is using, and they will share runtime types.
+    try:
+        is_unified = gobject_lib.g_type_from_name(b'VipsImage') != 0
+    except Exception:
+        is_unified = False
+
+    if not is_unified:
+        glib_lib = ffi.dlopen(library_name('glib-2.0', 0))
+        gobject_lib = ffi.dlopen(library_name('gobject-2.0', 0))
+
+        logger.debug('Loaded lib %s', glib_lib)
+        logger.debug('Loaded lib %s', gobject_lib)
 
 
 from .error import *
@@ -141,14 +141,14 @@ if API_mode:
     @ffi.def_extern()
     def _log_handler_callback(domain, level, message, user_data):
         logger.log(GLogLevelFlags.LEVEL_TO_LOGGER[level],
-                   '{0}: {1}'.format(_to_string(domain), _to_string(message)))
+                   f'{_to_string(domain)}: {_to_string(message)}')
 
     # keep a ref to the cb to stop it being GCd
     _log_handler_cb = glib_lib._log_handler_callback
 else:
     def _log_handler_callback(domain, level, message, user_data):
         logger.log(GLogLevelFlags.LEVEL_TO_LOGGER[level],
-                   '{0}: {1}'.format(_to_string(domain), _to_string(message)))
+                   f'{_to_string(domain)}: {_to_string(message)}')
 
     # keep a ref to the cb to stop it being GCd
     _log_handler_cb = ffi.callback('GLogFunc', _log_handler_callback)
@@ -196,10 +196,4 @@ from .voperation import *
 from .vimage import *
 from .vregion import *
 
-__all__ = [
-    'Error', 'Image', 'Region', 'Introspect', 'Operation', 'GValue', 'Interpolate', 'GObject',
-    'VipsObject', 'type_find', 'type_name', 'version', '__version__',
-    'at_least_libvips', 'API_mode',
-    'get_suffixes',
-    'cache_set_max', 'cache_set_max_mem', 'cache_set_max_files',
-]
+__all__ = ['API_mode']

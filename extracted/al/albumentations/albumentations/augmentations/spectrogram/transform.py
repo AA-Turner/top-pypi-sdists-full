@@ -1,3 +1,10 @@
+"""Transforms for spectrogram augmentation.
+
+This module provides transforms specifically designed for augmenting spectrograms
+in audio processing tasks. Includes time reversal, time masking, and frequency
+masking transforms commonly used in audio machine learning applications.
+"""
+
 from __future__ import annotations
 
 from warnings import warn
@@ -48,6 +55,7 @@ class TimeReverse(HorizontalFlip):
     References:
         - AudioCLIP paper: https://arxiv.org/abs/2106.13043
         - Audiomentations: https://iver56.github.io/audiomentations/waveform_transforms/reverse/
+
     """
 
     _targets = ALL_TARGETS
@@ -111,6 +119,7 @@ class TimeMasking(XYMasking):
     References:
         - SpecAugment paper: https://arxiv.org/abs/1904.08779
         - Original implementation: https://pytorch.org/audio/stable/transforms.html#timemask
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -137,9 +146,6 @@ class TimeMasking(XYMasking):
             p=p,
         )
         self.time_mask_param = time_mask_param
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return ("time_mask_param",)
 
 
 class FrequencyMasking(XYMasking):
@@ -185,6 +191,7 @@ class FrequencyMasking(XYMasking):
     References:
         - SpecAugment paper: https://arxiv.org/abs/1904.08779
         - Original implementation: https://pytorch.org/audio/stable/transforms.html#freqmask
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -211,6 +218,3 @@ class FrequencyMasking(XYMasking):
             num_masks_y=1,
         )
         self.freq_mask_param = freq_mask_param
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return ("freq_mask_param",)

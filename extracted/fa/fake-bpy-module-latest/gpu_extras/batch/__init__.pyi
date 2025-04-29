@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bgl
 import gpu.types
 
 def batch_for_shader(
@@ -9,7 +10,7 @@ def batch_for_shader(
     type: str,
     content: dict[
         str,
-        gpu.types.Buffer
+        bgl.Buffer
         | collections.abc.Sequence[float]
         | collections.abc.Sequence[int]
         | collections.abc.Sequence[collections.abc.Sequence[float]]
@@ -26,7 +27,7 @@ def batch_for_shader(
         :type type: str
         :param content: Maps the name of the shader attribute with the data to fill the vertex buffer.
     For the dictionary values see documentation for `gpu.types.GPUVertBuf.attr_fill` data argument.
-        :type content: dict[str, gpu.types.Buffer | collections.abc.Sequence[float] | collections.abc.Sequence[int] | collections.abc.Sequence[collections.abc.Sequence[float]] | collections.abc.Sequence[collections.abc.Sequence[int]]]
+        :type content: dict[str, bgl.Buffer | collections.abc.Sequence[float] | collections.abc.Sequence[int] | collections.abc.Sequence[collections.abc.Sequence[float]] | collections.abc.Sequence[collections.abc.Sequence[int]]]
         :return: compatible batch
         :rtype: gpu.types.GPUBatch
     """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-athena
-Version: 1.9.3
+Version: 1.9.4
 Summary: The athena adapter plugin for dbt (data build tool)
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-athena
 Project-URL: Documentation, https://docs.getdbt.com

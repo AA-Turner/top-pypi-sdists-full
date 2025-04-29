@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-cli-labs
-Version: 3.7.0
+Version: 3.7.1
 Summary: Snowflake CLI
 Project-URL: Source code, https://github.com/snowflakedb/snowflake-cli
 Project-URL: Bug Tracker, https://github.com/snowflakedb/snowflake-cli/issues
@@ -209,7 +209,7 @@ License:                                  Apache License
 License-File: LICENSE
 Classifier: Development Status :: 7 - Inactive
 Requires-Python: >=3.10
-Requires-Dist: snowflake-cli==3.7.0
+Requires-Dist: snowflake-cli==3.7.1
 Description-Content-Type: text/markdown
 
 <!--

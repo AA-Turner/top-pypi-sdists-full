@@ -1,6 +1,5 @@
 use super::request::{execute_request, execute_websocket_request};
 use crate::{
-    apply_option,
     buffer::{HeaderValueBuffer, PyBufferProtocol},
     dns,
     error::Error,
@@ -358,6 +357,9 @@ impl Client {
             apply_option!(apply_if_some, builder, params.zstd, zstd);
 
             builder
+                .http1(|mut http1| {
+                    http1.title_case_headers(true);
+                })
                 .build()
                 .map(Client)
                 .map_err(Error::RquestError)

@@ -640,7 +640,9 @@ MODEL_RATIO = {
     "doubao-vision-lite-32k": 0.75,
     "doubao-vision-pro-32k": 1.5,
 
-    "doubao-1-5-thinking-pro": 2,
+    "doubao-1-5-pro-thinking": 2,
+
+    "doubao-1-5-vision-thinking": 2,
     "doubao-1-5-thinking-pro-250415": 2,
     "doubao-1-5-thinking-pro-vision": 2,
     "doubao-1-5-thinking-pro-vision-250415": 2,
@@ -753,8 +755,8 @@ MODEL_RATIO = {
     "gemini-2.5-pro-exp-03-25": 0.625,
     "gemini-2.5-pro-preview-03-25": 0.625,
 
-    "gemini-1.5-pro-001": 1,
-    "gemini-1.5-pro-002": 1,
+    "gemini-1.5-pro-001": 1.25,
+    "gemini-1.5-pro-002": 1.25,
     "gemini-1.5-pro-latest": 1.75,
     "gemini-1.5-pro-exp-0827": 1.75,
     "google/gemini-pro-1.5-exp": 1,  # openrouter免费
@@ -1100,7 +1102,8 @@ COMPLETION_RATIO = {
     "doubao-1-5-pro-256k": 1.8,
     "doubao-1-5-pro-256k-250115": 1.8,
 
-
+    "doubao-1-5-vision-thinking": 4,
+    "doubao-1-5-pro-thinking": 4,
     "doubao-1-5-thinking-pro": 4,
     "doubao-1-5-thinking-pro-250415": 4,
     "doubao-1-5-thinking-pro-vision": 4,
@@ -1362,7 +1365,7 @@ GROUP_RATIO = {
 
 # https://oss.ffire.cc/images/qw.jpeg?x-oss-process=image/format,jpg/resize,w_512
 if __name__ == '__main__':
-    # print(','.join(REDIRECT_MODEL.keys()))
+    # print(','.join(RE`DD`IRECT_MODEL.keys()))
 
     from meutils.apis.oneapi import option, channel
 

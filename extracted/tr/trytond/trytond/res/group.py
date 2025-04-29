@@ -14,7 +14,7 @@ class MenuMany2Many(fields.Many2Many):
 
     def get(self, ids, model, name, values=None):
         Menu = self.get_target()
-        res = super(MenuMany2Many, self).get(ids, model, name,
+        res = super().get(ids, model, name,
                 values=values)
         menu_ids = list(set(chain(*res.values())))
         test_ids = []
@@ -29,7 +29,6 @@ class MenuMany2Many(fields.Many2Many):
 
 
 class Group(DeactivableMixin, tree(), ModelSQL, ModelView):
-    "Group"
     __name__ = "res.group"
     name = fields.Char('Name', required=True, translate=True)
     users = fields.Many2Many('res.user-res.group', 'group', 'user', 'Users')
@@ -50,7 +49,7 @@ class Group(DeactivableMixin, tree(), ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(Group, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls._sql_constraints += [
             ('name_uniq', Unique(table, table.name),
@@ -59,11 +58,11 @@ class Group(DeactivableMixin, tree(), ModelSQL, ModelView):
         cls._order.insert(0, ('name', 'ASC'))
 
     @classmethod
-    def write(cls, *args):
-        super().write(*args)
+    def on_modification(cls, mode, groups, field_names=None):
         pool = Pool()
-        # Restart the cache for get_groups
-        pool.get('res.user')._get_groups_cache.clear()
+        User = pool.get('res.user')
+        super().on_modification(mode, groups, field_names=field_names)
+        User._get_groups_cache.clear()
 
     @classmethod
     def copy(cls, groups, default=None):
@@ -80,7 +79,7 @@ class Group(DeactivableMixin, tree(), ModelSQL, ModelView):
                     break
                 i += 1
             default['name'] = name
-            new_groups.extend(super(Group, cls).copy([group], default=default))
+            new_groups.extend(super().copy([group], default=default))
         return new_groups
 
     @classmethod

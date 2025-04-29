@@ -16,6 +16,7 @@ from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
 from ..models.entry_updated_review_record_event import EntryUpdatedReviewRecordEvent
+from ..models.entry_updated_review_snapshot_beta_event import EntryUpdatedReviewSnapshotBetaEvent
 from ..models.request_created_event import RequestCreatedEvent
 from ..models.request_updated_fields_event import RequestUpdatedFieldsEvent
 from ..models.stage_entry_created_event import StageEntryCreatedEvent
@@ -37,6 +38,7 @@ Event = Union[
     EntryCreatedEvent,
     EntryUpdatedFieldsEvent,
     EntryUpdatedReviewRecordEvent,
+    EntryUpdatedReviewSnapshotBetaEvent,
     StageEntryCreatedEvent,
     StageEntryUpdatedFieldsEvent,
     StageEntryUpdatedReviewRecordEvent,

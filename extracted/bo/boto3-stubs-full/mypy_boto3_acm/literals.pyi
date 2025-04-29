@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_acm.literals import CertificateStatusType
+    from mypy_boto3_acm.literals import CertificateManagedByType
 
-    data: CertificateStatusType = "EXPIRED"
+    data: CertificateManagedByType = "CLOUDFRONT"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ACMServiceName",
+    "CertificateManagedByType",
     "CertificateStatusType",
     "CertificateTransparencyLoggingPreferenceType",
     "CertificateTypeType",
@@ -47,6 +48,7 @@ __all__ = (
     "WaiterName",
 )
 
+CertificateManagedByType = Literal["CLOUDFRONT"]
 CertificateStatusType = Literal[
     "EXPIRED",
     "FAILED",
@@ -123,11 +125,12 @@ RevocationReasonType = Literal[
     "PRIVILEGE_WITHDRAWN",
     "REMOVE_FROM_CRL",
     "SUPERCEDED",
+    "SUPERSEDED",
     "UNSPECIFIED",
 ]
 SortByType = Literal["CREATED_AT"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
-ValidationMethodType = Literal["DNS", "EMAIL"]
+ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
 ACMServiceName = Literal["acm"]
 ServiceName = Literal[
     "accessanalyzer",

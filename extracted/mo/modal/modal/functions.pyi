@@ -48,7 +48,6 @@ class Function(
     _raw_f: typing.Optional[collections.abc.Callable[..., typing.Any]]
     _build_args: dict
     _is_generator: typing.Optional[bool]
-    _cluster_size: typing.Optional[int]
     _use_method_name: str
     _class_parameter_info: typing.Optional[modal_proto.api_pb2.ClassParameterInfo]
     _method_handle_metadata: typing.Optional[dict[str, modal_proto.api_pb2.FunctionHandleMetadata]]
@@ -163,8 +162,6 @@ class Function(
     def web_url(self) -> typing.Optional[str]: ...
     @property
     def is_generator(self) -> bool: ...
-    @property
-    def cluster_size(self) -> int: ...
 
     class ___map_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
@@ -330,13 +327,17 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
     from_id: __from_id_spec
 
     class __gather_spec(typing_extensions.Protocol):
-        def __call__(self, *function_calls: FunctionCall[typing.Any]) -> list[typing.Any]: ...
-        async def aio(self, *function_calls: FunctionCall[typing.Any]) -> list[typing.Any]: ...
+        def __call__(
+            self, *function_calls: FunctionCall[modal._functions.T]
+        ) -> typing.Sequence[modal._functions.T]: ...
+        async def aio(
+            self, *function_calls: FunctionCall[modal._functions.T]
+        ) -> typing.Sequence[modal._functions.T]: ...
 
     gather: __gather_spec
 
 class __gather_spec(typing_extensions.Protocol):
-    def __call__(self, *function_calls) -> typing.Sequence[modal._functions.ReturnType]: ...
-    async def aio(self, *function_calls) -> typing.Sequence[modal._functions.ReturnType]: ...
+    def __call__(self, *function_calls) -> typing.Sequence[modal._functions.T]: ...
+    async def aio(self, *function_calls) -> typing.Sequence[modal._functions.T]: ...
 
 gather: __gather_spec

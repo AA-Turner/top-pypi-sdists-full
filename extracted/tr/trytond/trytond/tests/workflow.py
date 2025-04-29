@@ -6,7 +6,6 @@ from trytond.pool import Pool
 
 
 class WorkflowedModel(Workflow, ModelSQL):
-    'Workflowed Model'
     __name__ = 'test.workflowed'
     state = fields.Selection([
             ('start', 'Start'),
@@ -16,7 +15,7 @@ class WorkflowedModel(Workflow, ModelSQL):
 
     @classmethod
     def __setup__(cls):
-        super(WorkflowedModel, cls).__setup__()
+        super().__setup__()
         cls._transitions |= set((
                 ('start', 'running'),
                 ))

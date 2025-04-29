@@ -54,7 +54,7 @@ class TrytonConfigParser(configparser.ConfigParser):
         self.set('web', 'cache_timeout', str(60 * 60 * 12))
         self.add_section('database')
         self.set('database', 'uri',
-            os.environ.get('TRYTOND_DATABASE_URI', 'sqlite://'))
+            os.environ.get('TRYTOND_DATABASE_URI') or 'sqlite://')
         self.set('database', 'path', os.path.join(
                 os.path.expanduser('~'), 'db'))
         self.set('database', 'list', 'True')
@@ -75,6 +75,8 @@ class TrytonConfigParser(configparser.ConfigParser):
         self.set('cache', 'default', '1024')
         self.set('cache', 'ir.message', '10240')
         self.set('cache', 'ir.translation', '10240')
+        self.set('cache', 'clean_timeout', '300')
+        self.set('cache', 'select_timeout', '60')
         self.add_section('queue')
         self.set('queue', 'worker', 'False')
         self.add_section('ssl')
@@ -117,11 +119,15 @@ class TrytonConfigParser(configparser.ConfigParser):
             self.set(section, option, value)
 
     def update_etc(self, configfile=os.environ.get('TRYTOND_CONFIG')):
+        if not configfile:
+            return []
         if isinstance(configfile, str):
             configfile = [configfile]
-        if not configfile or not [_f for _f in configfile if _f]:
+        configfile = [
+            os.path.expanduser(filename) for filename in configfile
+            if filename]
+        if not configfile:
             return []
-        configfile = [os.path.expanduser(filename) for filename in configfile]
         read_files = self.read(configfile)
         logger.info('using %s as configuration files', ', '.join(read_files))
         if configfile != read_files:

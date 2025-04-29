@@ -4,7 +4,6 @@ mod enums;
 mod header;
 mod ipaddr;
 mod json;
-mod macros;
 mod multipart;
 pub mod param;
 mod proxy;

@@ -45,38 +45,32 @@ class Model(
             readonly=True, ondelete='CASCADE',
             help="Module in which this model is defined."),
         ModelSQL, ModelView):
-    "Model"
     __name__ = 'ir.model'
-    _order_name = 'model'
-    name = fields.Char('Model Description', translate=True, loading='lazy',
+    _rec_name = 'string'
+    string = fields.Char(
+        "String", translate=True,
         states={
             'readonly': Bool(Eval('module')),
-            },
-        depends=['module'])
-    model = fields.Char('Model Name', required=True,
+            })
+    name = fields.Char(
+        "Name", required=True,
         states={
             'readonly': Bool(Eval('module')),
-            },
-        depends=['module'])
-    info = fields.Text('Information',
-        states={
-            'readonly': Bool(Eval('module')),
-            },
-        depends=['module'])
-    module = fields.Char("Module", readonly=True)
+            })
+    module = fields.Char('Module', readonly=True)
     global_search_p = fields.Boolean('Global Search')
     fields = fields.One2Many('ir.model.field', 'model_ref', "Fields")
     _get_names_cache = Cache('ir.model.get_names')
 
     @classmethod
     def __setup__(cls):
-        super(Model, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls._sql_constraints += [
-            ('model_uniq', Unique(table, table.model),
+            ('name_unique', Unique(table, table.name),
                 'The model must be unique!'),
             ]
-        cls._order.insert(0, ('model', 'ASC'))
+        cls._order.insert(0, ('name', 'ASC'))
         cls.__rpc__.update({
                 'list_models': RPC(),
                 'list_history': RPC(),
@@ -86,12 +80,25 @@ class Model(
                 })
 
     @classmethod
+    def __register__(cls, module):
+        table_h = cls.__table_handler__(module)
+
+        # Migration from 7.4:
+        # rename column name into string and model into name
+        if table_h.column_exist('model'):
+            table_h.column_rename('name', 'string')
+            table_h.column_rename('model', 'name')
+        table_h.drop_constraint('model_uniq')
+
+        super().__register__(module)
+
+    @classmethod
     def register(cls, model, module_name):
         cursor = Transaction().connection.cursor()
 
         ir_model = cls.__table__()
         cursor.execute(*ir_model.select(ir_model.id,
-                where=ir_model.model == model.__name__))
+                where=ir_model.name == model.__name__))
         model_id = None
         if cursor.rowcount == -1 or cursor.rowcount is None:
             data = cursor.fetchone()
@@ -101,18 +108,14 @@ class Model(
             model_id, = cursor.fetchone()
         if not model_id:
             cursor.execute(*ir_model.insert(
-                    [ir_model.model, ir_model.name, ir_model.info,
-                        ir_model.module],
-                    [[
-                            model.__name__, model._get_name(), model.__doc__,
-                            module_name]]))
+                    [ir_model.name, ir_model.string, ir_model.module],
+                    [[model.__name__, model.__string__, module_name]]))
             cursor.execute(*ir_model.select(ir_model.id,
-                    where=ir_model.model == model.__name__))
+                    where=ir_model.name == model.__name__))
             (model_id,) = cursor.fetchone()
-        elif model.__doc__:
+        else:
             cursor.execute(*ir_model.update(
-                    [ir_model.name, ir_model.info],
-                    [model._get_name(), model.__doc__],
+                    [ir_model.string], [model.__string__],
                     where=ir_model.id == model_id))
         cls._get_names_cache.clear()
         return model_id
@@ -123,29 +126,29 @@ class Model(
         transaction = Transaction()
         cursor = transaction.connection.cursor()
         ir_model = cls.__table__()
-        cursor.execute(*ir_model.select(ir_model.model, ir_model.id))
-        for model, id_ in cursor:
+        cursor.execute(*ir_model.select(ir_model.name, ir_model.id))
+        for name, id_ in cursor:
             try:
-                pool.get(model)
+                pool.get(name)
             except KeyError:
-                logger.info("remove model: %s", model)
+                logger.info("remove model: %s", name)
                 try:
                     cls.delete([cls(id_)])
                     transaction.commit()
                 except Exception:
                     transaction.rollback()
                     logger.error(
-                        "could not delete model: %s", model, exc_info=True)
+                        "could not delete model: %s", name, exc_info=True)
 
     @classmethod
     def list_models(cls):
         'Return a list of all models names'
         models = cls.search([], order=[
                 ('module', 'ASC'),  # Optimization assumption
-                ('model', 'ASC'),
+                ('name', 'ASC'),
                 ('id', 'ASC'),
                 ])
-        return [m.model for m in models]
+        return [m.name for m in models]
 
     @classmethod
     def list_history(cls):
@@ -163,22 +166,36 @@ class Model(
             and model._on_change_notify_depends}
 
     @classmethod
-    def get_name_items(cls):
+    def get_name_items(cls, classes=None):
         "Return a list of couple mapping models to names"
-        items = cls._get_names_cache.get('items')
+        pool = Pool()
+        key = 'items', str(classes)
+        items = cls._get_names_cache.get(key)
         if items is None:
             models = cls.search([])
-            items = [(m.model, m.name) for m in models]
-            cls._get_names_cache.set('items', items)
+            items = ((m.name, m.string) for m in models)
+            if classes:
+                def pool_get(model):
+                    # During update existing model may not yet be in the pool
+                    try:
+                        return pool.get(model)
+                    except KeyError:
+                        return object
+                items = (
+                    (m, n) for m, n in items
+                    if issubclass(pool_get(m), classes))
+            items = list(items)
+            cls._get_names_cache.set(key, items)
         return items
 
     @classmethod
-    def get_names(cls):
+    def get_names(cls, classes=None):
         "Return a dictionary mapping models to names"
-        dict_ = cls._get_names_cache.get('dict')
+        key = 'dict', str(classes)
+        dict_ = cls._get_names_cache.get(key)
         if dict_ is None:
             dict_ = dict(cls.get_name_items())
-            cls._get_names_cache.set('dict', dict_)
+            cls._get_names_cache.set(key, dict_)
         return dict_
 
     @classmethod
@@ -196,9 +213,9 @@ class Model(
 
         models = cls.search(['OR',
                 ('global_search_p', '=', True),
-                ('model', '=', menu),
+                ('name', '=', menu),
                 ])
-        access = ModelAccess.get_access([m.model for m in models])
+        access = ModelAccess.get_access([m.name for m in models])
         s = StringMatcher()
         if isinstance(text, bytes):
             text = text.decode('utf-8')
@@ -206,16 +223,16 @@ class Model(
 
         def generate():
             for model in models:
-                if not access[model.model]['read']:
+                if not access[model.name]['read']:
                     continue
-                Model = pool.get(model.model)
+                Model = pool.get(model.name)
                 if not hasattr(Model, 'search_global'):
                     continue
                 for record, name, icon in Model.search_global(text):
                     if isinstance(name, bytes):
                         name = name.decode('utf-8')
                     s.set_seq1(name)
-                    yield (s.ratio(), model.model, model.rec_name,
+                    yield (s.ratio(), model.name, model.rec_name,
                         record.id, name, icon)
         return heapq.nlargest(int(limit), generate())
 
@@ -226,7 +243,7 @@ class Model(
 
 class ModelField(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE',
             states={
                 'readonly': Bool(Eval('module')),
@@ -235,9 +252,15 @@ class ModelField(
             'module_ref', 'module', 'ir.module,name', "Module",
             readonly=True, ondelete='CASCADE',
             help="Module in which this field is defined."),
+        fields.fmany2one(
+            'relation_ref', 'relation', 'ir.model,name', "Relation",
+            ondelete='CASCADE',
+            states={
+                'readonly': Bool(Eval('module')),
+                }),
         ModelSQL, ModelView):
-    "Model field"
     __name__ = 'ir.model.field'
+    _rec_name = 'string'
     name = fields.Char('Name', required=True,
         states={
             'readonly': Bool(Eval('module')),
@@ -253,12 +276,12 @@ class ModelField(
         states={
             'readonly': Bool(Eval('module')),
             })
-    field_description = fields.Char('Field Description', translate=True,
+    string = fields.Char(
+        "String", translate=True,
         loading='lazy',
         states={
             'readonly': Bool(Eval('module')),
-            },
-        depends=['module'])
+            })
     ttype = fields.Char('Field Type',
         states={
             'readonly': Bool(Eval('module')),
@@ -284,7 +307,7 @@ class ModelField(
 
     @classmethod
     def __setup__(cls):
-        super(ModelField, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('model_ref')
         table = cls.__table__()
         cls._sql_constraints += [
@@ -309,10 +332,13 @@ class ModelField(
             table_h.column_rename('model', '_temp_model')
             table_h.add_column('model', 'VARCHAR')
             cursor.execute(*table.update(
-                    [table.model], [model.model],
+                    [table.model], [model.name],
                     from_=[model],
                     where=table._temp_model == model.id))
             table_h.drop_column('_temp_model')
+
+        # Migration from 7.4: rename field_description into string
+        table_h.column_rename('field_description', 'string')
 
         super().__register__(module)
 
@@ -326,7 +352,7 @@ class ModelField(
             .select(
                 ir_model_field.id.as_('id'),
                 ir_model_field.name.as_('name'),
-                ir_model_field.field_description.as_('field_description'),
+                ir_model_field.string.as_('string'),
                 ir_model_field.ttype.as_('ttype'),
                 ir_model_field.relation.as_('relation'),
                 ir_model_field.module.as_('module'),
@@ -336,19 +362,20 @@ class ModelField(
         model_fields = {f['name']: f for f in cursor_dict(cursor)}
 
         for field_name, field in model._fields.items():
-            if hasattr(field, 'model_name'):
-                relation = field.model_name
-            elif hasattr(field, 'relation_name'):
-                relation = field.relation_name
+            if hasattr(field, 'get_target'):
+                Relation = field.get_target()
+                relation = Relation.__name__
+                Model.register(Relation, module_name)
             else:
                 relation = None
+
             access = field_name in model.__access__
 
             if field_name not in model_fields:
                 cursor.execute(*ir_model_field.insert([
                             ir_model_field.model,
                             ir_model_field.name,
-                            ir_model_field.field_description,
+                            ir_model_field.string,
                             ir_model_field.ttype,
                             ir_model_field.relation,
                             ir_model_field.help,
@@ -364,13 +391,13 @@ class ModelField(
                                 module_name,
                                 access,
                                 ]]))
-            elif (model_fields[field_name]['field_description'] != field.string
+            elif (model_fields[field_name]['string'] != field.string
                     or model_fields[field_name]['ttype'] != field._type
                     or model_fields[field_name]['relation'] != relation
                     or model_fields[field_name]['help'] != field.help
                     or model_fields[field_name]['access'] != access):
                 cursor.execute(*ir_model_field.update([
-                            ir_model_field.field_description,
+                            ir_model_field.string,
                             ir_model_field.ttype,
                             ir_model_field.relation,
                             ir_model_field.help,
@@ -408,17 +435,9 @@ class ModelField(
                         "could not delete field: %s.%s", model, field,
                         exc_info=True)
 
-    @staticmethod
-    def default_name():
-        return 'No Name'
-
-    @staticmethod
-    def default_field_description():
-        return 'No description available'
-
     def get_rec_name(self, name):
-        if self.field_description:
-            return '%s (%s)' % (self.field_description, self.name)
+        if self.string:
+            return '%s (%s)' % (self.string, self.name)
         else:
             return self.name
 
@@ -429,7 +448,7 @@ class ModelField(
         else:
             bool_op = 'OR'
         return [bool_op,
-            ('field_description',) + tuple(clause[1:]),
+            ('string',) + tuple(clause[1:]),
             ('name',) + tuple(clause[1:]),
             ]
 
@@ -438,12 +457,12 @@ class ModelField(
         name = cls._get_name_cache.get((model, field))
         if name is None:
             fields = cls.search([
-                    ('model.model', '=', model),
+                    ('model.name', '=', model),
                     ('name', '=', field),
                     ], limit=1)
             if fields:
                 field, = fields
-                name = field.field_description
+                name = field.string
                 cls._get_name_cache.set((model, field), name)
             else:
                 name = field
@@ -456,8 +475,7 @@ class ModelField(
 
         to_delete = []
         if Transaction().context.get('language'):
-            if 'field_description' in fields_names \
-                    or 'help' in fields_names:
+            if 'string' in fields_names or 'help' in fields_names:
                 if 'model' not in fields_names:
                     fields_names.append('model')
                     to_delete.append('model')
@@ -465,14 +483,14 @@ class ModelField(
                     fields_names.append('name')
                     to_delete.append('name')
 
-        res = super(ModelField, cls).read(ids, fields_names)
+        res = super().read(ids, fields_names)
 
         if (Transaction().context.get('language')
-                and ('field_description' in fields_names
+                and ('string' in fields_names
                     or 'help' in fields_names)):
             trans_args = []
             for rec in res:
-                if 'field_description' in fields_names:
+                if 'string' in fields_names:
                     trans_args.append((
                             rec['model'] + ',' + rec['name'],
                             'field', Transaction().language, None))
@@ -482,12 +500,12 @@ class ModelField(
                             'help', Transaction().language, None))
             Translation.get_sources(trans_args)
             for rec in res:
-                if 'field_description' in fields_names:
+                if 'string' in fields_names:
                     res_trans = Translation.get_source(
                             rec['model'] + ',' + rec['name'],
                             'field', Transaction().language)
                     if res_trans:
-                        rec['field_description'] = res_trans
+                        rec['string'] = res_trans
                 if 'help' in fields_names:
                     res_trans = Translation.get_source(
                             rec['model'] + ',' + rec['name'],
@@ -504,10 +522,9 @@ class ModelField(
 
 class ModelAccess(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         DeactivableMixin, ModelSQL, ModelView):
-    "Model access"
     __name__ = 'ir.model.access'
     model = fields.Char("Model", required=True)
     group = fields.Many2One('res.group', 'Group',
@@ -521,7 +538,7 @@ class ModelAccess(
 
     @classmethod
     def __setup__(cls):
-        super(ModelAccess, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('model_ref')
         cls.__rpc__.update({
                 'get_access': RPC(),
@@ -543,7 +560,7 @@ class ModelAccess(
             table_h.column_rename('model', '_temp_model')
             table_h.add_column('model', 'VARCHAR')
             cursor.execute(*table.update(
-                    [table.model], [model.model],
+                    [table.model], [model.name],
                     from_=[model],
                     where=table._temp_model == model.id))
             table_h.drop_column('_temp_model')
@@ -732,31 +749,15 @@ class ModelAccess(
             return True
 
     @classmethod
-    def write(cls, accesses, values, *args):
-        super(ModelAccess, cls).write(accesses, values, *args)
-        # Restart the cache
-        cls._get_access_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-
-    @classmethod
-    def create(cls, vlist):
-        res = super(ModelAccess, cls).create(vlist)
-        # Restart the cache
-        cls._get_access_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-        return res
-
-    @classmethod
-    def delete(cls, accesses):
-        super(ModelAccess, cls).delete(accesses)
-        # Restart the cache
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._get_access_cache.clear()
         ModelView._fields_view_get_cache.clear()
 
 
 class ModelFieldAccess(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         fields.fmany2one(
             'field_ref', 'field,model', 'ir.model.field,name,model', "Field",
@@ -765,7 +766,6 @@ class ModelFieldAccess(
                 ('model', '=', Eval('model')),
                 ]),
         DeactivableMixin, ModelSQL, ModelView):
-    "Model Field Access"
     __name__ = 'ir.model.field.access'
     model = fields.Char("Model", required=True)
     field = fields.Char("Field", required=True)
@@ -926,34 +926,17 @@ class ModelFieldAccess(
         return True
 
     @classmethod
-    def write(cls, field_accesses, values, *args):
-        super(ModelFieldAccess, cls).write(field_accesses, values, *args)
-        # Restart the cache
-        cls._get_access_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-
-    @classmethod
-    def create(cls, vlist):
-        res = super(ModelFieldAccess, cls).create(vlist)
-        # Restart the cache
-        cls._get_access_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-        return res
-
-    @classmethod
-    def delete(cls, field_accesses):
-        super(ModelFieldAccess, cls).delete(field_accesses)
-        # Restart the cache
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._get_access_cache.clear()
         ModelView._fields_view_get_cache.clear()
 
 
 class ModelButton(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, readonly=True, ondelete='CASCADE'),
         DeactivableMixin, ModelSQL, ModelView):
-    "Model Button"
     __name__ = 'ir.model.button'
     name = fields.Char('Name', required=True, readonly=True)
     string = fields.Char("Label", translate=True)
@@ -978,6 +961,9 @@ class ModelButton(
             ('id', '!=', Eval('id', -1)),
             ])
     _reset_cache = Cache('ir.model.button.reset')
+    groups = fields.Many2Many(
+        'ir.model.button-res.group', 'button', 'group', "Groups")
+    _groups_cache = Cache('ir.model.button.groups')
     _view_attributes_cache = Cache(
         'ir.model.button.view_attributes', context=False)
 
@@ -997,7 +983,7 @@ class ModelButton(
             table_h.column_rename('model', '_temp_model')
             table_h.add_column('model', 'VARCHAR')
             cursor.execute(*table.update(
-                    [table.model], [model.model],
+                    [table.model], [model.name],
                     from_=[model],
                     where=table._temp_model == model.id))
             table_h.drop_column('_temp_model')
@@ -1009,7 +995,7 @@ class ModelButton(
 
     @classmethod
     def __setup__(cls):
-        super(ModelButton, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('model_ref')
         t = cls.__table__()
         cls._sql_constraints += [
@@ -1021,25 +1007,11 @@ class ModelButton(
         cls._order.insert(0, ('model', 'ASC'))
 
     @classmethod
-    def create(cls, vlist):
-        result = super(ModelButton, cls).create(vlist)
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._rules_cache.clear()
         cls._reset_cache.clear()
-        cls._view_attributes_cache.clear()
-        return result
-
-    @classmethod
-    def write(cls, buttons, values, *args):
-        super(ModelButton, cls).write(buttons, values, *args)
-        cls._rules_cache.clear()
-        cls._reset_cache.clear()
-        cls._view_attributes_cache.clear()
-
-    @classmethod
-    def delete(cls, buttons):
-        super(ModelButton, cls).delete(buttons)
-        cls._rules_cache.clear()
-        cls._reset_cache.clear()
+        cls._groups_cache.clear()
         cls._view_attributes_cache.clear()
 
     @classmethod
@@ -1049,7 +1021,7 @@ class ModelButton(
         else:
             default = default.copy()
         default.setdefault('clicks')
-        return super(ModelButton, cls).copy(buttons, default=default)
+        return super().copy(buttons, default=default)
 
     @classmethod
     @without_check_access
@@ -1094,6 +1066,27 @@ class ModelButton(
         return reset
 
     @classmethod
+    def get_groups(cls, model, name):
+        '''
+        Return a set of group ids for the named button on the model.
+        '''
+        key = (model, name)
+        groups = cls._groups_cache.get(key)
+        if groups is not None:
+            return groups
+        buttons = cls.search([
+                ('model.name', '=', model),
+                ('name', '=', name),
+                ])
+        if not buttons:
+            groups = set()
+        else:
+            button, = buttons
+            groups = set(g.id for g in button.groups)
+        cls._groups_cache.set(key, groups)
+        return groups
+
+    @classmethod
     def get_view_attributes(cls, model, name):
         "Return the view attributes of the named button of the model"
         key = (model, name, Transaction().language)
@@ -1117,8 +1110,22 @@ class ModelButton(
         return attributes
 
 
+class ModelButtonGroup(DeactivableMixin, ModelSQL):
+    __name__ = 'ir.model.button-res.group'
+    button = fields.Many2One(
+        'ir.model.button', "Button", ondelete='CASCADE', required=True)
+    group = fields.Many2One(
+        'res.group', "Group", ondelete='CASCADE', required=True)
+
+    @classmethod
+    def on_modification(cls, mode, records, field_names=None):
+        pool = Pool()
+        Button = pool.get('ir.model.button')
+        super().on_modification(mode, records, field_names=field_names)
+        Button._groups_cache.clear()
+
+
 class ModelButtonRule(ModelSQL, ModelView):
-    "Model Button Rule"
     __name__ = 'ir.model.button.rule'
     button = fields.Many2One(
         'ir.model.button', "Button", required=True, ondelete='CASCADE')
@@ -1128,6 +1135,7 @@ class ModelButtonRule(ModelSQL, ModelView):
         "Condition",
         help='A PYSON statement evaluated with the record represented by '
         '"self"\nIt activate the rule if true.')
+    group = fields.Many2One('res.group', "Group", ondelete='CASCADE')
 
     @classmethod
     def __setup__(cls):
@@ -1172,41 +1180,23 @@ class ModelButtonRule(ModelSQL, ModelView):
         return len(users) >= self.number_user
 
     @classmethod
-    def create(cls, vlist):
+    def on_modification(cls, mode, records, field_names=None):
         pool = Pool()
         ModelButton = pool.get('ir.model.button')
-        result = super(ModelButtonRule, cls).create(vlist)
-        # Restart the cache for get_rules
-        ModelButton._rules_cache.clear()
-        return result
-
-    @classmethod
-    def write(cls, buttons, values, *args):
-        pool = Pool()
-        ModelButton = pool.get('ir.model.button')
-        super(ModelButtonRule, cls).write(buttons, values, *args)
-        # Restart the cache for get_rules
-        ModelButton._rules_cache.clear()
-
-    @classmethod
-    def delete(cls, buttons):
-        pool = Pool()
-        ModelButton = pool.get('ir.model.button')
-        super(ModelButtonRule, cls).delete(buttons)
-        # Restart the cache for get_rules
+        super().on_modification(mode, records, field_names=field_names)
         ModelButton._rules_cache.clear()
 
 
 class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
-    "Model Button Click"
     __name__ = 'ir.model.button.click'
     button = fields.Many2One(
         'ir.model.button', "Button", required=True, ondelete='CASCADE')
     record_id = fields.Integer("Record ID", required=True)
+    user = fields.Many2One('res.user', "User", ondelete='CASCADE')
 
     @classmethod
     def __setup__(cls):
-        super(ModelButtonClick, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('button')
         cls.__rpc__.update({
                 'get_click': RPC(),
@@ -1221,7 +1211,7 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
 
         user = Transaction().user
         button, = Button.search([
-                ('model.model', '=', model),
+                ('model.name', '=', model),
                 ('name', '=', name),
                 ])
         cls.create([{
@@ -1249,7 +1239,7 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
         clicks = []
         for records in grouped_slice(records):
             clicks.extend(cls.search([
-                        ('button.model.model', '=', model),
+                        ('button.model.name', '=', model),
                         ('button.name', 'in', names),
                         ('record_id', 'in', [r.id for r in records]),
                         ]))
@@ -1260,7 +1250,7 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
     @classmethod
     def get_click(cls, model, button, record_id):
         clicks = cls.search([
-                ('button.model.model', '=', model),
+                ('button.model.name', '=', model),
                 ('button.name', '=', button),
                 ('record_id', '=', record_id),
                 ])
@@ -1268,7 +1258,6 @@ class ModelButtonClick(DeactivableMixin, ModelSQL, ModelView):
 
 
 class ModelButtonReset(ModelSQL):
-    "Model Button Reset"
     __name__ = 'ir.model.button-button.reset'
     button_ruled = fields.Many2One(
         'ir.model.button', "Button Ruled",
@@ -1280,13 +1269,12 @@ class ModelButtonReset(ModelSQL):
 
 class ModelData(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         fields.fmany2one(
             'module_ref', 'module', 'ir.module,name', "Module",
             required=True, ondelete='CASCADE'),
-        ModelSQL, ModelView):
-    "Model data"
+        ModelSQL):
     __name__ = 'ir.model.data'
     fs_id = fields.Char('Identifier on File System', required=True,
         help="The id of the record as known on the file system.")
@@ -1298,22 +1286,22 @@ class ModelData(
             'required': ~Eval('noupdate', False),
             },
         help="The id of the record in the database.")
-    values = fields.Text('Values')
-    fs_values = fields.Text('Values on File System')
     noupdate = fields.Boolean('No Update')
-    out_of_sync = fields.Function(fields.Boolean('Out of Sync'),
-        'get_out_of_sync', searcher='search_out_of_sync')
+    field_names = fields.MultiSelection('get_field_names', "Field Names")
     _get_id_cache = Cache('ir_model_data.get_id', context=False)
     _has_model_cache = Cache('ir_model_data.has_model', context=False)
 
     @classmethod
     def __setup__(cls):
-        super(ModelData, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls._sql_constraints = [
-            ('fs_id_module_model_uniq',
-                Unique(table, table.fs_id, table.module, table.model),
-                'The triple (fs_id, module, model) must be unique!'),
+            ('fs_id_module_unique',
+                Unique(table, table.fs_id, table.module),
+                'ir.msg_model_data_xml_id_module_unique'),
+            ('db_id_model_unique',
+                Unique(table, table.db_id, table.model),
+                'is.msg_model_data_db_id_model_unique'),
             ]
         cls._sql_indexes.update({
                 Index(
@@ -1324,62 +1312,42 @@ class ModelData(
                 Index(
                     table,
                     (table.module, Index.Equality())),
-                })
-        cls._buttons.update({
-                'sync': {
-                    'invisible': ~Eval('out_of_sync'),
-                    'depends': ['out_of_sync'],
-                    },
+                Index(
+                    table,
+                    (table.model, Index.Equality()),
+                    (table.db_id, Index.Range()),
+                    (table.field_names, Index.Equality()),
+                    where=table.noupdate == Literal(False)),
                 })
         cls.__rpc__.update({
-                'sync': RPC(
-                    readonly=False, instantiate=0, fresh_session=True),
+                'get_id': RPC(),
                 })
 
     @classmethod
     def __register__(cls, module_name):
-        super(ModelData, cls).__register__(module_name)
+        super().__register__(module_name)
 
         table_h = cls.__table_handler__(module_name)
 
-        # Migration from 5.0: remove required on db_id
-        table_h.not_null_action('db_id', action='remove')
+        # Migration from 7.4: replace fs_id_module_model_uniq
+        table_h.drop_constraint('fs_id_module_model_uniq')
+
+    @fields.depends('model_ref')
+    def get_field_names(self):
+        if not self.model_ref:
+            return []
+        return [(f.name, f.name) for f in self.model_ref.fields]
 
     @staticmethod
     def default_noupdate():
         return False
 
-    def get_out_of_sync(self, name):
-        return self.values != self.fs_values and self.fs_values is not None
-
     @classmethod
-    def search_out_of_sync(cls, name, clause):
-        table = cls.__table__()
-        name, operator, value = clause
-        Operator = fields.SQL_OPERATORS[operator]
-        query = table.select(table.id,
-            where=Operator(
-                (table.fs_values != table.values) & (table.fs_values != Null),
-                value))
-        return [('id', 'in', query)]
-
-    @classmethod
-    def create(cls, *args):
-        records = super(ModelData, cls).create(*args)
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._has_model_cache.clear()
-        return records
-
-    @classmethod
-    def write(cls, data, values, *args):
-        super(ModelData, cls).write(data, values, *args)
-        # Restart the cache for get_id
-        cls._get_id_cache.clear()
-        cls._has_model_cache.clear()
-
-    @classmethod
-    def delete(cls, records):
-        super(ModelData, cls).delete(records)
-        cls._has_model_cache.clear()
+        if mode == 'write':
+            cls._get_id_cache.clear()
 
     @classmethod
     def has_model(cls, model):
@@ -1400,30 +1368,30 @@ class ModelData(
                 records, key=lambda r: r.__class__):
             for sub_records in grouped_slice(records):
                 id2record = {r.id: r for r in sub_records}
-                data = cls.search([
-                        ('model', '=', Model.__name__),
-                        ('db_id', 'in', list(id2record.keys())),
-                        ], order=[])
+                domain = [
+                    ('model', '=', Model.__name__),
+                    ('db_id', 'in', list(id2record.keys())),
+                    ('noupdate', '=', False),
+                    ]
+                if values is not None:
+                    domain.append(('field_names', '!=', None))
+                data = cls.search(domain, order=[])
                 for data in data:
                     record = id2record[data.db_id]
                     if values is None:
-                        if not data.noupdate:
-                            raise AccessError(
-                                gettext(
-                                    'ir.msg_delete_xml_record',
-                                    **Model.__names__(record=record)),
-                                gettext('ir.msg_base_config_record'))
+                        raise AccessError(
+                            gettext(
+                                'ir.msg_delete_xml_record',
+                                **Model.__names__(record=record)),
+                            gettext('ir.msg_base_config_record'))
                     else:
-                        if not data.values or data.noupdate:
-                            continue
-                        xml_values = cls.load_values(data.values)
-                        for key, val in values.items():
-                            if key in xml_values and val != xml_values[key]:
+                        for field in values:
+                            if field in data.field_names:
                                 raise AccessError(
                                     gettext(
                                         'ir.msg_write_xml_record',
                                         **cls.__names__(
-                                            field=key, record=record)),
+                                            field=field, record=record)),
                                     gettext('ir.msg_base_config_record'))
 
     @classmethod
@@ -1453,16 +1421,16 @@ class ModelData(
         id_ = cls._get_id_cache.get(key)
         if id_ is not None:
             return id_
-        data = cls.search([
-            ('module', '=', module),
-            ('fs_id', '=', fs_id),
-            ], limit=1)
-        if not data:
-            raise KeyError("Reference to %s not found"
-                % ".".join([module, fs_id]))
-        id_ = cls.read([d.id for d in data], ['db_id'])[0]['db_id']
-        cls._get_id_cache.set(key, id_)
-        return id_
+        try:
+            data, = cls.search([
+                ('module', '=', module),
+                ('fs_id', '=', fs_id),
+                ])
+        except ValueError:
+            raise KeyError(f"Reference to '{module}.{fs_id}' not found")
+
+        cls._get_id_cache.set(key, data.db_id)
+        return data.db_id
 
     @classmethod
     def dump_values(cls, values):
@@ -1474,50 +1442,8 @@ class ModelData(
     def load_values(cls, values):
         return dict(json.loads(values, object_hook=JSONDecoder()))
 
-    @classmethod
-    @ModelView.button
-    def sync(cls, records):
-        def settable(Model, fieldname):
-            try:
-                field = Model._fields[fieldname]
-            except KeyError:
-                return False
-
-            if isinstance(field, fields.Function) and not field.setter:
-                return False
-
-            return True
-
-        with Transaction().set_user(0):
-            pool = Pool()
-            to_write = []
-            models_to_write = defaultdict(list)
-            for data in records:
-                try:
-                    Model = pool.get(data.model)
-                except KeyError:
-                    continue
-                values = cls.load_values(data.values)
-                fs_values = cls.load_values(data.fs_values)
-                # values could be the same once loaded
-                # if they come from version < 3.2
-                if values != fs_values:
-                    values = {f: v for f, v in fs_values.items()
-                        if settable(Model, f)}
-                    record = Model(data.db_id)
-                    models_to_write[Model].extend(([record], values))
-                to_write.extend([[data], {
-                            'values': cls.dump_values(fs_values),
-                            'fs_values': cls.dump_values(fs_values),
-                            }])
-            for Model, values_to_write in models_to_write.items():
-                Model.write(*values_to_write)
-            if to_write:
-                cls.write(*to_write)
-
 
 class Log(ResourceAccessMixin, ModelSQL, ModelView):
-    "Log"
     __name__ = 'ir.model.log'
 
     user = fields.Many2One(
@@ -1595,7 +1521,6 @@ class Log(ResourceAccessMixin, ModelSQL, ModelView):
 
 
 class PrintModelGraphStart(ModelView):
-    'Print Model Graph'
     __name__ = 'ir.model.print_model_graph.start'
     level = fields.Integer('Level', required=True)
     filter = fields.Text('Filter', help="Entering a Python "
@@ -1677,7 +1602,7 @@ class ModelGraph(Report):
                         sub_models.add(field.relation)
             if sub_models:
                 model_ids = Model.search([
-                    ('model', 'in', list(sub_models)),
+                    ('name', 'in', list(sub_models)),
                     ])
                 sub_models = Model.browse(model_ids)
                 if set(sub_models) != set(models):
@@ -1685,21 +1610,21 @@ class ModelGraph(Report):
                             filter=filter)
 
         for model in models:
-            if filter and re.search(filter, model.model):
+            if filter and re.search(filter, model.name):
                 continue
-            label = '"{' + model.model + '\\n'
+            label = '"{' + model.name + '\\n'
             if model.fields:
                 label += '|'
             for field in model.fields:
                 if field.name in ('create_uid', 'write_uid',
                         'create_date', 'write_date', 'id'):
                     continue
-                label += '+ ' + field.name + ': ' + field.ttype
+                label += f'+ {field.name} : {field.ttype}'
                 if field.relation:
                     label += ' ' + field.relation
                 label += '\\l'
             label += '}"'
-            node_name = '"%s"' % model.model
+            node_name = '"%s"' % model.name
             node = pydot.Node(node_name, shape='record', label=label)
             graph.add_node(node)
 
@@ -1711,9 +1636,9 @@ class ModelGraph(Report):
                     if not graph.get_node(node_name):
                         continue
                     args = {}
-                    tail = model.model
+                    tail = model.name
                     head = field.relation
-                    edge_model_name = '"%s"' % model.model
+                    edge_model_name = '"%s"' % model.name
                     edge_relation_name = '"%s"' % field.relation
                     if field.ttype == 'many2one':
                         edge = graph.get_edge(edge_model_name,
@@ -1728,7 +1653,7 @@ class ModelGraph(Report):
                             continue
                         args['arrowhead'] = "normal"
                         tail = field.relation
-                        head = model.model
+                        head = model.name
                     elif field.ttype == 'many2many':
                         if graph.get_edge(edge_model_name, edge_relation_name):
                             continue
@@ -1751,12 +1676,9 @@ class ModelWorkflowGraph(Report):
         Model = pool.get('ir.model')
         ActionReport = pool.get('ir.action.report')
 
-        action_report_ids = ActionReport.search([
+        action_report, = ActionReport.search([
             ('report_name', '=', cls.__name__)
-            ])
-        if not action_report_ids:
-            raise Exception('Error', 'Report (%s) not find!' % cls.__name__)
-        action_report = ActionReport(action_report_ids[0])
+            ], limit=1)
 
         models = Model.browse(ids)
 
@@ -1776,23 +1698,23 @@ class ModelWorkflowGraph(Report):
         pool = Pool()
 
         for record in models:
-            Model = pool.get(record.model)
+            Model = pool.get(record.name)
 
             if not issubclass(Model, Workflow):
                 continue
 
-            subgraph = pydot.Cluster('%s' % record.id, label=record.model)
+            subgraph = pydot.Cluster('%s' % record.id, label=record.name)
             graph.add_subgraph(subgraph)
 
             state_field = getattr(Model, Model._transition_state)
             for state, _ in state_field.selection:
                 node = pydot.Node(
-                    f'"{record.model}--{state}"', shape='octagon', label=state)
+                    f'"{record.name}--{state}"', shape='octagon', label=state)
                 subgraph.add_node(node)
 
             for from_, to in Model._transitions:
                 edge = pydot.Edge(
-                        f'"{record.model}--{from_}"',
-                        f'"{record.model}--{to}"',
+                        f'"{record.name}--{from_}"',
+                        f'"{record.name}--{to}"',
                         arrowhead='normal')
                 subgraph.add_edge(edge)

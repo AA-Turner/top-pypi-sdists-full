@@ -1,3 +1,9 @@
+"""Transforms for resizing images and associated data.
+
+This module provides transform classes for resizing operations, including uniform resizing,
+scaling with aspect ratio preservation, and size-constrained transformations.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -88,8 +94,8 @@ class RandomScale(DualTransform):
 
         @field_validator("scale_limit")
         @classmethod
-        def check_scale_limit(cls, v: tuple[float, float] | float) -> tuple[float, float]:
-            return to_tuple(v, bias=1.0)
+        def _check_scale_limit(cls, v: tuple[float, float] | float) -> tuple[float, float]:
+            return to_tuple(v)
 
     def __init__(
         self,
@@ -115,12 +121,18 @@ class RandomScale(DualTransform):
         p: float = 0.5,
     ):
         super().__init__(p=p)
-        self.scale_limit = cast(tuple[float, float], scale_limit)
+        self.scale_limit = cast("tuple[float, float]", scale_limit)
         self.interpolation = interpolation
         self.mask_interpolation = mask_interpolation
 
     def get_params(self) -> dict[str, float]:
-        return {"scale": self.py_random.uniform(*self.scale_limit)}
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, float]: Dictionary with parameters.
+
+        """
+        return {"scale": self.py_random.uniform(*self.scale_limit) + 1.0}
 
     def apply(
         self,
@@ -128,6 +140,17 @@ class RandomScale(DualTransform):
         scale: float,
         **params: Any,
     ) -> np.ndarray:
+        """Apply scaling to the image.
+
+        Args:
+            img (np.ndarray): Image to scale.
+            scale (float): Scaling factor.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Scaled image.
+
+        """
         return fgeometric.scale(img, scale, self.interpolation)
 
     def apply_to_mask(
@@ -136,9 +159,30 @@ class RandomScale(DualTransform):
         scale: float,
         **params: Any,
     ) -> np.ndarray:
+        """Apply scaling to the mask.
+
+        Args:
+            mask (np.ndarray): Mask to scale.
+            scale (float): Scaling factor.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Scaled mask.
+
+        """
         return fgeometric.scale(mask, scale, self.mask_interpolation)
 
     def apply_to_bboxes(self, bboxes: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply the transform to bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): Bounding boxes to transform.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Transformed bounding boxes which are scale invariant.
+
+        """
         # Bounding box coordinates are scale invariant
         return bboxes
 
@@ -148,14 +192,18 @@ class RandomScale(DualTransform):
         scale: float,
         **params: Any,
     ) -> np.ndarray:
-        return fgeometric.keypoints_scale(keypoints, scale, scale)
+        """Apply scaling to keypoints.
 
-    def get_transform_init_args(self) -> dict[str, Any]:
-        return {
-            "interpolation": self.interpolation,
-            "mask_interpolation": self.mask_interpolation,
-            "scale_limit": to_tuple(self.scale_limit, bias=-1.0),
-        }
+        Args:
+            keypoints (np.ndarray): Keypoints to scale.
+            scale (float): Scaling factor.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Scaled keypoints.
+
+        """
+        return fgeometric.keypoints_scale(keypoints, scale, scale)
 
 
 class MaxSizeTransform(DualTransform):
@@ -275,9 +323,6 @@ class MaxSizeTransform(DualTransform):
     def apply_to_masks3d(self, masks3d: np.ndarray, *args: Any, **params: Any) -> np.ndarray:
         return self.apply_to_mask(masks3d, *args, **params)
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "max_size", "max_size_hw", "interpolation", "mask_interpolation"
-
 
 class LongestMaxSize(MaxSizeTransform):
     """Rescale an image so that the longest side is equal to max_size or sides meet max_size_hw constraints,
@@ -357,9 +402,20 @@ class LongestMaxSize(MaxSizeTransform):
         ...     A.LongestMaxSize(max_size=1024),
         ...     A.PadIfNeeded(min_height=1024, min_width=1024),
         ... ])
+
     """
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Calculate parameters that depend on the input data.
+
+        Args:
+            params (dict[str, Any]): Parameters dictionary.
+            data (dict[str, Any]): Dictionary containing input data.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters calculated based on input data.
+
+        """
         img_h, img_w = params["shape"][:2]
 
         if self.max_size is not None:
@@ -460,9 +516,20 @@ class SmallestMaxSize(MaxSizeTransform):
         >>> # Using max_size_hw with only height
         >>> transform3 = A.SmallestMaxSize(max_size_hw=(100, None))
         >>> # Input (80, 160) -> Output (100, 200)
+
     """
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Calculate parameters that depend on the input data.
+
+        Args:
+            params (dict[str, Any]): Parameters dictionary.
+            data (dict[str, Any]): Dictionary containing input data.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters calculated based on input data.
+
+        """
         img_h, img_w = params["shape"][:2]
 
         if self.max_size is not None:
@@ -565,20 +632,57 @@ class Resize(DualTransform):
         self.mask_interpolation = mask_interpolation
 
     def apply(self, img: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply resizing to the image.
+
+        Args:
+            img (np.ndarray): Image to resize.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Resized image.
+
+        """
         return fgeometric.resize(img, (self.height, self.width), interpolation=self.interpolation)
 
     def apply_to_mask(self, mask: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply resizing to the mask.
+
+        Args:
+            mask (np.ndarray): Mask to resize.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Resized mask.
+
+        """
         return fgeometric.resize(mask, (self.height, self.width), interpolation=self.mask_interpolation)
 
     def apply_to_bboxes(self, bboxes: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply the transform to bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): Bounding boxes to transform.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Transformed bounding boxes which are scale invariant.
+
+        """
         # Bounding box coordinates are scale invariant
         return bboxes
 
     def apply_to_keypoints(self, keypoints: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply resizing to keypoints.
+
+        Args:
+            keypoints (np.ndarray): Keypoints to resize.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Resized keypoints.
+
+        """
         height, width = params["shape"][:2]
         scale_x = self.width / width
         scale_y = self.height / height
         return fgeometric.keypoints_scale(keypoints, scale_x, scale_y)
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "height", "width", "interpolation", "mask_interpolation"

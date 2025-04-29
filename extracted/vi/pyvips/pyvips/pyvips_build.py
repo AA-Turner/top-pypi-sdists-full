@@ -9,19 +9,7 @@ if not pkgconfig.exists('vips'):
 if pkgconfig.installed('vips', '< 8.2'):
     raise Exception('pkg-config "vips" is too old -- need libvips 8.2 or later')
 
-# pkgconfig 1.5+ has modversion ... otherwise, use a small shim
-try:
-    from pkgconfig import modversion
-except ImportError:
-    def modversion(package):
-        # will need updating once we hit 8.20 :(
-        for i in range(20, 3, -1):
-            if pkgconfig.installed(package, '>= 8.' + str(i)):
-                # be careful micro version is always set to 0
-                return '8.' + str(i) + '.0'
-        return '8.2.0'
-
-major, minor, micro = [int(s) for s in modversion('vips').split('.')]
+major, minor, micro = [int(s) for s in pkgconfig.modversion('vips').split('.')]
 
 ffibuilder = FFI()
 
@@ -44,9 +32,10 @@ vips_value_set_blob_free(GValue* value, void* data, size_t length)
 ''' if major == 8 and minor < 6 else ''
 
 ffibuilder.set_source("_libvips",
-    r"""
+    f"""
         #include <vips/vips.h>
-    """ + compat,
+        {compat}
+    """,
     **pkgconfig.parse('vips'))
 
 features = {

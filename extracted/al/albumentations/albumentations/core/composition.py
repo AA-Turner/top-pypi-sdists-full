@@ -1,3 +1,12 @@
+"""Module for composing multiple transforms into augmentation pipelines.
+
+This module provides classes for combining multiple transformations into cohesive
+augmentation pipelines. It includes various composition strategies such as sequential
+application, random selection, and conditional application of transforms. These
+composition classes handle the coordination between different transforms, ensuring
+proper data flow and maintaining consistent behavior across the augmentation pipeline.
+"""
+
 from __future__ import annotations
 
 import random
@@ -91,6 +100,7 @@ class BaseCompose(Serializable):
         - The class supports serialization and deserialization of transforms.
         - It provides methods for adding targets, setting deterministic behavior,
           and checking data validity post-transform.
+
     """
 
     _transforms_dict: dict[int, BasicTransform] | None = None
@@ -122,9 +132,6 @@ class BaseCompose(Serializable):
         self.processors: dict[str, BboxProcessor | KeypointsProcessor] = {}
         self._set_keys()
         self.set_mask_interpolation(mask_interpolation)
-        self.seed = seed
-        self.random_generator = np.random.default_rng(seed)
-        self.py_random = random.Random(seed)
         self.set_random_seed(seed)
         self.save_applied_params = save_applied_params
 
@@ -141,8 +148,9 @@ class BaseCompose(Serializable):
         """Set random state directly from generators.
 
         Args:
-            random_generator: numpy random generator to use
-            py_random: python random generator to use
+            random_generator (np.random.Generator): numpy random generator to use
+            py_random (random.Random): python random generator to use
+
         """
         self.random_generator = random_generator
         self.py_random = py_random
@@ -156,7 +164,8 @@ class BaseCompose(Serializable):
         """Set random state from seed.
 
         Args:
-            seed: Random seed to use
+            seed (int | None): Random seed to use
+
         """
         self.seed = seed
         self.random_generator = np.random.default_rng(seed)
@@ -167,6 +176,13 @@ class BaseCompose(Serializable):
                 transform.set_random_seed(seed)
 
     def set_mask_interpolation(self, mask_interpolation: int | None) -> None:
+        """Set interpolation mode for mask resizing operations.
+
+        Args:
+            mask_interpolation (int | None): OpenCV interpolation flag to use for mask transforms.
+                If None, default interpolation for masks will be used.
+
+        """
         self.mask_interpolation = mask_interpolation
         self._set_mask_interpolation_recursive(self.transforms)
 
@@ -185,6 +201,19 @@ class BaseCompose(Serializable):
         return len(self.transforms)
 
     def __call__(self, *args: Any, **data: Any) -> dict[str, Any]:
+        """Apply transforms.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            **data (Any): Named parameters with data to transform.
+
+        Returns:
+            dict[str, Any]: Transformed data.
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses.
+
+        """
         raise NotImplementedError
 
     def __getitem__(self, item: int) -> TransformType:
@@ -195,13 +224,34 @@ class BaseCompose(Serializable):
 
     @property
     def additional_targets(self) -> dict[str, str]:
+        """Get additional targets dictionary.
+
+        Returns:
+            dict[str, str]: Dictionary containing additional targets mapping.
+
+        """
         return self._additional_targets
 
     @property
     def available_keys(self) -> set[str]:
+        """Get set of available keys.
+
+        Returns:
+            set[str]: Set of string keys available for transforms.
+
+        """
         return self._available_keys
 
     def indented_repr(self, indent: int = REPR_INDENT_STEP) -> str:
+        """Get an indented string representation of the composition.
+
+        Args:
+            indent (int): Indentation level. Default: REPR_INDENT_STEP.
+
+        Returns:
+            str: Formatted string representation with proper indentation.
+
+        """
         args = {k: v for k, v in self.to_dict_private().items() if not (k.startswith("__") or k == "transforms")}
         repr_string = self.__class__.__name__ + "(["
         for t in self.transforms:
@@ -213,13 +263,31 @@ class BaseCompose(Serializable):
 
     @classmethod
     def get_class_fullname(cls) -> str:
+        """Get the full qualified name of the class.
+
+        Returns:
+            str: The shortest class fullname.
+
+        """
         return get_shortest_class_fullname(cls)
 
     @classmethod
     def is_serializable(cls) -> bool:
+        """Check if the class is serializable.
+
+        Returns:
+            bool: True if the class is serializable, False otherwise.
+
+        """
         return True
 
     def to_dict_private(self) -> dict[str, Any]:
+        """Convert the composition to a dictionary for serialization.
+
+        Returns:
+            dict[str, Any]: Dictionary representation of the composition.
+
+        """
         return {
             "__class_fullname__": self.get_class_fullname(),
             "p": self.p,
@@ -227,6 +295,12 @@ class BaseCompose(Serializable):
         }
 
     def get_dict_with_id(self) -> dict[str, Any]:
+        """Get a dictionary representation with object IDs for replay mode.
+
+        Returns:
+            dict[str, Any]: Dictionary with composition data and object IDs.
+
+        """
         return {
             "__class_fullname__": self.get_class_fullname(),
             "id": id(self),
@@ -235,6 +309,13 @@ class BaseCompose(Serializable):
         }
 
     def add_targets(self, additional_targets: dict[str, str] | None) -> None:
+        """Add additional targets to all transforms.
+
+        Args:
+            additional_targets (dict[str, str] | None): Dict of name -> type mapping for additional targets.
+                If None, no additional targets will be added.
+
+        """
         if additional_targets:
             for k, v in additional_targets.items():
                 if k in self._additional_targets and v != self._additional_targets[k]:
@@ -269,6 +350,13 @@ class BaseCompose(Serializable):
                     self._available_keys.update(proc.params.label_fields)
 
     def set_deterministic(self, flag: bool, save_key: str = "replay") -> None:
+        """Set deterministic mode for all transforms.
+
+        Args:
+            flag (bool): Whether to enable deterministic mode.
+            save_key (str): Key to save replay parameters. Default: "replay".
+
+        """
         for t in self.transforms:
             t.set_deterministic(flag, save_key)
 
@@ -276,10 +364,11 @@ class BaseCompose(Serializable):
         """Check and filter data after transformation.
 
         Args:
-            data: Dictionary containing transformed data
+            data (dict[str, Any]): Dictionary containing transformed data
 
         Returns:
-            Filtered data dictionary
+            dict[str, Any]: Filtered data dictionary
+
         """
         if self.check_each_transform:
             shape = get_shape(data)
@@ -302,12 +391,12 @@ class Compose(BaseCompose, HubMixin):
     the appropriate parameters are provided.
 
     Args:
-        transforms (List[Union[BasicTransform, BaseCompose]]): A list of transforms to apply.
-        bbox_params (Union[dict, BboxParams, None]): Parameters for bounding box transforms.
+        transforms (list[BasicTransform | BaseCompose]): A list of transforms to apply.
+        bbox_params (dict[str, Any] | BboxParams | None): Parameters for bounding box transforms.
             Can be a dict of params or a BboxParams object. Default is None.
-        keypoint_params (Union[dict, KeypointParams, None]): Parameters for keypoint transforms.
+        keypoint_params (dict[str, Any] | KeypointParams | None): Parameters for keypoint transforms.
             Can be a dict of params or a KeypointParams object. Default is None.
-        additional_targets (Dict[str, str], optional): A dictionary mapping additional target names
+        additional_targets (dict[str, str] | None): A dictionary mapping additional target names
             to their types. For example, {'image2': 'image'}. Default is None.
         p (float): Probability of applying all transforms. Should be in range [0, 1]. Default is 1.0.
         is_check_shapes (bool): If True, checks consistency of shapes for image/mask/masks on each call.
@@ -317,9 +406,9 @@ class Compose(BaseCompose, HubMixin):
             2. Validates that no transforms have invalid arguments
             3. Raises ValueError if any validation fails
             If False, these validations are skipped. Default is False.
-        mask_interpolation (int, optional): Interpolation method for mask transforms. When defined,
+        mask_interpolation (int | None): Interpolation method for mask transforms. When defined,
             it overrides the interpolation method specified in individual transforms. Default is None.
-        seed (int, optional): Controls reproducibility of random augmentations. Compose uses
+        seed (int | None): Controls reproducibility of random augmentations. Compose uses
             its own internal random state, completely independent from global random seeds.
 
             When seed is set (int):
@@ -357,6 +446,7 @@ class Compose(BaseCompose, HubMixin):
         - The transform can handle additional targets specified in the additional_targets dictionary.
         - When strict mode is enabled, it performs additional validation to ensure data and transform
           configuration correctness.
+
     """
 
     def __init__(
@@ -424,6 +514,12 @@ class Compose(BaseCompose, HubMixin):
 
     @property
     def strict(self) -> bool:
+        """Get the current strict mode setting.
+
+        Returns:
+            bool: True if strict mode is enabled, False otherwise.
+
+        """
         return self._strict
 
     @strict.setter
@@ -469,11 +565,29 @@ class Compose(BaseCompose, HubMixin):
                 transform.disable_check_args_private()
 
     def disable_check_args_private(self) -> None:
+        """Disable argument checking for transforms.
+
+        This method disables strict mode and argument checking for all transforms in the composition.
+        """
         self.is_check_args = False
         self.strict = False
         self.main_compose = False
 
     def __call__(self, *args: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply transformations to data.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        Raises:
+            KeyError: If positional arguments are provided.
+
+        """
         if args:
             msg = "You have to pass data to augmentations as named arguments, for example: aug(image=image)"
             raise KeyError(msg)
@@ -560,7 +674,7 @@ class Compose(BaseCompose, HubMixin):
             processor.preprocess(data)
 
     def _preprocess_arrays(self, data: dict[str, Any]) -> None:
-        """Convert lists to numpy arrays for images and masks."""
+        """Convert lists to numpy arrays for images and masks, and ensure contiguity."""
         self._preprocess_images(data)
         self._preprocess_masks(data)
 
@@ -587,6 +701,15 @@ class Compose(BaseCompose, HubMixin):
             self._masks_was_list = False
 
     def postprocess(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Apply post-processing to data after all transforms have been applied.
+
+        Args:
+            data (dict[str, Any]): Data after transformation.
+
+        Returns:
+            dict[str, Any]: Post-processed data.
+
+        """
         if self.main_compose:
             for p in self.processors.values():
                 p.postprocess(data)
@@ -601,6 +724,12 @@ class Compose(BaseCompose, HubMixin):
         return data
 
     def to_dict_private(self) -> dict[str, Any]:
+        """Convert the composition to a dictionary for serialization.
+
+        Returns:
+            dict[str, Any]: Dictionary representation of the composition.
+
+        """
         dictionary = super().to_dict_private()
         bbox_processor = self.processors.get("bboxes")
         keypoints_processor = self.processors.get("keypoints")
@@ -615,6 +744,12 @@ class Compose(BaseCompose, HubMixin):
         return dictionary
 
     def get_dict_with_id(self) -> dict[str, Any]:
+        """Get a dictionary representation with object IDs for replay mode.
+
+        Returns:
+            dict[str, Any]: Dictionary with composition data and object IDs.
+
+        """
         dictionary = super().get_dict_with_id()
         bbox_processor = self.processors.get("bboxes")
         keypoints_processor = self.processors.get("keypoints")
@@ -640,16 +775,16 @@ class Compose(BaseCompose, HubMixin):
         """Check masks data format and return shape.
 
         Args:
-            data_name: Name of the data field being checked
-            data: Input data in one of these formats:
+            data_name (str): Name of the data field being checked
+            data (Any): Input data in one of these formats:
                 - List of numpy arrays, each of shape (H, W) or (H, W, C)
                 - Numpy array of shape (N, H, W) or (N, H, W, C)
 
         Returns:
-            tuple: (height, width) of the first mask
-
+            tuple[int, int]: (height, width) of the first mask
         Raises:
             TypeError: If data format is invalid
+
         """
         if isinstance(data, np.ndarray):
             if data.ndim not in [3, 4]:  # (N,H,W) or (N,H,W,C)
@@ -672,16 +807,16 @@ class Compose(BaseCompose, HubMixin):
         """Check multi-image data format and return shape.
 
         Args:
-            data_name: Name of the data field being checked
-            data: Input data in one of these formats:
+            data_name (str): Name of the data field being checked
+            data (Any): Input data in one of these formats:
                 - List-like of numpy arrays
                 - Numpy array of shape (N, H, W, C) or (N, H, W)
 
         Returns:
-            tuple: (height, width) of the first image
-
+            tuple[int, int]: (height, width) of the first image
         Raises:
             TypeError: If data format is invalid
+
         """
         if isinstance(data, np.ndarray):
             if data.ndim not in {3, 4}:  # (N,H,W) or (N,H,W,C)
@@ -828,6 +963,20 @@ class OneOf(BaseCompose):
         self.transforms_ps = [t / s for t in transforms_ps]
 
     def __call__(self, *args: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply the OneOf composition to the input data.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        Raises:
+            KeyError: If positional arguments are provided.
+
+        """
         if self.replay_mode:
             for t in self.transforms:
                 data = t(**data)
@@ -842,37 +991,50 @@ class OneOf(BaseCompose):
 
 
 class SomeOf(BaseCompose):
-    """Apply a random subset of transforms from the given list.
+    """Selects exactly `n` transforms from the given list and applies them.
 
-    This class selects a specified number of transforms from the provided list
-    and applies them to the input data. The selection can be done with or without
-    replacement, allowing for the same transform to be potentially applied multiple times.
+    The selection of which `n` transforms to apply is done **uniformly at random**
+    from the provided list. Each transform in the list has an equal chance of being selected.
+
+    Once the `n` transforms are selected, each one is applied **based on its
+    individual probability** `p`.
 
     Args:
-        transforms (List[Union[BasicTransform, BaseCompose]]): A list of transforms to choose from.
-        n (int): The number of transforms to apply. If greater than the number of
-                 transforms and replace=False, it will be set to the number of transforms.
-        replace (bool): Whether to sample transforms with replacement. Default is True.
-        p (float): Probability of applying the selected transforms. Should be in the range [0, 1].
+        transforms (list[BasicTransform | BaseCompose]): A list of transforms to choose from.
+        n (int): The exact number of transforms to select and potentially apply.
+                 If `replace=False` and `n` is greater than the number of available transforms,
+                 `n` will be capped at the number of transforms.
+        replace (bool): Whether to sample transforms with replacement. If True, the same
+                        transform can be selected multiple times (up to `n` times).
+                        Default is False.
+        p (float): The probability that this `SomeOf` composition will be applied.
+                   If applied, it will select `n` transforms and attempt to apply them.
                    Default is 1.0.
-        mask_interpolation (int, optional): Interpolation method for mask transforms.
-                                            When defined, it overrides the interpolation method
-                                            specified in individual transforms. Default is None.
 
     Note:
-        - If `n` is greater than the number of transforms and `replace` is False,
-          `n` will be set to the number of transforms with a warning.
-        - The probabilities of individual transforms are used as weights for sampling.
-        - When `replace` is True, the same transform can be selected multiple times.
+        - The overall probability `p` of the `SomeOf` block determines if *any* selection
+          and application occurs.
+        - The individual probability `p` of each transform inside the list determines if
+          that specific transform runs *if it is selected*.
+        - If `replace` is True, the same transform might be selected multiple times, and
+          its individual probability `p` will be checked each time it's encountered.
 
     Example:
         >>> import albumentations as A
         >>> transform = A.SomeOf([
-        ...     A.HorizontalFlip(p=1),
-        ...     A.VerticalFlip(p=1),
-        ...     A.RandomBrightnessContrast(p=1),
-        ... ], n=2, replace=False, p=0.5)
-        >>> # This will apply 2 out of the 3 transforms with 50% probability
+        ...     A.HorizontalFlip(p=0.5),  # 50% chance to apply if selected
+        ...     A.VerticalFlip(p=0.8),    # 80% chance to apply if selected
+        ...     A.RandomRotate90(p=1.0), # 100% chance to apply if selected
+        ... ], n=2, replace=False, p=1.0) # Always select 2 transforms uniformly
+
+        # In each call, 2 transforms out of 3 are chosen uniformly.
+        # For example, if HFlip and VFlip are chosen:
+        # - HFlip runs if random() < 0.5
+        # - VFlip runs if random() < 0.8
+        # If VFlip and Rotate90 are chosen:
+        # - VFlip runs if random() < 0.8
+        # - Rotate90 runs if random() < 1.0 (always)
+
     """
 
     def __init__(self, transforms: TransformsSeqType, n: int = 1, replace: bool = False, p: float = 1):
@@ -886,36 +1048,53 @@ class SomeOf(BaseCompose):
                 stacklevel=2,
             )
         self.replace = replace
-        transforms_ps = [t.p for t in self.transforms]
-        s = sum(transforms_ps)
-        self.transforms_ps = [t / s for t in transforms_ps]
 
     def __call__(self, *arg: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply n randomly selected transforms from the list of transforms.
+
+        Args:
+            *arg (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        """
         if self.replay_mode:
             for t in self.transforms:
                 data = t(**data)
                 data = self.check_data_post_transform(data)
             return data
 
-        if self.transforms_ps and (force_apply or self.py_random.random() < self.p):
-            for i in self._get_idx():
+        if self.py_random.random() < self.p:  # Check overall SomeOf probability
+            # Get indices uniformly
+            indices_to_consider = self._get_idx()
+            for i in indices_to_consider:
                 t = self.transforms[i]
-                data = t(force_apply=True, **data)
+                # Apply the transform respecting its own probability `t.p`
+                data = t(**data)
                 self._track_transform_params(t, data)
                 data = self.check_data_post_transform(data)
         return data
 
     def _get_idx(self) -> np.ndarray[np.int_]:
+        # Use uniform probability for selection, ignore individual p values here
         idx = self.random_generator.choice(
             len(self.transforms),
             size=self.n,
             replace=self.replace,
-            p=self.transforms_ps,
         )
         idx.sort()
         return idx
 
     def to_dict_private(self) -> dict[str, Any]:
+        """Convert the SomeOf composition to a dictionary for serialization.
+
+        Returns:
+            dict[str, Any]: Dictionary representation of the composition.
+
+        """
         dictionary = super().to_dict_private()
         dictionary.update({"n": self.n, "replace": self.replace})
         return dictionary
@@ -924,9 +1103,9 @@ class SomeOf(BaseCompose):
 class RandomOrder(SomeOf):
     """Apply a random subset of transforms from the given list in a random order.
 
-    The `RandomOrder` class allows you to select a specified number of transforms from a list and apply them
-    to the input data in a random order. This is useful for creating more diverse augmentation pipelines
-    where the order of transformations can vary, potentially leading to different results.
+    Selects exactly `n` transforms uniformly at random from the list, and then applies
+    the selected transforms in a random order. Each selected transform is applied
+    based on its individual probability `p`.
 
     Attributes:
         transforms (TransformsSeqType): A list of transformations to choose from.
@@ -939,27 +1118,30 @@ class RandomOrder(SomeOf):
     Example:
         >>> import albumentations as A
         >>> transform = A.RandomOrder([
-        ...     A.HorizontalFlip(p=1),
-        ...     A.VerticalFlip(p=1),
-        ...     A.RandomBrightnessContrast(p=1),
-        ... ], n=2, replace=False, p=0.5)
-        >>> # This will apply 2 out of the 3 transforms in a random order with 50% probability
+        ...     A.HorizontalFlip(p=0.5),
+        ...     A.VerticalFlip(p=1.0),
+        ...     A.RandomBrightnessContrast(p=0.8),
+        ... ], n=2, replace=False, p=1.0)
+        >>> # This will uniformly select 2 transforms and apply them in a random order,
+        >>> # respecting their individual probabilities (0.5, 1.0, 0.8).
 
     Note:
-        - The probabilities of individual transforms are used as weights for sampling.
-        - When `replace` is True, the same transform can be selected multiple times.
-        - The random order of transforms will not be replayed in `ReplayCompose`.
+        - Inherits from SomeOf, but overrides `_get_idx` to ensure random order without sorting.
+        - Selection is uniform; application depends on individual transform probabilities.
+
     """
 
     def __init__(self, transforms: TransformsSeqType, n: int = 1, replace: bool = False, p: float = 1):
+        # Initialize using SomeOf's logic (which now does uniform selection setup)
         super().__init__(transforms=transforms, n=n, replace=replace, p=p)
 
     def _get_idx(self) -> np.ndarray[np.int_]:
+        # Perform uniform random selection without replacement, like SomeOf
+        # Crucially, DO NOT sort the indices here to maintain random order.
         return self.random_generator.choice(
             len(self.transforms),
             size=self.n,
             replace=self.replace,
-            p=self.transforms_ps,
         )
 
 
@@ -983,6 +1165,17 @@ class OneOrOther(BaseCompose):
             warnings.warn("Length of transforms is not equal to 2.", stacklevel=2)
 
     def __call__(self, *args: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply one or another transform to the input data.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        """
         if self.replay_mode:
             for t in self.transforms:
                 data = t(**data)
@@ -1002,21 +1195,16 @@ class SelectiveChannelTransform(BaseCompose):
     specified image channels. It extracts the selected channels, applies the transformations,
     and then reinserts the transformed channels back into their original positions in the image.
 
-    Parameters:
+    Args:
         transforms (TransformsSeqType):
             A sequence of transformations (from Albumentations) to be applied to the specified channels.
         channels (Sequence[int]):
             A sequence of integers specifying the indices of the channels to which the transforms should be applied.
-        p (float):
-            Probability that the transform will be applied; the default is 1.0 (always apply).
-
-    Methods:
-        __call__(*args, **kwargs):
-            Applies the transforms to the image according to the specified channels.
-            The input data should include 'image' key with the image array.
+        p (float): Probability that the transform will be applied; the default is 1.0 (always apply).
 
     Returns:
         dict[str, Any]: The transformed data dictionary, which includes the transformed 'image' key.
+
     """
 
     def __init__(
@@ -1029,6 +1217,17 @@ class SelectiveChannelTransform(BaseCompose):
         self.channels = channels
 
     def __call__(self, *args: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply transforms to specific channels of the image.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        """
         if force_apply or self.py_random.random() < self.p:
             image = data["image"]
 
@@ -1051,6 +1250,23 @@ class SelectiveChannelTransform(BaseCompose):
 
 
 class ReplayCompose(Compose):
+    """Composition class that enables transform replay functionality.
+
+    This class extends the Compose class with the ability to record and replay
+    transformations. This is useful for applying the same sequence of random
+    transformations to different data.
+
+    Args:
+        transforms (TransformsSeqType): List of transformations to compose.
+        bbox_params (dict[str, Any] | BboxParams | None): Parameters for bounding box transforms.
+        keypoint_params (dict[str, Any] | KeypointParams | None): Parameters for keypoint transforms.
+        additional_targets (dict[str, str] | None): Dictionary of additional targets.
+        p (float): Probability of applying the compose.
+        is_check_shapes (bool): Whether to check shapes of different targets.
+        save_key (str): Key for storing the applied transformations.
+
+    """
+
     def __init__(
         self,
         transforms: TransformsSeqType,
@@ -1067,6 +1283,17 @@ class ReplayCompose(Compose):
         self._available_keys.add(save_key)
 
     def __call__(self, *args: Any, force_apply: bool = False, **kwargs: Any) -> dict[str, Any]:
+        """Apply transforms and record parameters for future replay.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **kwargs (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data and replay information.
+
+        """
         kwargs[self.save_key] = defaultdict(dict)
         result = super().__call__(force_apply=force_apply, **kwargs)
         serialized = self.get_dict_with_id()
@@ -1077,6 +1304,16 @@ class ReplayCompose(Compose):
 
     @staticmethod
     def replay(saved_augmentations: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+        """Replay previously saved augmentations.
+
+        Args:
+            saved_augmentations (dict[str, Any]): Previously saved augmentation parameters.
+            **kwargs (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data using saved parameters.
+
+        """
         augs = ReplayCompose._restore_for_replay(saved_augmentations)
         return augs(force_apply=True, **kwargs)
 
@@ -1086,11 +1323,12 @@ class ReplayCompose(Compose):
         lambda_transforms: dict[str, Any] | None = None,
     ) -> TransformType:
         """Args:
+        transform_dict (dict[str, Any]): A dictionary that contains transform data.
         lambda_transforms (dict): A dictionary that contains lambda transforms, that
-        is instances of the Lambda class.
-            This dictionary is required when you are restoring a pipeline that contains lambda transforms. Keys
-            in that dictionary should be named same as `name` arguments in respective lambda transforms from
-            a serialized pipeline.
+            is instances of the Lambda class.
+        This dictionary is required when you are restoring a pipeline that contains lambda transforms.
+        Keys in that dictionary should be named same as `name` arguments in respective lambda transforms
+        from a serialized pipeline.
 
         """
         applied = transform_dict["applied"]
@@ -1109,7 +1347,7 @@ class ReplayCompose(Compose):
                 ]
             transform = cls(**args)
 
-        transform = cast(BasicTransform, transform)
+        transform = cast("BasicTransform", transform)
         if isinstance(transform, BasicTransform):
             transform.params = params
         transform.replay_mode = True
@@ -1117,6 +1355,13 @@ class ReplayCompose(Compose):
         return transform
 
     def fill_with_params(self, serialized: dict[str, Any], all_params: Any) -> None:
+        """Fill serialized transform data with parameters for replay.
+
+        Args:
+            serialized (dict[str, Any]): Serialized transform data.
+            all_params (Any): Parameters to fill in.
+
+        """
         params = all_params.get(serialized.get("id"))
         serialized["params"] = params
         del serialized["id"]
@@ -1124,6 +1369,15 @@ class ReplayCompose(Compose):
             self.fill_with_params(transform, all_params)
 
     def fill_applied(self, serialized: dict[str, Any]) -> bool:
+        """Set 'applied' flag for transforms based on parameters.
+
+        Args:
+            serialized (dict[str, Any]): Serialized transform data.
+
+        Returns:
+            bool: True if any transform was applied, False otherwise.
+
+        """
         if "transforms" in serialized:
             applied = [self.fill_applied(t) for t in serialized["transforms"]]
             serialized["applied"] = any(applied)
@@ -1132,6 +1386,12 @@ class ReplayCompose(Compose):
         return serialized["applied"]
 
     def to_dict_private(self) -> dict[str, Any]:
+        """Convert the ReplayCompose to a dictionary for serialization.
+
+        Returns:
+            dict[str, Any]: Dictionary representation of the composition.
+
+        """
         dictionary = super().to_dict_private()
         dictionary.update({"save_key": self.save_key})
         return dictionary
@@ -1164,9 +1424,20 @@ class Sequential(BaseCompose):
     """
 
     def __init__(self, transforms: TransformsSeqType, p: float = 0.5):
-        super().__init__(transforms, p)
+        super().__init__(transforms=transforms, p=p)
 
     def __call__(self, *args: Any, force_apply: bool = False, **data: Any) -> dict[str, Any]:
+        """Apply all transforms in sequential order.
+
+        Args:
+            *args (Any): Positional arguments are not supported.
+            force_apply (bool): Whether to apply transforms regardless of probability. Default: False.
+            **data (Any): Dict with data to transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with transformed data.
+
+        """
         if self.replay_mode or force_apply or self.py_random.random() < self.p:
             for t in self.transforms:
                 data = t(**data)

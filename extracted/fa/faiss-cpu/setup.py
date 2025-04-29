@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 from typing import List
 
@@ -14,7 +15,7 @@ FAISS_ENABLE_GPU = os.getenv("FAISS_ENABLE_GPU", "").lower() in ("on", "true")
 # Common configurations
 FAISS_ROOT = "faiss"  # relative to the setup.py file
 
-DEFINE_MACROS = []
+DEFINE_MACROS: List[str] = []
 INCLUDE_DIRS = [
     np.get_include(),
     FAISS_ROOT,
@@ -42,6 +43,7 @@ def win32_options(
     swig_opts: List[str],
 ) -> dict:
     """Windows options."""
+    default_link_args = ["faiss.lib", "openblas.lib"]
     return dict(
         extra_compile_args=extra_compile_args
         + [
@@ -52,7 +54,7 @@ def win32_options(
             "/MD",  # Bugfix: https://bugs.python.org/issue38597
         ],
         extra_link_args=["/OPT:ICF", "/OPT:REF"]
-        + (extra_link_args or ["faiss.lib", "openblas.lib"]),
+        + (extra_link_args or default_link_args),
         swig_opts=swig_opts + ["-DSWIGWIN"],
     )
 
@@ -63,11 +65,7 @@ def linux_options(
     swig_opts: List[str],
 ) -> dict:
     """Linux options."""
-    default_link_args = [
-        "-l:libfaiss.a",
-        "-l:libopenblas.a",
-        "-lgfortran",
-    ]
+    default_link_args = ["-l:libfaiss.a", "-l:libopenblas.a", "-lgfortran"]
     if FAISS_ENABLE_GPU:
         default_link_args += [
             "-lcublas_static",
@@ -84,12 +82,7 @@ def linux_options(
             "-fdata-sections",
             "-ffunction-sections",
         ],
-        extra_link_args=[
-            "-fopenmp",
-            "-lrt",
-            "-s",
-            "-Wl,--gc-sections",
-        ]
+        extra_link_args=["-fopenmp", "-lrt", "-s", "-Wl,--gc-sections"]
         + (extra_link_args or default_link_args),
         swig_opts=swig_opts + ["-DSWIGWORDSIZE64"],
     )
@@ -101,6 +94,21 @@ def darwin_options(
     swig_opts: List[str],
 ) -> dict:
     """macOS options."""
+
+    # NOTE: Homebrew defaults to /usr/local on intel mac.
+    homebrew_prefix = (
+        "/opt/homebrew" if platform.mac_ver()[2] == "arm64" else "/usr/local"
+    )
+    OPENMP_ROOT = os.getenv(
+        "OPENMP_ROOT", os.path.join(homebrew_prefix, "opt", "libomp")
+    )
+    default_link_args = [
+        "-lfaiss",
+        "-lomp",
+        "-framework",
+        "Accelerate",
+        "-L" + os.path.join(OPENMP_ROOT, "lib"),
+    ]
     return dict(
         extra_compile_args=extra_compile_args
         + [
@@ -108,21 +116,10 @@ def darwin_options(
             "-Wno-sign-compare",
             "-Xpreprocessor",
             "-fopenmp",
+            "-I" + os.path.join(OPENMP_ROOT, "include"),
         ],
-        extra_link_args=[
-            "-Xpreprocessor",
-            "-fopenmp",
-            "-dead_strip",
-        ]
-        + (
-            extra_link_args
-            or [
-                "-lfaiss",
-                "-lomp",
-                "-framework",
-                "Accelerate",
-            ]
-        ),
+        extra_link_args=["-Xpreprocessor", "-fopenmp", "-dead_strip"]
+        + (extra_link_args or default_link_args),
         swig_opts=swig_opts,
     )
 
@@ -208,20 +205,25 @@ def avx512_spr_options(
     return dict(
         name="faiss._swigfaiss_avx512_spr",
         extra_compile_args=extra_compile_args + flags,
-        extra_link_args=[x.replace("faiss", "faiss_avx512_spr") for x in extra_link_args],
+        extra_link_args=[
+            x.replace("faiss", "faiss_avx512_spr") for x in extra_link_args
+        ],
         swig_opts=swig_opts + ["-module", "swigfaiss_avx512_spr"],
     )
 
-# NOTE: SVE requires arch-specific compiler flags like -march=armv8-a+sve, or -march=native enables sve.
+
+# NOTE: SVE requires arch-specific compiler flags like -march=armv8-a+sve, or -march=native.
 # There is no generic option for SVE, so we are not adding it here.
 
+# We have to build OPT_CONFIGS[FAISS_OPT_LEVEL] number of extensions.
 OPT_CONFIGS = {
     "generic": [generic_options],
     "avx2": [generic_options, avx2_options],
     "avx512": [generic_options, avx2_options, avx512_options],
-    "avx512_spr": [generic_options, avx2_options, avx512_options, avx512_spr_options],
+    "avx512_spr": [generic_options, avx2_options, avx512_spr_options],
 }
 
+# Platform-specific configurations.
 platform_config = PLATFORM_CONFIGS[sys.platform](
     EXTRA_COMPILE_ARGS, EXTRA_LINK_ARGS, SWIG_OPTS
 )
@@ -244,7 +246,11 @@ ext_modules = [
 
 
 class CustomBuildPy(build_py):
-    """Run build_ext before build_py to compile swig code."""
+    """Run build_ext before build_py to compile swig code.
+
+    Without this, setuptools fails to include the compiled swig code in the package.
+    https://bugs.python.org/issue7562
+    """
 
     def run(self):
         self.run_command("build_ext")

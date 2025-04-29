@@ -551,10 +551,16 @@ class Field(object):
         return translations
 
     def searchable(self, model):
-        return hasattr(model, 'search')
+        from ..modelsql import _TABLE_QUERY_COLUMNS
+        return (hasattr(model, 'search')
+            and (not callable(getattr(model, 'table_query', None))
+                or self.name not in _TABLE_QUERY_COLUMNS))
 
     def sortable(self, model):
-        return hasattr(model, 'search')
+        from ..modelsql import _TABLE_QUERY_COLUMNS
+        return (hasattr(model, 'search')
+            and (not callable(getattr(model, 'table_query', None))
+                or self.name not in _TABLE_QUERY_COLUMNS))
 
 
 class FieldTranslate(Field):
@@ -577,7 +583,7 @@ class FieldTranslate(Field):
             model_data = ModelData.__table__()
             model_field = ModelField.__table__()
             msg_trans = Translation.__table__()
-            if name == 'field_description':
+            if name == 'string':
                 type_ = 'field'
             else:
                 type_ = 'help'
@@ -628,12 +634,12 @@ class FieldTranslate(Field):
                 translation.name.as_('name'),
                 group_by=[translation.res_id, translation.name])
         if Model.__name__ == 'ir.model':
-            name_ = Concat(Concat(table.model, ','), name)
+            name_ = Concat(Concat(table.name, ','), name)
             type_ = 'model'
             res_id = -1
         elif Model.__name__ == 'ir.model.field':
             name_ = Concat(Concat(table.model, ','), table.name)
-            if name == 'field_description':
+            if name == 'string':
                 type_ = 'field'
             else:
                 type_ = 'help'
@@ -669,7 +675,7 @@ class FieldTranslate(Field):
     @domain_method
     def convert_domain(self, domain, tables, Model):
         if not self.translate:
-            return super(FieldTranslate, self).convert_domain(
+            return super().convert_domain(
                 domain, tables, Model)
         table, _ = tables[None]
         name, operator, value = domain

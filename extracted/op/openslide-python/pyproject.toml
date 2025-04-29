@@ -5,20 +5,19 @@ maintainers = [
 ]
 description = "Python interface to OpenSlide"
 readme = "README.md"
-license = {text = "GNU Lesser General Public License, version 2.1"}
+license = "LGPL-2.1-only AND BSD-3-Clause AND MIT AND LicenseRef-Public-Domain"
+license-files = ["COPYING.LESSER", "**/LICENSE.*"]
 keywords = ["OpenSlide", "whole-slide image", "virtual slide", "library"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Healthcare Industry",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -27,7 +26,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Typing :: Typed",
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 dependencies = ["Pillow"]
 dynamic = ["version"]
 
@@ -36,6 +35,9 @@ Homepage = "https://openslide.org/"
 Documentation = "https://openslide.org/api/python/"
 "Release notes" = "https://github.com/openslide/openslide-python/blob/main/CHANGELOG.md"
 Repository = "https://github.com/openslide/openslide-python"
+
+[dependency-groups]
+test = ["pytest >= 7"]
 
 [tool.setuptools]
 include-package-data = false
@@ -49,7 +51,13 @@ openslide = ["py.typed", "*.pyi"]
 
 [tool.black]
 skip-string-normalization = true
-target-version = ["py38", "py39", "py310", "py311", "py312", "py313"]
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+[tool.codespell]
+check-hidden = true
+# ignore-regex = ""
+# ignore-words-list = ""
 
 # https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#flake8
 # also ignore:
@@ -79,5 +87,5 @@ pythonpath = "tests"
 ignore_messages = "(Hyperlink target \".*\" is not referenced\\.$)"
 
 [build-system]
-requires = ["setuptools >= 61.0.0"]
+requires = ["setuptools >= 77.0.0"]
 build-backend = "setuptools.build_meta"

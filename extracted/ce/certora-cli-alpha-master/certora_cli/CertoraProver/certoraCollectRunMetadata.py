@@ -12,7 +12,7 @@
 #
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+import dataclasses
 import json
 from typing import Any, Dict, List, Optional
 import subprocess
@@ -47,6 +47,8 @@ class MetadataEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         if isinstance(obj, set):
             return list(obj)
+        if dataclasses.is_dataclass(obj):
+            return dataclasses.asdict(obj)
         return json.JSONEncoder.default(self, obj)
 
 

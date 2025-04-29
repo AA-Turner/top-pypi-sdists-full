@@ -124,7 +124,7 @@ class APIObject:
         self._api = value
 
     @property
-    def raw(self) -> Any:
+    def raw(self) -> Box:
         """Raw object returned from the Kubernetes API."""
         self._raw.update({"kind": self.kind, "apiVersion": self.version})
         return self._raw
@@ -483,6 +483,56 @@ class APIObject:
             await self.async_refresh()
             await anyio.sleep(0.1)
 
+    async def exec(
+        self,
+        command: list[str],
+        *,
+        container: str | None = None,
+        stdin: str | BinaryIO | None = None,
+        stdout: BinaryIO | None = None,
+        stderr: BinaryIO | None = None,
+        check: bool = True,
+        capture_output: bool = True,
+    ) -> Exec:
+        """Execute a command in this object."""
+        return await self.async_exec(
+            command,
+            container=container,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            check=check,
+            capture_output=capture_output,
+        )
+
+    async def async_exec(
+        self,
+        command: list[str],
+        *,
+        container: str | None = None,
+        stdin: str | BinaryIO | None = None,
+        stdout: BinaryIO | None = None,
+        stderr: BinaryIO | None = None,
+        check: bool = True,
+        capture_output: bool = True,
+    ) -> Exec:
+        """Execute a command in this object."""
+        if not hasattr(self, "ready_pods"):
+            raise NotImplementedError(f"{self.kind} does not support exec")
+        pods: list[Pod] = await self.ready_pods()
+        if not pods:
+            raise RuntimeError("No ready pods found")
+        pod = pods[0]
+        return await pod.async_exec(
+            command,
+            container=container,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            check=check,
+            capture_output=capture_output,
+        )
+
     async def async_watch(self) -> AsyncGenerator[tuple[str, Self]]:
         """Watch this object in Kubernetes."""
         since = self.metadata.get("resourceVersion")
@@ -625,14 +675,14 @@ class APIObject:
             raise ValueError("No annotations provided")
         await self.async_patch({"metadata": {"annotations": annotations}})
 
-    async def label(self, labels: dict | None = None, **kwargs) -> None:
+    async def label(self, *labels: dict | str, **kwargs) -> None:
         """Add labels to this object in Kubernetes.
 
         Labels can be passed as a dictionary or as keyword arguments.
 
         Args:
             labels:
-                A dictionary of labels to set.
+                A dictionary of labels to set or string to remove.
             **kwargs:
                 Labels to set.
 
@@ -642,15 +692,54 @@ class APIObject:
             >>> # Both of these are equivalent
             >>> deployment.label({"app": "my-app"})
             >>> deployment.label(app="my-app")
-        """
-        return await self.async_label(labels=labels, **kwargs)
 
-    async def async_label(self, labels: dict | None = None, **kwargs) -> None:
-        if labels is None:
-            labels = kwargs
+            >>> # You can also remove a label by passing it's name with a `-` on the end
+            >>> deployment.label("app-")
+        """
+        return await self.async_label(*labels, **kwargs)
+
+    async def async_label(self, *labels: dict | str, **kwargs) -> None:
+        """Add labels to this object in Kubernetes."""
+        if labels and all([isinstance(label, str) for label in labels]):
+            labels_to_remove = []
+            for label in labels:
+                assert isinstance(label, str)
+                assert label.endswith("-"), "Label must end with - to remove"
+                labels_to_remove.append(label[:-1])
+            await self.async_remove_label(*labels_to_remove)
+        else:
+            labels_dict = None
+            if not labels:
+                labels_dict = kwargs
+            if labels and isinstance(labels[0], dict):
+                labels_dict = labels[0]
+            if not labels_dict:
+                raise ValueError("No labels provided")
+            await self.async_patch({"metadata": {"labels": labels_dict}})
+
+    async def remove_label(self, *labels: str) -> None:
+        """Remove labels from this object in Kubernetes.
+
+        Labels can be passed as a list of strings.
+
+        Args:
+            labels: A list of labels to remove.
+
+        Example:
+            >>> from kr8s.objects import Deployment
+            >>> deployment = Deployment.get("my-deployment")
+            >>> deployment.remove_label("app")
+        """
+        return await self.async_remove_label(*labels)
+
+    async def async_remove_label(self, *labels: str) -> None:
+        """Remove labels from this object in Kubernetes."""
         if not labels:
             raise ValueError("No labels provided")
-        await self.async_patch({"metadata": {"labels": labels}})
+        operations = [
+            {"op": "remove", "path": "/metadata/labels/" + label} for label in labels
+        ]
+        await self.async_patch(operations, type="json")
 
     def keys(self) -> list:
         """Return the keys of this object."""
@@ -723,7 +812,11 @@ class APIObject:
 
     def to_dict(self) -> dict:
         """Return a dictionary representation of this object."""
-        return self.raw
+        return self.raw.to_dict()
+
+    def to_yaml(self) -> str:
+        """Return a YAML representation of this object."""
+        return yaml.dump(self.to_dict())
 
     def to_lightkube(self) -> Any:
         """Return a lightkube representation of this object."""
@@ -766,6 +859,25 @@ class APIObject:
                 {"version": self.version, "endpoint": self.endpoint, "kind": self.kind},
             )
         return pykube_cls(api, self.raw)
+
+    def pprint(self, use_rich: bool = True, theme: str = "ansi_dark") -> None:
+        """Pretty print this object to stdout.
+
+        Prints the object as YAML (using ``rich`` for syntax highlighting if available).
+
+        Args:
+            use_rich: Use ``rich`` to pretty print. If ``rich` is not installed this will be ignored.
+            theme: The ``pygments`` theme for ``rich`` to use. Defaults to "ansi_dark" to use default terminal colors.
+
+        """
+        if use_rich:
+            with contextlib.suppress(ImportError):
+                from rich import print as rich_print
+                from rich.syntax import Syntax
+
+                rich_print(Syntax(code=self.to_yaml(), lexer="yaml", theme=theme))
+                return
+        print(self.to_yaml())
 
     @classmethod
     def gen(cls, *args, **kwargs):
@@ -1746,11 +1858,19 @@ class Deployment(APIObject):
     namespaced = True
     scalable = True
 
+    async def ready_pods(self) -> list[Pod]:
+        """Return a list of Pods for this Deployment."""
+        return await self.async_pods(ready=True)
+
+    async def async_ready_pods(self) -> list[Pod]:
+        return await self.async_pods(ready=True)
+
     async def pods(self) -> list[Pod]:
         """Return a list of Pods for this Deployment."""
         return await self.async_pods()
 
-    async def async_pods(self) -> list[Pod]:
+    async def async_pods(self, ready: bool = False) -> list[Pod]:
+        """Return a list of Pods for this Deployment."""
         assert self.api
         pods = [
             pod
@@ -1761,12 +1881,16 @@ class Deployment(APIObject):
             )
         ]
         if isinstance(pods, Pod):
-            return [pods]
-        if isinstance(pods, list) and all(isinstance(pod, Pod) for pod in pods):
+            pods = [pods]
+        elif isinstance(pods, list) and all(isinstance(pod, Pod) for pod in pods):
             # The all(isinstance(...) for ...) check doesn't seem to narrow the type
             # correctly in pyright so we need to explicitly use cast
-            return cast(list[Pod], pods)
-        raise TypeError(f"Unexpected type {type(pods)} returned from API")
+            pods = cast(list[Pod], pods)
+        else:
+            raise TypeError(f"Unexpected type {type(pods)} returned from API")
+        if ready:
+            return [pod for pod in pods if await pod.async_ready()]
+        return pods
 
     async def ready(self):
         """Check if the deployment is ready."""
@@ -1880,6 +2004,28 @@ class NetworkPolicy(APIObject):
     plural = "networkpolicies"
     singular = "networkpolicy"
     namespaced = True
+
+
+class IPAddress(APIObject):
+    """A Kubernetes IPAddress."""
+
+    version = "networking.k8s.io/v1"
+    endpoint = "ipaddresses"
+    kind = "IPAddress"
+    plural = "ipaddresses"
+    singular = "ipaddress"
+    namespaced = False
+
+
+class ServiceCIDR(APIObject):
+    """A Kubernetes ServiceCIDR."""
+
+    version = "networking.k8s.io/v1"
+    endpoint = "servicecidrs"
+    kind = "ServiceCIDR"
+    plural = "servicecidrs"
+    singular = "servicecidr"
+    namespaced = False
 
 
 ## policy/v1 objects

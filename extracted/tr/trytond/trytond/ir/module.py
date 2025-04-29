@@ -5,7 +5,6 @@ from functools import wraps
 
 from sql.operators import NotIn
 
-from trytond.cache import Cache
 from trytond.exceptions import UserError
 from trytond.i18n import gettext
 from trytond.model import ModelSQL, ModelView, Unique, fields, sequence_ordered
@@ -35,7 +34,6 @@ def filter_state(state):
 
 
 class Module(ModelSQL, ModelView):
-    "Module"
     __name__ = "ir.module"
     name = fields.Char("Name", readonly=True, required=True)
     version = fields.Function(fields.Char('Version'), 'get_version')
@@ -55,7 +53,7 @@ class Module(ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(Module, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls._sql_constraints = [
             ('name_uniq', Unique(table, table.name),
@@ -63,7 +61,7 @@ class Module(ModelSQL, ModelView):
         ]
         cls._order.insert(0, ('name', 'ASC'))
         cls.__rpc__.update({
-                'on_write': RPC(instantiate=0),
+                'on_written': RPC(instantiate=0),
                 })
         cls._buttons.update({
                 'activate': {
@@ -124,19 +122,21 @@ class Module(ModelSQL, ModelView):
         return child_ids
 
     @classmethod
-    def delete(cls, records):
-        for module in records:
-            if module.state in (
-                    'activated',
-                    'to upgrade',
-                    'to remove',
-                    'to activate',
-                    ):
-                raise AccessError(gettext('ir.msg_module_delete_state'))
-        return super(Module, cls).delete(records)
+    def check_modification(cls, mode, records, values=None, external=False):
+        super().check_modification(
+            mode, records, values=values, external=external)
+        if mode == 'delete':
+            for module in records:
+                if module.state in (
+                        'activated',
+                        'to upgrade',
+                        'to remove',
+                        'to activate',
+                        ):
+                    raise AccessError(gettext('ir.msg_module_delete_state'))
 
     @classmethod
-    def on_write(cls, modules):
+    def on_written(cls, modules):
         dependencies = set()
 
         def get_parents(module):
@@ -271,7 +271,6 @@ class Module(ModelSQL, ModelView):
 
 
 class ModuleDependency(ModelSQL, ModelView):
-    "Module dependency"
     __name__ = "ir.module.dependency"
     name = fields.Char('Name')
     module = fields.Many2One('ir.module', 'Module',
@@ -287,7 +286,7 @@ class ModuleDependency(ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(ModuleDependency, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('module')
         table = cls.__table__()
         cls._sql_constraints += [
@@ -310,23 +309,14 @@ class ModuleDependency(ModelSQL, ModelView):
 
 
 class ModuleConfigWizardItem(sequence_ordered(), ModelSQL, ModelView):
-    "Config wizard to run after activating a module"
     __name__ = 'ir.module.config_wizard.item'
+
     action = fields.Many2One('ir.action', 'Action', required=True,
         readonly=True)
     state = fields.Selection([
         ('open', 'Open'),
         ('done', 'Done'),
         ], string="State", required=True, sort=False)
-
-    @classmethod
-    def __register__(cls, module_name):
-        super(ModuleConfigWizardItem, cls).__register__(module_name)
-
-        table = cls.__table_handler__(module_name)
-
-        # Migration from 5.0: remove required on sequence
-        table.not_null_action('sequence', 'remove')
 
     @staticmethod
     def default_state():
@@ -338,12 +328,10 @@ class ModuleConfigWizardItem(sequence_ordered(), ModelSQL, ModelView):
 
 
 class ModuleConfigWizardFirst(ModelView):
-    'Module Config Wizard First'
     __name__ = 'ir.module.config_wizard.first'
 
 
 class ModuleConfigWizardOther(ModelView):
-    'Module Config Wizard Other'
     __name__ = 'ir.module.config_wizard.other'
 
     percentage = fields.Float('Percentage', digits=(1, 2), readonly=True)
@@ -360,12 +348,10 @@ class ModuleConfigWizardOther(ModelView):
 
 
 class ModuleConfigWizardDone(ModelView):
-    'Module Config Wizard Done'
     __name__ = 'ir.module.config_wizard.done'
 
 
 class ModuleConfigWizard(Wizard):
-    'Run config wizards'
     __name__ = 'ir.module.config_wizard'
 
     class ConfigStateAction(StateAction):
@@ -436,18 +422,15 @@ class ModuleConfigWizard(Wizard):
 
 
 class ModuleActivateUpgradeStart(ModelView):
-    'Module Activate Upgrade Start'
     __name__ = 'ir.module.activate_upgrade.start'
     module_info = fields.Text('Modules to update', readonly=True)
 
 
 class ModuleActivateUpgradeDone(ModelView):
-    'Module Activate Upgrade Done'
     __name__ = 'ir.module.activate_upgrade.done'
 
 
 class ModuleActivateUpgrade(Wizard):
-    "Activate / Upgrade modules"
     __name__ = 'ir.module.activate_upgrade'
 
     start = StateView('ir.module.activate_upgrade.start',
@@ -467,7 +450,7 @@ class ModuleActivateUpgrade(Wizard):
     def check_access(cls):
         # Use new transaction to prevent lock when activating modules
         with Transaction().new_transaction():
-            super(ModuleActivateUpgrade, cls).check_access()
+            super().check_access()
 
     @staticmethod
     def default_start(fields):
@@ -503,7 +486,6 @@ class ModuleActivateUpgrade(Wizard):
             lang = [x.code for x in langs]
         if update:
             pool.init(update=update, lang=lang)
-            Cache.refresh_pool(transaction)
         return 'done'
 
     def transition_next_(self):
@@ -522,7 +504,6 @@ class ModuleActivateUpgrade(Wizard):
 
 
 class ModuleConfig(Wizard):
-    'Configure Modules'
     __name__ = 'ir.module.config'
 
     start = StateView('ir.module.config.start',
@@ -544,7 +525,6 @@ class ModuleConfig(Wizard):
 
 
 class ModuleConfigStart(ModelView):
-    "Configure Modules"
     __name__ = 'ir.module.config.start'
 
     modules = fields.Many2Many(

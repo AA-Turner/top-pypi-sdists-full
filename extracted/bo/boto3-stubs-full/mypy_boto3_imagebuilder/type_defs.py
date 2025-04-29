@@ -45,6 +45,7 @@ from .literals import (
     PipelineStatusType,
     PlatformType,
     ResourceStatusType,
+    SsmParameterDataTypeType,
     TenancyTypeType,
     WorkflowExecutionStatusType,
     WorkflowStepActionTypeType,
@@ -316,6 +317,7 @@ __all__ = (
     "SendWorkflowStepActionRequestTypeDef",
     "SendWorkflowStepActionResponseTypeDef",
     "SeverityCountsTypeDef",
+    "SsmParameterConfigurationTypeDef",
     "StartImagePipelineExecutionRequestTypeDef",
     "StartImagePipelineExecutionResponseTypeDef",
     "StartResourceStateUpdateRequestTypeDef",
@@ -571,6 +573,12 @@ class S3ExportConfigurationTypeDef(TypedDict):
     diskImageFormat: DiskImageFormatType
     s3Bucket: str
     s3Prefix: NotRequired[str]
+
+
+class SsmParameterConfigurationTypeDef(TypedDict):
+    parameterName: str
+    amiAccountId: NotRequired[str]
+    dataType: NotRequired[SsmParameterDataTypeType]
 
 
 class EbsInstanceBlockDeviceSpecificationTypeDef(TypedDict):
@@ -1923,6 +1931,7 @@ class DistributionOutputTypeDef(TypedDict):
     launchTemplateConfigurations: NotRequired[List[LaunchTemplateConfigurationTypeDef]]
     s3ExportConfiguration: NotRequired[S3ExportConfigurationTypeDef]
     fastLaunchConfigurations: NotRequired[List[FastLaunchConfigurationTypeDef]]
+    ssmParameterConfigurations: NotRequired[List[SsmParameterConfigurationTypeDef]]
 
 
 class AmiDistributionConfigurationTypeDef(TypedDict):
@@ -2323,6 +2332,7 @@ class DistributionTypeDef(TypedDict):
     launchTemplateConfigurations: NotRequired[Sequence[LaunchTemplateConfigurationTypeDef]]
     s3ExportConfiguration: NotRequired[S3ExportConfigurationTypeDef]
     fastLaunchConfigurations: NotRequired[Sequence[FastLaunchConfigurationTypeDef]]
+    ssmParameterConfigurations: NotRequired[Sequence[SsmParameterConfigurationTypeDef]]
 
 
 class LifecyclePolicyTypeDef(TypedDict):

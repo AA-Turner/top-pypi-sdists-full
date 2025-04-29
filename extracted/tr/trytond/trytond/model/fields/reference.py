@@ -38,7 +38,7 @@ class Reference(SelectionMixin, Field):
         :param search_order: The order to use when searching for a record
         :param search_context: The context to use when searching for a record
         '''
-        super(Reference, self).__init__(string=string, help=help,
+        super().__init__(string=string, help=help,
             required=required, readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)
@@ -61,7 +61,8 @@ class Reference(SelectionMixin, Field):
         self.__search_context = None
         self.search_context = search_context or {}
 
-    __init__.__doc__ += Field.__init__.__doc__
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     @property
     def domain(self):
@@ -106,7 +107,7 @@ class Reference(SelectionMixin, Field):
         return depends
 
     def set_rpc(self, model):
-        super(Reference, self).set_rpc(model)
+        super().set_rpc(model)
         if not isinstance(self.selection, (list, tuple)):
             assert hasattr(model, self.selection), \
                 'Missing %s on model %s' % (self.selection, model.__name__)
@@ -169,6 +170,7 @@ class Reference(SelectionMixin, Field):
         if not isinstance(value, (Model, type(None))):
             if isinstance(value, str):
                 target, value = value.split(',')
+                value = int(value)
             else:
                 target, value = value
             Target = Pool().get(target)
@@ -178,7 +180,7 @@ class Reference(SelectionMixin, Field):
                     value = Target(**value)
                 else:
                     value = Target(value)
-        super(Reference, self).__set__(inst, value)
+        super().__set__(inst, value)
 
     def sql_format(self, value):
         if value and not isinstance(value, (str, Query, Expression)):
@@ -186,7 +188,7 @@ class Reference(SelectionMixin, Field):
                 value = '%s,%s' % tuple(value)
             except TypeError:
                 value = str(value)
-        return super(Reference, self).sql_format(value)
+        return super().sql_format(value)
 
     def sql_id(self, column, Model):
         "Return SQL expression for the id part of the field"
@@ -198,7 +200,7 @@ class Reference(SelectionMixin, Field):
     @domain_method
     def convert_domain(self, domain, tables, Model):
         if '.' not in domain[0]:
-            return super(Reference, self).convert_domain(domain, tables, Model)
+            return super().convert_domain(domain, tables, Model)
         pool = Pool()
         name, operator, value, target = domain[:4]
         Target = pool.get(target)

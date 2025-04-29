@@ -1,3 +1,6 @@
+#[macro_use]
+mod macros;
+
 mod async_impl;
 mod blocking;
 mod buffer;
@@ -8,6 +11,7 @@ mod typing;
 
 use async_impl::{Client, Message, Response, Streamer, WebSocket};
 use blocking::{BlockingClient, BlockingResponse, BlockingStreamer, BlockingWebSocket};
+use error::*;
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use pyo3_async_runtimes::tokio::future_into_py;
 use typing::param::{RequestParams, WebSocketParams};
@@ -87,7 +91,7 @@ fn head(
     future_into_py(py, async_impl::shortcut_request(url, Method::HEAD, kwds))
 }
 
-/// Make an OPTIONS request with the given parameters.
+/// Make a OPTIONS request with the given parameters.
 #[pyfunction]
 #[pyo3(signature = (url, **kwds))]
 fn options(
@@ -165,6 +169,24 @@ fn rnet(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<BlockingResponse>()?;
     m.add_class::<BlockingWebSocket>()?;
     m.add_class::<BlockingStreamer>()?;
+
+    let py = m.py();
+    m.add("DNSResolverError", py.get_type::<DNSResolverError>())?;
+    m.add("BodyError", py.get_type::<BodyError>())?;
+    m.add("BuilderError", py.get_type::<BuilderError>())?;
+    m.add("ConnectionError", py.get_type::<ConnectionError>())?;
+    m.add(
+        "ConnectionResetError",
+        py.get_type::<ConnectionResetError>(),
+    )?;
+    m.add("DecodingError", py.get_type::<DecodingError>())?;
+    m.add("RedirectError", py.get_type::<RedirectError>())?;
+    m.add("TimeoutError", py.get_type::<TimeoutError>())?;
+    m.add("StatusError", py.get_type::<StatusError>())?;
+    m.add("RequestError", py.get_type::<RequestError>())?;
+    m.add("UpgradeError", py.get_type::<UpgradeError>())?;
+    m.add("URLParseError", py.get_type::<URLParseError>())?;
+    m.add("MIMEParseError", py.get_type::<MIMEParseError>())?;
 
     m.add_function(wrap_pyfunction!(get, m)?)?;
     m.add_function(wrap_pyfunction!(post, m)?)?;

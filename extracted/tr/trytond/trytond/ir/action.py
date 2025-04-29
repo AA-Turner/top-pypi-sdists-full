@@ -41,7 +41,6 @@ class ContextError(ValidationError):
     pass
 
 
-EMAIL_REFKEYS = set(('cc', 'to', 'subject'))
 ACTION_SELECTION = [
     ('ir.action.report', "Report"),
     ('ir.action.act_window', "Window"),
@@ -51,7 +50,6 @@ ACTION_SELECTION = [
 
 
 class Action(DeactivableMixin, ModelSQL, ModelView):
-    "Action"
     __name__ = 'ir.action'
     name = fields.Char('Name', required=True, translate=True)
     type = fields.Selection(
@@ -68,10 +66,13 @@ class Action(DeactivableMixin, ModelSQL, ModelView):
     keywords = fields.One2Many('ir.action.keyword', 'action',
             'Keywords')
     icon = fields.Many2One('ir.ui.icon', 'Icon')
+    groups = fields.Many2Many(
+        'ir.action-res.group', 'action', 'group', "Groups")
+    _groups_cache = Cache('ir.action.get_groups', context=False)
 
     @classmethod
     def __setup__(cls):
-        super(Action, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'get_action_value': RPC(instantiate=0, cache=dict(days=1)),
                 })
@@ -88,10 +89,11 @@ class Action(DeactivableMixin, ModelSQL, ModelView):
         return None
 
     @classmethod
-    def write(cls, actions, values, *args):
+    def on_modification(cls, mode, actions, field_names=None):
         pool = Pool()
-        super(Action, cls).write(actions, values, *args)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
+        ActionKeyword = pool.get('ir.action.keyword')
+        super().on_modification(mode, actions, field_names=field_names)
+        ActionKeyword._get_keyword_cache.clear()
 
     @classmethod
     @inactive_records
@@ -150,8 +152,31 @@ class Action(DeactivableMixin, ModelSQL, ModelView):
             return self.get_action_values(self.type, [action_id])[0]
 
 
+class ActionGroup(ModelSQL):
+    __name__ = 'ir.action-res.group'
+    action = fields.Many2One(
+        'ir.action', "Action", ondelete='CASCADE', required=True)
+    group = fields.Many2One(
+        'res.group', "Group", ondelete='CASCADE', required=True)
+
+    @classmethod
+    def preprocess_values(cls, mode, values):
+        pool = Pool()
+        Action = pool.get('ir.action')
+        values = super().preprocess_values(mode, values)
+        if values.get('action') is not None:
+            values['action'] = Action.get_action_id(values['action'])
+        return values
+
+    @classmethod
+    def on_modification(cls, mode, records, field_names=None):
+        pool = Pool()
+        Action = pool.get('ir.action')
+        super().on_modification(mode, records, field_names=field_names)
+        Action._groups_cache.clear()
+
+
 class ActionKeyword(ModelSQL, ModelView):
-    "Action keyword"
     __name__ = 'ir.action.keyword'
     keyword = fields.Selection([
             ('tree_open', 'Open tree'),
@@ -163,12 +188,16 @@ class ActionKeyword(ModelSQL, ModelView):
     model = fields.Reference('Model', selection='models_get')
     action = fields.Many2One('ir.action', 'Action',
         ondelete='CASCADE')
+    groups = fields.Function(
+        fields.One2Many('res.group', None, "Groups"),
+        'get_groups', searcher='search_groups')
+
     _get_keyword_cache = Cache(
         'ir_action_keyword.get_keyword', context=False)
 
     @classmethod
     def __setup__(cls):
-        super(ActionKeyword, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('action')
         table = cls.__table__()
 
@@ -207,45 +236,33 @@ class ActionKeyword(ModelSQL, ModelView):
                                 gettext('ir.msg_action_wrong_wizard_model',
                                     name=action_wizard.rec_name))
 
-    @staticmethod
-    def _convert_vals(vals):
-        vals = vals.copy()
+    @classmethod
+    def preprocess_values(cls, mode, values):
         pool = Pool()
         Action = pool.get('ir.action')
-        if 'action' in vals:
-            vals['action'] = Action.get_action_id(vals['action'])
-        return vals
+        values = super().preprocess_values(mode, values)
+        if values.get('action') is not None:
+            values['action'] = Action.get_action_id(values['action'])
+        return values
+
+    @classmethod
+    def on_modification(cls, mode, keywords, field_names=None):
+        super().on_modification(mode, keywords, field_names=field_names)
+        ModelView._view_toolbar_get_cache.clear()
+        cls._get_keyword_cache.clear()
 
     @staticmethod
     def models_get():
         pool = Pool()
         Model = pool.get('ir.model')
-        return [(None, '')] + Model.get_name_items()
+        return [(None, '')] + Model.get_name_items(ModelView)
+
+    def get_groups(self, name):
+        return [g.id for g in self.action.groups]
 
     @classmethod
-    def delete(cls, keywords):
-        ModelView._view_toolbar_get_cache.clear()
-        cls._get_keyword_cache.clear()
-        super(ActionKeyword, cls).delete(keywords)
-
-    @classmethod
-    def create(cls, vlist):
-        ModelView._view_toolbar_get_cache.clear()
-        cls._get_keyword_cache.clear()
-        new_vlist = []
-        for vals in vlist:
-            new_vlist.append(cls._convert_vals(vals))
-        return super(ActionKeyword, cls).create(new_vlist)
-
-    @classmethod
-    def write(cls, keywords, values, *args):
-        actions = iter((keywords, values) + args)
-        args = []
-        for keywords, values in zip(actions, actions):
-            args.extend((keywords, cls._convert_vals(values)))
-        super(ActionKeyword, cls).write(*args)
-        ModelView._view_toolbar_get_cache.clear()
-        cls._get_keyword_cache.clear()
+    def search_groups(cls, name, clause):
+        return [('action.' + clause[0],) + tuple(clause[1:])]
 
     @classmethod
     def get_keyword(cls, keyword, value):
@@ -322,7 +339,7 @@ class ActionMixin(ModelSQL):
     @classmethod
     def __setup__(cls):
         pool = Pool()
-        super(ActionMixin, cls).__setup__()
+        super().__setup__()
         cls.__access__.add('action')
         cls.action.domain = [
             ('type', '=', cls.__name__),
@@ -384,9 +401,41 @@ class ActionMixin(ModelSQL):
         return [('action.' + clause[0],) + tuple(clause[1:])]
 
     @classmethod
+    @without_check_access
+    def get_groups(cls, name, action_id=None):
+        pool = Pool()
+        Action = pool.get('ir.action')
+
+        key = (name, action_id)
+        groups = Action._groups_cache.get(key)
+        if groups is not None:
+            return set(groups)
+
+        domain = [
+            (cls._action_name, '=', name),
+            ]
+        if action_id:
+            domain.append(('id', '=', action_id))
+        actions = cls.search(domain)
+        groups = {g.id for a in actions for g in a.groups}
+        Action._groups_cache.set(key, list(groups))
+        return groups
+
+    @classmethod
+    def on_modification(cls, mode, records, field_names=None):
+        pool = Pool()
+        Action = pool.get('ir.action')
+        ActionKeyword = pool.get('ir.action.keyword')
+        super().on_modification(mode, records, field_names=field_names)
+        ModelView._view_toolbar_get_cache.clear()
+        ActionKeyword._get_keyword_cache.clear()
+        if mode == 'delete':
+            actions = [x.action for x in records]
+            Action.delete(actions)
+
+    @classmethod
     def create(cls, vlist):
         pool = Pool()
-        ModelView._view_toolbar_get_cache.clear()
         Action = pool.get('ir.action')
         ir_action = cls.__table__()
         new_records = []
@@ -414,7 +463,7 @@ class ActionMixin(ModelSQL):
                 values['action'] = action.id
             else:
                 action = Action(values['action'])
-            record, = super(ActionMixin, cls).create([values])
+            record, = super().create([values])
             cursor.execute(*ir_action.update(
                     [ir_action.id], [action.id],
                     where=ir_action.id == record.id))
@@ -426,23 +475,6 @@ class ActionMixin(ModelSQL):
         return new_records
 
     @classmethod
-    def write(cls, records, values, *args):
-        pool = Pool()
-        ActionKeyword = pool.get('ir.action.keyword')
-        super(ActionMixin, cls).write(records, values, *args)
-        ModelView._view_toolbar_get_cache.clear()
-        ActionKeyword._get_keyword_cache.clear()
-
-    @classmethod
-    def delete(cls, records):
-        pool = Pool()
-        ModelView._view_toolbar_get_cache.clear()
-        Action = pool.get('ir.action')
-        actions = [x.action for x in records]
-        super(ActionMixin, cls).delete(records)
-        Action.delete(actions)
-
-    @classmethod
     def copy(cls, records, default=None):
         pool = Pool()
         Action = pool.get('ir.action')
@@ -452,7 +484,7 @@ class ActionMixin(ModelSQL):
         new_records = []
         for record in records:
             default['action'] = Action.copy([record.action])[0].id
-            new_records.extend(super(ActionMixin, cls).copy([record],
+            new_records.extend(super().copy([record],
                     default=default))
         return new_records
 
@@ -465,13 +497,12 @@ class ActionMixin(ModelSQL):
 
 class ActionReport(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             ondelete='CASCADE'),
         fields.fmany2one(
             'module_ref', 'module', 'ir.module,name', "Module",
             readonly=True, ondelete='CASCADE'),
         ActionMixin, ModelSQL, ModelView):
-    "Action report"
     __name__ = 'ir.action.report'
     _action_name = 'report_name'
     model = fields.Char('Model')
@@ -686,19 +717,18 @@ class ActionReport(
         return super().copy(reports, default=default)
 
     @classmethod
-    def write(cls, reports, values, *args):
+    def preprocess_values(cls, mode, values):
         context = Transaction().context
-        if 'module' in context:
-            actions = iter((reports, values) + args)
-            args = []
-            for reports, values in zip(actions, actions):
-                values = values.copy()
-                values['module'] = context['module']
-                args.extend((reports, values))
-            reports, values = args[:2]
-            args = args[2:]
-        cls._template_cache.clear()
-        super(ActionReport, cls).write(reports, values, *args)
+        values = super().preprocess_values(mode, values)
+        if 'module' in context and not values.get('module'):
+            values['module'] = context['module']
+        return values
+
+    @classmethod
+    def on_modification(cls, mode, reports, field_names=None):
+        super().on_modification(mode, reports, field_names=field_names)
+        if mode == 'write':
+            cls._template_cache.clear()
 
     def get_template_cached(self):
         return self._template_cache.get(self.id)
@@ -729,13 +759,12 @@ class ActionReport(
 
 class ActionActWindow(
         fields.fmany2one(
-            'res_model_ref', 'res_model', 'ir.model,model', "Model",
+            'res_model_ref', 'res_model', 'ir.model,name', "Model",
             ondelete='CASCADE'),
         fields.fmany2one(
-            'context_model_ref', 'context_model', 'ir.model,model',
+            'context_model_ref', 'context_model', 'ir.model,name',
             "Context Model", ondelete='CASCADE'),
         ActionMixin, ModelSQL, ModelView):
-    "Action act window"
     __name__ = 'ir.action.act_window'
     domain = fields.Char('Domain Value')
     context = fields.Char('Context Value')
@@ -763,7 +792,7 @@ class ActionActWindow(
 
     @classmethod
     def __setup__(cls):
-        super(ActionActWindow, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'get': RPC(cache=dict(days=1)),
                 })
@@ -782,7 +811,7 @@ class ActionActWindow(
 
     @classmethod
     def validate(cls, actions):
-        super(ActionActWindow, cls).validate(actions)
+        super().validate(actions)
         cls.check_views(actions)
 
     @classmethod
@@ -937,7 +966,6 @@ class ActionActWindow(
 
 class ActionActWindowView(
         sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
-    "Action act window view"
     __name__ = 'ir.action.act_window.view'
     view = fields.Many2One(
         'ir.ui.view', "View", required=True, ondelete='CASCADE',
@@ -953,43 +981,21 @@ class ActionActWindowView(
         super().__setup__()
         cls.__access__.add('act_window')
 
-    @classmethod
-    def __register__(cls, module_name):
-        super().__register__(module_name)
-
-        table = cls.__table_handler__(module_name)
-
-        # Migration from 5.0: remove required on sequence
-        table.not_null_action('sequence', 'remove')
-
     @fields.depends('act_window', '_parent_act_window.res_model')
     def on_change_with_model(self, name=None):
         if self.act_window:
             return self.act_window.res_model
 
     @classmethod
-    def create(cls, vlist):
+    def on_modification(cls, mode, records, field_names=None):
         pool = Pool()
-        windows = super(ActionActWindowView, cls).create(vlist)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
-        return windows
-
-    @classmethod
-    def write(cls, windows, values, *args):
-        pool = Pool()
-        super(ActionActWindowView, cls).write(windows, values, *args)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
-
-    @classmethod
-    def delete(cls, windows):
-        pool = Pool()
-        super(ActionActWindowView, cls).delete(windows)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
+        Keyword = pool.get('ir.action.keyword')
+        super().on_modification(mode, records, field_names=field_names)
+        Keyword._get_keyword_cache.clear()
 
 
 class ActionActWindowDomain(
         sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
-    "Action act window domain"
     __name__ = 'ir.action.act_window.domain'
     name = fields.Char('Name', translate=True)
     domain = fields.Char('Domain')
@@ -1001,15 +1007,6 @@ class ActionActWindowDomain(
     def __setup__(cls):
         super().__setup__()
         cls.__access__.add('act_window')
-
-    @classmethod
-    def __register__(cls, module_name):
-        super().__register__(module_name)
-
-        table = cls.__table_handler__(module_name)
-
-        # Migration from 5.0: remove required on sequence
-        table.not_null_action('sequence', 'remove')
 
     @classmethod
     def default_count(cls):
@@ -1055,31 +1052,18 @@ class ActionActWindowDomain(
                             action=action.rec_name)) from exception
 
     @classmethod
-    def create(cls, vlist):
+    def on_modification(cls, mode, records, field_names=None):
         pool = Pool()
-        domains = super(ActionActWindowDomain, cls).create(vlist)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
-        return domains
-
-    @classmethod
-    def write(cls, domains, values, *args):
-        pool = Pool()
-        super(ActionActWindowDomain, cls).write(domains, values, *args)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
-
-    @classmethod
-    def delete(cls, domains):
-        pool = Pool()
-        super(ActionActWindowDomain, cls).delete(domains)
-        pool.get('ir.action.keyword')._get_keyword_cache.clear()
+        Keyword = pool.get('ir.action.keyword')
+        super().on_modification(mode, records, field_names=field_names)
+        Keyword._get_keyword_cache.clear()
 
 
 class ActionWizard(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             ondelete='CASCADE'),
         ActionMixin, ModelSQL, ModelView):
-    "Action wizard"
     __name__ = 'ir.action.wizard'
     _action_name = 'wiz_name'
     wiz_name = fields.Char('Wizard name', required=True)
@@ -1115,7 +1099,6 @@ class ActionWizard(
 
 
 class ActionURL(ActionMixin, ModelSQL, ModelView):
-    "Action URL"
     __name__ = 'ir.action.url'
     url = fields.Char('Action Url', required=True)
 

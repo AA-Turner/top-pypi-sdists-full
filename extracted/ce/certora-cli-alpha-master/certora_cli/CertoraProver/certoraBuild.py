@@ -2539,7 +2539,7 @@ class CertoraBuildGenerator:
                 sources_from_pre_finder_SDCs |= sdc.all_contract_files
             sources = self.collect_sources(context, certora_verify_generator, sources_from_pre_finder_SDCs)
             try:
-                self.cwd_rel_in_sources = build_source_tree(sources, context)
+                build_source_tree(sources, context)
             except Exception as e:
                 build_logger.debug(f"build_source_tree failed. Sources: {sources}", exc_info=e)
                 raise
@@ -3015,7 +3015,7 @@ class CertoraBuildGenerator:
             for k, v in autofinder_remappings.items():
                 self.function_finder_file_remappings[Util.abs_posix_path(k)] = Util.abs_posix_path(v)
             new_sdcs = self.collect_for_file(new_file, i, get_compiler_lang(build_arg_contract_file),
-                                             Util.get_certora_sources_dir() / self.cwd_rel_in_sources,
+                                             Util.get_certora_sources_dir() / self.context.cwd_rel_in_sources,
                                              path_for_compiler_collector_file,
                                              sdc_pre_finder,
                                              fail_on_compilation_error=False,
@@ -3043,7 +3043,7 @@ class CertoraBuildGenerator:
         contract_path = Util.abs_posix_path_obj(contract_file)
         rel_directory = Path(os.path.relpath(contract_file, '.')).parent
         contract_filename = contract_path.name
-        new_path = Util.get_certora_sources_dir() / self.cwd_rel_in_sources / rel_directory / contract_filename
+        new_path = Util.get_certora_sources_dir() / self.context.cwd_rel_in_sources / rel_directory / contract_filename
         new_path.parent.mkdir(parents=True, exist_ok=True)
         return str(new_path)
 
@@ -3053,7 +3053,7 @@ class CertoraBuildGenerator:
         This assumes those paths can be related to cwd.
         """
         rel_to_cwd_path = Path(os.path.relpath(path, '.'))
-        new_path = Util.get_certora_sources_dir() / self.cwd_rel_in_sources / rel_to_cwd_path
+        new_path = Util.get_certora_sources_dir() / self.context.cwd_rel_in_sources / rel_to_cwd_path
         return str(new_path.absolute())
 
     def handle_links(self) -> None:
@@ -3461,20 +3461,19 @@ def sources_to_abs(sources: Set[Path]) -> Set[Path]:
     return result
 
 
-def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bool = False) -> Path:
+def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bool = False) -> None:
     """
     Copies files to .certora_sources
-    @returns the cwd relative in sources
     """
     sources = sources_to_abs(sources)
-    cwd_rel_in_sources, common_path = CertoraBuildGenerator.get_cwd_rel_in_sources(sources)
+    context.cwd_rel_in_sources, context.common_path = CertoraBuildGenerator.get_cwd_rel_in_sources(sources)
 
     for source_path in sources:
         is_dir = source_path.is_dir()
         # copy file to the path of the file from the common root under the sources directory
 
         # make sure directory exists
-        target_path = Util.get_certora_sources_dir() / source_path.relative_to(common_path)
+        target_path = Util.get_certora_sources_dir() / source_path.relative_to(context.common_path)
         target_directory = target_path if is_dir else target_path.parent
         try:
             target_directory.mkdir(parents=True, exist_ok=True)
@@ -3503,7 +3502,7 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
             raise
 
     #  the empty file .cwd is written in the source tree to denote the current working directory
-    cwd_file_path = Util.get_certora_sources_dir() / cwd_rel_in_sources / Util.CWD_FILE
+    cwd_file_path = Util.get_certora_sources_dir() / context.cwd_rel_in_sources / Util.CWD_FILE
     cwd_file_path.parent.mkdir(parents=True, exist_ok=True)
     cwd_file_path.touch()
 
@@ -3512,7 +3511,7 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
     if rust_proj_dir:
         proj_dir_parent_relative = os.path.relpath(rust_proj_dir, os.getcwd())
         assert Path(rust_proj_dir).is_dir(), f"build_source_tree: not a directory {rust_proj_dir}"
-        proj_dir_parent_file = (Util.get_certora_sources_dir() / cwd_rel_in_sources / proj_dir_parent_relative /
+        proj_dir_parent_file = (Util.get_certora_sources_dir() / context.cwd_rel_in_sources / proj_dir_parent_relative /
                                 Util.PROJECT_DIR_FILE)
         proj_dir_parent_file.parent.mkdir(parents=True, exist_ok=True)
         proj_dir_parent_file.touch()
@@ -3527,9 +3526,6 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
     except OSError as e:
         build_logger.debug("Couldn't copy repro conf to certora sources.", exc_info=e)
         raise
-
-    return cwd_rel_in_sources
-
 
 def build_from_scratch(certora_build_generator: CertoraBuildGenerator,
                        certora_verify_generator: CertoraVerifyGenerator,

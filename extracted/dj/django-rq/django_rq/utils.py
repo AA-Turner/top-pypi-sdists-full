@@ -1,4 +1,4 @@
-from typing import cast, Optional, List, Union
+from typing import cast, Optional, List, Tuple, Union
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connections
@@ -111,7 +111,7 @@ def get_scheduler_statistics():
             connection = first_sentinel.connection_pool.connection_kwargs
         else:
             connection = queue.connection.connection_pool.connection_kwargs
-        conn_key = f"{connection['host']}:{connection.get('port', 6379)}/{connection.get('db', 0)}"
+        conn_key = f"{connection.get('host', 'NOHOST')}:{connection.get('port', 6379)}/{connection.get('db', 0)}"
         if conn_key not in schedulers:
             try:
                 scheduler = get_scheduler(config['name'])
@@ -141,9 +141,7 @@ def get_jobs(
     1. If job data is not present in Redis, discard the result
     2. If `registry` argument is supplied, delete empty jobs from registry
     """
-    jobs = cast(
-        List[Optional[Job]], Job.fetch_many(job_ids, connection=queue.connection, serializer=queue.serializer)
-    )
+    jobs = Job.fetch_many(job_ids, connection=queue.connection, serializer=queue.serializer)
     valid_jobs = []
     for i, job in enumerate(jobs):
         if job is None:
@@ -155,13 +153,12 @@ def get_jobs(
     return valid_jobs
 
 
-def get_executions(queue, composite_keys: List[str]) -> List[Execution]:
+def get_executions(queue, composite_keys: List[Tuple[str, str]]) -> List[Execution]:
     """Fetch executions in bulk from Redis.
     1. If execution data is not present in Redis, discard the result
     """
     executions = []
-    for key in composite_keys:
-        job_id, id = key.split(':')
+    for job_id, id in composite_keys:
         try:
             executions.append(Execution.fetch(id=id, job_id=job_id, connection=queue.connection))
         except ValueError:

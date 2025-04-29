@@ -27,6 +27,7 @@ from attrs import define, field
 from cyclopts.annotations import resolve_annotated
 from cyclopts.argument import ArgumentCollection
 from cyclopts.bind import create_bound_arguments, is_option_like, normalize_tokens
+from cyclopts.config._env import Env
 from cyclopts.exceptions import (
     CommandCollisionError,
     CycloptsError,
@@ -484,6 +485,10 @@ class App:
     @property
     def sort_key(self):
         return None if self._sort_key is UNSET else self._sort_key
+
+    @sort_key.setter
+    def sort_key(self, value):
+        self._sort_key = value
 
     def version_print(
         self,
@@ -1291,7 +1296,7 @@ class App:
         from rich.console import Group as RichGroup
         from rich.console import NewLine
 
-        _, apps, _ = self.parse_commands(tokens)
+        command_chain, apps, _ = self.parse_commands(tokens)
 
         help_format = resolve_help_format(apps)
 
@@ -1330,6 +1335,19 @@ class App:
                 continue
 
             argument_collection = subapp.assemble_argument_collection(apps=apps, parse_docstring=True)
+
+            # Special-case: add config.Env values to Parameter(env_var=)
+            configs: tuple[Callable, ...] = self._resolve(apps, None, "_config") or ()
+            env_configs = tuple(x for x in configs if isinstance(x, Env) and x.show)
+            for argument in argument_collection:
+                for env_config in env_configs:
+                    env_var = env_config._convert_argument(command_chain, argument)
+                    assert isinstance(argument.parameter.env_var, tuple)
+                    argument.parameter = Parameter.combine(
+                        argument.parameter,
+                        Parameter(env_var=(*argument.parameter.env_var, env_var)),
+                    )
+
             for group in argument_collection.groups:
                 if not group.show:
                     continue

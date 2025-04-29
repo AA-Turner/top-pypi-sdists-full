@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome
-Version: 2025.4.0
+Version: 2025.4.1
 Summary: ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems.
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: MIT

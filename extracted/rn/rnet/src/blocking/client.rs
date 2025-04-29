@@ -80,7 +80,7 @@ impl BlockingClient {
         self.request(py, Method::HEAD, url, kwds)
     }
 
-    /// Make an OPTIONS request to the specified URL.
+    /// Make a OPTIONS request to the specified URL.
     #[pyo3(signature = (url, **kwds))]
     pub fn options(
         &self,

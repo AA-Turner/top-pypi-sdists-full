@@ -37,6 +37,7 @@ class JobKind(str, Enum):
     UPDATE_MODEL_TASK_RULES = 'update_model_task_rules'
     DELETE_MODEL_TASK = 'delete_model_task'
     FETCH_MODEL_TASK = 'fetch_model_task'
+    REGENERATE_TASK_VALIDATION_KEY = 'regenerate_task_validation_key'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

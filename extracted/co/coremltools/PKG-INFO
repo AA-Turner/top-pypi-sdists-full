@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: coremltools
-Version: 8.2
+Version: 8.3.0
 Summary: Community Tools for Core ML
 Home-page: https://github.com/apple/coremltools
 Author: Apple Inc.
@@ -28,6 +28,14 @@ Requires-Dist: packaging
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: cattrs
 Requires-Dist: pyaml
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
 
 coremltools
 ===========

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import os
 from pathlib import Path
 from typing import Any, Callable
 
@@ -25,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 
 def require_huggingface_hub(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator to require huggingface_hub.
+
+    This decorator ensures that the `huggingface_hub` package is installed before
+    executing the decorated function. If the package is not installed, it raises
+    an ImportError with instructions on how to install it.
+
+    Args:
+        func (Callable[..., Any]): The function to decorate.
+
+    Returns:
+        Callable[..., Any]: The decorated function.
+
+    """
+
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         if not is_huggingface_hub_available:
@@ -38,6 +51,18 @@ def require_huggingface_hub(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 class HubMixin:
+    """Mixin class for Hugging Face Hub integration.
+
+    This class provides functionality for saving and loading transforms to/from
+    the Hugging Face Hub. It enables serialization, deserialization, and sharing
+    of transform configurations.
+
+    Args:
+        _CONFIG_KEYS (tuple[str, ...]): Keys used for configuration files.
+        _CONFIG_FILE_NAME_TEMPLATE (str): Template for configuration filenames.
+
+    """
+
     _CONFIG_KEYS = ("train", "eval")
     _CONFIG_FILE_NAME_TEMPLATE = "albumentations_config_{}.json"
 
@@ -52,6 +77,7 @@ class HubMixin:
 
         Returns:
             Path: Path to the saved transform file.
+
         """
         # create save directory and path
         save_directory = Path(save_directory)
@@ -75,6 +101,7 @@ class HubMixin:
 
         Returns:
             A.Compose: Loaded transform.
+
         """
         save_path = Path(save_directory) / filename
         return load_transform(save_path, data_format="json")
@@ -103,11 +130,12 @@ class HubMixin:
             repo_id (`str`, *optional*):
                 ID of your repository on the Hub. Used only if `push_to_hub=True`. Will default to the folder name if
                 not provided.
-            push_to_hub_kwargs:
+            push_to_hub_kwargs (`dict`, *optional*):
                 Additional key word arguments passed along to the [`push_to_hub`] method.
 
         Returns:
             `str` or `None`: url of the commit on the Hub if `push_to_hub=True`, `None` otherwise.
+
         """
         if not allow_custom_keys and key not in self._CONFIG_KEYS:
             raise ValueError(
@@ -165,6 +193,7 @@ class HubMixin:
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the local cached file if it exists.
+
         """
         filename = cls._CONFIG_FILE_NAME_TEMPLATE.format(key)
         directory_or_repo_id = Path(directory_or_repo_id)
@@ -172,10 +201,10 @@ class HubMixin:
 
         # check if the file is already present locally
         if directory_or_repo_id.is_dir():
-            if filename in os.listdir(directory_or_repo_id):
+            if filename in [f.name for f in directory_or_repo_id.iterdir()]:
                 transform = cls._from_pretrained(save_directory=directory_or_repo_id, filename=filename)
             elif is_huggingface_hub_available:
-                logging.info(
+                logger.info(
                     f"{filename} not found in {Path(directory_or_repo_id).resolve()}, trying to load from the Hub.",
                 )
             else:
@@ -243,7 +272,8 @@ class HubMixin:
                 Whether or not to create a Pull Request from `branch` with that commit. Defaults to `False`.
 
         Returns:
-            The url of the commit of your transform in the given repository.
+            str: The url of the commit of your transform in the given repository.
+
         """
         if not allow_custom_keys and key not in self._CONFIG_KEYS:
             raise ValueError(

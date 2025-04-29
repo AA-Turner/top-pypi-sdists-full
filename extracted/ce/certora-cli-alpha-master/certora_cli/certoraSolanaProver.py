@@ -114,6 +114,13 @@ def run_solana_prover(args: List[str]) -> Optional[CertoraRunResult]:
 
         if context.local:
             check_cmd = Ctx.get_local_run_cmd(context)
+            if context.solana_summaries:
+                check_cmd.append("-solanaSummaries")
+                check_cmd.append(','.join(context.solana_summaries))
+            if context.solana_inlining:
+                check_cmd.append("-solanaInlining")
+                check_cmd.append(','.join(context.solana_inlining))
+
             print(f"Verifier run command:\n {check_cmd}", flush=True)
 
             compare_with_tool_output = False

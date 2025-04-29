@@ -88,6 +88,8 @@ def to_hashable(item: Any) -> Any:
         return frozenset(to_hashable(i) for i in item)
     if isinstance(item, BaseModel):
         return to_hashable(item.dict())
+    if item is None:
+        return ""
     return item
 
 
@@ -1119,6 +1121,9 @@ class Parser(ABC):
         if self.data_model_type != pydantic_model_v2.BaseModel:
             return
         for model in models:
+            if model.base_class == "Enum":
+                continue
+
             for field in model.fields:
                 filed_name = field.name
                 filed_name_resolver = ModelResolver(snake_case_field=self.snake_case_field, remove_suffix_number=True)

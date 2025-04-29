@@ -265,8 +265,8 @@ class ViewTest(TestCase):
         response = self.client.get(reverse('rq_scheduled_jobs', args=[queue_index]))
         self.assertEqual(response.context['jobs'], [job])
 
-        # Test that page doesn't crash when job_id has special characters
-        queue.enqueue_at(datetime.now(), access_self, job_id="job-!@#$%^&*()_=+[]{};':,.<>?|`~")
+        # Test that page doesn't crash when job_id has special characters (exclude :)
+        queue.enqueue_at(datetime.now(), access_self, job_id="job-!@#$%^&*()_=+[]{};',.<>?|`~")
         response = self.client.get(reverse('rq_scheduled_jobs', args=[queue_index]))
         self.assertEqual(response.status_code, 200)
 
@@ -412,7 +412,7 @@ class ViewTest(TestCase):
         self.assertEqual(len(canceled_job_registry), len(job_ids))
 
         for job_id in job_ids:
-            self.assertIn(job_id, canceled_job_registry)
+            self.assertTrue(job_id in canceled_job_registry)
 
     # def test_scheduler_jobs(self):
     #     # Override testing RQ_QUEUES

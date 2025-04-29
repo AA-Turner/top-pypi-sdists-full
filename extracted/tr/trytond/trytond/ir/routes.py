@@ -48,7 +48,7 @@ def html_editor(request, pool, model, record, field):
     Field = pool.get('ir.model.field')
     field, = Field.search([
             ('name', '=', field),
-            ('model.model', '=', model),
+            ('model.name', '=', model),
             ])
 
     transaction = Transaction()
@@ -81,7 +81,7 @@ def html_editor(request, pool, model, record, field):
         title = '%(model)s "%(name)s" %(field)s - %(title)s' % {
             'model': field.model_ref.name,
             'name': record.rec_name,
-            'field': field.field_description,
+            'field': field.string,
             'title': request.args.get('title', "Tryton"),
             }
 

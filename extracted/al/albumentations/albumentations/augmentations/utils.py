@@ -1,3 +1,12 @@
+"""Module containing utility functions for augmentation operations.
+
+This module provides a collection of helper functions and utilities used throughout
+the augmentation pipeline. It includes functions for image loading, type checking,
+error handling, mathematical operations, and decorators that add functionality to
+other functions in the codebase. These utilities help ensure consistent behavior
+and simplify common operations across different augmentation transforms.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -33,21 +42,66 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def read_bgr_image(path: str | Path) -> np.ndarray:
+    """Read an image in BGR format from the specified path.
+
+    Args:
+        path (str | Path): Path to the image file.
+
+    Returns:
+        np.ndarray: Image in BGR format as a numpy array.
+
+    """
     return cv2.imread(str(path), cv2.IMREAD_COLOR)
 
 
 def read_rgb_image(path: str | Path) -> np.ndarray:
+    """Read an image in RGB format from the specified path.
+
+    This function reads an image in BGR format using OpenCV and then
+    converts it to RGB format.
+
+    Args:
+        path (str | Path): Path to the image file.
+
+    Returns:
+        np.ndarray: Image in RGB format as a numpy array.
+
+    """
     image = read_bgr_image(path)
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
 def read_grayscale(path: str | Path) -> np.ndarray:
+    """Read a grayscale image from the specified path.
+
+    Args:
+        path (str | Path): Path to the image file.
+
+    Returns:
+        np.ndarray: Grayscale image as a numpy array.
+
+    """
     return cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
 
 
 def angle_2pi_range(
     func: Callable[Concatenate[np.ndarray, P], np.ndarray],
 ) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
+    """Decorator to normalize angle values to the range [0, 2π).
+
+    This decorator wraps a function that processes keypoints, ensuring that
+    angle values (stored in the 4th column, index 3) are normalized to the
+    range [0, 2π) after the wrapped function executes.
+
+    Args:
+        func (Callable): Function that processes keypoints and returns a numpy array.
+            The function should take a keypoints array as its first parameter.
+
+    Returns:
+        Callable: Wrapped function that normalizes angles after processing keypoints.
+
+    """
+
     @wraps(func)
     def wrapped_function(keypoints: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
         result = func(keypoints, *args, **kwargs)
@@ -88,6 +142,7 @@ def non_rgb_error(image: np.ndarray) -> None:
         >>>
         >>> multispectral_image = np.random.randint(0, 256, (100, 100, 5), dtype=np.uint8)
         >>> non_rgb_error(multispectral_image)  # Raises ValueError stating incompatibility
+
     """
     if not is_rgb_image(image):
         message = "This transformation expects 3-channel images"
@@ -103,13 +158,14 @@ def check_range(value: tuple[float, float], lower_bound: float, upper_bound: flo
     """Checks if the given value is within the specified bounds
 
     Args:
-        value: The value to check and convert. Can be a single float or a tuple of floats.
-        lower_bound: The lower bound for the range check.
-        upper_bound: The upper bound for the range check.
-        name: The name of the parameter being checked. Used for error messages.
+        value (tuple[float, float]): The value to check and convert. Can be a single float or a tuple of floats.
+        lower_bound (float): The lower bound for the range check.
+        upper_bound (float): The upper bound for the range check.
+        name (str | None): The name of the parameter being checked. Used for error messages.
 
     Raises:
         ValueError: If the value is outside the bounds or if the tuple values are not ordered correctly.
+
     """
     if not all(lower_bound <= x <= upper_bound for x in value):
         raise ValueError(f"All values in {name} must be within [{lower_bound}, {upper_bound}] for tuple inputs.")
@@ -127,7 +183,7 @@ class PCA:
         self.explained_variance_: np.ndarray | None = None
 
     def fit(self, x: np.ndarray) -> None:
-        x = x.astype(np.float64)
+        x = x.astype(np.float64, copy=False)  # avoid unnecessary copy if already float64
         n_samples, n_features = x.shape
 
         # Determine the number of components if not set
@@ -144,7 +200,7 @@ class PCA:
                 "This PCA instance is not fitted yet. "
                 "Call 'fit' with appropriate arguments before using this estimator.",
             )
-        x = x.astype(np.float64)
+        x = x.astype(np.float64, copy=False)  # avoid unnecessary copy if already float64
         return cv2.PCAProject(x, self.mean, self.components_)
 
     def fit_transform(self, x: np.ndarray) -> np.ndarray:
@@ -188,6 +244,6 @@ def handle_empty_array(param_name: str) -> Callable[[F], F]:
                 return array
             return func(*args, **kwargs)
 
-        return cast(F, wrapper)
+        return cast("F", wrapper)
 
     return decorator

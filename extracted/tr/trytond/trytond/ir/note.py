@@ -6,7 +6,7 @@ from sql import Null
 from sql.conditionals import Case
 
 from trytond.i18n import lazy_gettext
-from trytond.model import ModelSQL, ModelStorage, ModelView, fields
+from trytond.model import ModelSQL, ModelView, fields
 from trytond.pool import Pool
 from trytond.pyson import Eval
 from trytond.tools import grouped_slice, reduce_ids
@@ -18,7 +18,6 @@ __all__ = ['NoteCopyMixin']
 
 
 class Note(ResourceMixin, ModelSQL, ModelView):
-    "Note"
     __name__ = 'ir.note'
     message = fields.Text('Message', states={
             'readonly': Eval('id', 0) > 0,
@@ -103,17 +102,17 @@ class Note(ResourceMixin, ModelSQL, ModelView):
     def write(cls, notes, values, *args):
         # Avoid changing write meta data if only unread is set
         if args or set(values.keys()) != {'unread'}:
-            super(Note, cls).write(notes, values, *args)
+            super().write(notes, values, *args)
         else:
             # Check access write and clean cache
-            # Use __func__ to directly access ModelStorage's write method and
-            # pass it the right class
-            ModelStorage.write.__func__(cls, notes, values)
+            ids, field_names, on_write, trigger_eligibles, *args = (
+                cls._before_write(notes, values))
             cls.set_unread(notes, 'unread', values['unread'])
+            cls._after_write(
+                ids, field_names, on_write, trigger_eligibles)
 
 
 class NoteRead(ModelSQL):
-    "Note Read"
     __name__ = 'ir.note.read'
     note = fields.Many2One('ir.note', 'Note', required=True,
         ondelete='CASCADE')

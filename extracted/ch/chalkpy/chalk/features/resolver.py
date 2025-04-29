@@ -551,7 +551,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         tags: Sequence[str] | None,
         cron: CronTab | Duration | Cron | None,
         machine_type: MachineType | None,
-        when: Filter | None,
+        when: None = None,
         state: StateDescriptor | None,
         default_args: Sequence[ResolverArgErrorHandler | None] | None,
         owner: str | None,
@@ -588,7 +588,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self.cron = cron
         self._doc = doc
         self.machine_type = machine_type
-        self.when = when
+        self.when = None
         self._state = state
         self._default_args = default_args
         self.owner = owner
@@ -1504,7 +1504,94 @@ def parse_common_module(
 
         if mod is pd:
             return FunctionCapturedGlobalModule(name=module_name)
+    # return FunctionCapturedGlobalModule(name=module_name)
     raise ValueError(f"Unsupported module {module_name}")
+
+
+def capture_global(
+    *,
+    module_name: str | None,
+    global_var: str,
+    global_value: Any,
+    gas: GasLimit,
+) -> FunctionCapturedGlobal | None:
+    # Check to see if `global_value` is a feature class.
+    # Note that we CANNOT trust that the class's namespace matches the `global_var` name.
+    if inspect.isclass(global_value):
+        try:
+            # All feature classes have the field `__chalk_feature_set__` set on them.
+            # If these fields are not present, an `AttributeError` will be raised instead.
+            if object.__getattribute__(global_value, "__chalk_feature_set__") is True:
+                is_feature_set_namespace = global_value.__chalk_namespace__
+                if type(is_feature_set_namespace) is str:
+                    return FunctionCapturedGlobalFeatureClass(feature_namespace=is_feature_set_namespace)
+        except:
+            # If there was any kind of exception trying to extract the feature class info from this value,
+            # then it is not a `FeatureClass`.
+            pass
+
+        try:
+            if is_pydantic_basemodel(global_value):
+                return FunctionCapturedGlobalStruct(
+                    name=global_value.__name__,
+                    module=global_value.__module__,
+                    pa_dtype=rich_to_pyarrow(global_value, global_value.__name__, False, True),
+                )
+        except:
+            pass
+
+        try:
+            if issubclass(global_value, Enum):
+                pa_bases: list[pa.DataType] = []
+                for base in global_value.__bases__:
+                    if base is not Enum and base is not object:
+                        if base is int or base is IntEnum:
+                            pa_bases.append(pa.int64())
+                        elif base is str:
+                            pa_bases.append(pa.string())
+                        else:
+                            raise ValueError(f"Unsupported base type {base}")
+                return FunctionCapturedGlobalEnum(
+                    name=global_value.__name__,
+                    member_map={k: pa.scalar(v.value) for k, v in global_value.__members__.items()},
+                    bases=tuple(pa_bases),
+                    module=global_value.__module__,
+                )
+        except:
+            pass
+
+    if isinstance(global_value, ModuleType):
+        try:
+            return parse_common_module(global_value)
+        except:
+            pass
+
+    if inspect.isfunction(global_value):
+        try:
+            return parse_helper_function(global_value, gas)
+        except:
+            pass
+
+    if isinstance(global_value, (str, int, float, bool, list, set)):
+        return FunctionCapturedGlobalVariable(
+            name=global_var,
+            module=module_name,
+        )
+
+    if inspect.isclass(global_value) or inspect.isbuiltin(global_value):
+        try:
+            parent_module = inspect.getmodule(global_value)
+            parsed_module = parse_common_module(parent_module)
+            # We use `__qualname__` to guess what the object is, then verify it is as expected.
+            if global_value is getattr(parent_module, global_value.__qualname__):
+                return FunctionCapturedGlobalModuleMember(
+                    module_name=parsed_module.name,
+                    qualname=global_value.__qualname__,
+                )
+        except:
+            pass
+
+    return None
 
 
 def parse_extract_function_object_captured_globals(
@@ -1549,88 +1636,14 @@ def parse_extract_function_object_captured_globals(
         function_captured_globals[builtin_var] = FunctionCapturedGlobalBuiltin(builtin_name=builtin_var)
 
     for global_var, global_value in fn_closure_vars.globals.items():
-        # Check to see if `global_value` is a feature class.
-        # Note that we CANNOT trust that the class's namespace matches the `global_var` name.
-        if inspect.isclass(global_value):
-            try:
-                # All feature classes have the field `__chalk_feature_set__` set on them.
-                # If these fields are not present, an `AttributeError` will be raised instead.
-                if object.__getattribute__(global_value, "__chalk_feature_set__") is True:
-                    is_feature_set_namespace = global_value.__chalk_namespace__
-                    if type(is_feature_set_namespace) is str:
-                        function_captured_globals[global_var] = FunctionCapturedGlobalFeatureClass(
-                            feature_namespace=is_feature_set_namespace
-                        )
-                        continue
-            except:
-                # If there was any kind of exception trying to extract the feature class info from this value,
-                # then it is not a `FeatureClass`.
-                pass
-
-            try:
-                if is_pydantic_basemodel(global_value):
-                    function_captured_globals[global_var] = FunctionCapturedGlobalStruct(
-                        name=global_value.__name__,
-                        module=global_value.__module__,
-                        pa_dtype=rich_to_pyarrow(global_value, global_value.__name__, False, True),
-                    )
-                    continue
-            except:
-                pass
-
-            try:
-                if issubclass(global_value, Enum):
-                    pa_bases: list[pa.DataType] = []
-                    for base in global_value.__bases__:
-                        if base is not Enum and base is not object:
-                            if base is int or base is IntEnum:
-                                pa_bases.append(pa.int64())
-                            elif base is str:
-                                pa_bases.append(pa.string())
-                            else:
-                                raise ValueError(f"Unsupported base type {base}")
-                    function_captured_globals[global_var] = FunctionCapturedGlobalEnum(
-                        name=global_value.__name__,
-                        member_map={k: pa.scalar(v.value) for k, v in global_value.__members__.items()},
-                        bases=tuple(pa_bases),
-                        module=global_value.__module__,
-                    )
-                    continue
-            except:
-                pass
-
-        if isinstance(global_value, ModuleType):
-            try:
-                function_captured_globals[global_var] = parse_common_module(global_value)
-                continue
-            except:
-                pass
-
-        if inspect.isfunction(global_value):
-            try:
-                function_captured_globals[global_var] = parse_helper_function(global_value, gas)
-                continue
-            except:
-                pass
-
-        if isinstance(global_value, (str, int, float, bool, list, set)):
-            function_captured_globals[global_var] = FunctionCapturedGlobalVariable(
-                name=global_var,
-                module=module_name,
-            )
-
-        if inspect.isclass(global_value) or inspect.isbuiltin(global_value):
-            try:
-                parent_module = inspect.getmodule(global_value)
-                parsed_module = parse_common_module(parent_module)
-                # We use `__qualname__` to guess what the object is, then verify it is as expected.
-                if global_value is getattr(parent_module, global_value.__qualname__):
-                    function_captured_globals[global_var] = FunctionCapturedGlobalModuleMember(
-                        module_name=parsed_module.name,
-                        qualname=global_value.__qualname__,
-                    )
-            except:
-                pass
+        captured = capture_global(
+            module_name=module_name,
+            global_var=global_var,
+            global_value=global_value,
+            gas=gas,
+        )
+        if captured is not None:
+            function_captured_globals[global_var] = captured
 
     if not function_captured_globals:
         function_captured_globals = None
@@ -1881,7 +1894,6 @@ def online(
     tags: Optional[Tags] = None,
     cron: CronTab | Duration | Cron | None = None,
     machine_type: Optional[MachineType] = None,
-    when: Optional[Any] = None,
     owner: Optional[str] = None,
     timeout: Optional[Duration] = None,
     name: str | None = None,
@@ -1910,7 +1922,6 @@ def online(
     tags: Tags | None = None,
     cron: CronTab | Duration | Cron | None = None,
     machine_type: MachineType | None = None,
-    when: Any | None = None,
     owner: str | None = None,
     timeout: Duration | None = None,
     name: str | None = None,
@@ -1967,14 +1978,6 @@ def online(
         along with each output feature.
 
         Read more at https://docs.chalk.ai/docs/timeout.
-    when
-        Like tags, `when` can filter when a resolver is eligible
-        to run. Unlike tags, `when` can use feature values,
-        so that you can write resolvers like:
-
-        >>> @online(when=User.risk_profile == "low" or User.is_employee)
-        ... def resolver_fn(...) -> ...:
-        ...     return ...
     resource_hint
         Whether this resolver is bound by CPU or I/O. Chalk uses
         the resource hint to optimize resolver execution.
@@ -2068,7 +2071,6 @@ def online(
             tags=None if tags is None else list(ensure_tuple(tags)),
             cron=cron,
             machine_type=machine_type,
-            when=when,
             owner=owner,
             state=None,
             default_args=None,
@@ -2103,7 +2105,6 @@ def offline(
     tags: Tags | None = None,
     cron: CronTab | Duration | Cron | None = None,
     machine_type: MachineType | None = None,
-    when: Any | None = None,
     owner: str | None = None,
     name: str | None = None,
     resource_hint: ResourceHint | None = None,
@@ -2131,7 +2132,6 @@ def offline(
     tags: Tags | None = None,
     cron: CronTab | Duration | Cron | None = None,
     machine_type: MachineType | None = None,
-    when: Any | None = None,
     owner: str | None = None,
     timeout: Duration | None = None,
     name: str | None = None,
@@ -2187,14 +2187,6 @@ def offline(
         the specified duration, a timeout error will be raised.
 
         Read more at https://docs.chalk.ai/docs/timeout.
-    when
-        Like tags, `when` can filter when a resolver
-        is eligible to run. Unlike tags, `when` can use feature values,
-        so that you can write resolvers like::
-
-        >>> @offline(when=User.risk_profile == "low" or User.is_employee)
-        ... def resolver_fn(...) -> ...:
-        ...    ...
     resource_hint
         Whether this resolver is bound by CPU or I/O. Chalk uses
         the resource hint to optimize resolver execution.
@@ -2281,7 +2273,6 @@ def offline(
             cron=cron,
             machine_type=machine_type,
             state=None,
-            when=when,
             owner=owner,
             default_args=None,
             timeout=timeout,

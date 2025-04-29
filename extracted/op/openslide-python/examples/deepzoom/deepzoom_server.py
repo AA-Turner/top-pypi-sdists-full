@@ -15,20 +15,19 @@
 # License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this library; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# along with this library.  If not, see <https://www.gnu.org/licenses/>.
 #
 
 from __future__ import annotations
 
 from argparse import ArgumentParser
 import base64
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from io import BytesIO
 import os
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Any, Literal, Mapping
+from typing import TYPE_CHECKING, Any, Literal
 from unicodedata import normalize
 import zlib
 

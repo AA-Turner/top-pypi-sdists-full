@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.4.6
+Version: 0.4.6.post1
 Summary: SGLang is yet another fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -245,7 +245,7 @@ Requires-Dist: uvloop; extra == "runtime-common"
 Requires-Dist: xgrammar==0.1.17; extra == "runtime-common"
 Provides-Extra: srt
 Requires-Dist: sglang[runtime_common]; extra == "srt"
-Requires-Dist: sgl-kernel==0.0.9.post2; extra == "srt"
+Requires-Dist: sgl-kernel==0.1.0; extra == "srt"
 Requires-Dist: flashinfer_python==0.2.3; extra == "srt"
 Requires-Dist: torch==2.6.0; extra == "srt"
 Requires-Dist: torchvision==0.21.0; extra == "srt"

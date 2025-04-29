@@ -217,6 +217,7 @@ from scope_client.api_bindings.models.put_model_metrics_schedule import PutModel
 from scope_client.api_bindings.models.put_retrieved_data import PutRetrievedData
 from scope_client.api_bindings.models.put_task_connection_info import PutTaskConnectionInfo
 from scope_client.api_bindings.models.put_task_state_cache_request import PutTaskStateCacheRequest
+from scope_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from scope_client.api_bindings.models.regex_config import RegexConfig
 from scope_client.api_bindings.models.register_user import RegisterUser
 from scope_client.api_bindings.models.resource_kind import ResourceKind
@@ -266,6 +267,7 @@ from scope_client.api_bindings.models.task_mutation_response import TaskMutation
 from scope_client.api_bindings.models.task_read_response import TaskReadResponse
 from scope_client.api_bindings.models.task_response import TaskResponse
 from scope_client.api_bindings.models.task_validation_api_key import TaskValidationAPIKey
+from scope_client.api_bindings.models.task_validation_key_regeneration_response import TaskValidationKeyRegenerationResponse
 from scope_client.api_bindings.models.toxicity_config import ToxicityConfig
 from scope_client.api_bindings.models.update_model_task_rules_job_spec import UpdateModelTaskRulesJobSpec
 from scope_client.api_bindings.models.upsolve_token import UpsolveToken

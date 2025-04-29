@@ -6,7 +6,6 @@ import time
 from sql import Literal, Select
 from sql.aggregate import Count, Max
 from sql.functions import CurrentTimestamp
-from sql.operators import Concat
 
 from trytond.cache import Cache
 from trytond.i18n import gettext
@@ -15,7 +14,7 @@ from trytond.model import (
     fields)
 from trytond.model.exceptions import ValidationError
 from trytond.pool import Pool
-from trytond.pyson import Eval, PYSONDecoder, TimeDelta
+from trytond.pyson import Eval, If, PYSONDecoder, TimeDelta
 from trytond.tools import grouped_slice, reduce_ids
 from trytond.transaction import Transaction
 
@@ -25,24 +24,39 @@ class ConditionError(ValidationError):
 
 
 class Trigger(DeactivableMixin, ModelSQL, ModelView):
-    "Trigger"
     __name__ = 'ir.trigger'
     name = fields.Char('Name', required=True, translate=True)
     model = fields.Many2One('ir.model', 'Model', required=True)
-    on_time = fields.Boolean('On Time', states={
-            'invisible': (Eval('on_create', False)
-                | Eval('on_write', False)
-                | Eval('on_delete', False)),
-            }, depends=['on_create', 'on_write', 'on_delete'])
-    on_create = fields.Boolean('On Create', states={
-        'invisible': Eval('on_time', False),
-        }, depends=['on_time'])
-    on_write = fields.Boolean('On Write', states={
-        'invisible': Eval('on_time', False),
-        }, depends=['on_time'])
-    on_delete = fields.Boolean('On Delete', states={
-        'invisible': Eval('on_time', False),
-        }, depends=['on_time'])
+    on_time_ = fields.Boolean(
+        "On Time",
+        domain=[
+            If(Eval('on_create_', False)
+                | Eval('on_write_', False)
+                | Eval('on_delete_', False),
+                ('on_time_', '=', False),
+                ()),
+            ])
+    on_create_ = fields.Boolean(
+        "On Create",
+        domain=[
+            If(Eval('on_time_', False),
+                ('on_create_', '=', False),
+                ()),
+            ])
+    on_write_ = fields.Boolean(
+        "On Write",
+        domain=[
+            If(Eval('on_time_', False),
+                ('on_write_', '=', False),
+                ()),
+            ])
+    on_delete_ = fields.Boolean(
+        "On Delete",
+        domain=[
+            If(Eval('on_time_', False),
+                ('on_delete_', '=', False),
+                ()),
+            ])
     condition = fields.Char('Condition', required=True,
         help='A PYSON statement evaluated with record represented by '
         '"self"\nIt triggers the action if true.')
@@ -63,40 +77,27 @@ class Trigger(DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(Trigger, cls).__setup__()
+        super().__setup__()
         t = cls.__table__()
         cls._sql_constraints += [
             ('on_exclusive',
-                Check(t, ~((t.on_time == Literal(True))
-                        & ((t.on_create == Literal(True))
-                            | (t.on_write == Literal(True))
-                            | (t.on_delete == Literal(True))))),
+                Check(t, ~((t.on_time_ == Literal(True))
+                        & ((t.on_create_ == Literal(True))
+                            | (t.on_write_ == Literal(True))
+                            | (t.on_delete_ == Literal(True))))),
                 'ir.msg_trigger_exclusive'),
             ]
         cls._order.insert(0, ('name', 'ASC'))
 
     @classmethod
     def __register__(cls, module_name):
-        super(Trigger, cls).__register__(module_name)
-
-        cursor = Transaction().connection.cursor()
         table_h = cls.__table_handler__(module_name)
-        sql_table = cls.__table__()
 
-        # Migration from 5.4: merge action
-        if (table_h.column_exist('action_model')
-                and table_h.column_exist('action_function')):
-            pool = Pool()
-            Model = pool.get('ir.model')
-            model = Model.__table__()
-            action_model = model.select(
-                model.model, where=model.id == sql_table.action_model)
-            cursor.execute(*sql_table.update(
-                    [sql_table.action],
-                    [Concat(action_model, Concat(
-                                '|', sql_table.action_function))]))
-            table_h.drop_column('action_model')
-            table_h.drop_column('action_function')
+        # Migration from 7.4: rename on_<event>
+        for name in ['on_time', 'on_create', 'on_write', 'on_delete']:
+            table_h.column_rename(name, name + '_')
+
+        super().__register__(module_name)
 
     @classmethod
     def validate_fields(cls, triggers, field_names):
@@ -123,27 +124,27 @@ class Trigger(DeactivableMixin, ModelSQL, ModelView):
     def default_limit_number():
         return 0
 
-    @fields.depends('on_time')
-    def on_change_on_time(self):
-        if self.on_time:
-            self.on_create = False
-            self.on_write = False
-            self.on_delete = False
+    @fields.depends('on_time_')
+    def on_change_on_time_(self):
+        if self.on_time_:
+            self.on_create_ = False
+            self.on_write_ = False
+            self.on_delete_ = False
 
-    @fields.depends('on_create')
-    def on_change_on_create(self):
-        if self.on_create:
-            self.on_time = False
+    @fields.depends('on_create_')
+    def on_change_on_create_(self):
+        if self.on_create_:
+            self.on_time_ = False
 
-    @fields.depends('on_write')
-    def on_change_on_write(self):
-        if self.on_write:
-            self.on_time = False
+    @fields.depends('on_write_')
+    def on_change_on_write_(self):
+        if self.on_write_:
+            self.on_time_ = False
 
-    @fields.depends('on_delete')
-    def on_change_on_delete(self):
-        if self.on_delete:
-            self.on_time = False
+    @fields.depends('on_delete_')
+    def on_change_on_delete_(self):
+        if self.on_delete_:
+            self.on_time_ = False
 
     @classmethod
     def get_triggers(cls, model_name, mode):
@@ -162,8 +163,8 @@ class Trigger(DeactivableMixin, ModelSQL, ModelView):
             return cls.browse(trigger_ids)
 
         triggers = cls.search([
-                ('model.model', '=', model_name),
-                ('on_%s' % mode, '=', True),
+                ('model.name', '=', model_name),
+                (f'on_{mode}_', '=', True),
                 ])
         cls._get_triggers_cache.set(key, list(map(int, triggers)))
         return triggers
@@ -192,7 +193,7 @@ class Trigger(DeactivableMixin, ModelSQL, ModelView):
         """
         pool = Pool()
         TriggerLog = pool.get('ir.trigger.log')
-        Model = pool.get(self.model.model)
+        Model = pool.get(self.model.name)
         model, method = self.action.split('|')
         ActionModel = pool.get(model)
         cursor = Transaction().connection.cursor()
@@ -268,36 +269,21 @@ class Trigger(DeactivableMixin, ModelSQL, ModelView):
         '''
         pool = Pool()
         triggers = cls.search([
-                ('on_time', '=', True),
+                ('on_time_', '=', True),
                 ])
         for trigger in triggers:
-            Model = pool.get(trigger.model.model)
+            Model = pool.get(trigger.model.name)
             # TODO add a domain
             records = Model.search([])
             trigger.trigger_action(records)
 
     @classmethod
-    def create(cls, vlist):
-        res = super(Trigger, cls).create(vlist)
-        # Restart the cache on the get_triggers method of ir.trigger
-        cls._get_triggers_cache.clear()
-        return res
-
-    @classmethod
-    def write(cls, triggers, values, *args):
-        super(Trigger, cls).write(triggers, values, *args)
-        # Restart the cache on the get_triggers method of ir.trigger
-        cls._get_triggers_cache.clear()
-
-    @classmethod
-    def delete(cls, records):
-        super(Trigger, cls).delete(records)
-        # Restart the cache on the get_triggers method of ir.trigger
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._get_triggers_cache.clear()
 
 
 class TriggerLog(ModelSQL):
-    'Trigger Log'
     __name__ = 'ir.trigger.log'
     trigger = fields.Many2One(
         'ir.trigger', 'Trigger', required=True, ondelete='CASCADE')

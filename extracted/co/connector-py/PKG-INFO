@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-py
-Version: 4.53.0
+Version: 4.55.0
 Summary: An Abstract Tool to Perform Actions on Integrations
 Author-email: teamlumos <security@lumos.com>
 License: 
@@ -220,7 +220,7 @@ License-File: LICENSE.txt
 Requires-Dist: gql[httpx]
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: msgpack>=1
-Requires-Dist: pydantic<3,>=2
+Requires-Dist: pydantic<2.10,>=2
 Requires-Dist: urllib3>=1.25.2
 Requires-Dist: botocore>=1.34.0
 Provides-Extra: fastapi

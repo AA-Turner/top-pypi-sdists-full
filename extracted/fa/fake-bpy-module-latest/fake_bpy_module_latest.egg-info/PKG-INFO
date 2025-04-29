@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fake-bpy-module-latest
-Version: 20250427
+Version: 20250428
 Summary: Collection of the fake Blender Python API module for the code completion.
 Author: nutti
 Author-email: nutti.metro@gmail.com

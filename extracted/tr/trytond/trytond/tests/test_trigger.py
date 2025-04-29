@@ -5,7 +5,7 @@ import datetime
 from itertools import combinations
 
 from trytond.ir.exceptions import TriggerConditionError
-from trytond.model.exceptions import SQLConstraintError
+from trytond.model.exceptions import DomainValidationError, SQLConstraintError
 from trytond.pool import Pool
 from trytond.pyson import Eval, PYSONEncoder
 from trytond.tests.test_tryton import (
@@ -19,6 +19,7 @@ class TriggerTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     def setUp(self):
@@ -41,13 +42,13 @@ class TriggerTestCase(TestCase):
         transaction = Transaction()
 
         model, = Model.search([
-                ('model', '=', 'test.triggered'),
+                ('name', '=', 'test.triggered'),
                 ])
 
         values = {
             'name': 'Test',
             'model': model.id,
-            'on_time': True,
+            'on_time_': True,
             'condition': 'true',
             'action': 'test.trigger_action|trigger',
             }
@@ -61,8 +62,10 @@ class TriggerTestCase(TestCase):
                     ['create', 'write', 'delete'], i):
                 combination_values = values.copy()
                 for mode in combination:
-                    combination_values['on_%s' % mode] = True
-                self.assertRaises(SQLConstraintError, Trigger.create,
+                    combination_values['on_%s_' % mode] = True
+                self.assertRaises(
+                    (SQLConstraintError, DomainValidationError),
+                    Trigger.create,
                     [combination_values])
                 transaction.rollback()
 
@@ -85,13 +88,13 @@ class TriggerTestCase(TestCase):
         Triggered = pool.get('test.triggered')
 
         model, = Model.search([
-                ('model', '=', 'test.triggered'),
+                ('name', '=', 'test.triggered'),
                 ])
 
         trigger, = Trigger.create([{
                     'name': 'Test',
                     'model': model.id,
-                    'on_create': True,
+                    'on_create_': True,
                     'condition': 'true',
                     'action': 'test.trigger_action|trigger',
                     }])
@@ -163,13 +166,13 @@ class TriggerTestCase(TestCase):
         Triggered = pool.get('test.triggered')
 
         model, = Model.search([
-                ('model', '=', 'test.triggered'),
+                ('name', '=', 'test.triggered'),
                 ])
 
         trigger, = Trigger.create([{
                     'name': 'Test',
                     'model': model.id,
-                    'on_write': True,
+                    'on_write_': True,
                     'condition': 'true',
                     'action': 'test.trigger_action|trigger',
                     }])
@@ -295,7 +298,7 @@ class TriggerTestCase(TestCase):
         TriggerLog = pool.get('ir.trigger.log')
 
         model, = Model.search([
-                ('model', '=', 'test.triggered'),
+                ('name', '=', 'test.triggered'),
                 ])
 
         triggered, = Triggered.create([{
@@ -305,7 +308,7 @@ class TriggerTestCase(TestCase):
         trigger, = Trigger.create([{
                     'name': 'Test',
                     'model': model.id,
-                    'on_delete': True,
+                    'on_delete_': True,
                     'condition': 'true',
                     'action': 'test.trigger_action|trigger',
                     }])
@@ -386,13 +389,13 @@ class TriggerTestCase(TestCase):
         TriggerLog = pool.get('ir.trigger.log')
 
         model, = Model.search([
-                ('model', '=', 'test.triggered'),
+                ('name', '=', 'test.triggered'),
                 ])
 
         trigger, = Trigger.create([{
                     'name': 'Test',
                     'model': model.id,
-                    'on_time': True,
+                    'on_time_': True,
                     'condition': 'true',
                     'action': 'test.trigger_action|trigger',
                     }])

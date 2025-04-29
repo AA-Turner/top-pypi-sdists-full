@@ -1,4 +1,3 @@
-use crate::define_enum_with_conversion;
 use pyo3::prelude::*;
 
 define_enum_with_conversion!(

@@ -19,7 +19,7 @@ from werkzeug.wrappers import Request as _Request
 from werkzeug.wrappers import Response
 
 from trytond import backend, security
-from trytond.config import config
+from trytond.config import config, get_hostname
 from trytond.exceptions import RateLimitException, UserError, UserWarning
 from trytond.pool import Pool
 from trytond.tools import cached_property
@@ -93,7 +93,7 @@ class Request(_Request):
 
     @cached_property
     def authorization(self):
-        authorization = super(Request, self).authorization
+        authorization = super().authorization
         if authorization is None:
             header = self.headers.get('Authorization')
             return parse_authorization_header(header)
@@ -191,39 +191,31 @@ def with_pool(func):
     @wraps(func)
     def wrapper(request, database_name, *args, **kwargs):
         database_list = Pool.database_list()
+        if database_name not in database_list:
+            with Transaction().start(None, 0, readonly=True) as transaction:
+                hostname = get_hostname(request.host)
+                db_list = transaction.database.list(hostname=hostname)
+                if database_name not in db_list:
+                    abort(HTTPStatus.NOT_FOUND)
         pool = Pool(database_name)
         if database_name not in database_list:
             with Transaction().start(database_name, 0, readonly=True):
                 pool.init()
 
-        log_message = '%s in %i ms'
-
-        def duration():
-            return (time.monotonic() - started) * 1000
-        started = time.monotonic()
-
         try:
             result = func(request, pool, *args, **kwargs)
-        except exceptions.HTTPException:
-            logger.info(
-                log_message, request, duration(),
-                exc_info=logger.isEnabledFor(logging.DEBUG))
-            raise
         except (UserError, UserWarning) as e:
-            logger.info(
-                log_message, request, duration(),
-                exc_info=logger.isEnabledFor(logging.DEBUG))
             if request.rpc_method:
                 raise
             else:
                 abort(HTTPStatus.BAD_REQUEST, e)
+        except exceptions.HTTPException:
+            raise
         except Exception as e:
-            logger.exception(log_message, request, duration())
             if request.rpc_method:
                 raise
             else:
                 abort(HTTPStatus.INTERNAL_SERVER_ERROR, e)
-        logger.info(log_message, request, duration())
         return result
     return wrapper
 

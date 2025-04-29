@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-extra-types
-Version: 2.10.3
+Version: 2.10.4
 Summary: Extra Pydantic types.
 Project-URL: Homepage, https://github.com/pydantic/pydantic-extra-types
 Project-URL: Source, https://github.com/pydantic/pydantic-extra-types
@@ -36,7 +36,7 @@ Requires-Dist: pydantic>=2.5.2
 Requires-Dist: typing-extensions
 Provides-Extra: all
 Requires-Dist: pendulum<4.0.0,>=3.0.0; extra == 'all'
-Requires-Dist: phonenumbers<9,>=8; extra == 'all'
+Requires-Dist: phonenumbers<10,>=8; extra == 'all'
 Requires-Dist: pycountry>=23; extra == 'all'
 Requires-Dist: pymongo<5.0.0,>=4.0.0; extra == 'all'
 Requires-Dist: python-ulid<2,>=1; (python_version < '3.9') and extra == 'all'
@@ -48,7 +48,7 @@ Requires-Dist: tzdata>=2024.1; extra == 'all'
 Provides-Extra: pendulum
 Requires-Dist: pendulum<4.0.0,>=3.0.0; extra == 'pendulum'
 Provides-Extra: phonenumbers
-Requires-Dist: phonenumbers<9,>=8; extra == 'phonenumbers'
+Requires-Dist: phonenumbers<10,>=8; extra == 'phonenumbers'
 Provides-Extra: pycountry
 Requires-Dist: pycountry>=23; extra == 'pycountry'
 Provides-Extra: python-ulid

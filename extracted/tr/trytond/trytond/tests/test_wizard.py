@@ -12,6 +12,7 @@ class WizardTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -43,32 +44,30 @@ class WizardTestCase(TestCase):
         Group = pool.get('res.group')
         transaction = Transaction()
 
-        session_id, = Session.create([{}])
-        session = Wizard(session_id)
-        self.assertEqual(session.start.id, None)
-        self.assertRaises(AttributeError, getattr, session.start, 'name')
-        self.assertEqual(hasattr(session.start, 'name'), False)
-        session.start.name = 'Test'
-        self.assertRaises(AttributeError, getattr, session.start, 'user')
-        self.assertEqual(hasattr(session.start, 'user'), False)
-        session.start.user = transaction.user
+        session, = Session.create([{}])
+        wizard = Wizard(session.id)
+        self.assertEqual(wizard.start.id, None)
+        self.assertEqual(wizard.start.name, None)
+        wizard.start.name = 'Test'
+        self.assertEqual(wizard.start.user.id, Transaction().user)
+        wizard.start.user = transaction.user
         group_a, = Group.create([{
                     'name': 'Group A',
                     }])
         group_b, = Group.create([{
                     'name': 'Group B',
                     }])
-        session.start.groups = [
+        wizard.start.groups = [
             group_a,
             group_b,
             ]
-        session._save()
-        session = Wizard(session_id)
-        self.assertEqual(session.start.id, None)
-        self.assertEqual(session.start.name, 'Test')
-        self.assertEqual(session.start.user.id, transaction.user)
-        self.assertEqual(session.start.user.login, 'admin')
-        group_a, group_b = session.start.groups
+        wizard._save()
+        wizard = Wizard(session.id)
+        self.assertEqual(wizard.start.id, None)
+        self.assertEqual(wizard.start.name, 'Test')
+        self.assertEqual(wizard.start.user.id, transaction.user)
+        self.assertEqual(wizard.start.user.login, 'admin')
+        group_a, group_b = wizard.start.groups
         self.assertEqual(group_a.name, 'Group A')
         self.assertEqual(group_b.name, 'Group B')
 

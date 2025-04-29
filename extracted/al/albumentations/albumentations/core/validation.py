@@ -1,3 +1,12 @@
+"""Module containing validation mechanisms for transform parameters.
+
+This module provides a metaclass that enables parameter validation for transforms using
+Pydantic models. It intercepts the initialization of transform classes to validate their
+parameters against schema definitions, raising appropriate errors for invalid values and
+providing type conversion capabilities. This validation layer helps prevent runtime errors
+by catching configuration issues at initialization time.
+"""
+
 from __future__ import annotations
 
 from inspect import Parameter, signature
@@ -8,6 +17,18 @@ from pydantic import BaseModel, ValidationError
 
 
 class ValidatedTransformMeta(type):
+    """Metaclass that validates transform parameters during instantiation.
+
+    This metaclass enables automatic validation of transform parameters using Pydantic models,
+    ensuring proper typing and constraints are enforced before object creation.
+
+    Args:
+        original_init (Callable[..., Any]): Original __init__ method of the class.
+        args (tuple[Any, ...]): Positional arguments passed to the __init__ method.
+        kwargs (dict[str, Any]): Keyword arguments passed to the __init__ method.
+
+    """
+
     @staticmethod
     def _process_init_parameters(
         original_init: Callable[..., Any],
@@ -64,6 +85,9 @@ class ValidatedTransformMeta(type):
         return validated_kwargs
 
     def __new__(cls: type[Any], name: str, bases: tuple[type, ...], dct: dict[str, Any]) -> type[Any]:
+        """This is a custom metaclass that validates the parameters of the class during instantiation.
+        It is used to ensure that the parameters of the class are valid and that they are of the correct type.
+        """
         if "InitSchema" in dct and issubclass(dct["InitSchema"], BaseModel):
             original_init: Callable[..., Any] | None = dct.get("__init__")
             if original_init is None:

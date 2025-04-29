@@ -16,54 +16,8 @@ class KafkaError(RuntimeError):
                                super(KafkaError, self).__str__())
 
 
-class IllegalStateError(KafkaError):
-    pass
-
-
-class IllegalArgumentError(KafkaError):
-    pass
-
-
-class NoBrokersAvailable(KafkaError):
-    retriable = True
-    invalid_metadata = True
-
-
-class NodeNotReadyError(KafkaError):
-    retriable = True
-
-
-class KafkaProtocolError(KafkaError):
-    retriable = True
-
-
-class CorrelationIdError(KafkaProtocolError):
-    retriable = True
-
-
 class Cancelled(KafkaError):
     retriable = True
-
-
-class TooManyInFlightRequests(KafkaError):
-    retriable = True
-
-
-class StaleMetadata(KafkaError):
-    retriable = True
-    invalid_metadata = True
-
-
-class MetadataEmptyBrokerList(KafkaError):
-    retriable = True
-
-
-class UnrecognizedBrokerVersion(KafkaError):
-    pass
-
-
-class IncompatibleBrokerVersion(KafkaError):
-    pass
 
 
 class CommitFailedError(KafkaError):
@@ -81,12 +35,75 @@ class CommitFailedError(KafkaError):
             """, *args, **kwargs)
 
 
-class AuthenticationMethodNotSupported(KafkaError):
+class IllegalArgumentError(KafkaError):
     pass
 
 
-class AuthenticationFailedError(KafkaError):
-    retriable = False
+class IllegalStateError(KafkaError):
+    pass
+
+
+class IncompatibleBrokerVersion(KafkaError):
+    pass
+
+
+class KafkaConfigurationError(KafkaError):
+    pass
+
+
+class KafkaConnectionError(KafkaError):
+    retriable = True
+    invalid_metadata = True
+
+
+class KafkaProtocolError(KafkaError):
+    retriable = True
+
+
+class CorrelationIdError(KafkaProtocolError):
+    retriable = True
+
+
+class KafkaTimeoutError(KafkaError):
+    retriable = True
+
+
+class MetadataEmptyBrokerList(KafkaError):
+    retriable = True
+
+
+class NoBrokersAvailable(KafkaError):
+    retriable = True
+    invalid_metadata = True
+
+
+class NoOffsetForPartitionError(KafkaError):
+    pass
+
+
+class NodeNotReadyError(KafkaError):
+    retriable = True
+
+
+class QuotaViolationError(KafkaError):
+    pass
+
+
+class StaleMetadata(KafkaError):
+    retriable = True
+    invalid_metadata = True
+
+
+class TooManyInFlightRequests(KafkaError):
+    retriable = True
+
+
+class UnrecognizedBrokerVersion(KafkaError):
+    pass
+
+
+class UnsupportedCodecError(KafkaError):
+    pass
 
 
 class BrokerResponseError(KafkaError):
@@ -99,6 +116,10 @@ class BrokerResponseError(KafkaError):
         return '[Error {0}] {1}'.format(
             self.errno,
             super(BrokerResponseError, self).__str__())
+
+
+class AuthorizationError(BrokerResponseError):
+    pass
 
 
 class NoError(BrokerResponseError):
@@ -120,14 +141,14 @@ class OffsetOutOfRangeError(BrokerResponseError):
                    ' maintained by the server for the given topic/partition.')
 
 
-class CorruptRecordException(BrokerResponseError):
+class CorruptRecordError(BrokerResponseError):
     errno = 2
     message = 'CORRUPT_MESSAGE'
     description = ('This message has failed its CRC checksum, exceeds the'
                    ' valid size, or is otherwise corrupt.')
 
 # Backward compatibility
-InvalidMessageError = CorruptRecordException
+CorruptRecordException = CorruptRecordError
 
 
 class UnknownTopicOrPartitionError(BrokerResponseError):
@@ -218,33 +239,28 @@ class NetworkExceptionError(BrokerResponseError):
     invalid_metadata = True
 
 
-class GroupLoadInProgressError(BrokerResponseError):
+class CoordinatorLoadInProgressError(BrokerResponseError):
     errno = 14
-    message = 'OFFSETS_LOAD_IN_PROGRESS'
-    description = ('The broker returns this error code for an offset fetch'
-                   ' request if it is still loading offsets (after a leader'
-                   ' change for that offsets topic partition), or in response'
-                   ' to group membership requests (such as heartbeats) when'
-                   ' group metadata is being loaded by the coordinator.')
+    message = 'COORDINATOR_LOAD_IN_PROGRESS'
+    description = ('The broker returns this error code for txn or group requests,'
+                   ' when the coordinator is loading and hence cant process requests')
     retriable = True
 
 
-class GroupCoordinatorNotAvailableError(BrokerResponseError):
+class CoordinatorNotAvailableError(BrokerResponseError):
     errno = 15
-    message = 'CONSUMER_COORDINATOR_NOT_AVAILABLE'
-    description = ('The broker returns this error code for group coordinator'
-                   ' requests, offset commits, and most group management'
+    message = 'COORDINATOR_NOT_AVAILABLE'
+    description = ('The broker returns this error code for consumer and transaction'
                    ' requests if the offsets topic has not yet been created, or'
-                   ' if the group coordinator is not active.')
+                   ' if the group/txn coordinator is not active.')
     retriable = True
 
 
-class NotCoordinatorForGroupError(BrokerResponseError):
+class NotCoordinatorError(BrokerResponseError):
     errno = 16
-    message = 'NOT_COORDINATOR_FOR_CONSUMER'
-    description = ('The broker returns this error code if it receives an offset'
-                   ' fetch or commit request for a group that it is not a'
-                   ' coordinator for.')
+    message = 'NOT_COORDINATOR'
+    description = ('The broker returns this error code if it is not the correct'
+                   ' coordinator for the specified consumer or transaction group')
     retriable = True
 
 
@@ -341,21 +357,21 @@ class InvalidCommitOffsetSizeError(BrokerResponseError):
                    ' because of oversize metadata.')
 
 
-class TopicAuthorizationFailedError(BrokerResponseError):
+class TopicAuthorizationFailedError(AuthorizationError):
     errno = 29
     message = 'TOPIC_AUTHORIZATION_FAILED'
     description = ('Returned by the broker when the client is not authorized to'
                    ' access the requested topic.')
 
 
-class GroupAuthorizationFailedError(BrokerResponseError):
+class GroupAuthorizationFailedError(AuthorizationError):
     errno = 30
     message = 'GROUP_AUTHORIZATION_FAILED'
     description = ('Returned by the broker when the client is not authorized to'
                    ' access a particular groupId.')
 
 
-class ClusterAuthorizationFailedError(BrokerResponseError):
+class ClusterAuthorizationFailedError(AuthorizationError):
     errno = 31
     message = 'CLUSTER_AUTHORIZATION_FAILED'
     description = ('Returned by the broker when the client is not authorized to'
@@ -502,7 +518,7 @@ class TransactionCoordinatorFencedError(BrokerResponseError):
     retriable = False
 
 
-class TransactionalIdAuthorizationFailedError(BrokerResponseError):
+class TransactionalIdAuthorizationFailedError(AuthorizationError):
     errno = 53
     message = 'TRANSACTIONAL_ID_AUTHORIZATION_FAILED'
     description = 'Transactional Id authorization failed.'
@@ -587,7 +603,7 @@ class DelegationTokenRequestNotAllowedError(BrokerResponseError):
     retriable = False
 
 
-class DelegationTokenAuthorizationFailedError(BrokerResponseError):
+class DelegationTokenAuthorizationFailedError(AuthorizationError):
     errno = 65
     message = 'DELEGATION_TOKEN_AUTHORIZATION_FAILED'
     description = 'Delegation Token authorization failed.'
@@ -1034,47 +1050,6 @@ class VoterNotFoundError(BrokerResponseError):
     message = 'VOTER_NOT_FOUND'
     description = 'The voter is not part of the set of voters.'
     retriable = False
-
-
-class KafkaUnavailableError(KafkaError):
-    pass
-
-
-class KafkaTimeoutError(KafkaError):
-    pass
-
-
-class FailedPayloadsError(KafkaError):
-    def __init__(self, payload, *args):
-        super(FailedPayloadsError, self).__init__(*args)
-        self.payload = payload
-
-
-class KafkaConnectionError(KafkaError):
-    retriable = True
-    invalid_metadata = True
-
-
-class ProtocolError(KafkaError):
-    pass
-
-
-class UnsupportedCodecError(KafkaError):
-    pass
-
-
-class KafkaConfigurationError(KafkaError):
-    pass
-
-
-class QuotaViolationError(KafkaError):
-    pass
-
-
-class AsyncProducerQueueFull(KafkaError):
-    def __init__(self, failed_msgs, *args):
-        super(AsyncProducerQueueFull, self).__init__(*args)
-        self.failed_msgs = failed_msgs
 
 
 def _iter_broker_errors():

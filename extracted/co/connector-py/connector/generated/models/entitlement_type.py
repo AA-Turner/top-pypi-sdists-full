@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from connector.generated.models.entitlement_requirement import EntitlementRequirement
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +32,8 @@ class EntitlementType(BaseModel):
     resource_type_id: StrictStr = Field(description="This must be the same string as a type_id from the declared resource types")
     min: StrictInt = Field(description="How many of this type of entitlement must be assigned? If 1: all accounts must have have one. If 0: this can be removed from an active account.")
     max: Optional[StrictInt] = Field(default=None, description="How many of this type of entitlement can be assigned? If 1: an account can only have one. Otherwise, accounts can have many (up to the specified max, if there is one)")
-    __properties: ClassVar[List[str]] = ["type_id", "type_label", "resource_type_id", "min", "max"]
+    requirements: Optional[Dict[str, EntitlementRequirement]] = Field(default=None, description="The requirements for each capability. (optional) Overrides the base min/max values for the entitlement type and the specific capability.  The key is the capability name. For example when create_account requires a ROLE and not a LICENSE:  The requirements for LICENSE would be: #{ ... requirements: #{ StandardCapabilityName.CREATE_ACCOUNT: EntitlementRequirement(max=0) } }")
+    __properties: ClassVar[List[str]] = ["type_id", "type_label", "resource_type_id", "min", "max", "requirements"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -72,6 +74,13 @@ class EntitlementType(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each value in requirements (dict)
+        _field_dict = {}
+        if self.requirements:
+            for _key_requirements in self.requirements:
+                if self.requirements[_key_requirements]:
+                    _field_dict[_key_requirements] = self.requirements[_key_requirements].to_dict()
+            _dict['requirements'] = _field_dict
         return _dict
 
     @classmethod
@@ -88,7 +97,13 @@ class EntitlementType(BaseModel):
             "type_label": obj.get("type_label"),
             "resource_type_id": obj.get("resource_type_id"),
             "min": obj.get("min"),
-            "max": obj.get("max")
+            "max": obj.get("max"),
+            "requirements": dict(
+                (_k, EntitlementRequirement.from_dict(_v))
+                for _k, _v in obj["requirements"].items()
+            )
+            if obj.get("requirements") is not None
+            else None
         })
         return _obj
 

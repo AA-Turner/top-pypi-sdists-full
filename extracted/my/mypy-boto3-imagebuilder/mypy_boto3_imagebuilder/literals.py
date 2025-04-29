@@ -61,6 +61,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
+    "SsmParameterDataTypeType",
     "TenancyTypeType",
     "WorkflowExecutionStatusType",
     "WorkflowStatusType",
@@ -124,6 +125,7 @@ PipelineStatusType = Literal["DISABLED", "ENABLED"]
 PlatformType = Literal["Linux", "Windows", "macOS"]
 ProductCodeTypeType = Literal["marketplace"]
 ResourceStatusType = Literal["AVAILABLE", "DELETED", "DEPRECATED", "DISABLED"]
+SsmParameterDataTypeType = Literal["aws:ec2:image", "text"]
 TenancyTypeType = Literal["dedicated", "default", "host"]
 WorkflowExecutionStatusType = Literal[
     "CANCELLED",

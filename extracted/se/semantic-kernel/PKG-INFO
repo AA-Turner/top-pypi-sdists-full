@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.28.1
+Version: 1.29.0
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -29,7 +29,7 @@ Requires-Dist: websockets >= 13, < 16
 Requires-Dist: aiortc>=1.9.0
 Requires-Dist: opentelemetry-api ~= 1.24
 Requires-Dist: opentelemetry-sdk ~= 1.24
-Requires-Dist: prance ~= 23.6.21.0
+Requires-Dist: prance >= 23.6.21,< 25.4.9
 Requires-Dist: pybars4 ~= 0.9
 Requires-Dist: jinja2 ~= 3.1
 Requires-Dist: nest-asyncio ~= 1.6
@@ -49,7 +49,7 @@ Requires-Dist: dapr>=1.14.0 ; extra == "dapr"
 Requires-Dist: dapr-ext-fastapi>=1.14.0 ; extra == "dapr"
 Requires-Dist: flask-dapr>=1.14.0 ; extra == "dapr"
 Requires-Dist: faiss-cpu>=1.10.0 ; extra == "faiss"
-Requires-Dist: google-cloud-aiplatform == 1.87.0 ; extra == "google"
+Requires-Dist: google-cloud-aiplatform == 1.89.0 ; extra == "google"
 Requires-Dist: google-generativeai ~= 0.8 ; extra == "google"
 Requires-Dist: transformers[torch] ~= 4.28 ; extra == "hugging-face"
 Requires-Dist: sentence-transformers >= 2.2,< 5.0 ; extra == "hugging-face"
@@ -58,7 +58,7 @@ Requires-Dist: mcp ~= 1.6 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.6 ; extra == "milvus"
 Requires-Dist: milvus >= 2.3,<2.3.8 ; extra == "milvus" and ( platform_system != 'Windows')
 Requires-Dist: mistralai >= 1.2,< 2.0 ; extra == "mistralai"
-Requires-Dist: pymongo >= 4.8.0, < 4.12 ; extra == "mongo"
+Requires-Dist: pymongo >= 4.8.0, < 4.13 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
 Requires-Dist: ipykernel ~= 6.29 ; extra == "notebooks"
 Requires-Dist: ollama ~= 0.4 ; extra == "ollama"

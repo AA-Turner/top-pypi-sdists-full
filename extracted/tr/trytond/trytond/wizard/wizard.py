@@ -7,6 +7,7 @@ __all__ = ['Wizard',
 
 import copy
 import json
+from collections import defaultdict
 
 from trytond.i18n import gettext
 from trytond.model import ModelSQL
@@ -89,35 +90,30 @@ class StateView(State):
         '''
         pool = Pool()
         Model_ = pool.get(self.model_name)
-        defaults = Model_.default_get(fields)
-        default = getattr(wizard, 'default_%s' % state_name, None)
-        if default:
-            defaults.update(default(fields))
-            self._complete_values(defaults)
-        return defaults
+        transaction = Transaction()
+        context = transaction.context
+        default_ctx = {}
+        if default_func := getattr(wizard, f'default_{state_name}', None):
+            for name, value in default_func(fields).items():
+                name = f'default_{name}'
+                if name not in context:
+                    default_ctx[name] = value
+        with transaction.set_context(default_ctx):
+            return Model_.default_get(fields)
 
     def get_values(self, wizard, state_name, fields):
         "Return values for the fields"
-        values = {}
-        value = getattr(wizard, 'value_%s' % state_name, None)
-        if value:
-            values.update(value(fields))
-        self._complete_values(values)
-        return values
-
-    def _complete_values(self, values):
         pool = Pool()
         Model_ = pool.get(self.model_name)
-        for field_name, value in list(values.items()):
-            if '.' in field_name:
-                continue
-            field = Model_._fields[field_name]
-            if value and field._type == 'many2one':
-                Target = field.get_target()
-                if 'rec_name' in Target._fields:
-                    values.setdefault(
-                        field_name + '.', {})['rec_name'] = Target(
-                            value).rec_name
+        transaction = Transaction()
+        default_ctx = {}
+        value_fields = []
+        if value_func := getattr(wizard, f'value_{state_name}', None):
+            for name, value in value_func(fields).items():
+                default_ctx[f'default_{name}'] = value
+                value_fields.append(name)
+        with transaction.set_context(default_ctx):
+            return Model_.default_get(value_fields, with_default=False)
 
     def get_buttons(self, wizard, state_name):
         '''
@@ -163,7 +159,7 @@ class StateAction(StateTransition):
         '''
         action_id is a string containing ``module.xml_id``
         '''
-        super(StateAction, self).__init__()
+        super().__init__()
         self.action_id = action_id
 
     def get_action(self):
@@ -182,7 +178,7 @@ class StateReport(StateAction):
     'An report state of a wizard'
 
     def __init__(self, report_name):
-        super(StateReport, self).__init__(None)
+        super().__init__(None)
         self.report_name = report_name
 
     def get_action(self):
@@ -205,7 +201,7 @@ class Wizard(URLMixin, PoolBase):
 
     @classmethod
     def __setup__(cls):
-        super(Wizard, cls).__setup__()
+        super().__setup__()
         cls.__rpc__ = {
             'create': RPC(readonly=False),
             'delete': RPC(readonly=False),
@@ -229,7 +225,7 @@ class Wizard(URLMixin, PoolBase):
 
     @classmethod
     def __post_setup__(cls):
-        super(Wizard, cls).__post_setup__()
+        super().__post_setup__()
         # Set states
         cls.states = {}
         for attr in dir(cls):
@@ -240,7 +236,7 @@ class Wizard(URLMixin, PoolBase):
 
     @classmethod
     def __register__(cls, module_name):
-        super(Wizard, cls).__register__(module_name)
+        super().__register__(module_name)
         pool = Pool()
         Translation = pool.get('ir.translation')
         Translation.register_wizard(cls, module_name)
@@ -398,12 +394,18 @@ class Wizard(URLMixin, PoolBase):
         Session = pool.get('ir.session.wizard')
         self._session_id = session_id
         session = Session(session_id)
-        data = json.loads(session.data, object_hook=JSONDecoder())
+        data = defaultdict(dict)
+        data.update(json.loads(session.data, object_hook=JSONDecoder()))
         for state_name, state in self.states.items():
             if isinstance(state, StateView):
-                Target = pool.get(state.model_name)
-                data.setdefault(state_name, {})
-                setattr(self, state_name, Target(**data[state_name]))
+                View = pool.get(state.model_name)
+                view_data = data[state_name]
+                default_values = View.default_get(
+                    View._fields.keys(), with_rec_name=False)
+                for field_name in View._fields:
+                    view_data.setdefault(
+                        field_name, default_values.get(field_name))
+                setattr(self, state_name, View(**view_data))
 
     def _save(self):
         "Save the session in database"

@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import click
 import httpx
@@ -300,10 +301,6 @@ def deploy(
     try:
         # Check if the reflex version is >= 0.7.6
         if rx_version <= breaking_version:
-            # This version of reflex no support your puny db export
-            console.warn(
-                "support for reflex < 0.7.6 will be removed in a future release"
-            )
             export_fn(
                 str(temporary_dir_path),
                 server_url,
@@ -332,10 +329,6 @@ def deploy(
     try:
         # Check if the reflex version is >= 0.7.6
         if rx_version <= breaking_version:
-            # This version of reflex no support your puny db export
-            console.warn(
-                "support for reflex < 0.7.6 will be removed in a future release"
-            )
             export_fn(str(temporary_dir_path), server_url, host_url, True, False, True)  # pyright: ignore[reportCallIssue]
         else:
             export_fn(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nc-py-api
-Version: 0.19.2
+Version: 0.20.0
 Summary: Nextcloud Python Framework
 Project-URL: Changelog, https://github.com/cloud-py-api/nc_py_api/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://cloud-py-api.github.io/nc_py_api/

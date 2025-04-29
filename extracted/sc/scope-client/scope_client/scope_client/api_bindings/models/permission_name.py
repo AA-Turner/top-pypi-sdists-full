@@ -107,6 +107,8 @@ class PermissionName(str, Enum):
     MODEL_TASK_PUT_STATE_CACHE = 'model_task_put_state_cache'
     MODEL_TASK_PUT_CONNECTION_INFO = 'model_task_put_connection_info'
     MODEL_TASK_GET_CONNECTION_INFO = 'model_task_get_connection_info'
+    MODEL_TASK_DELETE_CONNECTION_INFO = 'model_task_delete_connection_info'
+    MODEL_TASK_REGENERATE_VALIDATION_KEY = 'model_task_regenerate_validation_key'
     CONNECTOR_READ = 'connector_read'
     CONNECTOR_UPDATE = 'connector_update'
     CONNECTOR_DELETE = 'connector_delete'

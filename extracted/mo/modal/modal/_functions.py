@@ -377,6 +377,7 @@ ReturnType = typing.TypeVar("ReturnType", covariant=True)
 OriginalReturnType = typing.TypeVar(
     "OriginalReturnType", covariant=True
 )  # differs from return type if ReturnType is coroutine
+T = typing.TypeVar("T", covariant=True)
 
 
 class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type_prefix="fu"):
@@ -406,7 +407,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
     _build_args: dict
 
     _is_generator: Optional[bool] = None
-    _cluster_size: Optional[int] = None
 
     # when this is the method of a class/object function, invocation of this function
     # should supply the method name in the FunctionInput:
@@ -930,7 +930,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         obj._app = app  # needed for CLI right now
         obj._obj = None
         obj._is_generator = is_generator
-        obj._cluster_size = cluster_size
         obj._is_method = False
         obj._spec = function_spec  # needed for modal shell
         obj._webhook_config = webhook_config  # only set locally
@@ -1235,7 +1234,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         # Overridden concrete implementation of base class method
         self._progress = None
         self._is_generator = None
-        self._cluster_size = None
         self._web_url = None
         self._function_name = None
         self._info = None
@@ -1303,11 +1301,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         await self.hydrate()
         assert self._is_generator is not None  # should be set now
         return self._is_generator
-
-    @property
-    def cluster_size(self) -> int:
-        """mdmd:hidden"""
-        return self._cluster_size or 1
 
     @live_method_gen
     async def _map(
@@ -1667,7 +1660,7 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         return fc
 
     @staticmethod
-    async def gather(*function_calls: "_FunctionCall[Any]") -> list[Any]:
+    async def gather(*function_calls: "_FunctionCall[T]") -> typing.Sequence[T]:
         """Wait until all Modal FunctionCall objects have results before returning.
 
         Accepts a variable number of `FunctionCall` objects, as returned by `Function.spawn()`.
@@ -1693,7 +1686,7 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
             raise exc
 
 
-async def _gather(*function_calls: _FunctionCall[ReturnType]) -> typing.Sequence[ReturnType]:
+async def _gather(*function_calls: _FunctionCall[T]) -> typing.Sequence[T]:
     """Deprecated: Please use `modal.FunctionCall.gather()` instead."""
     deprecation_warning(
         (2025, 2, 24),

@@ -23,6 +23,7 @@ class ModelSQLTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -583,7 +584,7 @@ class ModelSQLTestCase(TestCase):
             record.save()
         err = cm.exception
         self.assertIn(TargetModel.name.string, err.message)
-        self.assertIn(TargetModel.__doc__, err.message)
+        self.assertIn(TargetModel.__string__, err.message)
 
     @with_transaction()
     def test_write_no_exist(self):
@@ -683,7 +684,7 @@ class ModelSQLTestCase(TestCase):
             Target.delete([target])
         err = cm.exception
         self.assertIn(Model.target_null.string, err.message)
-        self.assertIn(Model.__doc__, err.message)
+        self.assertIn(Model.__string__, err.message)
 
     @with_transaction()
     def test_foreign_key_restrict(self):
@@ -701,7 +702,7 @@ class ModelSQLTestCase(TestCase):
             Target.delete([target])
         err = cm.exception
         self.assertIn(Model.target_restrict.string, err.message)
-        self.assertIn(Model.__doc__, err.message)
+        self.assertIn(Model.__string__, err.message)
 
     @with_transaction()
     def test_foreign_key_restrict_inactive(self):
@@ -719,7 +720,7 @@ class ModelSQLTestCase(TestCase):
             Target.delete([target])
         err = cm.exception
         self.assertIn(Model.target_restrict.string, err.message)
-        self.assertIn(Model.__doc__, err.message)
+        self.assertIn(Model.__string__, err.message)
 
     @with_transaction()
     def test_foreign_key_restrict_tree(self):
@@ -922,13 +923,28 @@ class ModelSQLTestCase(TestCase):
         record_id = Model.create([{}])[0].id
         transaction.commit()
 
-        with transaction.new_transaction():
-            record = Model(record_id)
-            record.lock()
-            with transaction.new_transaction():
+        args1 = {}
+        while True:
+            with transaction.new_transaction(**args1):
                 record = Model(record_id)
-                with self.assertRaises(backend.DatabaseOperationalError):
+                try:
                     record.lock()
+                except TransactionError as e:
+                    e.fix(args1)
+                    continue
+                with self.assertRaises(
+                        backend.DatabaseOperationalError):
+                    args2 = {}
+                    while True:
+                        with transaction.new_transaction(**args2):
+                            record = Model(record_id)
+                            try:
+                                record.lock()
+                            except TransactionError as e:
+                                e.fix(args2)
+                                continue
+                            break
+                break
 
     @unittest.skipIf(backend.name == 'sqlite',
         'SQLite does not have lock at table level but on file')
@@ -959,6 +975,19 @@ class ModelSQLTestCase(TestCase):
                                 continue
                             break
                 break
+
+    @with_transaction()
+    def test_record_lock_with_table_lock(self):
+        "Test not locking record when table is locked"
+        pool = Pool()
+        Model = pool.get('test.modelsql.lock')
+        transaction = Transaction()
+        record_id = Model.create([{}])[0].id
+        transaction.commit()
+
+        with transaction.new_transaction(_lock_tables=[Model._table]):
+            record = Model(record_id)
+            record.lock()
 
     @with_transaction()
     def test_search_or_to_union(self):
@@ -1521,6 +1550,7 @@ class ModelSQLTranslationTestCase(TranslationTestCase):
         pool = Pool()
         NameTranslated = pool.get('test.modelsql.name_translated')
         Model = pool.get('ir.model')
+        Translation = pool.get('ir.translation')
 
         record, = NameTranslated.create([{'name': "Bar"}])
         with Transaction().set_context(language=self.other_language):
@@ -1530,12 +1560,20 @@ class ModelSQLTranslationTestCase(TranslationTestCase):
             self.assertEqual(values[0]['name'], "Foo")
 
             translated_model, = Model.search([
-                    ('model', '=', 'test.modelsql.name_translated'),
+                    ('name', '=', 'test.modelsql.name_translated'),
                     ])
-            Model.write([translated_model], {'name': "NameTranslated"})
+            Model.write([translated_model], {'string': "NameTranslated"})
 
             values = NameTranslated.read([record.id], ['name'])
             self.assertEqual(values[0]['name'], "Foo")
+
+        translation, = Translation.search([
+                ('type', '=', 'model'),
+                ('name', '=', 'test.modelsql.name_translated,string'),
+                ('res_id', '=', -1),
+                ])
+        self.assertEqual(translation.src, "NameTranslated")
+        self.assertEqual(translation.value, "NameTranslated")
 
     @with_transaction()
     def test_write_ir_model_field(self):
@@ -1555,10 +1593,10 @@ class ModelSQLTranslationTestCase(TranslationTestCase):
         translation, = Translation.search([
                 ('type', '=', 'help'),
                 ('name', '=', 'test.modelsql.name_translated,name'),
-                ('type', '=', 'help'),
+                ('res_id', '=', -1),
                 ])
+        self.assertEqual(translation.src, "Translated help")
         self.assertEqual(translation.value, "Translated help")
-        self.assertEqual(translation.res_id, -1)
 
     @with_transaction()
     def test_write_default_language_with_other_language(self):

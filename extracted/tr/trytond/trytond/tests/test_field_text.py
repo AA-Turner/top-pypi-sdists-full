@@ -83,6 +83,34 @@ class CommonTestCaseMixin:
         self.assertListEqual(texts, [text])
 
     @with_transaction()
+    def test_search_none_equals_empty(self):
+        "Test search text None equals empty"
+        Text = self.Text()
+        text, = Text.create([{
+                    'text': None,
+                    }])
+
+        texts = Text.search([
+                ('text', '=', ''),
+                ])
+
+        self.assertListEqual(texts, [text])
+
+    @with_transaction()
+    def test_search_empty_equals_none(self):
+        "Test search text empty equals None"
+        Text = self.Text()
+        text, = Text.create([{
+                    'text': '',
+                    }])
+
+        texts = Text.search([
+                ('text', '=', None),
+                ])
+
+        self.assertListEqual(texts, [text])
+
+    @with_transaction()
     def test_search_equals_unicode(self):
         "Test search text equals unicode"
         Text = self.Text()
@@ -395,6 +423,7 @@ class FieldTextTestCase(TestCase, CommonTestCaseMixin):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     def Text(self):
@@ -523,6 +552,7 @@ class FieldFullTextTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()

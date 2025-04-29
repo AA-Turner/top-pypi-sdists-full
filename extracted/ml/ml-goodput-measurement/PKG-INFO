@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ml_goodput_measurement
-Version: 0.0.9
+Version: 0.0.10
 Summary: Package to monitor Goodput, Badput and other metrics of ML workloads.
 Keywords: 
 Author-email: Cloud TPU Team <cloud-tpu-eng@google.com>
@@ -260,6 +260,58 @@ For example:
   return state
   ```
 
+#### Record Custom Badput Events (e.g., Evaluation, SDC Checks)
+
+- Use the recorder object to record the **start** of a custom badput event using
+  `record_custom_badput_event_start_time(custom_badput_event_type='your_event_name')`.
+- Use the recorder object to record the **end** of a custom badput event using
+  `record_custom_badput_event_end_time(custom_badput_event_type='your_event_name')`.
+
+Use these APIs when you want to account for time spent on operations that
+block the training loop and use accelerator resources, do not contribute to
+productive training and occur while training is in progress — such as step
+evaluations, SDC checks, or re-compilations.
+
+For example:
+
+```python
+def train_loop(config, state=None):
+  goodput_recorder.record_training_preparation_start_time()
+  # Initialize training config, setup model, load checkpoint...
+  goodput_recorder.record_training_preparation_end_time()
+
+  for step in range(config.steps):
+    goodput_recorder.record_data_loading_start_time()
+    batch = load_batch(train_data)
+    goodput_recorder.record_data_loading_end_time()
+
+    goodput_recorder.record_step_start_time(step)
+    # Run training step...
+    run_train_step(step, state)
+
+    if step % config.eval_interval == 0:
+      # Record a custom badput event for evaluation
+      goodput_recorder.record_custom_badput_event_start_time(
+          custom_badput_event_type="eval_step")
+      run_step_evaluation(model, val_data)
+      goodput_recorder.record_custom_badput_event_end_time(
+          custom_badput_event_type="eval_step")
+
+    if step % config.sdc_check_interval == 0:
+      # Record a custom badput event for SDC check
+      goodput_recorder.record_custom_badput_event_start_time(
+          custom_badput_event_type="sdc_check")
+      run_sdc_check(state)
+      goodput_recorder.record_custom_badput_event_end_time(
+          custom_badput_event_type="sdc_check")
+
+  return state
+```
+
+> **_NOTE:_** The `custom_badput_event_type` string should be descriptive and
+consistent (e.g., "eval_step", "sdc_check"), to ensure accurate aggregation and
+reporting in badput breakdowns.
+
 ### Retrieve Goodput with `GoodputCalculator`
 
 In order to retrieve the Goodput of a job run, all you need to do is instantiate
@@ -311,7 +363,7 @@ mapped to its corresponding value. Badput is the percentage of time spent by the
 job doing work that is not training to the total lifetime of the job. This
 includes time spent doing device initialization, training preparation,
 program startup, checkpoint loading, compilation or re-compilation, data loading,
-checkpoint saving, custom synchronous events, wasted progress and time lost due
+checkpoint saving, custom badput events, wasted progress and time lost due
 to disruptions.
 
 Following Badput Breakdown buckets are supported by the library at this time:
@@ -329,14 +381,8 @@ class BadputType(enum.Enum):
   UNPRODUCTIVE_CHECKPOINT_SAVE_TIME = 6
   UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME = 7
   WASTED_PROGRESS_FROM_DISRUPTION = 8
-  CUSTOM_OVERLAPPED_SYNC_EVENTS = 9
+  CUSTOM_BADPUT_EVENTS = 9
   OTHER = 10
-
-# Supported CUSTOM_OVERLAPPED_SYNC_EVENTS Types
-class CustomOverlappedSyncType(enum.Enum):
-  EVAL_STEP = 1
-  SDC_COMPILATION = 2
-  UNKNOWN = 3
 ```
 
 #### Badput Breakdown Details
@@ -401,12 +447,12 @@ class CustomOverlappedSyncType(enum.Enum):
   - Program Startup
   - Wasted Progress due to Disruption
 
- - Custom Overlapping Synchronous Events (CUSTOM_OVERLAPPED_SYNC_EVENTS)
+ - Custom Badput Events (CUSTOM_BADPUT_EVENTS)
 
  Your application can optionally use record and monitor badput from custom
- synchronous (blocking training) and overlapping (training started but halted)
+ synchronous (blocking training) and overlapping (between training steps)
  events. These events are are generally used for useful non-training activity on
- the accelerator after training has progressed such as performing health checks
+ the accelerator while training is in progress such as performing SDC checks
  or evaluations.
 
 If you are interested in retrieving Badput Breakdown along with Goodput:
@@ -422,6 +468,8 @@ print(f"Badput due to data loading: {badput_breakdown[goodput.BadputType.DATA_LO
 print(f"Badput due to disruption and wasted progress: {badput_breakdown[goodput.BadputType.WASTED_PROGRESS_FROM_DISRUPTION]:.2f}%")
 print(f"Badput due to checkpoint save: {badput_breakdown[goodput.BadputType.UNPRODUCTIVE_CHECKPOINT_SAVE_TIME]:.2f}%")
 print(f"Badput due to checkpoint restore: {badput_breakdown[goodput.BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME]:.2f}%")
+print(f"Badput due to step evaluation: {badput_breakdown[goodput.BadputType.CUSTOM_BADPUT_EVENTS].get('EVAL_STEP', 0.0):.2f}%")
+print(f"Badput due to SDC checks: {badput_breakdown[goodput.BadputType.CUSTOM_BADPUT_EVENTS].get('SDC_CHECK', 0.0):.2f}%")
 print(f"Badput from unknown source: {badput_breakdown[goodput.BadputType.OTHER]:.2f}%")
 ```
 
@@ -439,7 +487,7 @@ this window and the number of disruptions within the interval window.
  the workload's total run time that you are interested in.
 
 > **_IMPORTANT:_** **Do NOT use this API if** your workload has been manually
- disrupted. 
+ disrupted.
 
 > **_IMPORTANT:_** **Do NOT use this API if** you have accidentally re-used a
  previous `run_name`.
@@ -456,8 +504,8 @@ current_goodput, badput_breakdown, last_step, total_time, disruptions = goodput_
 ### Monitor Goodput with `GoodputMonitor`
 
 In order to monitor the Goodput of a job run on Tensorboard, all you need to do
-is instantiate a `GoodputMonitor` object with the job's run name, cloud logger 
-name and Goodput monitoring configurations (as described below). Then call the 
+is instantiate a `GoodputMonitor` object with the job's run name, cloud logger
+name and Goodput monitoring configurations (as described below). Then call the
 `start_goodput_uploader` API to asynchronously query and upload measured Goodput
 to the specified Tensorboard directory.
 
@@ -469,7 +517,7 @@ Create a `GoodputMonitor` object with the following parameters:
  2. `logger_name`: The name of the Cloud Logging logger object (created in the previous step).
  3. `tensorboard_dir`: The directory to write TensorBoard data to.
  4. `upload_interval`: The time interval at which to query and upload data to TensorBoard.
- 5. `monitoring_enabled`: Whether or not monitoring is enabled. 
+ 5. `monitoring_enabled`: Whether or not monitoring is enabled.
         If the application is interested in monitoring Goodput, it should set
         this value to True. Only one worker should enable monitoring.
  6. `include_badput_breakdown`: Whether to query and upload badput breakdown

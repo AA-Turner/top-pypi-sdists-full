@@ -33,6 +33,7 @@ class LangsmithAuthBackend(AuthenticationBackend):
             ("X-Api-Key", conn.headers.get("x-api-key")),
             ("X-Service-Key", conn.headers.get("x-service-key")),
             ("Cookie", conn.headers.get("cookie")),
+            ("X-User-Id", conn.headers.get("x-user-id")),
         ]
         if not any(h[1] for h in headers):
             raise AuthenticationError("Missing authentication headers")

@@ -8,7 +8,7 @@ show_missing = true
 
 [tool.poetry]
 name = "opentelemetry-instrumentation-langchain"
-version = "0.39.3"
+version = "0.39.4"
 description = "OpenTelemetry Langchain instrumentation"
 authors = [
   "Gal Kleinman <gal@traceloop.com>",
@@ -46,8 +46,8 @@ vcrpy = "^6.0.2"
 pytest-recording = "^0.13.2"
 pytest-asyncio = "^0.24.0"
 opentelemetry-sdk = "^1.27.0"
-opentelemetry-instrumentation-openai = "==0.39.3"
-opentelemetry-instrumentation-bedrock = "==0.39.3"
+opentelemetry-instrumentation-openai = "==0.39.4"
+opentelemetry-instrumentation-bedrock = "==0.39.4"
 text-generation = "^0.7.0"
 anthropic = "^0.37.1"
 boto3 = "^1.35.49"

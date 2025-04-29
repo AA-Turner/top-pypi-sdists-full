@@ -1,14 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: correctionlib
-Version: 2.6.4
+Version: 2.7.0
 Summary: A generic correction library
-Home-page: https://github.com/cms-nanoAOD/correctionlib
-Author: Nick Smith
-Author-email: nick.smith@cern.ch
-Maintainer: Nick Smith
-Maintainer-email: nick.smith@cern.ch
-License: BSD 3-Clause License
-Platform: Any
+Author-Email: Nick Smith <nick.smith@cern.ch>
+Maintainer-Email: Nick Smith <nick.smith@cern.ch>
+License: BSD-3-Clause
 Classifier: Topic :: Scientific/Engineering
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
@@ -17,9 +13,8 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.7
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Project-URL: Homepage, https://github.com/cms-nanoAOD/correctionlib
+Requires-Python: >=3.8
 Requires-Dist: numpy>=1.13.3
 Requires-Dist: typing-extensions; python_version < "3.8"
 Requires-Dist: dataclasses; python_version < "3.7"
@@ -32,6 +27,7 @@ Requires-Dist: scipy; extra == "test"
 Requires-Dist: awkward>=2.2.2; python_version > "3.7" and extra == "test"
 Requires-Dist: awkward<2; python_version <= "3.7" and extra == "test"
 Requires-Dist: dask-awkward>=2024.1.1; python_version > "3.7" and extra == "test"
+Requires-Dist: dask<2025.4.0; python_version > "3.7" and extra == "test"
 Provides-Extra: dev
 Requires-Dist: pytest>=4.6; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
@@ -52,6 +48,7 @@ Requires-Dist: pandas; extra == "convert"
 Requires-Dist: uproot>=4.0.4; extra == "convert"
 Requires-Dist: requests; extra == "convert"
 Requires-Dist: scipy; extra == "convert"
+Description-Content-Type: text/markdown
 
 # correctionlib
 

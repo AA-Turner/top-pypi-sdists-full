@@ -50,6 +50,7 @@ from .models.delete_account200_response import DeleteAccount200Response
 from .models.delete_account_request import DeleteAccountRequest
 from .models.delete_account_response import DeleteAccountResponse
 from .models.deleted_account import DeletedAccount
+from .models.entitlement_requirement import EntitlementRequirement
 from .models.entitlement_type import EntitlementType
 from .models.error import Error
 from .models.error_code import ErrorCode
@@ -204,6 +205,7 @@ __all__ = [
     "DeleteAccountRequest",
     "DeleteAccountResponse",
     "DeletedAccount",
+    "EntitlementRequirement",
     "EntitlementType",
     "Error",
     "ErrorCode",

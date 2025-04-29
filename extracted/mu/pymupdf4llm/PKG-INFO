@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymupdf4llm
-Version: 0.0.21
+Version: 0.0.22
 Summary: PyMuPDF Utilities for LLM/RAG
 Home-page: https://github.com/pymupdf/RAG
 Author: Artifex

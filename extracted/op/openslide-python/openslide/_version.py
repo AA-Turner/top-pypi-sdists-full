@@ -13,8 +13,7 @@
 # License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this library; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# along with this library.  If not, see <https://www.gnu.org/licenses/>.
 #
 
 """The openslide package version.
@@ -22,4 +21,4 @@
 This module is an implementation detail.  The package version should be
 obtained from openslide.__version__."""
 
-__version__ = '1.4.1'
+__version__ = '1.4.2'

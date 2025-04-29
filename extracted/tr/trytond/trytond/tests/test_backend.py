@@ -2,15 +2,18 @@
 # this repository contains the full copyright notices and license terms.
 import datetime as dt
 import math
+from decimal import Decimal
 
 from sql import Cast, Literal, Select, Table, functions
-from sql.functions import CurrentTimestamp, DateTrunc, ToChar
+from sql.functions import CurrentTimestamp, DateTrunc, Extract, ToChar
 
+from trytond import backend
 from trytond.model import fields
 from trytond.sql.functions import NumRange
 from trytond.sql.operators import RangeContain, RangeIn, RangeOverlap
 from trytond.tests.test_tryton import (
     TestCase, activate_module, with_transaction)
+from trytond.tools import sqlite_apply_types
 from trytond.transaction import Transaction
 
 
@@ -19,6 +22,7 @@ class BackendTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -157,8 +161,8 @@ class BackendTestCase(TestCase):
         cursor.execute(*Select([functions.SetSeed(1)]))
 
     @with_transaction()
-    def test_function_date_trunc(self):
-        "Test DateTrunc function"
+    def test_function_date_trunc_datetime(self):
+        "Test DateTrunc function with datetime"
         cursor = Transaction().connection.cursor()
         date = dt.datetime(2001, 2, 16, 20, 38, 40, 100)
         for type_, result in [
@@ -171,9 +175,85 @@ class BackendTestCase(TestCase):
                 ]:
             for type_ in [type_.lower(), type_.upper()]:
                 with self.subTest(type_=type_):
-                    cursor.execute(*Select([DateTrunc(type_, date)]))
+                    query = Select([DateTrunc(type_, date).as_('value')])
+                    if backend.name == 'sqlite':
+                        sqlite_apply_types(query, ['TIMESTAMP'])
+                    cursor.execute(*query)
                     value, = cursor.fetchone()
-                    self.assertEqual(str(value), str(result))
+                    self.assertEqual(value, result)
+
+    @with_transaction()
+    def test_function_date_trunc_date(self):
+        "Test DateTrunc function with date"
+        cursor = Transaction().connection.cursor()
+        date = dt.date(2001, 2, 16)
+        for type_, result in [
+                ('microsecond', dt.datetime(2001, 2, 16)),
+                ('second', dt.datetime(2001, 2, 16)),
+                ('minute', dt.datetime(2001, 2, 16)),
+                ('hour', dt.datetime(2001, 2, 16)),
+                ('day', dt.datetime(2001, 2, 16)),
+                ('month', dt.datetime(2001, 2, 1)),
+                ]:
+            for type_ in [type_.lower(), type_.upper()]:
+                with self.subTest(type_=type_):
+                    query = Select([DateTrunc(type_, date).as_('value')])
+                    if backend.name == 'sqlite':
+                        sqlite_apply_types(query, ['TIMESTAMP'])
+                    cursor.execute(*query)
+                    value, = cursor.fetchone()
+                    if value.tzinfo:
+                        value = value.replace(tzinfo=None)
+                    self.assertEqual(value, result)
+
+    @with_transaction()
+    def test_function_date_trunc_time(self):
+        "Test DateTrunc function with time"
+        cursor = Transaction().connection.cursor()
+        date = dt.time(20, 38, 40, 100)
+        for type_, result in [
+                ('microsecond', dt.timedelta(
+                        hours=20, minutes=38, seconds=40, microseconds=100)),
+                ('second', dt.timedelta(hours=20, minutes=38, seconds=40)),
+                ('minute', dt.timedelta(hours=20, minutes=38)),
+                ('hour', dt.timedelta(hours=20)),
+                ('day', dt.timedelta()),
+                ('month', dt.timedelta()),
+                ]:
+            for type_ in [type_.lower(), type_.upper()]:
+                with self.subTest(type_=type_):
+                    query = Select([DateTrunc(type_, date).as_('value')])
+                    if backend.name == 'sqlite':
+                        sqlite_apply_types(query, ['INTERVAL'])
+                    cursor.execute(*query)
+                    value, = cursor.fetchone()
+                    self.assertEqual(value, result)
+
+    @with_transaction()
+    def test_function_date_trunc_timedelta(self):
+        "Test DateTrunc function with timedelta"
+        cursor = Transaction().connection.cursor()
+        date = dt.timedelta(
+            days=16, hours=20, minutes=38, seconds=40, microseconds=100)
+        for type_, result in [
+                ('microsecond', dt.timedelta(
+                        days=16, hours=20, minutes=38, seconds=40,
+                        microseconds=100)),
+                ('second', dt.timedelta(
+                        days=16, hours=20, minutes=38, seconds=40)),
+                ('minute', dt.timedelta(days=16, hours=20, minutes=38)),
+                ('hour', dt.timedelta(days=16, hours=20)),
+                ('day', dt.timedelta(days=16)),
+                ('month', dt.timedelta()),
+                ]:
+            for type_ in [type_.lower(), type_.upper()]:
+                with self.subTest(type_=type_):
+                    query = Select([DateTrunc(type_, date).as_('value')])
+                    if backend.name == 'sqlite':
+                        sqlite_apply_types(query, ['INTERVAL'])
+                    cursor.execute(*query)
+                    value, = cursor.fetchone()
+                    self.assertEqual(value, result)
 
     @with_transaction()
     def test_function_date_trunc_null(self):
@@ -182,6 +262,10 @@ class BackendTestCase(TestCase):
         date = fields.Date("Test")
 
         cursor.execute(*Select([DateTrunc('month', date.sql_cast(None))]))
+        value, = cursor.fetchone()
+        self.assertEqual(value, None)
+
+        cursor.execute(*Select([DateTrunc(None, dt.datetime.now())]))
         value, = cursor.fetchone()
         self.assertEqual(value, None)
 
@@ -280,3 +364,61 @@ class BackendTestCase(TestCase):
         count = database.estimated_count(connection, query)
 
         self.assertEqual(count, 1)
+
+    @with_transaction()
+    def test_function_extract(self):
+        "Test Extract function"
+        cursor = Transaction().connection.cursor()
+        for lookup, source, result in [
+                ('CENTURY', dt.datetime(2000, 12, 16, 12, 21, 13), 20),
+                ('CENTURY', dt.datetime(2001, 2, 16, 20, 38, 40), 21),
+                ('CENTURY', dt.date(1, 1, 1), 1),
+                ('CENTURY', dt.timedelta(days=2001 * 365), 0),
+                ('DAY', dt.datetime(2001, 2, 16, 20, 38, 40), 16),
+                ('DAY', dt.timedelta(40, 1), 40),
+                ('DECADE', dt.datetime(2001, 2, 16, 20, 38, 40), 200),
+                ('DOW', dt.datetime(2001, 2, 16, 20, 38, 40), 5),
+                ('DOY', dt.datetime(2001, 2, 16, 20, 38, 40), 47),
+                ('EPOCH', dt.datetime(2001, 2, 16, 20, 38, 40, 120000),
+                    982355920.120000),
+                ('EPOCH', dt.date(2001, 2, 16), 982281600.000000),
+                ('EPOCH', dt.timedelta(days=5, hours=3), 442800.000000),
+                ('HOUR', dt.datetime(2001, 2, 16, 20, 38, 40), 20),
+                ('HOUR', dt.timedelta(hours=20, minutes=38, seconds=40), 20),
+                ('ISODOW', dt.datetime(2001, 2, 18, 20, 38, 40), 7),
+                ('ISOYEAR', dt.date(2006, 1, 1), 2005),
+                ('ISOYEAR', dt.date(2006, 1, 2), 2006),
+                ('MICROSECONDS', dt.time(17, 12, 28, 500000), 28500000),
+                ('MICROSECONDS', dt.timedelta(hours=1, seconds=28.5),
+                    28500000),
+                ('MILLENNIUM', dt.datetime(2001, 2, 16, 20, 38, 40), 3),
+                ('MILLENNIUM', dt.timedelta(2001 * 365), 0),
+                ('MILLISECONDS', dt.time(17, 12, 28, 500000), 28500.000),
+                ('MILLISECONDS', dt.timedelta(seconds=28, microseconds=500000),
+                    28500.000),
+                ('MINUTE', dt.datetime(2001, 2, 16, 20, 38, 40), 38),
+                ('MINUTE', dt.timedelta(seconds=60), 1),
+                ('MINUTE', dt.timedelta(seconds=61), 1),
+                ('MINUTE', dt.timedelta(seconds=120), 2),
+                ('MONTH', dt.datetime(2001, 2, 16, 20, 38, 40), 2),
+                ('MONTH', dt.timedelta(60), 0),
+                ('QUARTER', dt.datetime(2001, 2, 16, 20, 38, 40), 1),
+                ('QUARTER', dt.timedelta(1), 1),
+                ('QUARTER', dt.timedelta(365), 1),
+                ('SECOND', dt.datetime(2001, 2, 16, 20, 38, 40), 40.000000),
+                ('SECOND', dt.time(17, 12, 28, 500000), 28.500000),
+                ('SECOND', dt.timedelta(
+                        hours=17, minutes=12, seconds=28, microseconds=500000),
+                    28.500000),
+                ('WEEK', dt.datetime(2001, 2, 16, 20, 38, 40), 7),
+                ('YEAR', dt.datetime(2001, 2, 16, 20, 38, 40), 2001),
+                ('YEAR', dt.timedelta(days=366), 0),
+                ]:
+            for lookup in [lookup.lower(), lookup.upper()]:
+                with self.subTest(lookup=lookup, source=source):
+                    cursor.execute(*Select([Extract(lookup, source)]))
+                    value, = cursor.fetchone()
+                    # in PostgreSQL some value are numeric
+                    if isinstance(value, Decimal):
+                        value = float(value)
+                    self.assertEqual(value, result)

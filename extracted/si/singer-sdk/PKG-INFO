@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singer-sdk
-Version: 0.45.10
+Version: 0.45.11
 Summary: A framework for building Singer taps
 Project-URL: Homepage, https://sdk.meltano.com/en/latest/
 Project-URL: Repository, https://github.com/meltano/sdk
@@ -32,7 +32,7 @@ Requires-Dist: backports-datetime-fromisoformat>=2.0.1; python_version < '3.11'
 Requires-Dist: click~=8.0
 Requires-Dist: fs>=2.4.16
 Requires-Dist: fsspec>=2024.9.0
-Requires-Dist: importlib-metadata<9.0.0; python_version < '3.12'
+Requires-Dist: importlib-metadata>=5.0; python_version < '3.12'
 Requires-Dist: importlib-resources!=6.2.0,!=6.3.0,!=6.3.1,>=5.12.0; python_version < '3.10'
 Requires-Dist: inflection>=0.5.1
 Requires-Dist: joblib>=1.3.0

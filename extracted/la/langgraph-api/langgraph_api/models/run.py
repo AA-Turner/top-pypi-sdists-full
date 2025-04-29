@@ -206,21 +206,8 @@ def get_configurable_headers(headers: dict[str, str]) -> dict[str, str]:
     configurable = {}
     include_patterns, exclude_patterns = get_header_patterns()
     for key, value in headers.items():
-        if include_patterns and not any(
-            pattern.match(key) for pattern in include_patterns
-        ):
-            continue
-        if exclude_patterns and any(pattern.match(key) for pattern in exclude_patterns):
-            continue
-        if key.startswith("x-"):
-            if key in (
-                "x-api-key",
-                "x-tenant-id",
-                "x-service-key",
-            ):
-                continue
-            configurable[key] = value
-        elif key == "langsmith-trace":
+        # First handle tracing stuff; not configurable
+        if key == "langsmith-trace":
             configurable[key] = value
             if baggage := headers.get("baggage"):
                 for item in baggage.split(","):
@@ -231,6 +218,23 @@ def get_configurable_headers(headers: dict[str, str]) -> dict[str, str]:
                         configurable[key] = urllib.parse.unquote(value).split(",")
                     elif key == LANGSMITH_PROJECT:
                         configurable[key] = urllib.parse.unquote(value)
+        # Then handle overridable behavior
+        if exclude_patterns and any(pattern.match(key) for pattern in exclude_patterns):
+            continue
+        if include_patterns and any(pattern.match(key) for pattern in include_patterns):
+            configurable[key] = value
+            continue
+
+        # Then handle default behavior
+        if key.startswith("x-"):
+            if key in (
+                "x-api-key",
+                "x-tenant-id",
+                "x-service-key",
+            ):
+                continue
+            configurable[key] = value
+
         elif key == "user-agent":
             configurable[key] = value
     return configurable

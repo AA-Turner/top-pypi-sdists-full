@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 3.5.0
+Version: 3.5.1
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -32,7 +32,7 @@ Requires-Dist: requests>=2.32.2
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
 Requires-Dist: multiprocess<0.70.17
-Requires-Dist: fsspec[http]<=2024.12.0,>=2023.1.0
+Requires-Dist: fsspec[http]<=2025.3.0,>=2023.1.0
 Requires-Dist: aiohttp
 Requires-Dist: huggingface-hub>=0.24.0
 Requires-Dist: packaging
@@ -40,7 +40,7 @@ Requires-Dist: pyyaml>=5.1
 Provides-Extra: audio
 Requires-Dist: soundfile>=0.12.1; extra == "audio"
 Requires-Dist: librosa; extra == "audio"
-Requires-Dist: soxr>=0.4.0; python_version >= "3.9" and extra == "audio"
+Requires-Dist: soxr>=0.4.0; extra == "audio"
 Provides-Extra: vision
 Requires-Dist: Pillow>=9.4.0; extra == "vision"
 Provides-Extra: tensorflow
@@ -89,7 +89,7 @@ Requires-Dist: pyav; extra == "dev"
 Requires-Dist: Pillow>=9.4.0; extra == "dev"
 Requires-Dist: soundfile>=0.12.1; extra == "dev"
 Requires-Dist: librosa; extra == "dev"
-Requires-Dist: soxr>=0.4.0; python_version >= "3.9" and extra == "dev"
+Requires-Dist: soxr>=0.4.0; extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
 Requires-Dist: s3fs; extra == "dev"
 Requires-Dist: transformers; extra == "dev"
@@ -129,7 +129,7 @@ Requires-Dist: pyav; extra == "tests"
 Requires-Dist: Pillow>=9.4.0; extra == "tests"
 Requires-Dist: soundfile>=0.12.1; extra == "tests"
 Requires-Dist: librosa; extra == "tests"
-Requires-Dist: soxr>=0.4.0; python_version >= "3.9" and extra == "tests"
+Requires-Dist: soxr>=0.4.0; extra == "tests"
 Provides-Extra: tests-numpy2
 Requires-Dist: absl-py; extra == "tests-numpy2"
 Requires-Dist: decorator; extra == "tests-numpy2"
@@ -160,7 +160,7 @@ Requires-Dist: torchvision; extra == "tests-numpy2"
 Requires-Dist: pyav; extra == "tests-numpy2"
 Requires-Dist: Pillow>=9.4.0; extra == "tests-numpy2"
 Requires-Dist: soundfile>=0.12.1; extra == "tests-numpy2"
-Requires-Dist: soxr>=0.4.0; python_version >= "3.9" and extra == "tests-numpy2"
+Requires-Dist: soxr>=0.4.0; extra == "tests-numpy2"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.3.0; extra == "quality"
 Provides-Extra: benchmarks

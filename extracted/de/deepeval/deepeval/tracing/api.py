@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Optional, Union, Dict, List
+from typing import Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
+
+from deepeval.test_case import LLMTestCase
 
 
 class SpanApiType(Enum):
@@ -13,7 +16,20 @@ class SpanApiType(Enum):
 
 class TraceSpanApiStatus(Enum):
     SUCCESS = "SUCCESS"
-    ERROR = "ERROR"
+    ERRORED = "ERRORED"
+
+
+class MetricData(BaseModel):
+    name: str
+    threshold: float
+    success: bool
+    score: Optional[float] = None
+    reason: Optional[str] = None
+    strict_mode: Optional[bool] = Field(False, alias="strictMode")
+    evaluation_model: Optional[str] = Field(None, alias="evaluationModel")
+    error: Optional[str] = None
+    evaluation_cost: Union[float, None] = Field(None, alias="evaluationCost")
+    verbose_logs: Optional[str] = Field(None, alias="verboseLogs")
 
 
 class BaseApiSpan(BaseModel):
@@ -53,14 +69,9 @@ class BaseApiSpan(BaseModel):
     )
 
     ## evals
-    test_case_input: Optional[str] = Field(None, alias="testCaseInput")
-    test_case_actual_output: Optional[str] = Field(
-        None, alias="testCaseActualOutput"
-    )
-    test_case_retrieval_context: Optional[List[str]] = Field(
-        None, alias="testCaseRetrievalContext"
-    )
+    test_case: Optional[LLMTestCase] = Field(None, alias="testCase")
     metrics: Optional[List[str]] = Field(None, alias="metrics")
+    metrics_data: Optional[List[MetricData]] = Field(None, alias="metricsData")
 
     class Config:
         use_enum_values = True

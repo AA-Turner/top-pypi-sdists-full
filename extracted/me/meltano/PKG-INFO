@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltano
-Version: 3.7.3
+Version: 3.7.4
 Summary: Meltano is your CLI for ELT+: Open Source, Flexible, and Scalable. Move, transform, and test your data with confidence using a streamlined data engineering workflow you’ll love.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/meltano/meltano
@@ -72,7 +72,7 @@ Requires-Dist: psycopg[binary]<4,>=3.2.3; extra == 'postgres'
 Provides-Extra: psycopg2
 Requires-Dist: psycopg2-binary<3,>=2.9.9; extra == 'psycopg2'
 Provides-Extra: s3
-Requires-Dist: boto3<1.38,>=1.35; extra == 's3'
+Requires-Dist: boto3<1.39,>=1.35; extra == 's3'
 Description-Content-Type: text/markdown
 
 <div align="center">

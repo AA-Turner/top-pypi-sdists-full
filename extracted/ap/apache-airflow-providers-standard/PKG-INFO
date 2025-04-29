@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-standard
-Version: 1.0.0
+Version: 1.1.0
 Summary: Provider package apache-airflow-providers-standard for Apache Airflow
 Keywords: airflow-provider,standard,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -22,8 +22,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.9.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-standard/1.0.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-standard/1.0.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-standard/1.1.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-standard/1.1.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -54,7 +54,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-standard``
 
-Release: ``1.0.0``
+Release: ``1.1.0``
 
 
 Airflow Standard Provider
@@ -67,7 +67,7 @@ This is a provider package for ``standard`` provider. All classes for this provi
 are in ``airflow.providers.standard`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-standard/1.0.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-standard/1.1.0/>`_.
 
 Installation
 ------------
@@ -88,5 +88,5 @@ PIP package         Version required
 ==================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-standard/1.0.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-standard/1.1.0/changelog.html>`_.
 

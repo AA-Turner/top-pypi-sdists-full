@@ -1,3 +1,12 @@
+"""Transform classes for cropping operations on images and other data types.
+
+This module provides various crop transforms that can be applied to images, masks,
+bounding boxes, and keypoints. The transforms include simple cropping, random cropping,
+center cropping, cropping near bounding boxes, and other specialized cropping operations
+that maintain the integrity of bounding boxes. These transforms are designed to work within
+the albumentations pipeline and can be used for data augmentation in computer vision tasks.
+"""
+
 from __future__ import annotations
 
 import math
@@ -30,7 +39,6 @@ from . import functional as fcrops
 
 __all__ = [
     "AtLeastOneBBoxRandomCrop",
-    "AtLeastOneBBoxRandomCrop",
     "BBoxSafeRandomCrop",
     "CenterCrop",
     "Crop",
@@ -60,6 +68,17 @@ class BaseCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop transform to an image.
+
+        Args:
+            img (np.ndarray): The image to apply the crop transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped image.
+
+        """
         return fcrops.crop(img, x_min=crop_coords[0], y_min=crop_coords[1], x_max=crop_coords[2], y_max=crop_coords[3])
 
     def apply_to_bboxes(
@@ -68,6 +87,17 @@ class BaseCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop transform to bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): The bounding boxes to apply the crop transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped bounding boxes.
+
+        """
         return fcrops.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"][:2])
 
     def apply_to_keypoints(
@@ -76,7 +106,58 @@ class BaseCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop transform to keypoints.
+
+        Args:
+            keypoints (np.ndarray): The keypoints to apply the crop transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped keypoints.
+
+        """
         return fcrops.crop_keypoints_by_coords(keypoints, crop_coords)
+
+    def apply_to_images(
+        self,
+        images: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fcrops.volume_crop_yx(images, crop_coords[0], crop_coords[1], crop_coords[2], crop_coords[3])
+
+    def apply_to_volume(
+        self,
+        volume: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_images(volume, crop_coords, **params)
+
+    def apply_to_volumes(
+        self,
+        volumes: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fcrops.volumes_crop_yx(volumes, crop_coords[0], crop_coords[1], crop_coords[2], crop_coords[3])
+
+    def apply_to_mask3d(
+        self,
+        mask3d: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_images(mask3d, crop_coords, **params)
+
+    def apply_to_masks3d(
+        self,
+        masks3d: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_volumes(masks3d, crop_coords, **params)
 
     @staticmethod
     def _clip_bbox(bbox: tuple[int, int, int, int], image_shape: tuple[int, int]) -> tuple[int, int, int, int]:
@@ -166,6 +247,17 @@ class BaseCropAndPad(BaseCrop):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to an image.
+
+        Args:
+            img (np.ndarray): The image to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped and padded image.
+
+        """
         pad_params = params.get("pad_params")
         if pad_params is not None:
             img = fgeometric.pad_with_params(
@@ -185,6 +277,17 @@ class BaseCropAndPad(BaseCrop):
         crop_coords: Any,
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to a mask.
+
+        Args:
+            mask (np.ndarray): The mask to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped and padded mask.
+
+        """
         pad_params = params.get("pad_params")
         if pad_params is not None:
             mask = fgeometric.pad_with_params(
@@ -199,12 +302,89 @@ class BaseCropAndPad(BaseCrop):
         # Note' that super().apply would apply the padding twice as it is looped to this.apply
         return BaseCrop.apply(self, mask, crop_coords=crop_coords, **params)
 
+    def apply_to_images(
+        self,
+        images: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        pad_params = params.get("pad_params")
+        if pad_params is not None:
+            images = fcrops.pad_along_axes(
+                images,
+                pad_params["pad_top"],
+                pad_params["pad_bottom"],
+                pad_params["pad_left"],
+                pad_params["pad_right"],
+                h_axis=2,
+                w_axis=3,
+                border_mode=self.border_mode,
+                pad_value=self.fill,
+            )
+        return BaseCrop.apply_to_images(self, images, crop_coords, **params)
+
+    def apply_to_volume(
+        self,
+        volume: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_images(volume, crop_coords, **params)
+
+    def apply_to_volumes(
+        self,
+        volumes: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        pad_params = params.get("pad_params")
+        if pad_params is not None:
+            volumes = fcrops.pad_along_axes(
+                volumes,
+                pad_params["pad_top"],
+                pad_params["pad_bottom"],
+                pad_params["pad_left"],
+                pad_params["pad_right"],
+                h_axis=3,
+                w_axis=4,
+                border_mode=self.border_mode,
+                pad_value=self.fill,
+            )
+        return BaseCrop.apply_to_volumes(self, volumes, crop_coords, **params)
+
+    def apply_to_mask3d(
+        self,
+        mask3d: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_images(mask3d, crop_coords, **params)
+
+    def apply_to_masks3d(
+        self,
+        masks3d: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return self.apply_to_volumes(masks3d, crop_coords, **params)
+
     def apply_to_bboxes(
         self,
         bboxes: np.ndarray,
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): The bounding boxes to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped and padded bounding boxes.
+
+        """
         pad_params = params.get("pad_params")
         image_shape = params["shape"][:2]
 
@@ -243,6 +423,17 @@ class BaseCropAndPad(BaseCrop):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to keypoints.
+
+        Args:
+            keypoints (np.ndarray): The keypoints to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The cropped and padded keypoints.
+
+        """
         pad_params = params.get("pad_params")
         image_shape = params["shape"][:2]
 
@@ -272,8 +463,8 @@ class RandomCrop(BaseCropAndPad):
     """Crop a random part of the input.
 
     Args:
-        height: height of the crop.
-        width: width of the crop.
+        height (int): height of the crop.
+        width (int): width of the crop.
         pad_if_needed (bool): Whether to pad if crop size exceeds image size. Default: False.
         border_mode (OpenCV flag): OpenCV border mode used for padding. Default: cv2.BORDER_CONSTANT.
         fill (tuple[float, ...] | float): Padding value for images if border_mode is
@@ -282,7 +473,7 @@ class RandomCrop(BaseCropAndPad):
             cv2.BORDER_CONSTANT. Default: 0.
         pad_position (Literal['center', 'top_left', 'top_right', 'bottom_left', 'bottom_right', 'random']):
             Position of padding. Default: 'center'.
-        p: probability of applying the transform. Default: 1.
+        p (float): Probability of applying the transform. Default: 1.0.
 
     Targets:
         image, mask, bboxes, keypoints, volume, mask3d
@@ -293,6 +484,7 @@ class RandomCrop(BaseCropAndPad):
     Note:
         If pad_if_needed is True and crop size exceeds image dimensions, the image will be padded
         before applying the random crop.
+
     """
 
     class InitSchema(BaseCropAndPad.InitSchema):
@@ -342,6 +534,16 @@ class RandomCrop(BaseCropAndPad):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, Any]:  # Changed return type to be more flexible
+        """Get parameters that depend on input data.
+
+        Args:
+            params (dict[str, Any]): Parameters.
+            data (dict[str, Any]): Input data.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters.
+
+        """
         image_shape = params["shape"][:2]
         image_height, image_width = image_shape
 
@@ -380,17 +582,6 @@ class RandomCrop(BaseCropAndPad):
             "pad_params": pad_params,
         }
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "height",
-            "width",
-            "pad_if_needed",
-            "border_mode",
-            "fill",
-            "fill_mask",
-            "pad_position",
-        )
-
 
 class CenterCrop(BaseCropAndPad):
     """Crop the central part of the input.
@@ -421,6 +612,7 @@ class CenterCrop(BaseCropAndPad):
         - If pad_if_needed is False and crop size exceeds image dimensions, it will raise a CropSizeError.
         - If pad_if_needed is True and crop size exceeds image dimensions, the image will be padded.
         - For bounding boxes and keypoints, coordinates are adjusted appropriately for both padding and cropping.
+
     """
 
     class InitSchema(BaseCropAndPad.InitSchema):
@@ -465,22 +657,18 @@ class CenterCrop(BaseCropAndPad):
         self.height = height
         self.width = width
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "height",
-            "width",
-            "pad_if_needed",
-            "border_mode",
-            "fill",
-            "fill_mask",
-            "pad_position",
-        )
-
     def get_params_dependent_on_data(
         self,
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, Any]:
+        """Get the parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         image_shape = params["shape"][:2]
         image_height, image_width = image_shape
 
@@ -547,6 +735,7 @@ class Crop(BaseCropAndPad):
         - If pad_if_needed is False and crop region extends beyond image boundaries, it will be clipped.
         - If pad_if_needed is True, image will be padded to accommodate the full crop region.
         - For bounding boxes and keypoints, coordinates are adjusted appropriately for both padding and cropping.
+
     """
 
     class InitSchema(BaseCropAndPad.InitSchema):
@@ -566,7 +755,7 @@ class Crop(BaseCropAndPad):
         fill_mask: tuple[float, ...] | float
 
         @model_validator(mode="after")
-        def validate_coordinates(self) -> Self:
+        def _validate_coordinates(self) -> Self:
             if not self.x_min < self.x_max:
                 msg = "x_max must be greater than x_min"
                 raise ValueError(msg)
@@ -608,58 +797,68 @@ class Crop(BaseCropAndPad):
         self.x_max = x_max
         self.y_max = y_max
 
-    def get_params_dependent_on_data(
-        self,
-        params: dict[str, Any],
-        data: dict[str, Any],
-    ) -> dict[str, Any]:
+    # New helper function for computing minimum padding
+    def _compute_min_padding(self, image_height: int, image_width: int) -> tuple[int, int, int, int]:
+        pad_top = 0
+        pad_bottom = max(0, self.y_max - image_height)
+        pad_left = 0
+        pad_right = max(0, self.x_max - image_width)
+        return pad_top, pad_bottom, pad_left, pad_right
+
+    # New helper function for distributing and adjusting padding
+    def _compute_adjusted_padding(self, pad_top: int, pad_bottom: int, pad_left: int, pad_right: int) -> dict[str, int]:
+        delta_h = pad_top + pad_bottom
+        delta_w = pad_left + pad_right
+        pad_top_dist = delta_h // 2
+        pad_bottom_dist = delta_h - pad_top_dist
+        pad_left_dist = delta_w // 2
+        pad_right_dist = delta_w - pad_left_dist
+
+        (pad_top_adj, pad_bottom_adj, pad_left_adj, pad_right_adj) = fgeometric.adjust_padding_by_position(
+            h_top=pad_top_dist,
+            h_bottom=pad_bottom_dist,
+            w_left=pad_left_dist,
+            w_right=pad_right_dist,
+            position=self.pad_position,
+            py_random=self.py_random,
+        )
+
+        final_top = max(pad_top_adj, pad_top)
+        final_bottom = max(pad_bottom_adj, pad_bottom)
+        final_left = max(pad_left_adj, pad_left)
+        final_right = max(pad_right_adj, pad_right)
+
+        return {
+            "pad_top": final_top,
+            "pad_bottom": final_bottom,
+            "pad_left": final_left,
+            "pad_right": final_right,
+        }
+
+    def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Get parameters for crop.
+
+        Args:
+            params (dict): Dictionary with parameters for crop.
+            data (dict): Dictionary with data.
+
+        Returns:
+            dict: Dictionary with parameters for crop.
+
+        """
         image_shape = params["shape"][:2]
         image_height, image_width = image_shape
 
-        crop_height = self.y_max - self.y_min
-        crop_width = self.x_max - self.x_min
-
         if not self.pad_if_needed:
-            # If no padding, clip coordinates to image boundaries
-            x_min = np.clip(self.x_min, 0, image_width)
-            y_min = np.clip(self.y_min, 0, image_height)
-            x_max = np.clip(self.x_max, x_min, image_width)
-            y_max = np.clip(self.y_max, y_min, image_height)
-            return {"crop_coords": (x_min, y_min, x_max, y_max)}
+            return {"crop_coords": (self.x_min, self.y_min, self.x_max, self.y_max), "pad_params": None}
 
-        # Calculate padding if needed
-        pad_params = self._get_pad_params(
-            image_shape=image_shape,
-            target_shape=(max(crop_height, image_height), max(crop_width, image_width)),
-        )
+        pad_top, pad_bottom, pad_left, pad_right = self._compute_min_padding(image_height, image_width)
+        pad_params = None
 
-        if pad_params is not None:
-            # Adjust crop coordinates based on padding
-            x_min = self.x_min + pad_params["pad_left"]
-            y_min = self.y_min + pad_params["pad_top"]
-            x_max = self.x_max + pad_params["pad_left"]
-            y_max = self.y_max + pad_params["pad_top"]
-            crop_coords = (x_min, y_min, x_max, y_max)
-        else:
-            crop_coords = (self.x_min, self.y_min, self.x_max, self.y_max)
+        if any([pad_top, pad_bottom, pad_left, pad_right]):
+            pad_params = self._compute_adjusted_padding(pad_top, pad_bottom, pad_left, pad_right)
 
-        return {
-            "crop_coords": crop_coords,
-            "pad_params": pad_params,
-        }
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "x_min",
-            "y_min",
-            "x_max",
-            "y_max",
-            "pad_if_needed",
-            "border_mode",
-            "fill",
-            "fill_mask",
-            "pad_position",
-        )
+        return {"crop_coords": (self.x_min, self.y_min, self.x_max, self.y_max), "pad_params": pad_params}
 
 
 class CropNonEmptyMaskIfExists(BaseCrop):
@@ -706,6 +905,7 @@ class CropNonEmptyMaskIfExists(BaseCrop):
         >>> transformed_image = transformed['image']
         >>> transformed_mask = transformed['mask']
         # The resulting crop will likely include part of the non-zero region in the mask
+
     """
 
     class InitSchema(BaseCrop.InitSchema):
@@ -752,7 +952,13 @@ class CropNonEmptyMaskIfExists(BaseCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Get crop coordinates based on mask content."""
+        """Get crop coordinates based on mask content.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         if "mask" in data:
             mask = self._preprocess_mask(data["mask"])
         elif "masks" in data and len(data["masks"]):
@@ -786,9 +992,6 @@ class CropNonEmptyMaskIfExists(BaseCrop):
         y_max = y_min + self.height
 
         return {"crop_coords": (x_min, y_min, x_max, y_max)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "height", "width", "ignore_values", "ignore_channels"
 
 
 class BaseRandomSizedCropInitSchema(BaseTransformInitSchema):
@@ -852,6 +1055,14 @@ class _BaseRandomSizedCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop to the image.
+
+        Args:
+            img (np.ndarray): The image to crop.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            **params (Any): Additional parameters.
+
+        """
         crop = fcrops.crop(img, *crop_coords)
         return fgeometric.resize(crop, self.size, self.interpolation)
 
@@ -861,6 +1072,14 @@ class _BaseRandomSizedCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop to the mask.
+
+        Args:
+            mask (np.ndarray): The mask to crop.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            **params (Any): Additional parameters.
+
+        """
         crop = fcrops.crop(mask, *crop_coords)
         return fgeometric.resize(crop, self.size, self.mask_interpolation)
 
@@ -870,6 +1089,14 @@ class _BaseRandomSizedCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop to the bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): The bounding boxes to crop.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            **params (Any): Additional parameters.
+
+        """
         return fcrops.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"])
 
     def apply_to_keypoints(
@@ -878,6 +1105,14 @@ class _BaseRandomSizedCrop(DualTransform):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop to the keypoints.
+
+        Args:
+            keypoints (np.ndarray): The keypoints to crop.
+            crop_coords (tuple[int, int, int, int]): The coordinates of the crop.
+            **params (Any): Additional parameters.
+
+        """
         # First, crop the keypoints
         cropped_keypoints = fcrops.crop_keypoints_by_coords(keypoints, crop_coords)
 
@@ -891,9 +1126,6 @@ class _BaseRandomSizedCrop(DualTransform):
 
         # Scale the cropped keypoints
         return fgeometric.keypoints_scale(cropped_keypoints, scale_x, scale_y)
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "size", "interpolation", "mask_interpolation"
 
 
 class RandomSizedCrop(_BaseRandomSizedCrop):
@@ -952,6 +1184,7 @@ class RandomSizedCrop(_BaseRandomSizedCrop):
         # transformed_image will be a 64x64 image, resulting from a crop with height
         # between 50 and 80 pixels, and the same aspect ratio as specified by w2h_ratio,
         # taken from a random location in the original image and then resized.
+
     """
 
     _targets = ALL_TARGETS
@@ -1018,6 +1251,13 @@ class RandomSizedCrop(_BaseRandomSizedCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[int, int, int, int]]:
+        """Get the parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         image_shape = params["shape"][:2]
 
         crop_height = self.py_random.randint(*self.min_max_height)
@@ -1031,9 +1271,6 @@ class RandomSizedCrop(_BaseRandomSizedCrop):
         crop_coords = fcrops.get_crop_coords(image_shape, crop_shape, h_start, w_start)
 
         return {"crop_coords": crop_coords}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (*super().get_transform_init_args_names(), "min_max_height", "w2h_ratio")
 
 
 class RandomResizedCrop(_BaseRandomSizedCrop):
@@ -1095,6 +1332,7 @@ class RandomResizedCrop(_BaseRandomSizedCrop):
         # transformed_image will be a 80x80 crop from a random location in the original image,
         # with the crop's size between 50% and 100% of the original image size,
         # and the crop's aspect ratio between 3:4 and 4:3.
+
     """
 
     _targets = ALL_TARGETS
@@ -1165,6 +1403,13 @@ class RandomResizedCrop(_BaseRandomSizedCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[int, int, int, int]]:
+        """Get the parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         image_shape = params["shape"][:2]
         image_height, image_width = image_shape
 
@@ -1175,8 +1420,8 @@ class RandomResizedCrop(_BaseRandomSizedCrop):
             log_ratio = (math.log(self.ratio[0]), math.log(self.ratio[1]))
             aspect_ratio = math.exp(self.py_random.uniform(*log_ratio))
 
-            width = int(round(math.sqrt(target_area * aspect_ratio)))
-            height = int(round(math.sqrt(target_area / aspect_ratio)))
+            width = round(math.sqrt(target_area * aspect_ratio))
+            height = round(math.sqrt(target_area / aspect_ratio))
 
             if 0 < width <= image_width and 0 < height <= image_height:
                 i = self.py_random.randint(0, image_height - height)
@@ -1195,10 +1440,10 @@ class RandomResizedCrop(_BaseRandomSizedCrop):
         in_ratio = image_width / image_height
         if in_ratio < min(self.ratio):
             width = image_width
-            height = int(round(image_width / min(self.ratio)))
+            height = round(image_width / min(self.ratio))
         elif in_ratio > max(self.ratio):
             height = image_height
-            width = int(round(height * max(self.ratio)))
+            width = round(height * max(self.ratio))
         else:  # whole image
             width = image_width
             height = image_height
@@ -1214,9 +1459,6 @@ class RandomResizedCrop(_BaseRandomSizedCrop):
         crop_coords = fcrops.get_crop_coords(image_shape, crop_shape, h_start, w_start)
 
         return {"crop_coords": crop_coords}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "size", "scale", "ratio", "interpolation", "mask_interpolation"
 
 
 class RandomCropNearBBox(BaseCrop):
@@ -1256,7 +1498,7 @@ class RandomCropNearBBox(BaseCrop):
         p: float = 1.0,
     ):
         super().__init__(p=p)
-        self.max_part_shift = cast(tuple[float, float], max_part_shift)
+        self.max_part_shift = cast("tuple[float, float]", max_part_shift)
         self.cropping_bbox_key = cropping_bbox_key
 
     def get_params_dependent_on_data(
@@ -1264,6 +1506,13 @@ class RandomCropNearBBox(BaseCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[float, ...]]:
+        """Get the parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         bbox = data[self.cropping_bbox_key]
 
         image_shape = params["shape"][:2]
@@ -1289,10 +1538,13 @@ class RandomCropNearBBox(BaseCrop):
 
     @property
     def targets_as_params(self) -> list[str]:
-        return [self.cropping_bbox_key]
+        """Get the targets as parameters.
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "max_part_shift", "cropping_bbox_key"
+        Returns:
+            list[str]: The targets as parameters.
+
+        """
+        return [self.cropping_bbox_key]
 
 
 class BBoxSafeRandomCrop(BaseCrop):
@@ -1328,7 +1580,6 @@ class BBoxSafeRandomCrop(BaseCrop):
 
     Targets:
         image, mask, bboxes, keypoints, volume, mask3d
-
     Image types:
         uint8, float32
 
@@ -1351,6 +1602,7 @@ class BBoxSafeRandomCrop(BaseCrop):
         - Aspect ratio is preserved only when no bounding boxes are present
         - May be more restrictive in crop placement compared to AtLeastOneBboxRandomCrop
         - The crop size is determined by the bounding boxes when present
+
     """
 
     _targets = ALL_TARGETS
@@ -1385,6 +1637,13 @@ class BBoxSafeRandomCrop(BaseCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[int, int, int, int]]:
+        """Get the parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): The parameters of the transform.
+            data (dict[str, Any]): The data of the transform.
+
+        """
         image_shape = params["shape"][:2]
 
         if len(data["bboxes"]) == 0:  # less likely, this class is for use with bboxes.
@@ -1415,9 +1674,6 @@ class BBoxSafeRandomCrop(BaseCrop):
         crop_y_max = int(bbox_ymax * image_height)
 
         return {"crop_coords": (crop_x_min, crop_y_min, crop_x_max, crop_y_max)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return ("erosion_rate",)
 
 
 class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
@@ -1478,6 +1734,7 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         >>> transformed_bboxes = transformed['bboxes']
         # transformed_image will be a 224x224 image containing all original bounding boxes,
         # with their coordinates adjusted to the new image size.
+
     """
 
     _targets = ALL_TARGETS
@@ -1545,6 +1802,14 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to an image.
+
+        Args:
+            img (np.ndarray): The image to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The parameters for the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        """
         crop = fcrops.crop(img, *crop_coords)
         return fgeometric.resize(crop, (self.height, self.width), self.interpolation)
 
@@ -1554,6 +1819,14 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to a mask.
+
+        Args:
+            mask (np.ndarray): The mask to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The parameters for the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        """
         crop = fcrops.crop(mask, *crop_coords)
         return fgeometric.resize(crop, (self.height, self.width), self.mask_interpolation)
 
@@ -1563,6 +1836,17 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         crop_coords: tuple[int, int, int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to keypoints.
+
+        Args:
+            keypoints (np.ndarray): The keypoints to apply the crop and pad transform to.
+            crop_coords (tuple[int, int, int, int]): The parameters for the crop.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The keypoints after the crop and pad transform.
+
+        """
         keypoints = fcrops.crop_keypoints_by_coords(keypoints, crop_coords)
 
         crop_height = crop_coords[3] - crop_coords[1]
@@ -1571,9 +1855,6 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         scale_y = self.height / crop_height
         scale_x = self.width / crop_width
         return fgeometric.keypoints_scale(keypoints, scale_x=scale_x, scale_y=scale_y)
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (*super().get_transform_init_args_names(), "height", "width", "interpolation", "mask_interpolation")
 
 
 class CropAndPad(DualTransform):
@@ -1655,6 +1936,7 @@ class CropAndPad(DualTransform):
         >>> transformed_mask = transformed['mask']
         >>> transformed_bboxes = transformed['bboxes']
         >>> transformed_keypoints = transformed['keypoints']
+
     """
 
     _targets = ALL_TARGETS
@@ -1693,7 +1975,7 @@ class CropAndPad(DualTransform):
         ]
 
         @model_validator(mode="after")
-        def check_px_percent(self) -> Self:
+        def _check_px_percent(self) -> Self:
             if self.px is None and self.percent is None:
                 msg = "Both px and percent parameters cannot be None simultaneously."
                 raise ValueError(msg)
@@ -1761,6 +2043,19 @@ class CropAndPad(DualTransform):
         fill: tuple[float, ...] | float,
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to an image.
+
+        Args:
+            img (np.ndarray): The image to apply the crop and pad transform to.
+            crop_params (Sequence[int]): The parameters for the crop.
+            pad_params (Sequence[int]): The parameters for the pad.
+            fill (tuple[float, ...] | float): The value to fill the image with.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The image after the crop and pad transform.
+
+        """
         return fcrops.crop_and_pad(
             img,
             crop_params,
@@ -1780,6 +2075,19 @@ class CropAndPad(DualTransform):
         fill_mask: tuple[float, ...] | float,
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to a mask.
+
+        Args:
+            mask (np.ndarray): The mask to apply the crop and pad transform to.
+            crop_params (Sequence[int]): The parameters for the crop.
+            pad_params (Sequence[int]): The parameters for the pad.
+            fill_mask (tuple[float, ...] | float): The value to fill the mask with.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The mask after the crop and pad transform.
+
+        """
         return fcrops.crop_and_pad(
             mask,
             crop_params,
@@ -1799,6 +2107,19 @@ class CropAndPad(DualTransform):
         result_shape: tuple[int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to bounding boxes.
+
+        Args:
+            bboxes (np.ndarray): The bounding boxes to apply the crop and pad transform to.
+            crop_params (tuple[int, int, int, int]): The parameters for the crop.
+            pad_params (tuple[int, int, int, int]): The parameters for the pad.
+            result_shape (tuple[int, int]): The shape of the result.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The bounding boxes after the crop and pad transform.
+
+        """
         return fcrops.crop_and_pad_bboxes(bboxes, crop_params, pad_params, params["shape"][:2], result_shape)
 
     def apply_to_keypoints(
@@ -1809,6 +2130,19 @@ class CropAndPad(DualTransform):
         result_shape: tuple[int, int],
         **params: Any,
     ) -> np.ndarray:
+        """Apply the crop and pad transform to keypoints.
+
+        Args:
+            keypoints (np.ndarray): The keypoints to apply the crop and pad transform to.
+            crop_params (tuple[int, int, int, int]): The parameters for the crop.
+            pad_params (tuple[int, int, int, int]): The parameters for the pad.
+            result_shape (tuple[int, int]): The shape of the result.
+            params (dict[str, Any]): Additional parameters for the transform.
+
+        Returns:
+            np.ndarray: The keypoints after the crop and pad transform.
+
+        """
         return fcrops.crop_and_pad_keypoints(
             keypoints,
             crop_params,
@@ -1852,6 +2186,16 @@ class CropAndPad(DualTransform):
         return [max(top, 0), max(right, 0), max(bottom, 0), max(left, 0)]
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Get the parameters for the crop.
+
+        Args:
+            params (dict[str, Any]): The parameters for the transform.
+            data (dict[str, Any]): The data for the transform.
+
+        Returns:
+            dict[str, Any]: The parameters for the crop.
+
+        """
         height, width = params["shape"][:2]
 
         if self.px is not None:
@@ -1890,7 +2234,7 @@ class CropAndPad(DualTransform):
             "fill": None if pad_params is None else self._get_pad_value(self.fill),
             "fill_mask": None
             if pad_params is None
-            else self._get_pad_value(cast(Union[tuple[float, ...], float], self.fill_mask)),
+            else self._get_pad_value(cast("Union[tuple[float, ...], float]", self.fill_mask)),
             "result_shape": (result_rows, result_cols),
         }
 
@@ -1953,19 +2297,6 @@ class CropAndPad(DualTransform):
         msg = "fill should be a number or list, or tuple of two numbers."
         raise ValueError(msg)
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "px",
-            "percent",
-            "border_mode",
-            "fill",
-            "fill_mask",
-            "keep_size",
-            "sample_independently",
-            "interpolation",
-            "mask_interpolation",
-        )
-
 
 class RandomCropFromBorders(BaseCrop):
     """Randomly crops the input from its borders without resizing.
@@ -2013,6 +2344,7 @@ class RandomCropFromBorders(BaseCrop):
         # The resulting image will have random crops from each border, with the maximum
         # possible crops being 10% from the left, 20% from the right, 20% from the top,
         # and 10% from the bottom. The image size will be reduced accordingly.
+
     """
 
     _targets = ALL_TARGETS
@@ -2036,7 +2368,7 @@ class RandomCropFromBorders(BaseCrop):
         )
 
         @model_validator(mode="after")
-        def validate_crop_values(self) -> Self:
+        def _validate_crop_values(self) -> Self:
             if self.crop_left + self.crop_right > 1.0:
                 msg = "The sum of crop_left and crop_right must be <= 1."
                 raise ValueError(msg)
@@ -2064,6 +2396,16 @@ class RandomCropFromBorders(BaseCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[int, int, int, int]]:
+        """Get the parameters for the crop.
+
+        Args:
+            params (dict[str, Any]): The parameters for the transform.
+            data (dict[str, Any]): The data for the transform.
+
+        Returns:
+            dict[str, tuple[int, int, int, int]]: The parameters for the crop.
+
+        """
         height, width = params["shape"][:2]
 
         x_min = self.py_random.randint(0, int(self.crop_left * width))
@@ -2075,9 +2417,6 @@ class RandomCropFromBorders(BaseCrop):
         crop_coords = x_min, y_min, x_max, y_max
 
         return {"crop_coords": crop_coords}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "crop_left", "crop_right", "crop_top", "crop_bottom"
 
 
 class AtLeastOneBBoxRandomCrop(BaseCrop):
@@ -2137,6 +2476,7 @@ class AtLeastOneBBoxRandomCrop(BaseCrop):
         - Bounding boxes that end up partially outside the crop will be adjusted
         - Bounding boxes that end up completely outside the crop will be removed
         - If no bounding boxes are provided, acts as a regular random crop
+
     """
 
     _targets = ALL_TARGETS
@@ -2163,6 +2503,13 @@ class AtLeastOneBBoxRandomCrop(BaseCrop):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, tuple[int, int, int, int]]:
+        """Get the parameters for the crop.
+
+        Args:
+            params (dict[str, Any]): The parameters for the transform.
+            data (dict[str, Any]): The data for the transform.
+
+        """
         image_height, image_width = params["shape"][:2]
         bboxes = data.get("bboxes", [])
 
@@ -2250,6 +2597,3 @@ class AtLeastOneBBoxRandomCrop(BaseCrop):
         crop_y2 = crop_y1 + self.height
 
         return {"crop_coords": (crop_x1, crop_y1, crop_x2, crop_y2)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "height", "width", "erosion_factor"

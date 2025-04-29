@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mitogen
-Version: 0.3.22
+Version: 0.3.23
 Summary: Library for writing distributed self-replicating programs.
 Home-page: https://github.com/mitogen-hq/mitogen/
 Author: David Wilson

@@ -1,3 +1,11 @@
+"""Implementation of XY masking for time-frequency domain transformations.
+
+This module provides the XYMasking transform, which applies masking strips along the X and Y axes
+of an image. This is particularly useful for audio spectrograms, time-series data visualizations,
+and other grid-like data representations where masking in specific directions (time or frequency)
+can improve model robustness and generalization.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Literal, cast
@@ -55,6 +63,7 @@ class XYMasking(BaseDropout):
         uint8, float32
 
     Note: Either `max_x_length` or `max_y_length` or both must be defined.
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -67,7 +76,7 @@ class XYMasking(BaseDropout):
         fill_mask: tuple[float, ...] | float | None
 
         @model_validator(mode="after")
-        def check_mask_length(self) -> Self:
+        def _check_mask_length(self) -> Self:
             if (
                 isinstance(self.mask_x_length, int)
                 and self.mask_x_length <= 0
@@ -90,13 +99,13 @@ class XYMasking(BaseDropout):
         p: float = 0.5,
     ):
         super().__init__(p=p, fill=fill, fill_mask=fill_mask)
-        self.num_masks_x = cast(tuple[int, int], num_masks_x)
-        self.num_masks_y = cast(tuple[int, int], num_masks_y)
+        self.num_masks_x = cast("tuple[int, int]", num_masks_x)
+        self.num_masks_y = cast("tuple[int, int]", num_masks_y)
 
-        self.mask_x_length = cast(tuple[int, int], mask_x_length)
-        self.mask_y_length = cast(tuple[int, int], mask_y_length)
+        self.mask_x_length = cast("tuple[int, int]", mask_x_length)
+        self.mask_y_length = cast("tuple[int, int]", mask_y_length)
 
-    def validate_mask_length(
+    def _validate_mask_length(
         self,
         mask_length: tuple[int, int] | None,
         dimension_size: int,
@@ -117,24 +126,34 @@ class XYMasking(BaseDropout):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, np.ndarray]:
+        """Get parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): Dictionary containing parameters.
+            data (dict[str, Any]): Dictionary containing data.
+
+        Returns:
+            dict[str, np.ndarray]: Dictionary with parameters for transformation.
+
+        """
         image_shape = params["shape"][:2]
 
         height, width = image_shape
 
-        self.validate_mask_length(self.mask_x_length, width, "mask_x_length")
-        self.validate_mask_length(self.mask_y_length, height, "mask_y_length")
+        self._validate_mask_length(self.mask_x_length, width, "mask_x_length")
+        self._validate_mask_length(self.mask_y_length, height, "mask_y_length")
 
-        masks_x = self.generate_masks(self.num_masks_x, image_shape, self.mask_x_length, axis="x")
-        masks_y = self.generate_masks(self.num_masks_y, image_shape, self.mask_y_length, axis="y")
+        masks_x = self._generate_masks(self.num_masks_x, image_shape, self.mask_x_length, axis="x")
+        masks_y = self._generate_masks(self.num_masks_y, image_shape, self.mask_y_length, axis="y")
 
         holes = np.array(masks_x + masks_y)
 
         return {"holes": holes, "seed": self.random_generator.integers(0, 2**32 - 1)}
 
-    def generate_mask_size(self, mask_length: tuple[int, int]) -> int:
+    def _generate_mask_size(self, mask_length: tuple[int, int]) -> int:
         return self.py_random.randint(*mask_length)
 
-    def generate_masks(
+    def _generate_masks(
         self,
         num_masks: tuple[int, int],
         image_shape: tuple[int, int],
@@ -152,7 +171,7 @@ class XYMasking(BaseDropout):
         height, width = image_shape
 
         for _ in range(num_masks_integer):
-            length = self.generate_mask_size(max_length)
+            length = self._generate_mask_size(max_length)
 
             if axis == "x":
                 x_min = self.py_random.randint(0, width - length)
@@ -165,13 +184,3 @@ class XYMasking(BaseDropout):
 
             masks.append((x_min, y_min, x_max, y_max))
         return masks
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "num_masks_x",
-            "num_masks_y",
-            "mask_x_length",
-            "mask_y_length",
-            "fill",
-            "fill_mask",
-        )

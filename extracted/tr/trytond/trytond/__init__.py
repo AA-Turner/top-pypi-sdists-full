@@ -1,5 +1,7 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
+
+import decimal
 import os
 import time
 import warnings
@@ -13,12 +15,13 @@ try:
 except ImportError:
     requests_utils = None
 
-__version__ = "7.4.10"
+__version__ = "7.6.0"
+__series__ = '.'.join(__version__.split('.')[:2])
 
 os.environ.setdefault(
     'TRYTOND_APPNAME',
     os.path.basename(getattr(__main__, '__file__', 'trytond')))
-os.environ.setdefault('TRYTOND_TZ', os.environ.get('TZ', 'UTC'))
+os.environ['TRYTOND_TZ'] = os.environ.get('TZ') or 'UTC'
 os.environ['TZ'] = 'UTC'
 if hasattr(time, 'tzset'):
     time.tzset()
@@ -40,3 +43,5 @@ def default_user_agent(name="Tryton"):
 
 if requests_utils:
     requests_utils.default_user_agent = default_user_agent
+
+decimal.DefaultContext.prec = int(os.environ.get('TRYTOND_DECIMAL_PREC', 28))

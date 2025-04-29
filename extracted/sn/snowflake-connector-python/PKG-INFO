@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-connector-python
-Version: 3.14.1
+Version: 3.15.0
 Summary: Snowflake Connector for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -39,8 +39,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE
 Requires-Dist: asn1crypto<2.0.0,>0.24.0
-Requires-Dist: boto3>=1.0
-Requires-Dist: botocore>=1.0
+Requires-Dist: boto3>=1.24
+Requires-Dist: botocore>=1.24
 Requires-Dist: cffi<2.0.0,>=1.9
 Requires-Dist: cryptography>=3.1.0
 Requires-Dist: pyOpenSSL<26.0.0,>=22.0.0
@@ -86,8 +86,17 @@ https://docs.snowflake.com/
 Source code is also available at: https://github.com/snowflakedb/snowflake-connector-python
 
 # Release Notes
-- v3.15(TBD)
-  -
+- v3.15.0(Apr 29,2025)
+  - Bumped up min boto and botocore version to 1.24.
+  - OCSP: terminate certificates chain traversal if a trusted certificate already reached.
+  - Added new authentication methods support for programmatic access tokens (PATs), OAuth 2.0 Authorization Code Flow, OAuth 2.0 Client Credentials Flow, and OAuth Token caching.
+    - For OAuth 2.0 Authorization Code Flow:
+      - Added the `oauth_client_id`, `oauth_client_secret`, `oauth_authorization_url`, `oauth_token_request_url`, `oauth_redirect_uri`, `oauth_scope`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens` and `oauth_enable_single_use_refresh_tokens` parameters.
+      - Added the `OAUTH_AUTHORIZATION_CODE` value for the parameter authenticator.
+    - For OAuth 2.0 Client Credentials Flow:
+      - Added the `oauth_client_id`, `oauth_client_secret`, `oauth_token_request_url`, and `oauth_scope` parameters.
+      - Added the `OAUTH_CLIENT_CREDENTIALS` value for the parameter authenticator.
+    - For OAuth Token caching: Passing a username to driver configuration is required, and the `client_store_temporary_credential property` is to be set to `true`.
 
 - v3.14.1(April 21, 2025)
   - Added support for Python 3.13.

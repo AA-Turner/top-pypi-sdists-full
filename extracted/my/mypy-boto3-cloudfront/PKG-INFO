@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-cloudfront
-Version: 1.38.0
-Summary: Type annotations for boto3 CloudFront 1.38.0 service generated with mypy-boto3-builder 8.10.1
+Version: 1.38.4
+Summary: Type annotations for boto3 CloudFront 1.38.4 service generated with mypy-boto3-builder 8.10.1
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 CloudFront 1.38.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 CloudFront 1.38.4](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.4' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CloudFront` service.
 4. Use provided commands to install generated packages.
@@ -354,7 +354,13 @@ from boto3.session import Session
 from mypy_boto3_cloudfront import CloudFrontClient
 from mypy_boto3_cloudfront.paginator import (
     ListCloudFrontOriginAccessIdentitiesPaginator,
+    ListConnectionGroupsPaginator,
+    ListDistributionTenantsByCustomizationPaginator,
+    ListDistributionTenantsPaginator,
+    ListDistributionsByConnectionModePaginator,
     ListDistributionsPaginator,
+    ListDomainConflictsPaginator,
+    ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
     ListPublicKeysPaginator,
@@ -368,8 +374,26 @@ client: CloudFrontClient = Session().client("cloudfront")
 list_cloud_front_origin_access_identities_paginator: ListCloudFrontOriginAccessIdentitiesPaginator = client.get_paginator(
     "list_cloud_front_origin_access_identities"
 )
+list_connection_groups_paginator: ListConnectionGroupsPaginator = client.get_paginator(
+    "list_connection_groups"
+)
+list_distribution_tenants_by_customization_paginator: ListDistributionTenantsByCustomizationPaginator = client.get_paginator(
+    "list_distribution_tenants_by_customization"
+)
+list_distribution_tenants_paginator: ListDistributionTenantsPaginator = client.get_paginator(
+    "list_distribution_tenants"
+)
+list_distributions_by_connection_mode_paginator: ListDistributionsByConnectionModePaginator = (
+    client.get_paginator("list_distributions_by_connection_mode")
+)
 list_distributions_paginator: ListDistributionsPaginator = client.get_paginator(
     "list_distributions"
+)
+list_domain_conflicts_paginator: ListDomainConflictsPaginator = client.get_paginator(
+    "list_domain_conflicts"
+)
+list_invalidations_for_distribution_tenant_paginator: ListInvalidationsForDistributionTenantPaginator = client.get_paginator(
+    "list_invalidations_for_distribution_tenant"
 )
 list_invalidations_paginator: ListInvalidationsPaginator = client.get_paginator(
     "list_invalidations"
@@ -397,6 +421,7 @@ from mypy_boto3_cloudfront import CloudFrontClient
 from mypy_boto3_cloudfront.waiter import (
     DistributionDeployedWaiter,
     InvalidationCompletedWaiter,
+    InvalidationForDistributionTenantCompletedWaiter,
     StreamingDistributionDeployedWaiter,
 )
 
@@ -409,6 +434,9 @@ distribution_deployed_waiter: DistributionDeployedWaiter = client.get_waiter(
 )
 invalidation_completed_waiter: InvalidationCompletedWaiter = client.get_waiter(
     "invalidation_completed"
+)
+invalidation_for_distribution_tenant_completed_waiter: InvalidationForDistributionTenantCompletedWaiter = client.get_waiter(
+    "invalidation_for_distribution_tenant_completed"
 )
 streaming_distribution_deployed_waiter: StreamingDistributionDeployedWaiter = client.get_waiter(
     "streaming_distribution_deployed"

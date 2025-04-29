@@ -13,6 +13,7 @@ class FieldOne2OneTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -123,7 +124,7 @@ class FieldOne2OneTestCase(TestCase):
         with self.assertRaisesRegex(
                 DomainValidationError,
                 'The value "%s" for field "One2One" '
-                'in record ".*" of "One2One"' % target.rec_name):
+                'in record ".*" of "One2One Domain"' % target.rec_name):
             One2One.create([{
                         'one2one': target.id,
                         }])
@@ -320,3 +321,84 @@ class FieldOne2OneTestCase(TestCase):
             One2One.write([one2one2], {
                     'one2one': target.id,
                     })
+
+    @with_transaction()
+    def test_set_instance(self):
+        "Test set instance"
+        pool = Pool()
+        One2One = pool.get('test.one2one')
+        Target = pool.get('test.one2one.target')
+
+        record = One2One()
+        record.one2one = target = Target()
+
+        self.assertIs(record.one2one, target)
+
+    @with_transaction()
+    def test_set_dict(self):
+        "Test set dictionary"
+        pool = Pool()
+        One2One = pool.get('test.one2one')
+        Target = pool.get('test.one2one.target')
+
+        record = One2One()
+        record.one2one = {'name': "Test"}
+
+        self.assertIsInstance(record.one2one, Target)
+        self.assertEqual(record.one2one.name, "Test")
+
+    @with_transaction()
+    def test_set_integer(self):
+        "Test set integer"
+        pool = Pool()
+        One2One = pool.get('test.one2one')
+        Target = pool.get('test.one2one.target')
+
+        target = Target(name="Test")
+        target.save()
+        record = One2One()
+        record.one2one = target.id
+
+        self.assertIsInstance(record.one2one, Target)
+        self.assertEqual(record.one2one.name, "Test")
+
+    @with_transaction()
+    def test_context_attribute(self):
+        "Test context on one2one attribute"
+        pool = Pool()
+        One2One = pool.get('test.one2one_context')
+        Target = pool.get('test.one2one_context.target')
+
+        target, = Target.create([{}])
+        record, = One2One.create([{
+                    'one2one': target.id,
+                    }])
+
+        self.assertEqual(record.one2one.context, 'foo')
+
+    @with_transaction()
+    def test_context_read(self):
+        "Test context on one2one read"
+        pool = Pool()
+        One2One = pool.get('test.one2one_context')
+        Target = pool.get('test.one2one_context.target')
+
+        target, = Target.create([{}])
+        record, = One2One.create([{
+                    'one2one': target.id,
+                    }])
+        data, = One2One.read([record.id], ['one2one.context'])
+
+        self.assertEqual(data['one2one.']['context'], 'foo')
+
+    @with_transaction()
+    def test_context_set(self):
+        "Test context on one2one set"
+        pool = Pool()
+        One2One = pool.get('test.one2one_context')
+        Target = pool.get('test.one2one_context.target')
+
+        target, = Target.create([{}])
+        record = One2One(one2one=target.id)
+
+        self.assertEqual(record.one2one.context, 'foo')

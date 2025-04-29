@@ -142,9 +142,7 @@ def check_conf_content(context: CertoraContext) -> None:
     if Attrs.is_evm_app() and not context.files and not context.project_sanity and not context.foundry:
         raise Util.CertoraUserInputError("Mandatory 'files' attribute is missing from the configuration")
     context.files = context.conf_file_attr.get('files')
-    if Attrs.is_rust_app():
-        has_build_script = getattr(context, 'build_script', False)
-        if not has_build_script and 'files' not in context.conf_file_attr:
-            raise Util.CertoraUserInputError("Mandatory 'build_script' or 'files' attribute is missing from the configuration")
+    if Attrs.is_soroban_app() and not context.files and not context.build_script:
+        raise Util.CertoraUserInputError("'files' or 'build script' must be set for Soroban runs")
 
     context.files = context.conf_file_attr.get('files')

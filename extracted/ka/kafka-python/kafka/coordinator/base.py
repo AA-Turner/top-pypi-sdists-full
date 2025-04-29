@@ -33,6 +33,16 @@ class Generation(object):
         self.member_id = member_id
         self.protocol = protocol
 
+    @property
+    def is_valid(self):
+        return self.generation_id != DEFAULT_GENERATION_ID
+
+    def __eq__(self, other):
+        return (self.generation_id == other.generation_id and
+                self.member_id == other.member_id and
+                self.protocol == other.protocol)
+
+
 Generation.NO_GENERATION = Generation(DEFAULT_GENERATION_ID, UNKNOWN_MEMBER_ID, None)
 
 
@@ -461,7 +471,8 @@ class BaseCoordinator(object):
                 exception = future.exception
                 if isinstance(exception, (Errors.UnknownMemberIdError,
                                           Errors.RebalanceInProgressError,
-                                          Errors.IllegalGenerationError)):
+                                          Errors.IllegalGenerationError,
+                                          Errors.MemberIdRequiredError)):
                     continue
                 elif not future.retriable():
                     raise exception  # pylint: disable-msg=raising-bad-type
@@ -478,7 +489,7 @@ class BaseCoordinator(object):
                 group leader
         """
         if self.coordinator_unknown():
-            e = Errors.GroupCoordinatorNotAvailableError(self.coordinator_id)
+            e = Errors.CoordinatorNotAvailableError(self.coordinator_id)
             return Future().failure(e)
 
         elif not self._client.ready(self.coordinator_id, metadata_priority=False):
@@ -491,7 +502,7 @@ class BaseCoordinator(object):
             (protocol, metadata if isinstance(metadata, bytes) else metadata.encode())
             for protocol, metadata in self.group_protocols()
         ]
-        version = self._client.api_version(JoinGroupRequest, max_version=3)
+        version = self._client.api_version(JoinGroupRequest, max_version=4)
         if version == 0:
             request = JoinGroupRequest[version](
                 self.group_id,
@@ -555,7 +566,7 @@ class BaseCoordinator(object):
                 else:
                     self._on_join_follower().chain(future)
 
-        elif error_type is Errors.GroupLoadInProgressError:
+        elif error_type is Errors.CoordinatorLoadInProgressError:
             log.debug("Attempt to join group %s rejected since coordinator %s"
                       " is loading the group.", self.group_id, self.coordinator_id)
             # backoff and retry
@@ -567,8 +578,8 @@ class BaseCoordinator(object):
             log.debug("Attempt to join group %s failed due to unknown member id",
                       self.group_id)
             future.failure(error)
-        elif error_type in (Errors.GroupCoordinatorNotAvailableError,
-                            Errors.NotCoordinatorForGroupError):
+        elif error_type in (Errors.CoordinatorNotAvailableError,
+                            Errors.NotCoordinatorError):
             # re-discover the coordinator and retry with backoff
             self.coordinator_dead(error_type())
             log.debug("Attempt to join group %s failed due to obsolete "
@@ -585,6 +596,11 @@ class BaseCoordinator(object):
             future.failure(error)
         elif error_type is Errors.GroupAuthorizationFailedError:
             future.failure(error_type(self.group_id))
+        elif error_type is Errors.MemberIdRequiredError:
+            # Broker requires a concrete member id to be allowed to join the group. Update member id
+            # and send another join group request in next cycle.
+            self.reset_generation(response.member_id)
+            future.failure(error_type())
         else:
             # unexpected error, throw the exception
             error = error_type()
@@ -636,7 +652,7 @@ class BaseCoordinator(object):
 
     def _send_sync_group_request(self, request):
         if self.coordinator_unknown():
-            e = Errors.GroupCoordinatorNotAvailableError(self.coordinator_id)
+            e = Errors.CoordinatorNotAvailableError(self.coordinator_id)
             return Future().failure(e)
 
         # We assume that coordinator is ready if we're sending SyncGroup
@@ -674,8 +690,8 @@ class BaseCoordinator(object):
             log.debug("SyncGroup for group %s failed due to %s", self.group_id, error)
             self.reset_generation()
             future.failure(error)
-        elif error_type in (Errors.GroupCoordinatorNotAvailableError,
-                            Errors.NotCoordinatorForGroupError):
+        elif error_type in (Errors.CoordinatorNotAvailableError,
+                            Errors.NotCoordinatorError):
             error = error_type()
             log.debug("SyncGroup for group %s failed due to %s", self.group_id, error)
             self.coordinator_dead(error)
@@ -718,7 +734,7 @@ class BaseCoordinator(object):
         error_type = Errors.for_code(response.error_code)
         if error_type is Errors.NoError:
             with self._lock:
-                coordinator_id = self._client.cluster.add_group_coordinator(self.group_id, response)
+                coordinator_id = self._client.cluster.add_coordinator(response, 'group', self.group_id)
                 if not coordinator_id:
                     # This could happen if coordinator metadata is different
                     # than broker metadata
@@ -732,7 +748,7 @@ class BaseCoordinator(object):
                 self.heartbeat.reset_timeouts()
             future.success(self.coordinator_id)
 
-        elif error_type is Errors.GroupCoordinatorNotAvailableError:
+        elif error_type is Errors.CoordinatorNotAvailableError:
             log.debug("Group Coordinator Not Available; retry")
             future.failure(error_type())
         elif error_type is Errors.GroupAuthorizationFailedError:
@@ -762,10 +778,10 @@ class BaseCoordinator(object):
                 return None
             return self._generation
 
-    def reset_generation(self):
-        """Reset the generation and memberId because we have fallen out of the group."""
+    def reset_generation(self, member_id=UNKNOWN_MEMBER_ID):
+        """Reset the generation and member_id because we have fallen out of the group."""
         with self._lock:
-            self._generation = Generation.NO_GENERATION
+            self._generation = Generation(DEFAULT_GENERATION_ID, member_id, None)
             self.rejoin_needed = True
             self.state = MemberState.UNJOINED
 
@@ -799,8 +815,10 @@ class BaseCoordinator(object):
                 self._heartbeat_thread = None
 
     def __del__(self):
-        if hasattr(self, '_heartbeat_thread'):
+        try:
             self._close_heartbeat_thread()
+        except (TypeError, AttributeError):
+            pass
 
     def close(self, timeout_ms=None):
         """Close the coordinator, leave the current group,
@@ -816,7 +834,7 @@ class BaseCoordinator(object):
         with self._client._lock, self._lock:
             if (not self.coordinator_unknown()
                 and self.state is not MemberState.UNJOINED
-                and self._generation is not Generation.NO_GENERATION):
+                and self._generation.is_valid):
 
                 # this is a minimal effort attempt to leave the group. we do not
                 # attempt any resending if the request fails or times out.
@@ -842,7 +860,7 @@ class BaseCoordinator(object):
     def _send_heartbeat_request(self):
         """Send a heartbeat request"""
         if self.coordinator_unknown():
-            e = Errors.GroupCoordinatorNotAvailableError(self.coordinator_id)
+            e = Errors.CoordinatorNotAvailableError(self.coordinator_id)
             return Future().failure(e)
 
         elif not self._client.ready(self.coordinator_id, metadata_priority=False):
@@ -869,8 +887,8 @@ class BaseCoordinator(object):
             log.debug("Received successful heartbeat response for group %s",
                       self.group_id)
             future.success(None)
-        elif error_type in (Errors.GroupCoordinatorNotAvailableError,
-                            Errors.NotCoordinatorForGroupError):
+        elif error_type in (Errors.CoordinatorNotAvailableError,
+                            Errors.NotCoordinatorError):
             log.warning("Heartbeat failed for group %s: coordinator (node %s)"
                         " is either not started or not valid", self.group_id,
                         self.coordinator())

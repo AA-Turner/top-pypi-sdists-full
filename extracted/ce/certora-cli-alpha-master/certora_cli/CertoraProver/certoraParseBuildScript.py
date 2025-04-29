@@ -17,6 +17,7 @@ import subprocess
 import json
 import logging
 import os
+from typing import List
 
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
@@ -56,17 +57,11 @@ def add_solana_files_to_context(context: CertoraContext, json_obj: dict) -> None
                 update_metadata(context, solana_files_attr)
 
 
-def run_script_and_parse_json(context: CertoraContext) -> None:
-    if not context.build_script:
-        return
+def run_rust_build(context: CertoraContext, build_cmd: List[str]) -> None:
+
     try:
-        build_script_logger.info(f"Building from script {context.build_script}")
-        run_cmd = [context.build_script, '--json']
-        if context.cargo_features is not None:
-            run_cmd.append('--cargo_features')
-            for feature in context.cargo_features:
-                run_cmd.append(feature)
-        result = subprocess.run(run_cmd, capture_output=True, text=True)
+        build_script_logger.info(f"Building by calling {build_cmd}")
+        result = subprocess.run(build_cmd, capture_output=True, text=True)
 
         # Check if the script executed successfully
         if result.returncode != 0:

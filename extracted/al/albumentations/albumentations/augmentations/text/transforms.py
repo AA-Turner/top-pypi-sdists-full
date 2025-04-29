@@ -1,3 +1,9 @@
+"""Transforms for text rendering and augmentation on images.
+
+This module provides transforms for adding and manipulating text on images,
+including text augmentation techniques like word insertion, deletion, and swapping.
+"""
+
 from __future__ import annotations
 
 import re
@@ -25,7 +31,7 @@ class TextImage(ImageOnlyTransform):
     Args:
         font_path (str | Path): Path to the font file to use for rendering text.
         stopwords (list[str] | None): List of stopwords for text augmentation.
-        augmentations (tuple[str | None, ...] | list[str | None]): List of text augmentations to apply.
+        augmentations (tuple[str | None, ...]): List of text augmentations to apply.
             None: text is printed as is
             "insertion": insert random stop words into the text.
             "swap": swap random words in the text.
@@ -33,7 +39,7 @@ class TextImage(ImageOnlyTransform):
         fraction_range (tuple[float, float]): Range for selecting a fraction of bounding boxes to modify.
         font_size_fraction_range (tuple[float, float]): Range for selecting the font size as a fraction of
             bounding box height.
-        font_color (list[str] | str): List of possible font colors or a single font color.
+        font_color (tuple[float, ...]): Font color as RGB values (e.g., (0, 0, 0) for black).
         clear_bg (bool): Whether to clear the background before rendering text.
         metadata_key (str): Key to access metadata in the parameters.
         p (float): Probability of applying the transform.
@@ -44,19 +50,19 @@ class TextImage(ImageOnlyTransform):
     Image types:
         uint8, float32
 
-    Reference:
-        https://github.com/danaaubakirova/doc-augmentation
+    References:
+        doc-augmentation: https://github.com/danaaubakirova/doc-augmentation
 
     Examples:
         >>> import albumentations as A
         >>> transform = A.Compose([
             A.TextImage(
                 font_path=Path("/path/to/font.ttf"),
-                stopwords=["the", "is", "in"],
+                stopwords=("the", "is", "in"),
                 augmentations=("insertion", "deletion"),
                 fraction_range=(0.5, 1.0),
                 font_size_fraction_range=(0.5, 0.9),
-                font_color=["red", "green", "blue"],
+                font_color=(255, 0, 0),  # red in RGB
                 metadata_key="text_metadata",
                 p=0.5
             )
@@ -64,12 +70,13 @@ class TextImage(ImageOnlyTransform):
         >>> transformed = transform(image=my_image, text_metadata=my_metadata)
         >>> image = transformed['image']
         # This will render text on `my_image` based on the metadata provided in `my_metadata`.
+
     """
 
     class InitSchema(BaseTransformInitSchema):
         font_path: str | Path
         stopwords: tuple[str, ...]
-        augmentations: tuple[str | None, ...] | list[str | None]
+        augmentations: tuple[str | None, ...]
         fraction_range: Annotated[
             tuple[float, float],
             AfterValidator(nondecreasing),
@@ -80,7 +87,7 @@ class TextImage(ImageOnlyTransform):
             AfterValidator(nondecreasing),
             AfterValidator(check_range_bounds(0, 1)),
         ]
-        font_color: list[tuple[float, ...] | float | str] | tuple[float, ...] | float | str
+        font_color: tuple[float, ...]
         clear_bg: bool
         metadata_key: str
 
@@ -88,10 +95,10 @@ class TextImage(ImageOnlyTransform):
         self,
         font_path: str | Path,
         stopwords: tuple[str, ...] = ("the", "is", "in", "at", "of"),
-        augmentations: tuple[Literal["insertion", "swap", "deletion"] | None] = (None,),
+        augmentations: tuple[Literal["insertion", "swap", "deletion"] | None, ...] = (None,),
         fraction_range: tuple[float, float] = (1.0, 1.0),
         font_size_fraction_range: tuple[float, float] = (0.8, 0.9),
-        font_color: list[tuple[float, ...] | float | str] | tuple[float, ...] | float | str = "black",
+        font_color: tuple[float, ...] = (0, 0, 0),  # black in RGB
         clear_bg: bool = False,
         metadata_key: str = "textimage_metadata",
         p: float = 0.5,
@@ -108,19 +115,13 @@ class TextImage(ImageOnlyTransform):
 
     @property
     def targets_as_params(self) -> list[str]:
-        return [self.metadata_key]
+        """Get list of targets that should be passed as parameters to transforms.
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            "font_path",
-            "stopwords",
-            "augmentations",
-            "fraction_range",
-            "font_size_fraction_range",
-            "font_color",
-            "metadata_key",
-            "clear_bg",
-        )
+        Returns:
+            list[str]: List containing the metadata key name
+
+        """
+        return [self.metadata_key]
 
     def random_aug(
         self,
@@ -128,6 +129,20 @@ class TextImage(ImageOnlyTransform):
         fraction: float,
         choice: Literal["insertion", "swap", "deletion"],
     ) -> str:
+        """Apply a random text augmentation to the input text.
+
+        Args:
+            text (str): Original text to augment
+            fraction (float): Fraction of words to modify
+            choice (Literal["insertion", "swap", "deletion"]): Type of augmentation to apply
+
+        Returns:
+            str: Augmented text or empty string if no change was made
+
+        Raises:
+            ValueError: If an invalid choice is provided
+
+        """
         words = [word for word in text.strip().split() if word]
         num_words = len(words)
         num_words_to_modify = max(1, int(fraction * num_words))
@@ -151,6 +166,21 @@ class TextImage(ImageOnlyTransform):
         text: str,
         bbox_index: int,
     ) -> dict[str, Any]:
+        """Preprocess text metadata for a single bounding box.
+
+        Args:
+            image (np.ndarray): Input image
+            bbox (tuple[float, float, float, float]): Normalized bounding box coordinates
+            text (str): Text to render in the bounding box
+            bbox_index (int): Index of the bounding box in the original metadata
+
+        Returns:
+            dict[str, Any]: Processed metadata including font, position, and text information
+
+        Raises:
+            ImportError: If PIL.ImageFont is not installed
+
+        """
         try:
             from PIL import ImageFont
         except ImportError as err:
@@ -174,7 +204,7 @@ class TextImage(ImageOnlyTransform):
 
             augmented_text = text if augmentation is None else self.random_aug(text, 0.5, choice=augmentation)
 
-        font_color = self.py_random.choice(self.font_color) if isinstance(self.font_color, list) else self.font_color
+        font_color = self.font_color
 
         return {
             "bbox_coords": (x_min, y_min, x_max, y_max),
@@ -186,6 +216,16 @@ class TextImage(ImageOnlyTransform):
         }
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Generate parameters based on input data.
+
+        Args:
+            params (dict[str, Any]): Dictionary of existing parameters
+            data (dict[str, Any]): Dictionary containing input data with image and metadata
+
+        Returns:
+            dict[str, Any]: Dictionary containing the overlay data for text rendering
+
+        """
         image = data["image"] if "image" in data else data["images"][0]
 
         metadata = data[self.metadata_key]
@@ -219,9 +259,31 @@ class TextImage(ImageOnlyTransform):
         overlay_data: list[dict[str, Any]],
         **params: Any,
     ) -> np.ndarray:
+        """Apply text rendering to the input image.
+
+        Args:
+            img (np.ndarray): Input image
+            overlay_data (list[dict[str, Any]]): List of dictionaries containing text rendering information
+            **params (Any): Additional parameters
+
+        Returns:
+            np.ndarray: Image with rendered text
+
+        """
         return ftext.render_text(img, overlay_data, clear_bg=self.clear_bg)
 
     def apply_with_params(self, params: dict[str, Any], *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Apply the transform and include overlay data in the result.
+
+        Args:
+            params (dict[str, Any]): Parameters for the transform
+            *args (Any): Additional positional arguments
+            **kwargs (Any): Additional keyword arguments
+
+        Returns:
+            dict[str, Any]: Dictionary containing the transformed data and simplified overlay information
+
+        """
         res = super().apply_with_params(params, *args, **kwargs)
         res["overlay_data"] = [
             {

@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: openslide-python
-Version: 1.4.1
+Version: 1.4.2
 Summary: Python interface to OpenSlide
 Maintainer-email: OpenSlide project <openslide-users@lists.andrew.cmu.edu>
-License: GNU Lesser General Public License, version 2.1
+License-Expression: LGPL-2.1-only AND BSD-3-Clause AND MIT AND LicenseRef-Public-Domain
 Project-URL: Homepage, https://openslide.org/
 Project-URL: Documentation, https://openslide.org/api/python/
 Project-URL: Release notes, https://github.com/openslide/openslide-python/blob/main/CHANGELOG.md
@@ -13,13 +13,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,10 +25,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: COPYING.LESSER
+License-File: examples/deepzoom/licenses/LICENSE.jquery
+License-File: examples/deepzoom/licenses/LICENSE.openseadragon
+License-File: examples/deepzoom/licenses/LICENSE.openseadragon-scalebar
 Requires-Dist: Pillow
+Dynamic: license-file
 
 # OpenSlide Python
 
@@ -75,7 +77,7 @@ OpenSlide can read virtual slides in several formats:
 
 ## Requirements
 
-* Python ≥ 3.8
+* Python ≥ 3.9
 * OpenSlide ≥ 3.4.0
 * Pillow
 
@@ -107,7 +109,13 @@ installing so OpenSlide Python can find OpenSlide.
 ## License
 
 OpenSlide Python is released under the terms of the [GNU Lesser General
-Public License, version 2.1](https://openslide.org/license/).
+Public License, version 2.1](https://openslide.org/license/).  The Deep Zoom
+example code includes JavaScript released under the
+[BSD license](https://github.com/openslide/openslide-python/tree/main/examples/deepzoom/licenses/LICENSE.openseadragon),
+the
+[MIT license](https://github.com/openslide/openslide-python/tree/main/examples/deepzoom/licenses/LICENSE.jquery),
+and released into the
+[public domain](https://github.com/openslide/openslide-python/tree/main/examples/deepzoom/licenses/LICENSE.openseadragon-scalebar).
 
 OpenSlide Python is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY

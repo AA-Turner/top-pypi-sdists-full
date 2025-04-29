@@ -7,6 +7,7 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
+import os
 
 from meutils.pipe import *
 from meutils.io.files_utils import to_base64
@@ -72,6 +73,9 @@ class Completions(object):
                 request.model = "glm-4v-flash"
                 request.max_tokens = None
                 self.client = zhipuai_client
+
+        elif "deepseek-r" in request.model:
+            request.separate_reasoning = True
         ###########################################################################
 
         data = to_openai_params(request)
@@ -81,9 +85,13 @@ class Completions(object):
             data.pop("frequency_penalty", None)
             data.pop("extra_body", None)
 
-            if "thinking" in request.model and request.reasoning_effort is None:
-                data['model'] = data['model'].removesuffix("-thinking")
-                data['reasoning_effort'] = None
+            if not hasattr(request, "reasoning_effort"):  # 默认关闭思考
+                request.reasoning_effort = "none"
+
+            if "thinking" in request.model:
+                data['model'] = data['model'].removesuffix("-thinking")  # 开启思考
+                # data['reasoning_effort'] = None
+
                 # data['reasoning_effort'] = "low"
 
         return await self.client.chat.completions.create(**data)
@@ -95,6 +103,7 @@ if __name__ == '__main__':
     request = CompletionRequest(
         # model="gemini-2.0-flash",
         model="glm-4-flash",
+        # model="deepseek/deepseek-r1-turbo",
 
         messages=[
             {
@@ -173,10 +182,23 @@ if __name__ == '__main__':
         "n": 1,
         "reasoning_effort": None
     }
+    api_key = os.getenv("GOOGLE_API_KEY")
+    base_url = os.getenv("GOOGLE_BASE_URL")
+    arun(Completions(api_key=api_key, base_url=base_url).create(request.construct(**d)))
 
-    # request = request.construct(**d)
-    from meutils.io.files_utils import to_url
-
-    # arun(to_url(request.last_urls.get("image_url")[-1], filename='x.jpeg'))
-
-    arun(Completions().create(request.construct(**d)))
+    # request = CompletionRequest(
+    #     # model="gemini-2.0-flash",
+    #     # model="glm-4-flash",
+    #     model="deepseek/deepseek-r1-turbo",
+    #
+    #     messages=[
+    #
+    #         {"role": "user", "content": "你好"},
+    #
+    #     ],
+    #     stream=False,
+    #     max_tokens=None,
+    # )
+    # api_key = "sk_LLktDFVC7GNqcGgVoxO1rA70_YHCM_2vaQz2dfwy9tY"
+    # base_url = "https://api.ppinfra.com/v3/openai"
+    # arun(Completions(api_key=api_key, base_url=base_url).create(request))

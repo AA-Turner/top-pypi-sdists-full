@@ -7,6 +7,7 @@ from decimal import Decimal
 from itertools import takewhile
 from locale import CHAR_MAX
 
+from simpleeval import simple_eval
 from sql import Table
 
 from trytond.cache import Cache
@@ -14,6 +15,7 @@ from trytond.exceptions import UserError
 from trytond.i18n import gettext
 from trytond.model import (
     Check, DeactivableMixin, ModelSQL, ModelView, Unique, fields)
+from trytond.model.exceptions import AccessError
 from trytond.modules import create_graph, load_translations
 from trytond.pool import Pool
 from trytond.pyson import Eval
@@ -31,11 +33,15 @@ class DateError(UserError):
     pass
 
 
+class PluralError(UserError):
+    pass
+
+
 class TranslatableError(UserError):
     pass
 
 
-class DeleteDefaultError(UserError):
+class DeleteDefaultError(AccessError):
     pass
 
 
@@ -64,8 +70,8 @@ def _replace(src, old, new, escape='%'):
 
 
 class Lang(DeactivableMixin, ModelSQL, ModelView):
-    "Language"
     __name__ = "ir.lang"
+    __string__ = "Language"
     name = fields.Char('Name', required=True, translate=True)
     code = fields.Char('Code', required=True, help="RFC 4646 tag.")
     translatable = fields.Boolean('Translatable', readonly=True)
@@ -74,6 +80,16 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
             ('ltr', 'Left-to-right'),
             ('rtl', 'Right-to-left'),
             ], 'Direction', required=True)
+
+    nplurals = fields.Integer(
+        "Number of plurals", required=True,
+        domain=[
+            ('nplurals', '>=', 1),
+            ('nplurals', '<', 5),
+            ])
+    plural = fields.Char(
+        "Plural", required=True,
+        help="Python expression that returns the plural form for 'n'.")
 
     # date
     date = fields.Char("Date", required=True, strip=False)
@@ -84,8 +100,15 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
     # number
     grouping = fields.Char('Grouping', required=True)
     decimal_point = fields.Char(
-        "Decimal Separator", required=True, strip=False)
-    thousands_sep = fields.Char("Thousands Separator", strip=False)
+        "Decimal Separator", required=True, strip=False,
+        domain=[
+            ('decimal_point', '!=', Eval('thousands_sep', '')),
+            ])
+    thousands_sep = fields.Char(
+        "Thousands Separator", strip=False,
+        domain=[
+            ('thousands_sep', '!=', Eval('decimal_point', '')),
+            ])
 
     # monetary formatting
     mon_grouping = fields.Char('Grouping', required=True)
@@ -109,7 +132,7 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(Lang, cls).__setup__()
+        super().__setup__()
 
         table = cls.__table__()
         cls._sql_constraints += [
@@ -139,7 +162,7 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
         pool = Pool()
         Translation = pool.get('ir.translation')
         Config = pool.get('ir.configuration')
-        res = super(Lang, cls).read(ids, fields_names)
+        res = super().read(ids, fields_names)
         if (Transaction().context.get('translate_name')
                 and (not fields_names or 'name' in fields_names)):
             with Transaction().set_context(
@@ -163,6 +186,14 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
     @staticmethod
     def default_direction():
         return 'ltr'
+
+    @classmethod
+    def default_nplurals(cls):
+        return 2
+
+    @classmethod
+    def default_plural(cls):
+        return 'n != 1'
 
     @staticmethod
     def default_date():
@@ -261,6 +292,7 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
         cls.check_grouping(languages, field_names)
         cls.check_date(languages, field_names)
         cls.check_translatable(languages)
+        cls.check_plural(languages, field_names)
 
     @classmethod
     def check_grouping(cls, langs, fields_names=None):
@@ -333,10 +365,27 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
                         language=lang.rec_name))
 
     @classmethod
-    def check_xml_record(cls, langs, values):
-        pass
+    def check_plural(cls, languages, field_names=None):
+        if field_names and 'plural' not in field_names:
+            return
+        for language in languages:
+            language.get_plural(1)
 
-    @classmethod
+    def get_plural(self, n):
+        try:
+            plural = simple_eval(self.plural, names={'n': n})
+            if not (0 <= plural < self.nplurals):
+                raise ValueError(
+                    f"result is not between 0 and {self.nplurals}")
+            return int(plural)
+        except Exception as exception:
+            raise PluralError(
+                gettext('ir.msg_language_plural_invalid',
+                    language=self.rec_name,
+                    plural=self.plural,
+                    n=n,
+                    exception=exception)) from exception
+
     def get_translatable_languages(cls):
         res = cls._lang_cache.get('translatable_languages')
         if res is None:
@@ -348,43 +397,34 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
         return res
 
     @classmethod
-    def create(cls, vlist):
-        pool = Pool()
-        Translation = pool.get('ir.translation')
-        # Clear cache
-        cls._lang_cache.clear()
-        languages = super(Lang, cls).create(vlist)
-        Translation._get_language_cache.clear()
-        _parents.clear()
-        return languages
-
-    @classmethod
-    def write(cls, langs, values, *args):
-        pool = Pool()
-        Translation = pool.get('ir.translation')
-        # Clear cache
-        cls._lang_cache.clear()
-        cls._code_cache.clear()
-        super(Lang, cls).write(langs, values, *args)
-        Translation._get_language_cache.clear()
-        _parents.clear()
-
-    @classmethod
-    def delete(cls, langs):
+    def check_modification(cls, mode, languages, values=None, external=False):
         pool = Pool()
         Config = pool.get('ir.configuration')
+
+        super().check_modification(
+            mode, languages, values=values, external=external)
+
+        if mode == 'write' and 'code' in values:
+            for language in languages:
+                if (language.code == Config.get_language()
+                        and (not values
+                            or language.code != values['code'])):
+                    raise DeleteDefaultError(
+                        gettext('ir.msg_language_delete_default',
+                            language=language.rec_name))
+
+    @classmethod
+    def on_modification(cls, mode, languages, field_names=None):
+        pool = Pool()
         Translation = pool.get('ir.translation')
-        for lang in langs:
-            if lang.code == Config.get_language():
-                raise DeleteDefaultError(
-                    gettext('ir.msg_language_delete_default',
-                        language=lang.rec_name))
-        # Clear cache
+
+        super().on_modification(mode, languages, field_names=field_names)
+
         cls._lang_cache.clear()
-        cls._code_cache.clear()
-        super(Lang, cls).delete(langs)
         Translation._get_language_cache.clear()
         _parents.clear()
+        if mode in {'write', 'delete'}:
+            cls._code_cache.clear()
 
     @classmethod
     @inactive_records
@@ -615,9 +655,7 @@ class Lang(DeactivableMixin, ModelSQL, ModelView):
 
 
 class LangConfigStart(ModelView):
-    "Configure languages"
     __name__ = 'ir.lang.config.start'
-
     languages = fields.Many2Many('ir.lang', None, None, "Languages")
 
     @classmethod
@@ -628,7 +666,6 @@ class LangConfigStart(ModelView):
 
 
 class LangConfig(Wizard):
-    'Configure languages'
     __name__ = 'ir.lang.config'
 
     start = StateView('ir.lang.config.start',

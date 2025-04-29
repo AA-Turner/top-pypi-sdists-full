@@ -2,6 +2,7 @@
 # this repository contains the full copyright notices and license terms.
 from unittest.mock import DEFAULT, Mock, call
 
+from trytond.protocols.wrappers import exceptions
 from trytond.rpc import RPC
 from trytond.tests.test_tryton import (
     TestCase, activate_module, with_transaction)
@@ -13,6 +14,7 @@ class RPCTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('ir')
 
     @with_transaction()
@@ -35,21 +37,19 @@ class RPCTestCase(TestCase):
     def test_wrong_context_type(self):
         "Test wrong context type"
         rpc = RPC()
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaisesRegex(
+                exceptions.UnprocessableEntity,
+                "context must be a dictionary"):
             rpc.convert(None, context=None)
-
-        self.assertEqual(
-            str(cm.exception), "context must be a dictionary")
 
     @with_transaction()
     def test_missing_context(self):
         "Test missing context"
         rpc = RPC()
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaisesRegex(
+                exceptions.UnprocessableEntity,
+                "Missing context argument"):
             rpc.convert(None)
-
-        self.assertEqual(
-            str(cm.exception), "Missing context argument")
 
     @with_transaction()
     def test_clean_context(self):
@@ -114,7 +114,7 @@ class RPCTestCase(TestCase):
 
         obj.reset_mock()
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(exceptions.UnprocessableEntity):
             rpc.convert(obj, [1, 1], {})
 
     @with_transaction()
@@ -141,3 +141,47 @@ class RPCTestCase(TestCase):
         self.assertEqual(
             rpc_with_access.convert(None, {}),
             ([], {}, {'_check_access': True}, None))
+
+    @with_transaction()
+    def test_size_limits_integer(self):
+        "Test size_limits integer"
+        obj = Mock()
+        rpc = RPC(size_limits={0: 42})
+
+        rpc.convert(obj, list(range(10)), {})
+
+        with self.assertRaises(exceptions.RequestEntityTooLarge):
+            rpc.convert(obj, list(range(43)), {})
+
+    @with_transaction()
+    def test_size_limits_slice(self):
+        "Test size_limits slice"
+        obj = Mock()
+        rpc = RPC(size_limits={(0, None, 2): 42})
+
+        rpc.convert(obj, list(range(10)), None, list(range(10)), {})
+
+        with self.assertRaises(exceptions.RequestEntityTooLarge):
+            rpc.convert(obj, list(range(30)), None, list(range(30)), {})
+
+    @with_transaction()
+    def test_size_limits_integer_number(self):
+        "Test size_limits integer number"
+        obj = Mock()
+        rpc = RPC(size_limits={0: 42})
+
+        rpc.convert(obj, 10, {})
+
+        with self.assertRaises(exceptions.RequestEntityTooLarge):
+            rpc.convert(obj, 43, {})
+
+    @with_transaction()
+    def test_size_limits_slice_number(self):
+        "Test size_limits slice"
+        obj = Mock()
+        rpc = RPC(size_limits={(0, None, 2): 42})
+
+        rpc.convert(obj, 10, None, 10, {})
+
+        with self.assertRaises(exceptions.RequestEntityTooLarge):
+            rpc.convert(obj, 30, None, 30, {})

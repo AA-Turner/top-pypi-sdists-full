@@ -1,3 +1,12 @@
+"""Module containing utility functions and classes for the core Albumentations framework.
+
+This module provides a collection of helper functions and base classes used throughout
+the Albumentations library. It includes utilities for shape handling, parameter processing,
+data conversion, and serialization. The module defines abstract base classes for data
+processors that implement the conversion logic between different data formats used in
+the transformation pipeline.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -19,6 +28,19 @@ ShapeType = dict[Literal["depth", "height", "width"], int]
 
 
 def get_image_shape(img: np.ndarray | torch.Tensor) -> tuple[int, int]:
+    """Extract height and width dimensions from an image.
+
+    Args:
+        img (np.ndarray | torch.Tensor): Image as either numpy array (HWC format)
+            or torch tensor (CHW format).
+
+    Returns:
+        tuple[int, int]: Image dimensions as (height, width).
+
+    Raises:
+        RuntimeError: If the image type is not supported.
+
+    """
     if isinstance(img, np.ndarray):
         return img.shape[:2]  # HWC format
     try:
@@ -32,6 +54,19 @@ def get_image_shape(img: np.ndarray | torch.Tensor) -> tuple[int, int]:
 
 
 def get_volume_shape(vol: np.ndarray | torch.Tensor) -> tuple[int, int, int]:
+    """Extract depth, height, and width dimensions from a volume.
+
+    Args:
+        vol (np.ndarray | torch.Tensor): Volume as either numpy array (DHWC format)
+            or torch tensor (CDHW format).
+
+    Returns:
+        tuple[int, int, int]: Volume dimensions as (depth, height, width).
+
+    Raises:
+        RuntimeError: If the volume type is not supported.
+
+    """
     if isinstance(vol, np.ndarray):
         return vol.shape[:3]  # DHWC format
     try:
@@ -48,13 +83,14 @@ def get_shape(data: dict[str, Any]) -> ShapeType:
     """Extract spatial dimensions from input data dictionary containing image or volume.
 
     Args:
-        data: Dictionary containing image or volume data with one of:
+        data (dict[str, Any]): Dictionary containing image or volume data with one of:
             - 'volume': 3D array of shape (D, H, W, C) [numpy] or (C, D, H, W) [torch]
             - 'image': 2D array of shape (H, W, C) [numpy] or (C, H, W) [torch]
             - 'images': Batch of arrays of shape (N, H, W, C) [numpy] or (N, C, H, W) [torch]
 
     Returns:
         dict[Literal["depth", "height", "width"], int]: Dictionary containing spatial dimensions
+
     """
     if "volume" in data:
         depth, height, width = get_volume_shape(data["volume"])
@@ -69,6 +105,15 @@ def get_shape(data: dict[str, Any]) -> ShapeType:
 
 
 def format_args(args_dict: dict[str, Any]) -> str:
+    """Format a dictionary of arguments into a string representation.
+
+    Args:
+        args_dict (dict[str, Any]): Dictionary of argument names and values.
+
+    Returns:
+        str: Formatted string of arguments in the form "key1='value1', key2=value2".
+
+    """
     formatted_args = []
     for k, v in args_dict.items():
         v_formatted = f"'{v}'" if isinstance(v, str) else str(v)
@@ -77,15 +122,40 @@ def format_args(args_dict: dict[str, Any]) -> str:
 
 
 class Params(Serializable, ABC):
+    """Base class for parameter handling in transforms.
+
+    Args:
+        format (Any): The format of the data this parameter object will process.
+        label_fields (Sequence[str] | None): List of fields that are joined with the data, such as labels.
+
+    """
+
     def __init__(self, format: Any, label_fields: Sequence[str] | None):  # noqa: A002
         self.format = format
         self.label_fields = label_fields
 
     def to_dict_private(self) -> dict[str, Any]:
+        """Return a dictionary containing the private parameters of this object.
+
+        Returns:
+            dict[str, Any]: Dictionary with format and label_fields parameters.
+
+        """
         return {"format": self.format, "label_fields": self.label_fields}
 
 
 class DataProcessor(ABC):
+    """Abstract base class for data processors.
+
+    Data processors handle the conversion, validation, and filtering of data
+    during transformations.
+
+    Args:
+        params (Params): Parameters for data processing.
+        additional_targets (dict[str, str] | None): Dictionary mapping additional target names to their types.
+
+    """
+
     def __init__(self, params: Params, additional_targets: dict[str, str] | None = None):
         self.params = params
         self.data_fields = [self.default_data_name]
@@ -98,6 +168,12 @@ class DataProcessor(ABC):
     @property
     @abstractmethod
     def default_data_name(self) -> str:
+        """Return the default name of the data field.
+
+        Returns:
+            str: Default data field name.
+
+        """
         raise NotImplementedError
 
     def add_targets(self, additional_targets: dict[str, str]) -> None:
@@ -107,12 +183,31 @@ class DataProcessor(ABC):
                 self.data_fields.append(k)
 
     def ensure_data_valid(self, data: dict[str, Any]) -> None:
-        pass
+        """Validate input data before processing.
+
+        Args:
+            data (dict[str, Any]): Input data dictionary to validate.
+
+        """
 
     def ensure_transforms_valid(self, transforms: Sequence[object]) -> None:
-        pass
+        """Validate transforms before applying them.
+
+        Args:
+            transforms (Sequence[object]): Sequence of transforms to validate.
+
+        """
 
     def postprocess(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Process data after transformation.
+
+        Args:
+            data (dict[str, Any]): Data dictionary after transformation.
+
+        Returns:
+            dict[str, Any]: Processed data dictionary.
+
+        """
         shape = get_shape(data)
         data = self._process_data_fields(data, shape)
         data = self.remove_label_fields_from_data(data)
@@ -141,6 +236,12 @@ class DataProcessor(ABC):
         return data
 
     def preprocess(self, data: dict[str, Any]) -> None:
+        """Process data before transformation.
+
+        Args:
+            data (dict[str, Any]): Data dictionary to preprocess.
+
+        """
         shape = get_shape(data)
 
         for data_name in set(self.data_fields) & set(data.keys()):  # Convert list of lists to numpy array if necessary
@@ -160,6 +261,19 @@ class DataProcessor(ABC):
         shape: ShapeType,
         direction: Literal["to", "from"] = "to",
     ) -> np.ndarray:
+        """Check and convert data between Albumentations and external formats.
+
+        Args:
+            data (np.ndarray): Input data array.
+            shape (ShapeType): Shape information containing dimensions.
+            direction (Literal["to", "from"], optional): Conversion direction.
+                "to" converts to Albumentations format, "from" converts from it.
+                Defaults to "to".
+
+        Returns:
+            np.ndarray: Converted data array.
+
+        """
         if self.params.format == "albumentations":
             self.check(data, shape)
             return data
@@ -170,11 +284,26 @@ class DataProcessor(ABC):
 
     @abstractmethod
     def filter(self, data: np.ndarray, shape: ShapeType) -> np.ndarray:
-        pass
+        """Filter data based on shapes.
+
+        Args:
+            data (np.ndarray): Data to filter.
+            shape (ShapeType): Shape information containing dimensions.
+
+        Returns:
+            np.ndarray: Filtered data.
+
+        """
 
     @abstractmethod
     def check(self, data: np.ndarray, shape: ShapeType) -> None:
-        pass
+        """Validate data structure against shape requirements.
+
+        Args:
+            data (np.ndarray): Data to validate.
+            shape (ShapeType): Shape information containing dimensions.
+
+        """
 
     @abstractmethod
     def convert_to_albumentations(
@@ -182,7 +311,16 @@ class DataProcessor(ABC):
         data: np.ndarray,
         shape: ShapeType,
     ) -> np.ndarray:
-        pass
+        """Convert data from external format to Albumentations internal format.
+
+        Args:
+            data (np.ndarray): Data in external format.
+            shape (ShapeType): Shape information containing dimensions.
+
+        Returns:
+            np.ndarray: Data in Albumentations format.
+
+        """
 
     @abstractmethod
     def convert_from_albumentations(
@@ -190,9 +328,29 @@ class DataProcessor(ABC):
         data: np.ndarray,
         shape: ShapeType,
     ) -> np.ndarray:
-        pass
+        """Convert data from Albumentations internal format to external format.
+
+        Args:
+            data (np.ndarray): Data in Albumentations format.
+            shape (ShapeType): Shape information containing dimensions.
+
+        Returns:
+            np.ndarray: Data in external format.
+
+        """
 
     def add_label_fields_to_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Add label fields to data arrays.
+
+        This method processes label fields and joins them with the corresponding data arrays.
+
+        Args:
+            data (dict[str, Any]): Input data dictionary.
+
+        Returns:
+            dict[str, Any]: Data with label fields added.
+
+        """
         if not self.params.label_fields:
             return data
 
@@ -221,6 +379,15 @@ class DataProcessor(ABC):
             )
 
     def remove_label_fields_from_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Remove label fields from data arrays and restore them as separate entries.
+
+        Args:
+            data (dict[str, Any]): Input data dictionary with combined label fields.
+
+        Returns:
+            dict[str, Any]: Data with label fields extracted as separate entries.
+
+        """
         if not self.params.label_fields:
             return data
 
@@ -256,23 +423,68 @@ def validate_args(
     low: float | Sequence[int] | Sequence[float] | None,
     bias: float | None,
 ) -> None:
+    """Validate that 'low' and 'bias' parameters are not used together.
+
+    Args:
+        low (float | Sequence[int] | Sequence[float] | None): Lower bound value.
+        bias (float | None): Bias value to be added to both min and max values.
+
+    Raises:
+        ValueError: If both 'low' and 'bias' are provided.
+
+    """
     if low is not None and bias is not None:
         raise ValueError("Arguments 'low' and 'bias' cannot be used together.")
 
 
 def process_sequence(param: Sequence[Number]) -> tuple[Number, Number]:
+    """Process a sequence and return it as a (min, max) tuple.
+
+    Args:
+        param (Sequence[Number]): Sequence of numeric values.
+
+    Returns:
+        tuple[Number, Number]: Tuple containing (min_value, max_value) from the sequence.
+
+    Raises:
+        ValueError: If the sequence doesn't contain exactly 2 elements.
+
+    """
     if len(param) != PAIR:
         raise ValueError("Sequence must contain exactly 2 elements.")
     return min(param), max(param)
 
 
 def process_scalar(param: Number, low: Number | None) -> tuple[Number, Number]:
+    """Process a scalar value and optional low bound into a (min, max) tuple.
+
+    Args:
+        param (Number): Scalar numeric value.
+        low (Number | None): Optional lower bound.
+
+    Returns:
+        tuple[Number, Number]: Tuple containing (min_value, max_value) where:
+            - If low is provided: (low, param) if low < param else (param, low)
+            - If low is None: (-param, param) creating a symmetric range around zero
+
+    """
     if isinstance(low, Real):
         return (low, param) if low < param else (param, low)
     return -param, param
 
 
 def apply_bias(min_val: Number, max_val: Number, bias: Number) -> tuple[Number, Number]:
+    """Apply a bias to both values in a range.
+
+    Args:
+        min_val (Number): Minimum value.
+        max_val (Number): Maximum value.
+        bias (Number): Value to add to both min and max.
+
+    Returns:
+        tuple[Number, Number]: Tuple containing (min_val + bias, max_val + bias).
+
+    """
     return bias + min_val, bias + max_val
 
 
@@ -281,10 +493,31 @@ def ensure_int_output(
     max_val: Number,
     param: Number,
 ) -> tuple[int, int] | tuple[float, float]:
+    """Ensure output is of the same type (int or float) as the input parameter.
+
+    Args:
+        min_val (Number): Minimum value.
+        max_val (Number): Maximum value.
+        param (Number): Original parameter used to determine the output type.
+
+    Returns:
+        tuple[int, int] | tuple[float, float]: Tuple with values converted to int if param is int,
+        otherwise values remain as float.
+
+    """
     return (int(min_val), int(max_val)) if isinstance(param, int) else (float(min_val), float(max_val))
 
 
 def ensure_contiguous_output(arg: np.ndarray | Sequence[np.ndarray]) -> np.ndarray | list[np.ndarray]:
+    """Ensure that numpy arrays are contiguous in memory.
+
+    Args:
+        arg (np.ndarray | Sequence[np.ndarray]): A numpy array or sequence of numpy arrays.
+
+    Returns:
+        np.ndarray | list[np.ndarray]: Contiguous array(s) with the same data.
+
+    """
     if isinstance(arg, np.ndarray):
         arg = np.ascontiguousarray(arg)
     elif isinstance(arg, Sequence):
@@ -355,13 +588,14 @@ def to_tuple(
         - When 'param' is a single value and 'low' is not provided, the function creates a symmetric range around zero.
         - The function preserves the type (int or float) of the input in the output.
         - If a sequence is provided, it must contain exactly 2 elements.
+
     """
     validate_args(low, bias)
 
     if isinstance(param, Sequence):
         min_val, max_val = process_sequence(param)
     elif isinstance(param, Real):
-        min_val, max_val = process_scalar(param, cast(Real, low))
+        min_val, max_val = process_scalar(param, cast("Real", low))
     else:
         raise TypeError("Argument 'param' must be either a scalar or a sequence of 2 elements.")
 

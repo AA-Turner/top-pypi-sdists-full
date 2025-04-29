@@ -15,6 +15,7 @@ import unicodedata
 import warnings
 import zipfile
 from email.message import EmailMessage
+from functools import partial
 from io import BytesIO
 from itertools import groupby
 
@@ -34,7 +35,7 @@ from genshi.filters import Translator
 from genshi.template.text import TextTemplate
 
 from trytond.config import config
-from trytond.i18n import gettext
+from trytond.i18n import gettext, ngettext
 from trytond.model.exceptions import AccessError
 from trytond.pool import Pool, PoolBase
 from trytond.rpc import RPC
@@ -127,15 +128,19 @@ class TranslateFactory:
         self.report_name = report_name
         self.translation = translation
 
-    def __call__(self, text):
+    def gettext(self, text):
         return self.translation.get_report(self.report_name, text)
+
+    def ngettext(self, text, text_plural, n):
+        return self.translation.get_report(
+            self.report_name, text, text_plural, n)
 
 
 class Report(URLMixin, PoolBase):
 
     @classmethod
     def __setup__(cls):
-        super(Report, cls).__setup__()
+        super().__setup__()
         cls.__rpc__ = {
             'execute': RPC(),
             }
@@ -171,7 +176,7 @@ class Report(URLMixin, PoolBase):
                 Model.read(ids, ['id'])
 
     @classmethod
-    def header_key(cls, record):
+    def header_key(cls, record, data):
         return ()
 
     @classmethod
@@ -236,16 +241,17 @@ class Report(URLMixin, PoolBase):
         else:
             records = []
 
+        header_key = partial(cls.header_key, data=data)
         if not records:
             groups = [[]]
             headers = [{}]
         elif action_report.single:
             groups = [[r] for r in records]
-            headers = [dict(cls.header_key(r)) for r in records]
+            headers = [dict(header_key(r)) for r in records]
         else:
             groups = []
             headers = []
-            for key, group in groupby(records, key=cls.header_key):
+            for key, group in groupby(records, key=header_key):
                 groups.append(list(group))
                 headers.append(dict(key))
 
@@ -364,6 +370,8 @@ class Report(URLMixin, PoolBase):
                 language = language.code
             Transaction().set_context(language=language)
         report_context['set_lang'] = set_lang
+        report_context['msg_gettext'] = gettext
+        report_context['msg_ngettext'] = ngettext
 
         return report_context
 
@@ -373,12 +381,13 @@ class Report(URLMixin, PoolBase):
             pool = Pool()
             Translation = pool.get('ir.translation')
             translate = TranslateFactory(cls.__name__, Translation)
-            translator = Translator(lambda text: translate(text))
+            translator = Translator(translate)
             # Do not use Translator.setup to add filter at the end
             # after set_lang evaluation
             template.filters.append(translator)
             if hasattr(template, 'add_directives'):
                 template.add_directives(Translator.NAMESPACE, translator)
+            return translate
 
     @classmethod
     def render(cls, report, report_context):
@@ -390,7 +399,11 @@ class Report(URLMixin, PoolBase):
             klass = loader.factories[loader.get_type(mimetype)]
             template = klass(BytesIO(report.report_content))
             report.set_template_cached(template)
-        cls._callback_loader(report, template)
+        translate = cls._callback_loader(report, template)
+        if translate:
+            report_context = report_context.copy()
+            report_context['gettext'] = translate.gettext
+            report_context['ngettext'] = translate.ngettext
         data = template.generate(**report_context).render()
         if hasattr(data, 'getvalue'):
             data = data.getvalue()

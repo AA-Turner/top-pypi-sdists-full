@@ -649,6 +649,9 @@ class DebugToolbarLiveTestCase(StaticLiveServerTestCase):
         options = Options()
         if os.environ.get("CI"):
             options.add_argument("-headless")
+        # Set the browser preference to light mode for consistent testing
+        options.set_preference("ui.systemUsesDarkTheme", 0)
+        options.set_preference("ui.prefersReducedMotion", 0)
         cls.selenium = webdriver.Firefox(options=options)
 
     @classmethod
@@ -809,7 +812,7 @@ class DebugToolbarLiveTestCase(StaticLiveServerTestCase):
         debug_window = self.selenium.find_element(By.ID, "djDebugWindow")
         self.selenium.find_element(By.CLASS_NAME, "BuggyPanel").click()
         self.wait.until(EC.visibility_of(debug_window))
-        self.assertEqual(debug_window.text, "»\n500: Internal Server Error")
+        self.assertEqual(debug_window.text, "500: Internal Server Error\n»")
 
     def test_toolbar_language_will_render_to_default_language_when_not_set(self):
         self.get("/regular/basic/")
@@ -892,26 +895,35 @@ class DebugToolbarLiveTestCase(StaticLiveServerTestCase):
         toolbar = self.selenium.find_element(By.ID, "djDebug")
 
         # Check that the default theme is auto
-        self.assertEqual(toolbar.get_attribute("data-theme"), "auto")
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "auto")
 
         # The theme toggle button is shown on the toolbar
         toggle_button = self.selenium.find_element(By.ID, "djToggleThemeButton")
         self.assertTrue(toggle_button.is_displayed())
 
-        # The theme changes when user clicks the button
-        toggle_button.click()
+        # The browser is set to light mode via Firefox preferences
+        # With light mode system preference, the order is: auto -> dark -> light -> auto
+        # Check that auto initially uses light theme
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "auto")
         self.assertEqual(toolbar.get_attribute("data-theme"), "light")
-        toggle_button.click()
+
+        # The theme changes when user clicks the button
+        toggle_button.click()  # auto -> dark
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "dark")
         self.assertEqual(toolbar.get_attribute("data-theme"), "dark")
-        toggle_button.click()
-        self.assertEqual(toolbar.get_attribute("data-theme"), "auto")
-        # Switch back to light.
-        toggle_button.click()
+
+        toggle_button.click()  # dark -> light
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "light")
+        self.assertEqual(toolbar.get_attribute("data-theme"), "light")
+
+        toggle_button.click()  # light -> auto
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "auto")
         self.assertEqual(toolbar.get_attribute("data-theme"), "light")
 
         # Enter the page again to check that user settings is saved
         self.get("/regular/basic/")
         toolbar = self.selenium.find_element(By.ID, "djDebug")
+        self.assertEqual(toolbar.get_attribute("data-user-theme"), "auto")
         self.assertEqual(toolbar.get_attribute("data-theme"), "light")
 
     def test_async_sql_action(self):

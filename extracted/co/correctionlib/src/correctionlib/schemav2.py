@@ -1,6 +1,6 @@
 import math
 import sys
-from collections import defaultdict
+from collections import Counter
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pydantic import (
@@ -70,13 +70,18 @@ class Variable(Model):
 
 # py3.7+: ForwardRef can be used instead of strings
 Content = Union[
-    "Binning",
-    "MultiBinning",
-    "Category",
-    "Formula",
-    "FormulaRef",
-    "Transform",
-    "HashPRNG",
+    Annotated[
+        Union[
+            "Binning",
+            "MultiBinning",
+            "Category",
+            "Formula",
+            "FormulaRef",
+            "Transform",
+            "HashPRNG",
+        ],
+        Field(discriminator="nodetype"),
+    ],
     float,
 ]
 
@@ -227,7 +232,7 @@ class Binning(Model):
         description="Edges of the binning, either as a list of monotonically increasing floats or as an instance of UniformBinning. edges[i] <= x < edges[i+1] => f(x, ...) = content[i](...)"
     )
     content: List[Content]
-    flow: Union[Content, Literal["clamp", "error"]] = Field(
+    flow: Union[Content, Literal["clamp", "error", "wrap"]] = Field(
         description="Overflow behavior for out-of-bounds values"
     )
 
@@ -282,7 +287,7 @@ class MultiBinning(Model):
         to the element at i0 in dimension 0, i1 in dimension 1, etc. and d0 = len(edges[0])-1, etc.
     """
     )
-    flow: Union[Content, Literal["clamp", "error"]] = Field(
+    flow: Union[Content, Literal["clamp", "error", "wrap"]] = Field(
         description="Overflow behavior for out-of-bounds values"
     )
 
@@ -416,7 +421,7 @@ class Correction(Model):
         return output
 
     def summary(self) -> Tuple[Dict[str, int], Dict[str, _SummaryInfo]]:
-        nodecount: Dict[str, int] = defaultdict(int)
+        nodecount: Dict[str, int] = Counter()
         inputstats = {var.name: _SummaryInfo() for var in self.inputs}
         if not isinstance(self.data, float):
             self.data.summarize(nodecount, inputstats)

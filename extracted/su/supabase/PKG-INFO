@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supabase
-Version: 2.15.0
+Version: 2.15.1
 Summary: Supabase client for Python.
 Home-page: https://github.com/supabase/supabase-py
 License: MIT

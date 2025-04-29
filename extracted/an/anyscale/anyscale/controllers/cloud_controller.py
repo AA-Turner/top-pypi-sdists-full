@@ -1388,6 +1388,43 @@ class CloudController(BaseController):
                 cloud_id, CloudProviders.AWS, functions_to_verify, yes,
             )
 
+    def get_cloud_deployments(self, cloud_id: str, cloud_name: str) -> Dict[str, Any]:
+        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
+            cloud_id=cloud_id,
+        ).result
+
+        if cloud.is_aioa:
+            raise ValueError(
+                "Listing cloud deployments is only supported for customer-hosted clouds."
+            )
+
+        try:
+            deployments = self.api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+                cloud_id=cloud_id,
+            ).results
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(
+                f"Failed to get cloud deployments for cloud {cloud_name} ({cloud_id}). Error: {e}"
+            )
+
+        # Avoid displaying fields with empty values (since the values for optional fields default to None).
+        def remove_empty_values(d):
+            if isinstance(d, dict):
+                return {
+                    k: remove_empty_values(v)
+                    for k, v in d.items()
+                    if remove_empty_values(v)
+                }
+            return d
+
+        return {
+            "id": cloud_id,
+            "name": cloud_name,
+            "deployments": [
+                remove_empty_values(deployment.to_dict()) for deployment in deployments
+            ],
+        }
+
     def get_cloud_config(
         self, cloud_name: Optional[str] = None, cloud_id: Optional[str] = None,
     ) -> CloudDeploymentConfig:

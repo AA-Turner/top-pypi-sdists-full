@@ -593,29 +593,28 @@ class CloudVerification:
         jar_settings = Ctx.collect_jar_args(self.context)
 
         if Attrs.is_solana_app():
-            # We need to strip "../" path component from all file paths because
-            # unzip will also do that.
+            def paths_in_source_dir(attr_values: List[str]) -> str:
+                cwd_rel_in_sources = Util.get_certora_sources_dir() / self.context.cwd_rel_in_sources
+                values: list[str] = \
+                    [os.path.relpath(cwd_rel_in_sources / value, Util.get_build_dir()) for value in attr_values]
+                return ','.join(values)
+
             solana_jar_settings = []
             if hasattr(self.context, 'build_script') and self.context.build_script:
                 solana_jar_settings.append(Path(self.context.rust_executables).name)
-
             else:
                 for file in self.context.files:
-                    solana_jar_settings.append(file.split('../')[-1])
+                    solana_jar_settings.append(file)
 
-            is_file = False
-            for arg in jar_settings:
-                if is_file:
-                    solana_jar_settings.append(arg.split('../')[-1])
-                    is_file = False
-                else:
-                    solana_jar_settings.append(arg)
+            if self.context.solana_summaries:
+                solana_jar_settings.append('-solanaSummaries')
+                solana_jar_settings.append(paths_in_source_dir(self.context.solana_summaries))
 
-                if arg == '-solanaInlining':
-                    is_file = True
-                elif arg == '-solanaSummaries':
-                    is_file = True
-            auth_data["jarSettings"] = solana_jar_settings
+            if self.context.solana_inlining:
+                solana_jar_settings.append('-solanaInlining')
+                solana_jar_settings.append(paths_in_source_dir(self.context.solana_inlining))
+
+            auth_data["jarSettings"] = solana_jar_settings + jar_settings
         elif Attrs.is_soroban_app():
             # We need to strip "../" path component from all file paths because
             # unzip will also do that.
@@ -765,11 +764,6 @@ class CloudVerification:
                 rust_execution_file = Util.get_build_dir() / ".RustExecution"
                 rust_execution_file.touch(exist_ok=True)
                 files_list.append(rust_execution_file)
-
-                additional_files = (getattr(self.context, 'solana_inlining', None) or []) + \
-                                   (getattr(self.context, 'solana_summaries', None) or [])
-                for file in additional_files:
-                    files_list.append(Util.get_build_dir() / Path(file).name)
 
                 if attr_file := getattr(self.context, 'rust_logs_stdout', None):
                     files_list.append(Util.get_build_dir() / Path(attr_file).name)

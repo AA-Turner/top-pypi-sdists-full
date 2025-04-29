@@ -1,9 +1,16 @@
+"""Functional implementations of various blur operations for image processing.
+
+This module provides a collection of low-level functions for applying different blur effects
+to images, including standard blur, median blur, glass blur, defocus, and zoom effects.
+These functions form the foundation for the corresponding transform classes.
+"""
+
 from __future__ import annotations
 
+import random
 from collections.abc import Sequence
 from itertools import product
 from math import ceil
-from random import Random
 from typing import Literal
 from warnings import warn
 
@@ -16,11 +23,23 @@ from albumentations.augmentations.functional import convolve
 from albumentations.augmentations.geometric.functional import scale
 from albumentations.core.type_definitions import EIGHT
 
-__all__ = ["blur", "central_zoom", "defocus", "glass_blur", "median_blur", "zoom_blur"]
+__all__ = ["box_blur", "central_zoom", "defocus", "glass_blur", "median_blur", "zoom_blur"]
 
 
 @preserve_channel_dim
-def blur(img: np.ndarray, ksize: int) -> np.ndarray:
+def box_blur(img: np.ndarray, ksize: int) -> np.ndarray:
+    """Blur an image.
+
+    This function applies a blur to an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        ksize (int): Kernel size.
+
+    Returns:
+        np.ndarray: Blurred image.
+
+    """
     blur_fn = maybe_process_in_chunks(cv2.blur, ksize=(ksize, ksize))
     return blur_fn(img)
 
@@ -28,6 +47,18 @@ def blur(img: np.ndarray, ksize: int) -> np.ndarray:
 @preserve_channel_dim
 @uint8_io
 def median_blur(img: np.ndarray, ksize: int) -> np.ndarray:
+    """Median blur an image.
+
+    This function applies a median blur to an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        ksize (int): Kernel size.
+
+    Returns:
+        np.ndarray: Median blurred image.
+
+    """
     blur_fn = maybe_process_in_chunks(cv2.medianBlur, ksize=ksize)
     return blur_fn(img)
 
@@ -41,6 +72,22 @@ def glass_blur(
     dxy: np.ndarray,
     mode: Literal["fast", "exact"],
 ) -> np.ndarray:
+    """Glass blur an image.
+
+    This function applies a glass blur to an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        sigma (float): Sigma.
+        max_delta (int): Maximum delta.
+        iterations (int): Number of iterations.
+        dxy (np.ndarray): Dxy.
+        mode (Literal["fast", "exact"]): Mode.
+
+    Returns:
+        np.ndarray: Glass blurred image.
+
+    """
     x = cv2.GaussianBlur(np.array(img), sigmaX=sigma, ksize=(0, 0))
 
     if mode == "fast":
@@ -73,6 +120,19 @@ def glass_blur(
 
 
 def defocus(img: np.ndarray, radius: int, alias_blur: float) -> np.ndarray:
+    """Defocus an image.
+
+    This function defocuses an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        radius (int): Radius.
+        alias_blur (float): Alias blur.
+
+    Returns:
+        np.ndarray: Defocused image.
+
+    """
     length = np.arange(-max(8, radius), max(8, radius) + 1)
     ksize = 3 if radius <= EIGHT else 5
 
@@ -86,6 +146,18 @@ def defocus(img: np.ndarray, radius: int, alias_blur: float) -> np.ndarray:
 
 
 def central_zoom(img: np.ndarray, zoom_factor: int) -> np.ndarray:
+    """Central zoom an image.
+
+    This function zooms an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        zoom_factor (int): Zoom factor.
+
+    Returns:
+        np.ndarray: Zoomed image.
+
+    """
     height, width = img.shape[:2]
     h_ch, w_ch = ceil(height / zoom_factor), ceil(width / zoom_factor)
     h_top, w_top = (height - h_ch) // 2, (width - w_ch) // 2
@@ -98,6 +170,18 @@ def central_zoom(img: np.ndarray, zoom_factor: int) -> np.ndarray:
 @float32_io
 @clipped
 def zoom_blur(img: np.ndarray, zoom_factors: np.ndarray | Sequence[int]) -> np.ndarray:
+    """Zoom blur an image.
+
+    This function zooms and blurs an image.
+
+    Args:
+        img (np.ndarray): Input image.
+        zoom_factors (np.ndarray | Sequence[int]): Zoom factors.
+
+    Returns:
+        np.ndarray: Zoomed and blurred image.
+
+    """
     out = np.zeros_like(img, dtype=np.float32)
 
     for zoom_factor in zoom_factors:
@@ -164,19 +248,20 @@ def create_motion_kernel(
     angle: float,
     direction: float,
     allow_shifted: bool,
-    random_state: Random,
+    random_state: random.Random,
 ) -> np.ndarray:
     """Create a motion blur kernel.
 
     Args:
-        kernel_size: Size of the kernel (must be odd)
-        angle: Angle in degrees (counter-clockwise)
-        direction: Blur direction (-1.0 to 1.0)
-        allow_shifted: Allow kernel to be randomly shifted from center
-        random_state: Python's random.Random instance
+        kernel_size (int): Size of the kernel (must be odd)
+        angle (float): Angle in degrees (counter-clockwise)
+        direction (float): Blur direction (-1.0 to 1.0)
+        allow_shifted (bool): Allow kernel to be randomly shifted from center
+        random_state (random.Random): Python's random.Random instance
 
     Returns:
-        Motion blur kernel
+        np.ndarray: Motion blur kernel
+
     """
     kernel = np.zeros((kernel_size, kernel_size), dtype=np.float32)
     center = kernel_size // 2
@@ -224,22 +309,23 @@ def create_motion_kernel(
     return kernel
 
 
-def sample_odd_from_range(random_state: Random, low: int, high: int) -> int:
+def sample_odd_from_range(random_state: random.Random, low: int, high: int) -> int:
     """Sample an odd number from the range [low, high] (inclusive).
 
     Args:
-        random_state: instance of random.Random
-        low: lower bound (will be converted to nearest valid odd number)
-        high: upper bound (will be converted to nearest valid odd number)
+        random_state (random.Random): instance of random.Random
+        low (int): lower bound (will be converted to nearest valid odd number)
+        high (int): upper bound (will be converted to nearest valid odd number)
 
     Returns:
-        Randomly sampled odd number from the range
+        int: Randomly sampled odd number from the range
 
     Note:
         - Input values will be converted to nearest valid odd numbers:
           * Values less than 3 will become 3
           * Even values will be rounded up to next odd number
         - After normalization, high must be >= low
+
     """
     # Normalize low value
     low = max(3, low + (low % 2 == 0))
@@ -263,12 +349,13 @@ def create_gaussian_kernel(sigma: float, ksize: int = 0) -> np.ndarray:
     """Create a Gaussian kernel following PIL's approach.
 
     Args:
-        sigma: Standard deviation for Gaussian kernel.
-        ksize: Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1
+        sigma (float): Standard deviation for Gaussian kernel.
+        ksize (int): Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1
                to match PIL's implementation. Otherwise, must be positive and odd.
 
     Returns:
         np.ndarray: 2D normalized Gaussian kernel.
+
     """
     # PIL's kernel creation approach
     size = int(sigma * 3.5) * 2 + 1 if ksize == 0 else ksize
@@ -291,12 +378,13 @@ def create_gaussian_kernel_1d(sigma: float, ksize: int = 0) -> np.ndarray:
     """Create a 1D Gaussian kernel following PIL's approach.
 
     Args:
-        sigma: Standard deviation for Gaussian kernel.
-        ksize: Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1
+        sigma (float): Standard deviation for Gaussian kernel.
+        ksize (int): Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1
                to match PIL's implementation. Otherwise, must be positive and odd.
 
     Returns:
         np.ndarray: 1D normalized Gaussian kernel.
+
     """
     # PIL's kernel creation approach
     size = int(sigma * 3.5) * 2 + 1 if ksize == 0 else ksize
@@ -320,11 +408,12 @@ def create_gaussian_kernel_input_array(size: int) -> np.ndarray:
     for values of size < 100
 
     Args:
-        size: kernel size
+        size (int): kernel size
 
     Returns:
         np.ndarray: x-coordinate array which will be input for gaussian function that will be used for
         separable gaussian blur
+
     """
     if size < 100:
         return np.array(list(range(-(size // 2), (size // 2) + 1, 1)))

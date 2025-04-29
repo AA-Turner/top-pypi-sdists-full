@@ -13,9 +13,8 @@ import contextlib
 import dataclasses
 import sys
 import uuid
-import warnings
 from collections import Counter, deque
-from contextlib import nullcontext
+from contextlib import nullcontext, suppress
 from datetime import timedelta
 from math import isfinite
 from typing import AsyncGenerator, Callable
@@ -26,6 +25,7 @@ from . import (
     buffers,
     cache,
     db,
+    errors,
     executors,
     heartbeat,
     helpers,
@@ -37,8 +37,6 @@ from . import (
     tm,
     types,
 )
-
-warnings.simplefilter("default", DeprecationWarning)
 
 
 @dataclasses.dataclass
@@ -60,6 +58,9 @@ class QueueManager:
         queue_manager_id (uuid.UUID): Unique identifier for each QueueManager instance.
         job_context (dict[models.JobId, models.Context]): Contexts for jobs,
             including cancellation scopes.
+        shutdown_on_listener_failure
+            If *True*, raise `FailingListenerError` and set the shutdown event when
+            the periodic listener health‑check times out.
     """
 
     connection: db.Driver
@@ -93,16 +94,64 @@ class QueueManager:
         default_factory=dict,
     )
 
-    @property
-    def alive(self) -> asyncio.Event:
-        # For backwards compatibility
-        warnings.warn(
-            "The `alive` property is deprecated and will be removed in a future release. "
-            "Please use `shutdown` instead.",
-            DeprecationWarning,
-            stacklevel=2,
+    pending_health_check: dict[uuid.UUID, asyncio.Future[models.HealthCheckEvent]] = (
+        dataclasses.field(
+            init=False,
+            default_factory=dict,
         )
-        return self.shutdown
+    )
+
+    async def listener_healthy(
+        self,
+        timeout: timedelta = timedelta(seconds=10),
+    ) -> models.HealthCheckEvent:
+        """
+        Perform a health check by sending a notification and waiting for a response.
+
+        Args:
+            timeout (timedelta): Maximum time to wait for the health check response.
+
+        Returns:
+            models.HealthCheckEvent: The received health check event.
+        """
+        health_check_event_id = uuid.uuid4()
+        fut = asyncio.Future[models.HealthCheckEvent]()
+        self.pending_health_check[health_check_event_id] = fut
+
+        await self.queries.notify_health_check(health_check_event_id)
+        try:
+            return await asyncio.wait_for(
+                asyncio.shield(fut),
+                timeout.total_seconds(),
+            )
+        except (TimeoutError, asyncio.TimeoutError):
+            fut.set_exception(errors.FailingListenerError)
+            return await fut
+        except Exception as e:
+            fut.set_exception(e)
+            return await fut
+        finally:
+            self.pending_health_check.pop(health_check_event_id, None)
+
+    async def _run_periodic_health_check(
+        self,
+        interval: timedelta = timedelta(seconds=10),
+    ) -> None:
+        """
+        Periodically perform a health check by calling `listener_healthy`.
+
+        Args:
+            interval (timedelta): Time interval between health checks.
+            shutdown_on_failure (bool): Whether to set the shutdown event if a health check fails.
+        """
+
+        while not self.shutdown.is_set():
+            await self.listener_healthy(timeout=interval)
+            with suppress(TimeoutError, asyncio.TimeoutError):
+                await asyncio.wait_for(
+                    self.shutdown.wait(),
+                    timeout=interval.total_seconds(),
+                )
 
     def __post_init__(self) -> None:
         """
@@ -158,7 +207,6 @@ class QueueManager:
         concurrency_limit: int = 0,
         retry_timer: timedelta = timedelta(seconds=0),
         serialized_dispatch: bool = False,
-        executor: type[executors.AbstractEntrypointExecutor] | None = None,
         executor_factory: Callable[
             [executors.EntrypointExecutorParameters],
             executors.AbstractEntrypointExecutor,
@@ -177,7 +225,6 @@ class QueueManager:
             concurrency_limit (int): Max number of concurrent jobs allowed for this entrypoint.
             retry_timer (timedelta): Duration to wait before retrying 'picked' jobs.
             serialized_dispatch (bool): Whether to serialize dispatching of jobs.
-            executor (JobExecutor): Custom executor instance to use.
 
         Returns:
             Callable[[T], T]: A decorator that registers the function as an entrypoint.
@@ -186,14 +233,6 @@ class QueueManager:
             RuntimeError: If the entrypoint name is already registered.
             ValueError: If `requests_per_second` or `concurrency_limit` are negative.
         """
-
-        if executor is not None:
-            warnings.warn(
-                "The 'executor' parameter is deprecated and will be removed in a future version. "
-                "Please use 'executor_factory' instead for custom executor handling.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
 
         if name in self.entrypoint_registry:
             raise RuntimeError(f"{name} already in registry, name must be unique.")
@@ -387,6 +426,7 @@ class QueueManager:
         batch_size: int = 10,
         mode: types.QueueExecutionMode = types.QueueExecutionMode.continuous,
         max_concurrent_tasks: int | None = None,
+        shutdown_on_listener_failure: bool = False,
     ) -> None:
         """
         Run the main loop to process jobs from the queue.
@@ -399,7 +439,8 @@ class QueueManager:
             batch_size (int): Number of jobs to retrieve in each batch.
             mode (QueueExecutionMode): Whether to run in `continuous` or `drain` until
                 queue is empty then shutdown.
-
+            max_concurrent_tasks (int|None, default=None): Limit the total number of tasks that
+                can run at the same time. If unspecified or None, there is no limit.
         Raises:
             RuntimeError: If required database columns or types are missing.
         """
@@ -437,6 +478,8 @@ class QueueManager:
             tm.TaskManager() as task_manager,
             self.connection,
         ):
+            periodic_health_check_task = asyncio.create_task(self._run_periodic_health_check())
+
             notice_event_listener = listeners.PGNoticeEventListener()
             await listeners.initialize_notice_event_listener(
                 self.connection,
@@ -445,6 +488,7 @@ class QueueManager:
                     notice_event_queue=notice_event_listener,
                     statistics=self.entrypoint_statistics,
                     canceled=self.job_context,
+                    pending_health_check=self.pending_health_check,
                 ),
             )
 
@@ -473,6 +517,15 @@ class QueueManager:
                 # back in with the database to see if there are any jobs left.
                 if mode is types.QueueExecutionMode.drain and (await cached_queued_work()) == 0:
                     self.shutdown.set()
+
+                if (
+                    periodic_health_check_task.done()
+                    and periodic_health_check_task.exception()
+                    and mode is not types.QueueExecutionMode.drain
+                    and shutdown_on_listener_failure
+                ):
+                    self.shutdown.set()
+                    await periodic_health_check_task
 
                 event_task = helpers.wait_for_notice_event(
                     notice_event_listener,

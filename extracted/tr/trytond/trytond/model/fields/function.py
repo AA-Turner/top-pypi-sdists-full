@@ -53,7 +53,8 @@ class Function(Field):
             'loading must be "lazy" or "eager"'
         self.loading = loading
 
-    __init__.__doc__ += Field.__init__.__doc__
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     def __copy__(self):
         return Function(copy.copy(self._field), self.getter,
@@ -245,7 +246,7 @@ for name in [
 class MultiValue(Function):
 
     def __init__(self, field, loading='lazy'):
-        super(MultiValue, self).__init__(
+        super().__init__(
             field, '_multivalue_getter', setter='_multivalue_setter',
             loading=loading)
 

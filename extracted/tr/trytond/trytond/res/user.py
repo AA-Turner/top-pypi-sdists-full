@@ -18,31 +18,22 @@ try:
 except ImportError:
     secrets = None
 import ipaddress
-import warnings
 from ast import literal_eval
 from functools import wraps
 from itertools import groupby
 from operator import attrgetter
 
-from passlib.context import CryptContext
+import pwdlib
+import pwdlib.hashers.argon2
 from sql import Literal, Null
 from sql.aggregate import Count
 from sql.conditionals import Case
 from sql.functions import CurrentTimestamp
 
-try:
-    import bcrypt
-except ImportError:
-    bcrypt = None
-try:
-    import argon2
-except ImportError:
-    argon2 = None
-
 from trytond.cache import Cache
 from trytond.config import config
 from trytond.exceptions import LoginException, RateLimitException, UserError
-from trytond.i18n import gettext
+from trytond.i18n import gettext, ngettext
 from trytond.model import (
     DeactivableMixin, Index, ModelSQL, ModelView, Unique, Workflow,
     avatar_mixin, dualmethod, fields)
@@ -63,17 +54,15 @@ logger = logging.getLogger(__name__)
 _has_password = 'password' in re.split('[,+]', config.get(
     'session', 'authentications', default='password'))
 
-passlib_path = config.get('password', 'passlib')
-if passlib_path:
-    CRYPT_CONTEXT = CryptContext.from_path(passlib_path)
-else:
-    schemes = ['pbkdf2_sha512']
-    if bcrypt:
-        schemes.insert(0, 'bcrypt')
-    schemes.insert(0, 'scrypt')
-    if argon2:
-        schemes.insert(0, 'argon2')
-    CRYPT_CONTEXT = CryptContext(schemes=schemes)
+PASSWORD_HASH = pwdlib.PasswordHash([
+        pwdlib.hashers.argon2.Argon2Hasher(),
+        ])
+
+try:
+    import pwdlib.hashers.bcrypt
+    PASSWORD_HASH.hashers.append(pwdlib.hashers.bcrypt.BcryptHasher())
+except pwdlib.exceptions.HasherNotAvailable:
+    pass
 
 
 def gen_password(length=8):
@@ -112,7 +101,6 @@ class UserValidationError(ValidationError):
 
 
 class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
-    "User"
     __name__ = "res.user"
     name = fields.Char('Name')
     login = fields.Char('Login', required=True)
@@ -136,8 +124,9 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
             },
         depends=['password_reset'])
     signature = fields.Text('Signature')
-    menu = fields.Many2One('ir.action', 'Menu Action',
-        domain=[('usage', '=', 'menu')], required=True)
+    menu = fields.Many2One(
+        'ir.action', "Menu",
+        domain=[('usage', '=', 'menu')])
     pyson_menu = fields.Function(fields.Char('PySON Menu'), 'get_pyson_menu')
     actions = fields.Many2Many('res.user-ir.action', 'user', 'action',
         'Actions', help='Actions that will be run at login.',
@@ -163,7 +152,7 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(User, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'get_preferences': RPC(check_access=False),
                 'set_preferences': RPC(
@@ -204,33 +193,28 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def __register__(cls, module_name):
+        table_h = cls.__table_handler__(module_name)
+        super().__register__(module_name)
+
+        # Migration from 7.4: remove required on menu
+        table_h.not_null_action('menu', 'remove')
+
+    @classmethod
+    def default_menu(cls):
         pool = Pool()
         ModelData = pool.get('ir.model.data')
-        model_data = ModelData.__table__()
-        cursor = Transaction().connection.cursor()
-        super(User, cls).__register__(module_name)
-
-        # Migration from 5.6: Set noupdate to admin
-        cursor.execute(*model_data.update(
-                [model_data.noupdate], [True],
-                where=(model_data.model == cls.__name__)
-                & (model_data.module == 'res')
-                & (model_data.fs_id == 'user_admin')))
-
-    @staticmethod
-    def default_menu():
-        pool = Pool()
-        Action = pool.get('ir.action')
-        actions = Action.search([
-            ('usage', '=', 'menu'),
-            ], limit=1)
-        if actions:
-            return actions[0].id
-        return None
+        try:
+            return ModelData.get_id('ir', 'act_menu_tree')
+        except KeyError:
+            pass
 
     def get_pyson_menu(self, name):
+        pool = Pool()
+        Action = pool.get('ir.action')
         encoder = PYSONEncoder()
-        return encoder.encode(self.menu.get_action_value())
+        if not (menu := self.menu):
+            menu = Action(self.default_menu())
+        return encoder.encode(menu.get_action_value())
 
     def get_language_direction(self, name):
         pool = Pool()
@@ -274,7 +258,8 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
         length = config.getint('password', 'length', default=0)
         if length > 0:
             if len(password_b) < length:
-                raise PasswordError(gettext('res.msg_password_length',
+                raise PasswordError(ngettext(
+                        'res.msg_password_length', length,
                         length=length,
                         ))
         path = config.get('password', 'forbidden', default=None)
@@ -343,20 +328,44 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
                             attrgetter('create_uid.id'))))
         return result
 
-    @staticmethod
-    def _convert_vals(vals):
-        vals = vals.copy()
+    @classmethod
+    def preprocess_values(cls, mode, values):
         pool = Pool()
         Action = pool.get('ir.action')
-        if 'menu' in vals:
-            vals['menu'] = Action.get_action_id(vals['menu'])
-        if vals.get('email'):
-            vals['email'] = normalize_email(vals['email'])
-        return vals
+        values = super().preprocess_values(mode, values)
+        if values.get('menu') is not None:
+            values['menu'] = Action.get_action_id(values['menu'])
+        if values.get('email'):
+            values['email'] = normalize_email(values['email'])
+        return values
+
+    @classmethod
+    def on_modification(cls, mode, users, field_names=None):
+        pool = Pool()
+        Session = pool.get('ir.session')
+        UserDevice = pool.get('res.user.device')
+
+        super().on_modification(mode, users, field_names=field_names)
+
+        if mode == 'write':
+            if (field_names is None
+                    or {'active', 'password'} & set(field_names)):
+                Session.clear(users)
+                UserDevice.clear([u.login for u in users])
+
+            # Clean cursor cache as it could be filled by domain_get
+            for cache in Transaction().cache.values():
+                if cls.__name__ in cache:
+                    for user in users:
+                        cache[cls.__name__].pop(user.id, None)
+
+    @classmethod
+    def check_xml_record(cls, records, values):
+        pass
 
     @classmethod
     def read(cls, ids, fields_names):
-        result = super(User, cls).read(ids, fields_names)
+        result = super().read(ids, fields_names)
         cache = Transaction().get_cache().get(cls.__name__)
         for values in result:
             if 'password_hash' in values:
@@ -379,41 +388,6 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
                     if user.id in cache:
                         cache[user.id]['password_hash'] = None
         return users
-
-    @classmethod
-    def create(cls, vlist):
-        vlist = [cls._convert_vals(vals) for vals in vlist]
-        return super(User, cls).create(vlist)
-
-    @classmethod
-    def write(cls, users, values, *args):
-        pool = Pool()
-        Session = pool.get('ir.session')
-        UserDevice = pool.get('res.user.device')
-
-        actions = iter((users, values) + args)
-        all_users = []
-        session_to_clear = []
-        users_to_clear = []
-        args = []
-        for users, values in zip(actions, actions):
-            all_users += users
-            args.extend((users, cls._convert_vals(values)))
-
-            if values.keys() & {'active', 'password'}:
-                session_to_clear += users
-                users_to_clear += [u.login for u in users]
-
-        super(User, cls).write(*args)
-
-        Session.clear(session_to_clear)
-        UserDevice.clear(users_to_clear)
-
-        # Clean cursor cache as it could be filled by domain_get
-        for cache in Transaction().cache.values():
-            if cls.__name__ in cache:
-                for user in all_users:
-                    cache[cls.__name__].pop(user.id, None)
 
     @classmethod
     def delete(cls, users):
@@ -447,7 +421,7 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
         new_users = []
         for user in users:
             default['login'] = user.login + ' (copy)'
-            new_user, = super(User, cls).copy([user], default)
+            new_user, = super().copy([user], default)
             new_users.append(new_user)
         return new_users
 
@@ -769,70 +743,16 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
         <hash_method>$<password>$<salt>...'''
         if not password:
             return None
-        return CRYPT_CONTEXT.hash(password)
+        return PASSWORD_HASH.hash(password)
 
     @classmethod
     def check_password(cls, password, hash_):
-        if not hash_:
-            return False
-        try:
-            return CRYPT_CONTEXT.verify_and_update(password, hash_)
-        except ValueError:
-            hash_method = hash_.split('$', 1)[0]
-            warnings.warn(
-                "Use deprecated hash method %s" % hash_method,
-                DeprecationWarning)
-            valid = getattr(cls, 'check_' + hash_method)(password, hash_)
-            if valid:
-                new_hash = CRYPT_CONTEXT.hash(password)
-            else:
-                new_hash = None
-            return valid, new_hash
-
-    @classmethod
-    def hash_sha1(cls, password):
-        salt = gen_password()
-        salted_password = password + salt
-        if isinstance(salted_password, str):
-            salted_password = salted_password.encode('utf-8')
-        hash_ = hashlib.sha1(salted_password).hexdigest()
-        return '$'.join(['sha1', hash_, salt])
-
-    @classmethod
-    def check_sha1(cls, password, hash_):
-        if isinstance(password, str):
-            password = password.encode('utf-8')
-        hash_method, hash_, salt = hash_.split('$', 2)
-        salt = salt or ''
-        if isinstance(salt, str):
-            salt = salt.encode('utf-8')
-        assert hash_method == 'sha1'
-        return hash_ == hashlib.sha1(password + salt).hexdigest()
-
-    @classmethod
-    def hash_bcrypt(cls, password):
-        if isinstance(password, str):
-            password = password.encode('utf-8')
-        hash_ = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
-        return '$'.join(['bcrypt', hash_])
-
-    @classmethod
-    def check_bcrypt(cls, password, hash_):
-        if isinstance(password, str):
-            password = password.encode('utf-8')
-        hash_method, hash_ = hash_.split('$', 1)
-        if isinstance(hash_, str):
-            hash_ = hash_.encode('utf-8')
-        assert hash_method == 'bcrypt'
-        return hash_ == bcrypt.hashpw(password, hash_)
+        return PASSWORD_HASH.verify_and_update(password, hash_)
 
 
 class LoginAttempt(ModelSQL):
-    """Login Attempt
-
-    This class is separated from the res.user one in order to prevent locking
-    the res.user table when in a long running process.
-    """
+    """This class is separated from the res.user one in order to prevent
+    locking the res.user table when in a long running process."""
     __name__ = 'res.user.login.attempt'
     login = fields.Char('Login', size=512)
     device_cookie = fields.Char("Device Cookie", strip=False)
@@ -915,7 +835,6 @@ class LoginAttempt(ModelSQL):
 
 
 class UserDevice(ModelSQL):
-    "User Device"
     __name__ = 'res.user.device'
 
     login = fields.Char("Login", required=True)
@@ -971,38 +890,23 @@ class UserDevice(ModelSQL):
 
 
 class UserAction(ModelSQL):
-    'User - Action'
     __name__ = 'res.user-ir.action'
     user = fields.Many2One('res.user', 'User', ondelete='CASCADE',
         required=True)
     action = fields.Many2One('ir.action', 'Action', ondelete='CASCADE',
         required=True)
 
-    @staticmethod
-    def _convert_values(values):
+    @classmethod
+    def preprocess_values(cls, mode, values):
         pool = Pool()
         Action = pool.get('ir.action')
-        values = values.copy()
-        if values.get('action'):
+        values = super().preprocess_values(mode, values)
+        if values.get('action') is not None:
             values['action'] = Action.get_action_id(values['action'])
         return values
 
-    @classmethod
-    def create(cls, vlist):
-        vlist = [cls._convert_values(values) for values in vlist]
-        return super(UserAction, cls).create(vlist)
-
-    @classmethod
-    def write(cls, records, values, *args):
-        actions = iter((records, values) + args)
-        args = []
-        for records, values in zip(actions, actions):
-            args.extend((records, cls._convert_values(values)))
-        super(UserAction, cls).write(*args)
-
 
 class UserGroup(ModelSQL):
-    'User - Group'
     __name__ = 'res.user-res.group'
     user = fields.Many2One('res.user', 'User', ondelete='CASCADE',
         required=True)
@@ -1010,26 +914,11 @@ class UserGroup(ModelSQL):
         required=True)
 
     @classmethod
-    def create(cls, vlist):
-        records = super().create(vlist)
+    def on_modification(cls, mode, records, field_names=None):
         pool = Pool()
-        # Restart the cache for get_groups
-        pool.get('res.user')._get_groups_cache.clear()
-        return records
-
-    @classmethod
-    def write(cls, groups, values, *args):
-        super().write(groups, values, *args)
-        pool = Pool()
-        # Restart the cache for get_groups
-        pool.get('res.user')._get_groups_cache.clear()
-
-    @classmethod
-    def delete(cls, groups):
-        super().delete(groups)
-        pool = Pool()
-        # Restart the cache for get_groups
-        pool.get('res.user')._get_groups_cache.clear()
+        User = pool.get('res.user')
+        super().on_modification(mode, records, field_names=field_names)
+        User._get_groups_cache.clear()
 
     @classmethod
     def user_group_all_table(cls):
@@ -1049,9 +938,7 @@ class UserGroup(ModelSQL):
 
 
 class Warning_(ModelSQL, ModelView):
-    'User Warning'
     __name__ = 'res.user.warning'
-
     user = fields.Many2One('res.user', 'User', required=True)
     name = fields.Char('Name', required=True)
     always = fields.Boolean('Always')
@@ -1094,13 +981,12 @@ class Warning_(ModelSQL, ModelView):
             ])
         if not warnings:
             return True
-        transaction.check_warnings.add(key)
-        cls.delete([x for x in warnings if not x.always])
+        transaction.check_warnings[key].update(
+            w.id for w in warnings if not w.always)
         return False
 
 
 class UserApplication(Workflow, ModelSQL, ModelView):
-    "User Application"
     __name__ = 'res.user.application'
     _rec_name = 'key'
 
@@ -1115,7 +1001,7 @@ class UserApplication(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(UserApplication, cls).__setup__()
+        super().__setup__()
         cls._transitions |= set((
                 ('requested', 'validated'),
                 ('requested', 'cancelled'),
@@ -1188,14 +1074,13 @@ class UserApplication(Workflow, ModelSQL, ModelView):
         return record
 
     @classmethod
-    def create(cls, vlist):
-        vlist = [v.copy() for v in vlist]
-        for values in vlist:
+    def preprocess_values(cls, mode, values):
+        values = super().preprocess_values(mode, values)
+        if 'key' not in values:
             # Ensure we get a different key for each record
             # default methods are called only once
-            values.setdefault('key', cls.default_key())
-        applications = super(UserApplication, cls).create(vlist)
-        return applications
+            values['key'] = cls.default_key()
+        return values
 
 
 class EmailResetPassword(Report):
@@ -1218,12 +1103,10 @@ class EmailResetPassword(Report):
 
 
 class UserConfigStart(ModelView):
-    'User Config Init'
     __name__ = 'res.user.config.start'
 
 
 class UserConfig(Wizard):
-    'Configure users'
     __name__ = 'res.user.config'
 
     start = StateView('res.user.config.start',

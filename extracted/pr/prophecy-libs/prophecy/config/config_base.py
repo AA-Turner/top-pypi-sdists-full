@@ -2,6 +2,7 @@
 from pyspark import Row
 from pyspark.sql import SparkSession
 from functools import lru_cache
+from datetime import datetime, date
 
 class ConfigBase:
 
@@ -75,6 +76,98 @@ class ConfigBase:
         else:
             return value
 
+    def get_timestamp_value(self, value):
+        if value is None:
+            return value
+        if type(value) is datetime:
+            return value
+        if type(value) is date:
+            return datetime.combine(value, datetime.min.time())
+        if type(value) is str and value != "":
+            formats = [
+                # with timezone
+                "%d-%m-%YT%H:%M:%SZ%z", # default format that prophecy uses
+                "%d-%m-%Y %H:%M:%S %z",
+                "%d-%m-%YT%H:%M:%S.%fZ%z",
+                "%d-%m-%YT%H:%M:%S.%f%z",
+                "%d-%m-%YT%H:%M:%S%z",
+                "%d-%m-%Y %H:%M:%S.%f %z",
+                "%d-%m-%Y %H:%M:%S.%f%z",
+                "%d-%m-%Y %H:%M:%S%z",
+                # without timezone
+                "%d-%m-%YT%H:%M:%S.%f",
+                "%d-%m-%YT%H:%M:%S",
+                "%d-%m-%Y %H:%M:%S.%f",
+                "%d-%m-%Y %H:%M:%S",
+
+                # other formats
+                "%Y-%m-%dT%H:%M:%S.%f%z",
+                "%Y-%m-%dT%H:%M:%S%z",
+                "%Y-%m-%d %H:%M:%S.%f%z",
+                "%Y-%m-%d %H:%M:%S%z",
+                "%Y-%m-%dT%H:%M:%S.%f",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S.%f",
+                "%Y-%m-%d %H:%M:%S",
+                "%m-%d-%YT%H:%M:%S.%f%z",
+                "%m-%d-%YT%H:%M:%S%z",
+                "%m-%d-%Y %H:%M:%S.%f%z",
+                "%m-%d-%Y %H:%M:%S%z",
+                "%m-%d-%YT%H:%M:%S.%f",
+                "%m-%d-%YT%H:%M:%S",
+                "%m-%d-%Y %H:%M:%S.%f",
+                "%m-%d-%Y %H:%M:%S",
+            ]
+
+            for fmt in formats:
+                try:
+                    return datetime.strptime(value, fmt)
+                except ValueError:
+                    continue
+
+            raise ValueError(f"Timestamp string '{value}' does not match any known formats.")
+        return None
+
+    def get_date_value(self, value):
+        if type(value) is date:
+            return value
+        if type(value) is str and value != "":
+            formats = [
+                # date
+                "%Y-%m-%d",
+                "%m-%d-%Y",
+                "%d-%m-%Y",
+
+                "%Y/%m/%d",
+                "%m/%d/%Y",
+                "%d/%m/%Y",
+            ]
+
+            for fmt in formats:
+                try:
+                    return datetime.strptime(value, fmt).date()
+                except ValueError:
+                    continue
+
+            raise ValueError(f"Date string '{value}' does not match any known formats.")
+        return None
+
+    def get_date_list(self, date_list):
+        if date_list is None:
+            return date_list
+        if isinstance(date_list, list):
+            return [self.get_date_value(x) for x in date_list]
+        else:
+            raise ValueError(f"Expected a list of dates, but got {type(date_list)}")
+
+    def get_timestamp_list(self, timestamp_list):
+        if timestamp_list is None:
+            return timestamp_list
+        if isinstance(timestamp_list, list):
+            return [self.get_timestamp_value(x) for x in timestamp_list]
+        else:
+            raise ValueError(f"Expected a list of timestamps, but got {type(timestamp_list)}")
+
     # Old function, keeping it for backward compatibility
     def generate_object(self, value, cls):
         if isinstance(value, list):
@@ -121,6 +214,13 @@ class ConfigBase:
                 return [to_dict_recursive(item) for item in obj]
             elif isinstance(obj, dict):
                 return {key: to_dict_recursive(value) for key, value in obj.items() if should_include(key, value)}
+            elif isinstance(obj, date):
+                return obj.strftime("%d-%m-%Y")
+            elif isinstance(obj, datetime):
+                if obj.tzinfo is None:
+                    return obj.strftime("%d-%m-%YT%H:%M:%SZ")
+                else:
+                    return obj.strftime("%d-%m-%YT%H:%M:%SZ%z")
             elif hasattr(obj, "__dict__"):
                 return to_dict_recursive({key: value for key, value in obj.__dict__.items() if should_include(key, value)})
             elif hasattr(obj, "__slots__"):

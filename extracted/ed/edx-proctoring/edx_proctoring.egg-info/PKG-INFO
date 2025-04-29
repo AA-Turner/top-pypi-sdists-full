@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-proctoring
-Version: 5.1.2
+Version: 5.2.0
 Summary: Proctoring subsystem for Open edX
 Home-page: https://github.com/openedx/edx-proctoring
 Author: edX
@@ -10,6 +10,7 @@ Keywords: Django edx
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
@@ -124,7 +125,7 @@ Have a question about this repository, or about Open edX in general?  Please
 refer to this `list of resources`_ if you need any assistance.
 
 .. _list of resources: https://open.edx.org/getting-help
-.. _Including Proctored Exams In Your Course: https://edx.readthedocs.io/projects/edx-partner-course-staff/en/latest/proctored_exams/index.html
+.. _Including Proctored Exams In Your Course: https://docs.openedx.org/en/latest/educators/concepts/proctored_exams/proctored_exams_overview.html
 
 
 Change Log
@@ -142,7 +143,11 @@ Change Log
 
 Unreleased
 ~~~~~~~~~~
+[5.2.0] - 2025-04-22
+* adds support for django 5.2
+
 [5.1.2] - 2025-02-10
+~~~~~~~~~~~~~~~~~~~~
 * modifies the exam submit email message to avoid confusion among the learners.
 
 [5.1.1] - 2025-02-07

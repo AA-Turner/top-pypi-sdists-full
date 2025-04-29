@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.38.0
+Version: 4.39.0
 Summary: Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
 License: The MIT License (MIT)

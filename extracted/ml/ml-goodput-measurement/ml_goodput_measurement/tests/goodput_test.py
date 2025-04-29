@@ -265,7 +265,6 @@ class GoodputTest(googletest.TestCase):
     # Emulate job run timeline.
     self._mock_sample_program_with_badput()
 
-    # Ensure right number of entries are written.
     validate_entries = self.mock_cloud_logger.read_cloud_logging_entries()
 
     # Ensure payload contains the required information.
@@ -285,6 +284,7 @@ class GoodputTest(googletest.TestCase):
         goodput._CUSTOM_BADPUT_EVENT_START_TIME,
         goodput._CUSTOM_BADPUT_EVENT_END_TIME,
     }
+    # Ensure right number of entries are written.
     found_keys = set()
     for entry_payload in validate_entries:
       self.assertIn(goodput._JOB_NAME, entry_payload)
@@ -1830,7 +1830,7 @@ class BadputTest(googletest.TestCase):
 
     step_times = self.goodput_calculator._get_step_times(self.mock_cloud_logger.entries)
     ideal_step_time = compute_ideal_step_time(
-        step_times=list(step_times.values()), previous_ideal_step_time=None
+        step_times=list(step_times.values())
     )
     computed_step_deviations = self.goodput_calculator.get_step_deviation()
     expected_step_deviations = {

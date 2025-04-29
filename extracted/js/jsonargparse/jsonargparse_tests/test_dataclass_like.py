@@ -2,19 +2,26 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 from typing import Any, Dict, Generic, List, Literal, Optional, Tuple, TypeVar, Union
 from unittest.mock import patch
 
 import pytest
 
-from jsonargparse import ArgumentError, ArgumentParser, Namespace, compose_dataclasses, lazy_instance
+from jsonargparse import (
+    ArgumentError,
+    ArgumentParser,
+    Namespace,
+    compose_dataclasses,
+    lazy_instance,
+    set_parsing_settings,
+)
 from jsonargparse._namespace import NSKeyError
 from jsonargparse._optionals import (
     attrs_support,
     docstring_parser_support,
     pydantic_support,
     pydantic_supports_field_init,
-    set_docstring_parse_options,
     typing_extensions_import,
 )
 from jsonargparse.typing import PositiveFloat, PositiveInt, final
@@ -384,7 +391,7 @@ class WithAttrDocs:
 @skip_if_docstring_parser_unavailable
 @patch.dict("jsonargparse._optionals._docstring_parse_options")
 def test_attribute_docstrings(parser):
-    set_docstring_parse_options(attribute_docstrings=True)
+    set_parsing_settings(docstring_parse_attribute_docstrings=True)
     parser.add_class_arguments(WithAttrDocs)
     help_str = get_parser_help(parser)
     assert "attr_str description (type: str, default: a)" in help_str
@@ -537,6 +544,31 @@ def test_nested_generic_dataclass(parser):
     assert "--x.y.g2 [item,...]  (required, type: tuple[float, float])" in help_str
     assert "--x.y.g3 g3          (required, type: union[str, float])" in help_str
     assert "--x.y.g4 g4          (required, type: dict[str, union[float, bool]])" in help_str
+
+
+if sys.version_info >= (3, 9):
+    V = TypeVar("V")
+
+    @dataclasses.dataclass(frozen=True)
+    class GenericChild(Generic[V]):
+        value: V
+
+    @dataclasses.dataclass(frozen=True)
+    class GenericBase(Generic[V]):
+        children: tuple[GenericChild[V], ...]
+
+    @dataclasses.dataclass(frozen=True)
+    class GenericSubclass(GenericBase[str]):
+        children: tuple[GenericChild[str], ...]
+
+    def test_generic_dataclass_subclass(parser):
+        parser.add_class_arguments(GenericSubclass, "x")
+        cfg = parser.parse_args(['--x.children=[{"value": "a"}, {"value": "b"}]'])
+        init = parser.instantiate_classes(cfg)
+        assert cfg.x.children == (Namespace(value="a"), Namespace(value="b"))
+        assert isinstance(init.x, GenericSubclass)
+        assert isinstance(init.x.children[0], GenericChild)
+        assert isinstance(init.x.children[1], GenericChild)
 
 
 # union mixture tests

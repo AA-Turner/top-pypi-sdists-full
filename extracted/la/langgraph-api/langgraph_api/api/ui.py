@@ -53,13 +53,19 @@ async def handle_ui(request: ApiRequest) -> Response:
         basename = os.path.basename(filepath)
         ext = os.path.splitext(basename)[1]
 
+        # Use http:// protocol if accessing a localhost service
+        def is_host(needle: str) -> bool:
+            return host.startswith(needle + ":") or host == needle
+
+        protocol = "http:" if is_host("localhost") or is_host("127.0.0.1") else ""
+
         if ext == ".css":
             result.append(
-                f'<link rel="stylesheet" href="//{host}/ui/{graph_id}/{basename}" />'
+                f'<link rel="stylesheet" href="{protocol}//{host}/ui/{graph_id}/{basename}" />'
             )
         elif ext == ".js":
             result.append(
-                f'<script src="//{host}/ui/{graph_id}/{basename}" '
+                f'<script src="{protocol}//{host}/ui/{graph_id}/{basename}" '
                 f"onload='__LGUI_{graph_id}.render({json.dumps(message['name'])}, \"{{{{shadowRootId}}}}\")'>"
                 "</script>"
             )

@@ -397,6 +397,17 @@ class SecurityCache(System.Object):
         """Add a list of market data points to the local security cache for the current market price."""
         ...
 
+    @overload
+    def get_data(self, py_type: typing.Any) -> typing.Any:
+        """
+        Retrieves the last data packet of the specified Python type.
+        
+        :param py_type: The Python type to convert and match
+        :returns: The last data packet as a PyObject, or null if not found.
+        """
+        ...
+
+    @overload
     def get_data(self) -> QuantConnect.Data.BaseData:
         """
         Get last data packet received for this security if any else null

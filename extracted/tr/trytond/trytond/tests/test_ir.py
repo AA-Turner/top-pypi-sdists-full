@@ -39,10 +39,10 @@ class IrTestCase(ModuleTestCase):
         Model = pool.get('ir.model')
 
         record, = Model.search([
-                ('name', '=', "Language"),
+                ('string', '=', "Language"),
                 ('module', '=', 'ir'),
                 ])
-        self.assertEqual(record.name, "Language")
+        self.assertEqual(record.string, "Language")
 
     @with_transaction()
     def test_model_search_order(self):
@@ -51,11 +51,11 @@ class IrTestCase(ModuleTestCase):
         Model = pool.get('ir.model')
 
         records = Model.search([
-                ('name', 'in', ["Language", "Module"]),
+                ('string', 'in', ["Language", "Module"]),
                 ('module', '=', 'ir'),
                 ],
-            order=[('name', 'ASC')])
-        self.assertEqual([r.name for r in records], ["Language", "Module"])
+            order=[('string', 'ASC')])
+        self.assertEqual([r.string for r in records], ["Language", "Module"])
 
     @with_transaction()
     def test_model_field_search_description(self):
@@ -64,11 +64,11 @@ class IrTestCase(ModuleTestCase):
         ModelField = pool.get('ir.model.field')
 
         field, = ModelField.search([
-                ('field_description', '=', "Name"),
+                ('string', '=', "Name"),
                 ('model', '=', 'ir.lang'),
                 ('module', '=', 'ir'),
                 ])
-        self.assertEqual(field.field_description, "Name")
+        self.assertEqual(field.string, "Name")
 
     @with_transaction()
     def test_model_field_search_order_description(self):
@@ -77,12 +77,11 @@ class IrTestCase(ModuleTestCase):
         ModelField = pool.get('ir.model.field')
 
         fields = ModelField.search([
-                ('field_description', 'in', ["Name", "Code"]),
+                ('string', 'in', ["Name", "Code"]),
                 ('model', '=', 'ir.lang'),
                 ('module', '=', 'ir'),
                 ])
-        self.assertEqual(
-            [f.field_description for f in fields], ["Code", "Name"])
+        self.assertEqual([f.string for f in fields], ["Code", "Name"])
 
     @with_transaction()
     def test_model_field_lazy(self):
@@ -91,11 +90,11 @@ class IrTestCase(ModuleTestCase):
         ModelField = pool.get('ir.model.field')
 
         field, = ModelField.search([
-                ('field_description', '=', "ID"),
+                ('string', '=', "ID"),
                 ('model', '=', 'ir.lang'),
                 ('module', '=', 'ir'),
                 ])
-        self.assertEqual(field.field_description, "ID")
+        self.assertEqual(field.string, "ID")
 
     @with_transaction()
     def test_sequence_substitutions(self):
@@ -337,6 +336,17 @@ class IrTestCase(ModuleTestCase):
                 result)
 
     @with_transaction()
+    def test_lang_plural(self):
+        "Test Lang plural"
+        pool = Pool()
+        Lang = pool.get('ir.lang')
+
+        languages = Lang.search([])
+        for i in range(100):
+            for language in languages:
+                language.get_plural(i)
+
+    @with_transaction()
     def test_model_data_get_id(self):
         "Test ModelData.get_id"
         pool = Pool()
@@ -429,7 +439,7 @@ class IrTestCase(ModuleTestCase):
         admin = User(1)
         admin.email = 'admin@example.com'
         admin.save()
-        model, = IrModel.search([('model', '=', 'res.user')])
+        model, = IrModel.search([('name', '=', 'res.user')])
         field, = IrModelField.search([
                 ('model', '=', 'res.user'),
                 ('name', '=', 'id'),
@@ -464,7 +474,7 @@ class IrTestCase(ModuleTestCase):
         admin = User(1)
         admin.email = 'admin@example.com'
         admin.save()
-        model, = IrModel.search([('model', '=', 'res.user')])
+        model, = IrModel.search([('name', '=', 'res.user')])
         field, = IrModelField.search([
                 ('model', '=', 'res.user'),
                 ('name', '=', 'id'),
@@ -490,7 +500,7 @@ class IrTestCase(ModuleTestCase):
         admin = User(1)
         admin.email = 'admin@example.com'
         admin.save()
-        model, = IrModel.search([('model', '=', 'res.user')])
+        model, = IrModel.search([('name', '=', 'res.user')])
         field, = IrModelField.search([
                 ('model', '=', 'res.user'),
                 ('name', '=', 'id'),
@@ -516,15 +526,54 @@ class IrTestCase(ModuleTestCase):
                 'cc': ['fallback@example.com'],
                 })
 
+    @unittest.skipUnless(
+        pydot and shutil.which('dot'), "pydot is needed to generate graph")
+    @with_transaction()
+    def test_model_graph(self):
+        "Test model graph"
+        pool = Pool()
+        Model = pool.get('ir.model')
+        ModelGraph = pool.get('ir.model.graph', type='report')
+
+        models = Model.search([])
+
+        oext, content, print_, filename = (
+            ModelGraph.execute([m.id for m in models], {
+                    'level': 1,
+                    'filter': '',
+                    }))
+        self.assertEqual(oext, 'png')
+        self.assertTrue(content)
+        self.assertFalse(print_)
+        self.assertEqual(filename, "Graph")
+
+    @unittest.skipUnless(
+        pydot and shutil.which('dot'), "pydot is needed to generate graph")
+    @with_transaction()
+    def test_workflow_graph(self):
+        "Test workflow graph"
+        pool = Pool()
+        Model = pool.get('ir.model')
+        ModelWorkflowGraph = pool.get('ir.model.workflow_graph', type='report')
+
+        model, = Model.search([('name', '=', 'ir.error')])
+
+        oext, content, print_, filename = (
+                ModelWorkflowGraph.execute([model.id], {}))
+        self.assertEqual(oext, 'png')
+        self.assertTrue(content)
+        self.assertFalse(print_)
+        self.assertEqual(filename, "Workflow Graph")
+
 
 class IrCronTestCase(TestCase):
     "Test ir.cron features"
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         drop_db()
         activate_module(['ir'])
-        super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
@@ -597,24 +646,6 @@ class IrCronTestCase(TestCase):
         cron = self._get_cron()
 
         self.assertIsInstance(cron.get_timezone('timezone'), str)
-
-    @unittest.skipUnless(
-            pydot and shutil.which('dot'), "pydot is needed to generate graph")
-    @with_transaction()
-    def test_workflow_graph(self):
-        "Test workflow graph"
-        pool = Pool()
-        Model = pool.get('ir.model')
-        ModelWorkflowGraph = pool.get('ir.model.workflow_graph', type='report')
-
-        model, = Model.search([('model', '=', 'ir.error')])
-
-        oext, content, print_, filename = (
-                ModelWorkflowGraph.execute([model.id], {}))
-        self.assertEqual(oext, 'png')
-        self.assertTrue(content)
-        self.assertFalse(print_)
-        self.assertEqual(filename, "Workflow Graph")
 
 
 del ModuleTestCase

@@ -27,6 +27,8 @@ _TENSORBOARD_GCS_SUBDIR = 'goodput'
 _TENSORBOARD_GOODPUT_LABEL = 'goodput'
 _TENSORBOARD_BADPUT_LABEL = 'badput'
 _TENSORBOARD_STEP_DEVIATION_LABEL = 'step_deviation'
+_GOODPUT_DETAILS_KEY = 'goodput_time_dict'
+_BADPUT_DETAILS_KEY = 'badput_time_dict'
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +172,7 @@ class GoodputMonitor:
     for data_type, data_value in data.items():
       if isinstance(data_value, dict):
         for subtype, subval in data_value.items():
-          full_label = f'{label_prefix}/{data_type.lower()}/{subtype.lower()}'
+          full_label = f'{label_prefix}/{data_type}/{subtype}'.lower()
           self._writer.add_scalar(
               full_label, float(subval), step, display_name=subtype.lower()
           )
@@ -260,9 +262,9 @@ class GoodputMonitor:
       gcp_goodput_metrics = []
 
       for goodput_type, time_value in goodput_details[
-          'goodput_time_dict'
+          _GOODPUT_DETAILS_KEY
       ].items():
-        if goodput_type in ACTIVITY_EXCLUSION_LIST:
+        if goodput_type.name in ACTIVITY_EXCLUSION_LIST:
           continue
         gcp_goodput_metrics.append({
             'metric_type': 'compute.googleapis.com/workload/goodput_time',
@@ -280,7 +282,7 @@ class GoodputMonitor:
             },
         })
       for badput_label, time_value in self._flatten_badput_dict(
-          goodput_details['badput_time_dict']
+          goodput_details[_BADPUT_DETAILS_KEY]
       ):
         if badput_label in ACTIVITY_EXCLUSION_LIST:
           continue

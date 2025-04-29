@@ -6,6 +6,7 @@ from functools import wraps
 from lxml import etree
 
 from trytond.cache import Cache
+from trytond.config import config
 from trytond.exceptions import UserError
 from trytond.i18n import gettext
 from trytond.pool import Pool
@@ -19,6 +20,7 @@ from .fields import on_change_result
 from .model import Model
 
 __all__ = ['ModelView']
+_request_records_limit = config.getint('request', 'records_limit')
 
 
 class AccessButtonError(UserError):
@@ -83,16 +85,25 @@ class ModelView(Model):
 
     @classmethod
     def __setup__(cls):
-        super(ModelView, cls).__setup__()
-        cls.__rpc__['fields_view_get'] = RPC(cache=dict(days=1))
-        cls.__rpc__['view_toolbar_get'] = RPC(cache=dict(days=1))
-        cls.__rpc__['on_change'] = RPC(instantiate=0, result=on_change_result)
-        cls.__rpc__['on_change_with'] = RPC(
-            instantiate=0, result=on_change_result)
-        cls.__rpc__['on_change_notify'] = RPC(instantiate=0)
-        cls.__rpc__['on_scan_code'] = RPC(
-            instantiate=0, result=on_change_result)
-        cls.__rpc__['autocomplete'] = RPC()
+        super().__setup__()
+        cls.__rpc__.update({
+                'fields_view_get': RPC(
+                    cache=dict(days=1),
+                    size_limits={
+                        2: 1,
+                        }),
+                'view_toolbar_get': RPC(cache=dict(days=1)),
+                'on_change': RPC(instantiate=0, result=on_change_result),
+                'on_change_with': RPC(
+                    instantiate=0, result=on_change_result),
+                'on_change_notify': RPC(instantiate=0),
+                'on_scan_code': RPC(
+                    instantiate=0, result=on_change_result),
+                'autocomplete': RPC(
+                    size_limits={
+                        2: _request_records_limit,
+                        }),
+                })
         cls._buttons = {}
 
         fields_ = {}
@@ -105,7 +116,7 @@ class ModelView(Model):
 
     @classmethod
     def __post_setup__(cls):
-        super(ModelView, cls).__post_setup__()
+        super().__post_setup__()
 
         methods = {
             '_done': set(),
@@ -363,11 +374,13 @@ class ModelView(Model):
         prints = Action.get_keyword('form_print', (cls.__name__, -1))
         actions = Action.get_keyword('form_action', (cls.__name__, -1))
         relates = Action.get_keyword('form_relate', (cls.__name__, -1))
-        exports = Export.search_read(
-            [('resource', '=', cls.__name__)],
+        exports = Export.search_read([
+                ('resource', '=', cls.__name__),
+                ('ignore_search_limit', '=', False),
+                ],
             fields_names=['name', 'header', 'records', 'export_fields.name'])
         emails = Email.search_read(
-            [('model.model', '=', cls.__name__)],
+            [('model.name', '=', cls.__name__)],
             fields_names=['name'])
         result = {
             'print': prints,
@@ -481,15 +494,13 @@ class ModelView(Model):
 
         if type == 'tree':
             user = Transaction().user
+            width, _ = Transaction().context.get('screen_size', (None, None))
             if Transaction().context.get('view_tree_width'):
                 ViewTreeWidth = pool.get('ir.ui.view_tree_width')
-                viewtreewidths = ViewTreeWidth.search([
-                    ('model', '=', cls.__name__),
-                    ('user', '=', user),
-                    ])
-                for viewtreewidth in viewtreewidths:
-                    if viewtreewidth.width > 0:
-                        fields_width[viewtreewidth.field] = viewtreewidth.width
+                col_widths = ViewTreeWidth.get_width(cls.__name__, width)
+                fields_width.update({fname: w
+                        for fname, w in col_widths.items()
+                        if w > 0})
 
             if view_id:
                 ViewTreeOptional = pool.get('ir.ui.view_tree_optional')
@@ -623,8 +634,9 @@ class ModelView(Model):
                     element.attrib.pop('mode', None) or 'tree,form').split(',')
                 widget = element.attrib.get('widget', field._type)
                 views = get_views(relation, widget, view_ids, mode)
-                element.attrib['mode'] = ','.join(mode)
-                fields_attrs[fname].setdefault('views', {}).update(views)
+                if views:
+                    element.attrib['mode'] = ','.join(mode)
+                    fields_attrs[fname].setdefault('views', {}).update(views)
 
             if type == 'tree':
                 if element.get('name') in fields_width:

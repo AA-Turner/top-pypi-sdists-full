@@ -1,5 +1,3 @@
-from __future__ import division
-
 import logging
 
 import pyvips
@@ -37,8 +35,7 @@ class Source(pyvips.Connection):
         # sources are mutable, so we can't use the cache
         pointer = vips_lib.vips_source_new_from_descriptor(descriptor)
         if pointer == ffi.NULL:
-            raise Error("can't create source from descriptor {0}"
-                        .format(descriptor))
+            raise Error(f"can't create source from descriptor {descriptor}")
 
         return Source(pointer)
 
@@ -59,8 +56,7 @@ class Source(pyvips.Connection):
 
         pointer = vips_lib.vips_source_new_from_file(_to_bytes(filename))
         if pointer == ffi.NULL:
-            raise Error("can't create source from filename {0}"
-                        .format(filename))
+            raise Error(f"can't create source from filename {filename}")
 
         return Source(pointer)
 
@@ -81,12 +77,6 @@ class Source(pyvips.Connection):
 
         # logger.debug('VipsSource.new_from_memory:')
 
-        # py3:
-        #   - memoryview has .nbytes for number of bytes in object
-        #   - len() returns number of elements in top array
-        # py2:
-        #   - buffer has no nbytes member
-        #   - but len() gives number of bytes in object
         start = ffi.from_buffer(data)
         nbytes = data.nbytes if hasattr(data, 'nbytes') else len(data)
 

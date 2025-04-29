@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kfp
-Version: 2.12.2
+Version: 2.13.0
 Summary: Kubeflow Pipelines SDK
 Home-page: https://github.com/kubeflow/pipelines
 Author: The Kubeflow Authors
@@ -29,7 +29,7 @@ Requires-Dist: click<9,>=8.0.0
 Requires-Dist: docstring-parser<1,>=0.7.3
 Requires-Dist: google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0dev,>=1.31.5
 Requires-Dist: google-auth<3,>=1.6.1
-Requires-Dist: google-cloud-storage<3,>=2.2.1
+Requires-Dist: google-cloud-storage<4,>=2.2.1
 Requires-Dist: kfp-pipeline-spec==0.6.0
 Requires-Dist: kfp-server-api<2.5.0,>=2.1.0
 Requires-Dist: kubernetes<31,>=8.0.0
@@ -37,7 +37,7 @@ Requires-Dist: protobuf<5,>=4.21.1
 Requires-Dist: PyYAML<7,>=5.3
 Requires-Dist: requests-toolbelt<2,>=0.8.0
 Requires-Dist: tabulate<1,>=0.8.6
-Requires-Dist: urllib3<2.0.0
+Requires-Dist: urllib3<3.0.0
 Requires-Dist: typing-extensions<5,>=3.7.4; python_version < "3.9"
 Provides-Extra: all
 Requires-Dist: docker; extra == "all"

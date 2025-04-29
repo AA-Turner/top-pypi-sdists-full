@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-serverless-clamscan
-Version: 2.11.14
+Version: 2.11.15
 Summary: Serverless architecture to virus scan objects in Amazon S3.
 Home-page: https://github.com/awslabs/cdk-serverless-clamscan
 Author: Amazon Web Services<donti@amazon.com>

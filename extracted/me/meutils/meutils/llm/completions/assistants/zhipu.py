@@ -53,7 +53,7 @@ class Completions(object):
                 references.setdefault(tool_type, []).extend(outputs)
 
                 if not outputs:
-                    yield f"\n\n> {delta.model_dump_json(indent=4, exclude_none=True)}\n\n"
+                    yield f"\n\n```json\n{delta.model_dump_json(indent=4, exclude_none=True)}\n```\n\n"
                 logger.debug(references)
 
                 continue

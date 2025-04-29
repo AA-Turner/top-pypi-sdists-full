@@ -27,6 +27,7 @@ from prompt_toolkit.shortcuts import checkboxlist_dialog
 from pytesseract import pytesseract
 from pywinauto.application import Application, findwindows
 from pywinauto.keyboard import send_keys
+from pywinauto.mouse import double_click
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
 import win32clipboard
@@ -4775,3 +4776,58 @@ async def find_warning_nop_divergence():
     except:
         console.print(f'Não possui warning de NOP dos itens diferente da capa da nota')
 
+
+async def status_trasmissao():
+    console.print("Verificando se a nota foi transmitida com sucesso")
+    app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
+    main_window = app["TFrmProcessamentoNFe2"]
+    main_window.set_focus()
+
+    tpanel_footer = main_window.child_window(class_name="TGroupBox", found_index=0)
+
+    rect = tpanel_footer.rectangle()
+    center_x = (rect.left + rect.right) // 2
+    center_y = (rect.top + rect.bottom) // 2
+
+    pyautogui.moveTo(center_x, center_y)
+    double_click(coords=(center_x, center_y))
+
+    with pyautogui.hold('ctrl'):
+        pyautogui.press('c')
+    await worker_sleep(1)
+    with pyautogui.hold('ctrl'):
+        pyautogui.press('c')
+
+    win32clipboard.OpenClipboard()
+    pop_up_status = win32clipboard.GetClipboardData().strip()
+    win32clipboard.CloseClipboard()
+    console.print(f"Status copiado: {pop_up_status}")
+    return pop_up_status
+
+
+async def status_trasmissao_nf():
+    console.print("Verificando se a nota foi transmitida com sucesso")
+    app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=15)
+    main_window = app["TFrmGerenciadorNFe2"]
+    main_window.set_focus()
+
+    tpanel_footer = main_window.child_window(class_name="TcxGrid", found_index=0)
+
+    rect = tpanel_footer.rectangle()
+    center_x = (rect.left + rect.right) // 2
+    center_y = (rect.top + rect.bottom) // 2
+
+    pyautogui.moveTo(center_x, center_y)
+    double_click(coords=(center_x, center_y))
+
+    with pyautogui.hold('ctrl'):
+        pyautogui.press('c')
+    await worker_sleep(1)
+    with pyautogui.hold('ctrl'):
+        pyautogui.press('c')
+
+    win32clipboard.OpenClipboard()
+    pop_up_status = win32clipboard.GetClipboardData().strip()
+    win32clipboard.CloseClipboard()
+    console.print(f"Status copiado: {pop_up_status}")
+    return pop_up_status

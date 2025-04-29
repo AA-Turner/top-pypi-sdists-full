@@ -2,7 +2,6 @@
 # this repository contains the full copyright notices and license terms.
 
 import datetime as dt
-import os
 import time
 import unittest
 from unittest.mock import patch
@@ -27,6 +26,7 @@ class CacheTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     def testFreeze(self):
@@ -101,14 +101,15 @@ class MemoryCacheTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     def setUp(self):
         super().setUp()
-        clear_timeout = cache_mod._clear_timeout
-        cache_mod._clear_timeout = 1
+        clear_timeout = cache_mod._clean_timeout
+        cache_mod._clean_timeout = 1
         self.addCleanup(
-            setattr, cache_mod, '_clear_timeout', clear_timeout)
+            setattr, cache_mod, '_clean_timeout', clear_timeout)
 
     def tearDown(self):
         MemoryCache.drop(DB_NAME)
@@ -175,7 +176,7 @@ class MemoryCacheTestCase(TestCase):
         with Transaction().start(DB_NAME, USER):
             cache.clear()
         # Ensure sync is performed on start
-        time.sleep(cache_mod._clear_timeout)
+        time.sleep(cache_mod._clean_timeout)
 
         with Transaction().start(DB_NAME, USER) as transaction1:
             cache.clear()
@@ -186,7 +187,7 @@ class MemoryCacheTestCase(TestCase):
         "Test MemoryCache synchronisation"
         with Transaction().start(DB_NAME, USER):
             cache.clear()
-        time.sleep(cache_mod._clear_timeout)
+        time.sleep(cache_mod._clean_timeout)
         last = cache._clean_last
 
         with Transaction().start(DB_NAME, USER):
@@ -242,10 +243,10 @@ class MemoryCacheChannelTestCase(MemoryCacheTestCase):
 
     def setUp(self):
         super().setUp()
-        clear_timeout = cache_mod._clear_timeout
-        cache_mod._clear_timeout = 0
+        clear_timeout = cache_mod._clean_timeout
+        cache_mod._clean_timeout = 0
         self.addCleanup(
-            setattr, cache_mod, '_clear_timeout', clear_timeout)
+            setattr, cache_mod, '_clean_timeout', clear_timeout)
 
     def wait_cache_sync(self, after=None):
         if after is None:
@@ -254,9 +255,8 @@ class MemoryCacheChannelTestCase(MemoryCacheTestCase):
             time.sleep(.01)
 
     def wait_cache_listening(self):
-        pid = os.getpid()
         dbname = Transaction().database.name
-        listener = MemoryCache._listener.get((pid, dbname))
+        listener = MemoryCache._local.listeners[dbname]
         while (not getattr(listener, 'listening', False)
                 and listener.is_alive()):
             time.sleep(.01)
@@ -320,6 +320,7 @@ class LRUDictTransactionTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()

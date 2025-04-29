@@ -3,11 +3,11 @@
 import datetime as dt
 import json
 import logging
-import os
 import selectors
 import threading
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
+from uuid import uuid4
 from weakref import WeakKeyDictionary
 
 from sql import Conflict, Table
@@ -18,12 +18,16 @@ from trytond import backend
 from trytond.config import config
 from trytond.pool import Pool
 from trytond.tools import grouped_slice, resolve
+from trytond.tools.multiprocessing import local
 from trytond.transaction import Transaction
 
 __all__ = ['BaseCache', 'Cache', 'LRUDict', 'LRUDictTransaction']
-_clear_timeout = config.getint('cache', 'clean_timeout', default=5 * 60)
+_clean_timeout = config.getint('cache', 'clean_timeout')
+_select_timeout = config.getint('cache', 'select_timeout')
 _default_size_limit = config.getint('cache', 'default')
 logger = logging.getLogger(__name__)
+
+REFRESH_POOL_MSG = "refresh pool"
 
 
 def _cast(column):
@@ -61,6 +65,14 @@ def _get_modules(cursor):
             where=ir_module.state.in_(
                 ['activated', 'to upgrade', 'to remove'])))
     return {m for m, in cursor}
+
+
+class _CacheLocal(local):
+
+    def __init__(self):
+        self.listeners = {}
+        self.listener_lock = threading.Lock()
+        self.portable_id = str(uuid4())
 
 
 class BaseCache(object):
@@ -154,13 +166,12 @@ class MemoryCache(BaseCache):
     _reset = WeakKeyDictionary()
     _clean_last = None
     _default_lower = Transaction.monotonic_time()
-    _listener = {}
-    _listener_lock = defaultdict(threading.Lock)
+    _local = _CacheLocal()
     _table = 'ir_cache'
     _channel = _table
 
     def __init__(self, *args, **kwargs):
-        super(MemoryCache, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._database_cache = defaultdict(lambda: LRUDict(self.size_limit))
         self._transaction_cache = WeakKeyDictionary()
         self._transaction_lower = {}
@@ -236,16 +247,16 @@ class MemoryCache(BaseCache):
 
         database = transaction.database
         dbname = database.name
-        if not _clear_timeout and database.has_channel():
-            pid = os.getpid()
-            with cls._listener_lock[pid]:
-                if (pid, dbname) not in cls._listener:
-                    cls._listener[pid, dbname] = listener = threading.Thread(
+        if not _clean_timeout and database.has_channel():
+            with cls._local.listener_lock:
+                if dbname not in cls._local.listeners:
+                    listener = threading.Thread(
                         target=cls._listen, args=(dbname,), daemon=True)
+                    cls._local.listeners[dbname] = listener
                     listener.start()
             return
         last_clean = (dt.datetime.now() - cls._clean_last).total_seconds()
-        if last_clean < _clear_timeout:
+        if last_clean < _clean_timeout:
             return
         connection = database.get_connection(readonly=True, autocommit=True)
         try:
@@ -281,7 +292,7 @@ class MemoryCache(BaseCache):
             return
         database = transaction.database
         dbname = database.name
-        if not _clear_timeout and transaction.database.has_channel():
+        if not _clean_timeout and transaction.database.has_channel():
             with transaction.connection.cursor() as cursor:
                 # The count computed as
                 # 8000 (max notify size) / 64 (max name data len)
@@ -343,9 +354,8 @@ class MemoryCache(BaseCache):
 
     @classmethod
     def drop(cls, dbname):
-        pid = os.getpid()
-        with cls._listener_lock[pid]:
-            listener = cls._listener.pop((pid, dbname), None)
+        with cls._local.listener_lock:
+            listener = cls._local.listeners.pop(dbname, None)
         if listener:
             database = backend.Database(dbname)
             conn = database.get_connection()
@@ -365,13 +375,14 @@ class MemoryCache(BaseCache):
     def refresh_pool(cls, transaction):
         database = transaction.database
         dbname = database.name
-        if not _clear_timeout and database.has_channel():
+        if not _clean_timeout and database.has_channel():
             database = backend.Database(dbname)
             conn = database.get_connection()
+            process_id = cls._local.portable_id
+            payload = f"{REFRESH_POOL_MSG} {process_id}"
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    'NOTIFY "%s", %%s' % cls._channel, ('refresh pool',))
+                cursor.execute(f'NOTIFY "{cls._channel}", %s', (payload,))
                 conn.commit()
             finally:
                 database.put_connection(conn)
@@ -379,7 +390,6 @@ class MemoryCache(BaseCache):
     @classmethod
     def _listen(cls, dbname):
         current_thread = threading.current_thread()
-        pid = os.getpid()
 
         conn, selector = None, None
         try:
@@ -400,16 +410,19 @@ class MemoryCache(BaseCache):
             current_thread.listening = True
 
             selector.register(conn, selectors.EVENT_READ)
-            while cls._listener.get((pid, dbname)) == current_thread:
-                selector.select(timeout=60)
+            while cls._local.listeners.get(dbname) == current_thread:
+                selector.select(timeout=_select_timeout)
                 conn.poll()
                 while conn.notifies:
                     notification = conn.notifies.pop()
-                    if notification.payload == 'refresh pool':
-                        Pool.refresh(dbname, _get_modules(cursor))
-                    elif notification.payload:
-                        reset = json.loads(notification.payload)
-                        for name in reset:
+                    payload = notification.payload
+                    if payload and payload.startswith(REFRESH_POOL_MSG):
+                        remote_id = payload[len(REFRESH_POOL_MSG) + 1:]
+                        process_id = cls._local.portable_id
+                        if remote_id != process_id:
+                            Pool.refresh(dbname, _get_modules(cursor))
+                    elif payload:
+                        for name in json.loads(payload):
                             inst = cls._instances[name]
                             inst._clear(dbname)
                 cls._clean_last = dt.datetime.now()
@@ -424,9 +437,9 @@ class MemoryCache(BaseCache):
                 selector.close()
             if conn:
                 database.put_connection(conn)
-            with cls._listener_lock[pid]:
-                if cls._listener.get((pid, dbname)) == current_thread:
-                    del cls._listener[pid, dbname]
+            with cls._local.listener_lock:
+                if cls._local.listeners.get(dbname) == current_thread:
+                    del cls._local.listeners[dbname]
 
 
 if config.get('cache', 'class'):
@@ -451,13 +464,13 @@ class LRUDict(OrderedDict):
             *args, **kwargs):
         assert size_limit > 0
         self.size_limit = size_limit
-        super(LRUDict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.default_factory = default_factory
         self.default_factory_with_key = default_factory_with_key
         self._check_size_limit()
 
     def __setitem__(self, key, value):
-        super(LRUDict, self).__setitem__(key, value)
+        super().__setitem__(key, value)
         self._check_size_limit()
 
     def __missing__(self, key):
@@ -471,11 +484,11 @@ class LRUDict(OrderedDict):
         return value
 
     def update(self, *args, **kwargs):
-        super(LRUDict, self).update(*args, **kwargs)
+        super().update(*args, **kwargs)
         self._check_size_limit()
 
     def setdefault(self, key, default=None):
-        default = super(LRUDict, self).setdefault(key, default=default)
+        default = super().setdefault(key, default=default)
         self._check_size_limit()
         return default
 
@@ -492,12 +505,12 @@ class LRUDictTransaction(LRUDict):
     __slots__ = ('transaction', 'counter')
 
     def __init__(self, *args, **kwargs):
-        super(LRUDictTransaction, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.transaction = Transaction()
         self.counter = self.transaction.counter
 
     def clear(self):
-        super(LRUDictTransaction, self).clear()
+        super().clear()
         self.counter = self.transaction.counter
 
     def refresh(self):

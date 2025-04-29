@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_shared
-Version: 1.4.0
+Version: 1.4.1
 Summary: Tools and constants shared across Apify projects.
 Author-email: "Apify Technologies s.r.o." <support@apify.com>
 License: Apache Software License

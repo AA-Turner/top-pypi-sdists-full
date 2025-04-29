@@ -1,3 +1,11 @@
+"""Transform classes for applying various blur operations to images.
+
+This module contains transform classes that implement different blur effects including
+standard blur, motion blur, median blur, Gaussian blur, glass blur, advanced blur, defocus,
+and zoom blur. These transforms are designed to work within the albumentations pipeline
+and support parameters for controlling the intensity and properties of the blur effects.
+"""
+
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, cast
@@ -95,6 +103,7 @@ class Blur(ImageOnlyTransform):
         >>> transform = A.Blur(blur_limit=(3, 7), p=1.0)
         >>> result = transform(image=image)
         >>> blurred_image = result["image"]
+
     """
 
     class InitSchema(BlurInitSchema):
@@ -106,21 +115,35 @@ class Blur(ImageOnlyTransform):
         p: float = 0.5,
     ):
         super().__init__(p=p)
-        self.blur_limit = cast(tuple[int, int], blur_limit)
+        self.blur_limit = cast("tuple[int, int]", blur_limit)
 
     def apply(self, img: np.ndarray, kernel: int, **params: Any) -> np.ndarray:
-        return fblur.blur(img, kernel)
+        """Apply blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            kernel (int): Size of the kernel for blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Blurred image.
+
+        """
+        return fblur.box_blur(img, kernel)
 
     def get_params(self) -> dict[str, Any]:
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters.
+
+        """
         kernel = fblur.sample_odd_from_range(
             self.py_random,
             self.blur_limit[0],
             self.blur_limit[1],
         )
         return {"kernel": kernel}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return ("blur_limit",)
 
 
 class MotionBlur(Blur):
@@ -256,22 +279,31 @@ class MotionBlur(Blur):
     ):
         super().__init__(blur_limit=blur_limit, p=p)
         self.allow_shifted = allow_shifted
-        self.blur_limit = cast(tuple[int, int], blur_limit)
+        self.blur_limit = cast("tuple[int, int]", blur_limit)
         self.angle_range = angle_range
         self.direction_range = direction_range
 
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            *super().get_transform_init_args_names(),
-            "allow_shifted",
-            "angle_range",
-            "direction_range",
-        )
-
     def apply(self, img: np.ndarray, kernel: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply motion blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            kernel (np.ndarray): Kernel for motion blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Motion blurred image.
+
+        """
         return fmain.convolve(img, kernel=kernel)
 
     def get_params(self) -> dict[str, Any]:
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters.
+
+        """
         ksize = fblur.sample_odd_from_range(
             self.py_random,
             self.blur_limit[0],
@@ -343,6 +375,7 @@ class MedianBlur(Blur):
     References:
         - Median filter: https://en.wikipedia.org/wiki/Median_filter
         - OpenCV medianBlur: https://docs.opencv.org/master/d4/d86/group__imgproc__filter.html#ga564869aa33e58769b4469101aac458f9
+
     """
 
     def __init__(
@@ -353,6 +386,17 @@ class MedianBlur(Blur):
         super().__init__(blur_limit=blur_limit, p=p)
 
     def apply(self, img: np.ndarray, kernel: int, **params: Any) -> np.ndarray:
+        """Apply median blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            kernel (int): Size of the kernel for blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Median blurred image.
+
+        """
         return fblur.median_blur(img, kernel)
 
 
@@ -365,7 +409,7 @@ class GaussianBlur(ImageOnlyTransform):
 
     Args:
         sigma_limit (tuple[float, float] | float): Range for the Gaussian kernel standard
-            deviation (sigma). Must be in range [0, inf).
+            deviation (sigma). Must be more or equal than 0.
             - If a single float is provided, sigma will be randomly chosen
               between 0 and that value.
             - If a tuple of two floats is provided, it defines the inclusive range
@@ -418,6 +462,7 @@ class GaussianBlur(ImageOnlyTransform):
         >>> transform = A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.5, 3.0), p=1.0)
         >>> result = transform(image=image)
         >>> blurred_image = result["image"]
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -439,8 +484,8 @@ class GaussianBlur(ImageOnlyTransform):
         p: float = 0.5,
     ):
         super().__init__(p=p)
-        self.blur_limit = cast(tuple[int, int], blur_limit)
-        self.sigma_limit = cast(tuple[float, float], sigma_limit)
+        self.blur_limit = cast("tuple[int, int]", blur_limit)
+        self.sigma_limit = cast("tuple[float, float]", sigma_limit)
 
     def apply(
         self,
@@ -448,16 +493,33 @@ class GaussianBlur(ImageOnlyTransform):
         kernel: np.ndarray,
         **params: Any,
     ) -> np.ndarray:
+        """Apply Gaussian blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            kernel (np.ndarray): Kernel for Gaussian blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Gaussian blurred image.
+
+        """
         return fmain.separable_convolve(img, kernel=kernel)
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, float]:
+        """Get parameters that depend on input data.
+
+        Args:
+            params (dict[str, Any]): Parameters.
+            data (dict[str, Any]): Input data.
+
+        Returns:
+            dict[str, float]: Dictionary with parameters.
+
+        """
         sigma = self.py_random.uniform(*self.sigma_limit)
         ksize = self.py_random.randint(*self.blur_limit)
-
         return {"kernel": fblur.create_gaussian_kernel_1d(sigma, ksize)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "blur_limit", "sigma_limit"
 
 
 class GlassBlur(ImageOnlyTransform):
@@ -520,6 +582,7 @@ class GlassBlur(ImageOnlyTransform):
           https://arxiv.org/abs/1903.12261
         - Original implementation:
           https://github.com/hendrycks/robustness/blob/master/ImageNet-C/create_c/make_imagenet_c.py
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -549,6 +612,18 @@ class GlassBlur(ImageOnlyTransform):
         dxy: np.ndarray,
         **params: Any,
     ) -> np.ndarray:
+        """Apply glass blur effect to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            *args (Any): Additional positional arguments.
+            dxy (np.ndarray): Displacement map.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Image with glass blur effect.
+
+        """
         return fblur.glass_blur(
             img,
             self.sigma,
@@ -563,8 +638,17 @@ class GlassBlur(ImageOnlyTransform):
         params: dict[str, Any],
         data: dict[str, Any],
     ) -> dict[str, np.ndarray]:
-        height, width = params["shape"][:2]
+        """Get parameters that depend on input data.
 
+        Args:
+            params (dict[str, Any]): Parameters.
+            data (dict[str, Any]): Input data.
+
+        Returns:
+            dict[str, np.ndarray]: Dictionary with parameters.
+
+        """
+        height, width = params["shape"][:2]
         # generate array containing all necessary values for transformations
         width_pixels = height - self.max_delta * 2
         height_pixels = width - self.max_delta * 2
@@ -576,9 +660,6 @@ class GlassBlur(ImageOnlyTransform):
         )
 
         return {"dxy": dxy}
-
-    def get_transform_init_args_names(self) -> tuple[str, str, str, str]:
-        return "sigma", "max_delta", "iterations", "mode"
 
 
 class AdvancedBlur(ImageOnlyTransform):
@@ -662,6 +743,7 @@ class AdvancedBlur(ImageOnlyTransform):
 
     Image types:
         uint8, float32
+
     """
 
     class InitSchema(BlurInitSchema):
@@ -673,15 +755,16 @@ class AdvancedBlur(ImageOnlyTransform):
 
         @field_validator("beta_limit")
         @classmethod
-        def check_beta_limit(cls, value: tuple[float, float] | float) -> tuple[float, float]:
+        def _check_beta_limit(cls, value: tuple[float, float] | float) -> tuple[float, float]:
             result = to_tuple(value, low=0)
             if not (result[0] < 1.0 < result[1]):
-                msg = "beta_limit is expected to include 1.0."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Beta limit should include 1.0, got {result}",
+                )
             return result
 
         @model_validator(mode="after")
-        def validate_limits(self) -> Self:
+        def _validate_limits(self) -> Self:
             if (
                 isinstance(self.sigma_x_limit, (tuple, list))
                 and self.sigma_x_limit[0] == 0
@@ -704,17 +787,34 @@ class AdvancedBlur(ImageOnlyTransform):
     ):
         super().__init__(p=p)
 
-        self.blur_limit = cast(tuple[int, int], blur_limit)
-        self.sigma_x_limit = cast(tuple[float, float], sigma_x_limit)
-        self.sigma_y_limit = cast(tuple[float, float], sigma_y_limit)
-        self.rotate_limit = cast(tuple[int, int], rotate_limit)
-        self.beta_limit = cast(tuple[float, float], beta_limit)
-        self.noise_limit = cast(tuple[float, float], noise_limit)
+        self.blur_limit = cast("tuple[int, int]", blur_limit)
+        self.sigma_x_limit = cast("tuple[float, float]", sigma_x_limit)
+        self.sigma_y_limit = cast("tuple[float, float]", sigma_y_limit)
+        self.rotate_limit = cast("tuple[int, int]", rotate_limit)
+        self.beta_limit = cast("tuple[float, float]", beta_limit)
+        self.noise_limit = cast("tuple[float, float]", noise_limit)
 
     def apply(self, img: np.ndarray, kernel: np.ndarray, **params: Any) -> np.ndarray:
+        """Apply advanced blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            kernel (np.ndarray): Kernel for blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Blurred image.
+
+        """
         return fmain.convolve(img, kernel=kernel)
 
     def get_params(self) -> dict[str, np.ndarray]:
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, np.ndarray]: Dictionary with parameters.
+
+        """
         ksize = fblur.sample_odd_from_range(
             self.py_random,
             self.blur_limit[0],
@@ -759,16 +859,6 @@ class AdvancedBlur(ImageOnlyTransform):
         # Normalize kernel
         kernel = kernel.astype(np.float32) / np.sum(kernel)
         return {"kernel": kernel}
-
-    def get_transform_init_args_names(self) -> tuple[str, str, str, str, str, str]:
-        return (
-            "blur_limit",
-            "sigma_x_limit",
-            "sigma_y_limit",
-            "rotate_limit",
-            "beta_limit",
-            "noise_limit",
-        )
 
 
 class Defocus(ImageOnlyTransform):
@@ -816,8 +906,8 @@ class Defocus(ImageOnlyTransform):
         >>> defocused_image = result['image']
 
     References:
-        - https://en.wikipedia.org/wiki/Defocus_aberration
-        - https://www.researchgate.net/publication/261311609_Realistic_Defocus_Blur_for_Multiplane_Computer-Generated_Holography
+        Defocus aberration: https://en.wikipedia.org/wiki/Defocus_aberration
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -831,8 +921,8 @@ class Defocus(ImageOnlyTransform):
         p: float = 0.5,
     ):
         super().__init__(p=p)
-        self.radius = cast(tuple[int, int], radius)
-        self.alias_blur = cast(tuple[float, float], alias_blur)
+        self.radius = cast("tuple[int, int]", radius)
+        self.alias_blur = cast("tuple[float, float]", alias_blur)
 
     def apply(
         self,
@@ -841,16 +931,31 @@ class Defocus(ImageOnlyTransform):
         alias_blur: float,
         **params: Any,
     ) -> np.ndarray:
+        """Apply defocus blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            radius (int): Radius of the defocus blur.
+            alias_blur (float): Standard deviation of the Gaussian blur.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Defocused image.
+
+        """
         return fblur.defocus(img, radius, alias_blur)
 
     def get_params(self) -> dict[str, Any]:
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters.
+
+        """
         return {
             "radius": self.py_random.randint(*self.radius),
             "alias_blur": self.py_random.uniform(*self.alias_blur),
         }
-
-    def get_transform_init_args_names(self) -> tuple[str, str]:
-        return ("radius", "alias_blur")
 
 
 class ZoomBlur(ImageOnlyTransform):
@@ -872,7 +977,8 @@ class ZoomBlur(ImageOnlyTransform):
         unit8, float32
 
     Reference:
-        https://arxiv.org/abs/1903.12261
+        Zoom Blur: https://arxiv.org/abs/1903.12261
+
     """
 
     class InitSchema(BaseTransformInitSchema):
@@ -886,8 +992,8 @@ class ZoomBlur(ImageOnlyTransform):
         p: float = 0.5,
     ):
         super().__init__(p=p)
-        self.max_factor = cast(tuple[float, float], max_factor)
-        self.step_factor = cast(tuple[float, float], step_factor)
+        self.max_factor = cast("tuple[float, float]", max_factor)
+        self.step_factor = cast("tuple[float, float]", step_factor)
 
     def apply(
         self,
@@ -895,12 +1001,26 @@ class ZoomBlur(ImageOnlyTransform):
         zoom_factors: np.ndarray,
         **params: Any,
     ) -> np.ndarray:
+        """Apply zoom blur to the input image.
+
+        Args:
+            img (np.ndarray): Image to blur.
+            zoom_factors (np.ndarray): Array of zoom factors.
+            **params (Any): Additional parameters.
+
+        Returns:
+            np.ndarray: Zoom blurred image.
+
+        """
         return fblur.zoom_blur(img, zoom_factors)
 
     def get_params(self) -> dict[str, Any]:
+        """Get parameters for the transform.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters.
+
+        """
         step_factor = self.py_random.uniform(*self.step_factor)
         max_factor = max(1 + step_factor, self.py_random.uniform(*self.max_factor))
         return {"zoom_factors": np.arange(1.0, max_factor, step_factor)}
-
-    def get_transform_init_args_names(self) -> tuple[str, str]:
-        return ("max_factor", "step_factor")

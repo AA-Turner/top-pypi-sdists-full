@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk8s-redis
-Version: 0.1.829
+Version: 0.1.830
 Summary: Basic implementation of a Redis construct for cdk8s.
 Home-page: https://github.com/cdk8s-team/cdk8s-redis.git
 Author: Amazon Web Services

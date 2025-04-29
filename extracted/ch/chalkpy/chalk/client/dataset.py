@@ -183,26 +183,89 @@ def _parallel_download_polars_lazy(
 def _standardize_utc_timezone_format(df: pl.DataFrame) -> pl.DataFrame:
     """
     Polars has a bug where it sometimes converts +00:00 timezones to UTC, but sometimes not, depending
-    on whether there are rows or not. This function standardizes all timezones to UTC.
+    on whether there are rows or not. This function standardizes all timezones to UTC recursively.
     """
     try:
         import polars as pl
-        from polars.datatypes import Datetime
+        from polars.datatypes import DataType, Datetime, List, Struct
+        from polars.expr import Expr
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
-    schema = df.schema
+    def process_type(col_expr: Expr, dtype: DataType) -> Expr:
+        """
+        Recursively process a column expression based on its data type,
+        converting any datetime with +00:00 timezone to UTC.
+
+        Args:
+            col_expr: Polars column expression
+            dtype: Data type of the column
+
+        Returns:
+            Processed column expression
+        """
+        # Base case: Datetime with +00:00 timezone
+        if isinstance(dtype, Datetime) and getattr(dtype, "time_zone", None) == "+00:00":
+            return col_expr.dt.convert_time_zone("UTC")
+
+        # Recursive case 1: List type
+        elif isinstance(dtype, List):
+            inner_type = dtype.inner
+
+            if isinstance(inner_type, Datetime) and getattr(inner_type, "time_zone", None) == "+00:00":
+                return col_expr.list.eval(pl.element().dt.convert_time_zone("UTC"))
+            elif isinstance(inner_type, Struct):
+                field_exprs = []
+                for field in inner_type.fields:
+                    if isinstance(field.dtype, Datetime) and getattr(field.dtype, "time_zone", None) == "+00:00":
+                        field_exprs.append(
+                            pl.element().struct.field(field.name).dt.convert_time_zone("UTC").alias(field.name)
+                        )
+                    elif isinstance(field.dtype, List):
+                        if (
+                            isinstance(field.dtype.inner, Datetime)
+                            and getattr(field.dtype.inner, "time_zone", None) == "+00:00"
+                        ):
+                            field_exprs.append(
+                                pl.element()
+                                .struct.field(field.name)
+                                .list.eval(pl.element().dt.convert_time_zone("UTC"))
+                                .alias(field.name)
+                            )
+                        else:
+                            field_exprs.append(pl.element().struct.field(field.name).alias(field.name))
+                    else:
+                        field_exprs.append(pl.element().struct.field(field.name).alias(field.name))
+
+                return col_expr.list.eval(pl.struct(field_exprs))
+            else:
+                # For other inner types, no conversion needed
+                return col_expr
+
+        # Recursive case 2: Struct type
+        elif isinstance(dtype, Struct):
+            field_exprs = []
+            for field in dtype.fields:
+                if isinstance(field.dtype, Datetime) and getattr(field.dtype, "time_zone", None) == "+00:00":
+                    field_exprs.append(col_expr.struct.field(field.name).dt.convert_time_zone("UTC").alias(field.name))
+                elif isinstance(field.dtype, List):
+                    list_field_expr = process_type(col_expr.struct.field(field.name), field.dtype)
+                    field_exprs.append(list_field_expr.alias(field.name))
+                else:
+                    field_exprs.append(col_expr.struct.field(field.name).alias(field.name))
+
+            return pl.struct(field_exprs)
+
+        # Default case: Return the column expression unchanged
+        else:
+            return col_expr
 
     exprs = []
-    for col_name, dtype in schema.items():
-        # Check if it's a datetime type with timezone info
-        is_datetime_with_tz = isinstance(dtype, Datetime) and dtype.time_zone == "+00:00"
-        if is_datetime_with_tz:
-            exprs.append(pl.col(col_name).dt.convert_time_zone("UTC"))
-        else:
-            exprs.append(pl.col(col_name))
+    for col_name, column_dtype in df.schema.items():
+        column_expr = pl.col(col_name)
+        processed_expr = process_type(column_expr, column_dtype).alias(col_name)
+        exprs.append(processed_expr)
 
-    # Apply the expressions to standardize timezone formats
     return df.select(exprs)
 
 

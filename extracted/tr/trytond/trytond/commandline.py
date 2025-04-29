@@ -65,6 +65,9 @@ def get_parser():
     parser.add_argument(
         "--logconf", dest="logconf", default=logging_config, metavar='FILE',
         help="set logging configuration file (ConfigParser format)")
+    parser.epilog = (
+        "The default Decimal precision can be specified in the "
+        "TRYTOND_DECIMAL_PREC environment variable.")
 
     return parser
 
@@ -157,6 +160,12 @@ def get_parser_admin():
     return parser
 
 
+def _convert_records(s):
+    table, ids = s.split('=', 1)
+    ids = list(map(int, ids.split(',')))
+    return table, ids
+
+
 def get_parser_console():
     parser = get_base_parser()
     parser.add_argument(
@@ -170,6 +179,10 @@ def get_parser_console():
     parser.add_argument(
         "--lock-table", dest="lock_tables", nargs='+', default=[],
         metavar='TABLE', help="lock tables")
+    parser.register('type', 'records', _convert_records)
+    parser.add_argument(
+        "--lock-records", dest="lock_records", type='records', nargs='+',
+        default=[], metavar='TABLE=id,id', help="lock record ids from TABLE")
     parser.epilog = "To store changes, `transaction.commit()` must be called."
     return parser
 
@@ -189,8 +202,9 @@ def config_log(options):
     else:
         logformat = ('%(process)s %(thread)s [%(asctime)s] '
             '%(levelname)s %(name)s %(message)s')
-        if not options.verbose and 'TRYTOND_LOGGING_LEVEL' in os.environ:
-            logging_level = int(os.environ['TRYTOND_LOGGING_LEVEL'])
+        if not options.verbose:
+            logging_level = int(
+                os.environ.get('TRYTOND_LOGGING_LEVEL') or logging.ERROR)
             level = max(logging_level, logging.NOTSET)
         else:
             level = max(logging.ERROR - options.verbose * 10, logging.NOTSET)

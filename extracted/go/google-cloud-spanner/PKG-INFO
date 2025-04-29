@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-cloud-spanner
-Version: 3.53.0
+Version: 3.54.0
 Summary: Google Cloud Spanner API client library
 Home-page: https://github.com/googleapis/python-spanner
 Author: Google LLC

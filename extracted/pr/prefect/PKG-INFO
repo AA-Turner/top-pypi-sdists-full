@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.3.6
+Version: 3.3.7
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io

@@ -71,6 +71,7 @@ __all__ = (
     "GetAccountConfigurationResponseTypeDef",
     "GetCertificateRequestTypeDef",
     "GetCertificateResponseTypeDef",
+    "HttpRedirectTypeDef",
     "ImportCertificateRequestTypeDef",
     "ImportCertificateResponseTypeDef",
     "KeyUsageTypeDef",
@@ -139,6 +140,7 @@ CertificateSummaryTypeDef = TypedDict(
         "IssuedAt": NotRequired[datetime],
         "ImportedAt": NotRequired[datetime],
         "RevokedAt": NotRequired[datetime],
+        "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
     },
 )
 
@@ -169,6 +171,11 @@ class DomainValidationOptionTypeDef(TypedDict):
     ValidationDomain: str
 
 
+class HttpRedirectTypeDef(TypedDict):
+    RedirectFrom: NotRequired[str]
+    RedirectTo: NotRequired[str]
+
+
 ResourceRecordTypeDef = TypedDict(
     "ResourceRecordTypeDef",
     {
@@ -187,6 +194,7 @@ class FiltersTypeDef(TypedDict):
     extendedKeyUsage: NotRequired[Sequence[ExtendedKeyUsageNameType]]
     keyUsage: NotRequired[Sequence[KeyUsageNameType]]
     keyTypes: NotRequired[Sequence[KeyAlgorithmType]]
+    managedBy: NotRequired[Literal["CLOUDFRONT"]]
 
 
 class GetCertificateRequestTypeDef(TypedDict):
@@ -294,6 +302,7 @@ class RequestCertificateRequestTypeDef(TypedDict):
     CertificateAuthorityArn: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     KeyAlgorithm: NotRequired[KeyAlgorithmType]
+    ManagedBy: NotRequired[Literal["CLOUDFRONT"]]
 
 
 class DomainValidationTypeDef(TypedDict):
@@ -302,6 +311,7 @@ class DomainValidationTypeDef(TypedDict):
     ValidationDomain: NotRequired[str]
     ValidationStatus: NotRequired[DomainStatusType]
     ResourceRecord: NotRequired[ResourceRecordTypeDef]
+    HttpRedirect: NotRequired[HttpRedirectTypeDef]
     ValidationMethod: NotRequired[ValidationMethodType]
 
 
@@ -345,6 +355,7 @@ CertificateDetailTypeDef = TypedDict(
         "CertificateArn": NotRequired[str],
         "DomainName": NotRequired[str],
         "SubjectAlternativeNames": NotRequired[List[str]],
+        "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
         "DomainValidationOptions": NotRequired[List[DomainValidationTypeDef]],
         "Serial": NotRequired[str],
         "Subject": NotRequired[str],

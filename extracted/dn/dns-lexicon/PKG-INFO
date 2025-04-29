@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dns-lexicon
-Version: 3.21.0
+Version: 3.21.1
 Summary: Manipulate DNS records on various DNS providers in a standardized/agnostic way
 Author-email: Jason Kulatunga <jason@thesparktree.com>, Adrien Ferrand <ferrand.ad@gmail.com>
 License-Expression: MIT

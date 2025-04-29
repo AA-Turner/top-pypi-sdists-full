@@ -2712,6 +2712,31 @@ def array_median(expr: Underscore | Any):
     return UnderscoreFunction("array_median", expr)
 
 
+def array_mode(expr: Underscore | Any, tiebreak: Literal["FIRST", "MAX", "MIN"] = "FIRST"):
+    """
+    Calculates the mode of the numerical values of an array.
+
+    Parameters
+    ----------
+    expr
+        The array to take the mode of; if there are multiple modes, undefined which one is returned
+    tiebreak
+        If there are multiple modes, which mode to select. Take the example list `[0, 2, 1, 2, 3, 3, 1, 4]` with multimodes 1, 2, 3:
+
+            ``"FIRST"`` will return 2, as 2 occurs before 1 and 3 in the list;
+
+            ``"MAX"`` will return 3, the max of the multimodes;
+
+            ``"MIN"`` will return 1, the min of the multimodes;
+
+        Defaults to ``"FIRST"`` (the behavior of python's ``statistics.mode()``)
+    """
+    int_mode = 0 if tiebreak == "FIRST" else 1 if tiebreak == "MAX" else 2 if tiebreak == "MIN" else -1
+    if int_mode == -1:
+        raise ValueError("Tiebreak field for array_mode must be one of FIRST, MAX, or MIN")
+    return UnderscoreFunction("array_mode", expr, int_mode)
+
+
 def array_agg(expr: Underscore | Any):
     """Extract a single-column `DataFrame` into a list of values for that column.
 
@@ -2948,9 +2973,12 @@ def haversine(
     lon1: Underscore | Any,
     lat2: Underscore | Any,
     lon2: Underscore | Any,
+    unit: Literal["degrees", "radians"] = "radians",
 ):
     """
-    Compute the haversine distance (in kilometers) between two points on the Earth.
+    Compute the haversine distance (in kilometers) between two points on Earth. By default
+    the inputs should be in radians, but alternate input units can be specified through the
+    `unit` parameter.
 
     Parameters
     ----------
@@ -2962,6 +2990,9 @@ def haversine(
         The latitude of the second point in radians.
     lon2
         The longitude of the second point in radians.
+    unit:
+        The unit of the input [lat1, lon1, lat2, lon2].
+        The default is radians.
 
     Examples
     --------
@@ -2974,8 +3005,14 @@ def haversine(
     ...    lon1: float
     ...    lat2: float
     ...    lon2: float
-    ...    distance: float = F.haversine(F.radians(_.lat1), F.radians(_.lon1), F.radians(_.lat2), F.radians(_.lon2))
+    ...    distance: float = F.haversine(_.lat1, _.lon1, _.lat2, _.lon2, unit="degrees")
     """
+    if unit == "degrees":
+        lat1 = radians(lat1)
+        lon1 = radians(lon1)
+        lat2 = radians(lat2)
+        lon2 = radians(lon2)
+
     dlon = lon2 - lon1
     dlat = lat2 - lat1
     a = power(sin(dlat / 2), 2) + cos(lat1) * cos(lat2) * power(sin(dlon / 2), 2)
@@ -3338,6 +3375,7 @@ __all__ = (
     "array_join",
     "array_max",
     "array_median",
+    "array_mode",
     "array_min",
     "array_sample_stddev",
     "array_sort",

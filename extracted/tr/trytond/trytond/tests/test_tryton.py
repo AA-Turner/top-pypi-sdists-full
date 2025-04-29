@@ -62,13 +62,12 @@ Pool.test = True
 Pool.start()
 USER = 1
 CONTEXT = {}
-if 'DB_NAME' in os.environ:
-    DB_NAME = os.environ['DB_NAME']
-elif backend.name == 'sqlite':
-    DB_NAME = ':memory:'
-else:
-    DB_NAME = 'test_' + str(int(time.time()))
-os.environ['DB_NAME'] = DB_NAME
+if not (DB_NAME := os.environ.get('DB_NAME')):
+    if backend.name == 'sqlite':
+        DB_NAME = ':memory:'
+    else:
+        DB_NAME = 'test_' + str(int(time.time()))
+    os.environ['DB_NAME'] = DB_NAME
 DB_CACHE = os.environ.get('DB_CACHE')
 
 
@@ -365,12 +364,12 @@ class _DBTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         drop_db()
         modules = [cls.module]
         if cls.extras:
             modules.extend(cls.extras)
         activate_module(modules, lang=cls.language)
-        super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
@@ -441,12 +440,18 @@ class ModuleTestCase(_DBTestCase):
                         directory, 'view', view.name + '.xml'))
             if not view.model:
                 continue
-            with self.subTest(view=view):
+            name = view.name
+            while not name or not view:
+                if view.model:
+                    name = f'{view.model} ({view.type})'
+                else:
+                    view = view.inherit
+            with self.subTest(view=name):
                 if not view.inherit or view.inherit.model == view.model:
                     self.assertTrue(view.arch,
                         msg='missing architecture for view "%(name)s" '
                         'of model "%(model)s"' % {
-                            'name': view.name or str(view.id),
+                            'name': name,
                             'model': view.model,
                             })
                 if view.inherit and view.inherit.model == view.model:
@@ -536,7 +541,7 @@ class ModuleTestCase(_DBTestCase):
         for icon in icons:
             icon_files.discard(os.path.join(
                     directory, icon.path.replace('/', os.sep)))
-            with self.subTest(icon=icon):
+            with self.subTest(icon=icon.rec_name):
                 self.assertTrue(icon.icon)
         self.assertFalse(icon_files, msg="unused icon files")
 
@@ -784,7 +789,7 @@ class ModuleTestCase(_DBTestCase):
                     if k.keyword == 'tree_open'))
             if not actions_groups:
                 continue
-            with self.subTest(menu=menu):
+            with self.subTest(menu=menu.rec_name):
                 self.assertLessEqual(menu_groups, actions_groups,
                     msg='Menu "%(menu_xml_id)s" actions are not accessible to '
                     '%(groups)s' % {
@@ -891,6 +896,29 @@ class ModuleTestCase(_DBTestCase):
                         state.get_action()
 
     @with_transaction()
+    def test_modelstorage_copy(self):
+        "Test copied default values"
+        with unittest.mock.patch.object(ModelStorage, 'copy') as copy:
+            for mname, model in Pool().iterobject():
+                if not isregisteredby(model, self.module):
+                    continue
+                if not issubclass(model, ModelStorage):
+                    continue
+                with self.subTest(model=mname):
+                    model.copy([])
+                    if copy.call_args:
+                        args, kwargs = copy.call_args
+                        if len(args) >= 2:
+                            default = args[1]
+                        else:
+                            default = kwargs.get('default')
+                        if default is not None:
+                            fields = {
+                                k.split('.', 1)[0] for k in default.keys()}
+                            self.assertLessEqual(fields, model._fields.keys())
+                    copy.reset_mock()
+
+    @with_transaction()
     def test_selection_fields(self):
         'Test selection values'
         for mname, model in Pool().iterobject():
@@ -940,6 +968,13 @@ class ModuleTestCase(_DBTestCase):
                                 'model': model.__name__,
                                 'field': field_name,
                                 })
+                        if func_name == field.getter:
+                            if func_name.startswith('on_change_with'):
+                                self.assertEqual(
+                                    func_name, f'on_change_with_{field_name}',
+                                    msg=f"Wrong getter {func_name!r} "
+                                    f"on model {model.__name__!r} "
+                                    f"for field {field_name!r}")
                         if func_name == field.searcher:
                             domain = getattr(model, field.searcher)(
                                 field_name, (field_name, '=', None))
@@ -990,7 +1025,7 @@ class ModuleTestCase(_DBTestCase):
                     ('model', '=', 'ir.action.act_window'),
                     ]):
             action_window = ActionWindow(model_data.db_id)
-            with self.subTest(action_window=action_window):
+            with self.subTest(action_window=action_window.rec_name):
                 test_action_window(action_window)
 
     @with_transaction()
@@ -1038,7 +1073,7 @@ class ModuleTestCase(_DBTestCase):
             if not issubclass(model, ModelView):
                 continue
             ir_buttons = {b.name for b in Button.search([
-                        ('model.model', '=', model.__name__),
+                        ('model.name', '=', model.__name__),
                         ])}
             buttons = set(model._buttons)
             with self.subTest(model=mname):
@@ -1211,11 +1246,17 @@ def drop_create(name=DB_NAME, lang='en'):
 
 
 def doctest_setup(test):
-    return drop_create()
+    if pythonwarnings := os.getenv('TEST_PYTHONWARNINGS'):
+        cm = warnings.catch_warnings()
+        cm.__enter__()
+        test._tryton_cleanup = [(cm.__exit__, cm, None, None, None)]
+        TestCase.setUpClassWarning(pythonwarnings.split(','))
 
 
 def doctest_teardown(test):
     unittest.mock.patch.stopall()
+    for cleanup in getattr(test, '_tryton_cleanup', []):
+        cleanup[0](cleanup[1:])
     return drop_db()
 
 
@@ -1269,7 +1310,8 @@ def load_doc_tests(name, path, loader, tests, pattern, skips=None):
             for globs in configs:
                 tests.addTests(doctest.DocFileSuite(
                         scenario, package=name, globs=globs,
-                        tearDown=doctest_teardown, encoding='utf-8',
+                        setUp=doctest_setup, tearDown=doctest_teardown,
+                        encoding='utf-8',
                         checker=doctest_checker,
                         optionflags=s_optionflags))
     finally:
@@ -1287,7 +1329,7 @@ class TestSuite(unittest.TestSuite):
                 # Retry on connection error
                 sys.stderr.write(str(err))
                 time.sleep(1)
-        result = super(TestSuite, self).run(*args, **kwargs)
+        result = super().run(*args, **kwargs)
         if not exist:
             drop_db()
         return result

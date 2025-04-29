@@ -40,6 +40,7 @@ console = Console()
 emsys = EMSys()
 
 
+@repeat(times=10, delay=5)
 async def wait_until_window_close(app):
     await worker_sleep(3)
     max_attempts = 500
@@ -57,7 +58,7 @@ async def wait_aguarde_window_closed():
     while not sucesso:
         desktop = Desktop(backend="uia")
         # Tenta localizar a janela com o título que contém "Aguarde"
-        window = desktop.window(title_re="Aguarde...")
+        window = desktop.window(title_re=".*Aguarde.*")
         # Se a janela existe, continua monitorando
         if window.exists():
             console.print(f"Janela 'Aguarde...' ainda aberta", style="bold yellow")
@@ -67,7 +68,7 @@ async def wait_aguarde_window_closed():
         else:
             try:
                 desktop_second = Desktop(backend="uia")
-                window_aguarde = desktop_second.window(title_re="Aguarde...")
+                window_aguarde = desktop.window(title_re=".*Aguarde.*")
                 if not window_aguarde.exists():
                     sucesso = True
                     break
@@ -166,29 +167,35 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(2)
 
             # Clicando em incluir livro
-            console.print("Clicando em incluir livro")
-            cords = (676, 716)
+            try:
+                console.print("Clicando em incluir livro")
+                cords = (676, 716)
+                pyautogui.click(x=cords[0], y=cords[1])
+                await worker_sleep(5)
+            except:
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro ao clicar em botão de incluir livro.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+
+            # Clicando em sim na janela de gerar registros após incluir
+            console.print("Clicando em sim na janela de gerar registros após incluir")
+            cords = (942, 603)
             pyautogui.click(x=cords[0], y=cords[1])
             await worker_sleep(5)
 
-            # Clicando em sim na janela de confirmacao
-            console.print("Clicando sim em janela de confirmacao")
-            await emsys.verify_warning_and_error("Gerar Registros", "Sim")
-            await worker_sleep(5)
-
-            # Clicando sim em segunda janela de confirmacao
-            console.print("Confirmando segunda janela de confirmacao")
-            await emsys.verify_warning_and_error("Gerar Registros", "&Sim")
+            # Clicando nao na tela de somar icms outros
+            console.print("Clicando em nao na janela de calcular icms Outros.")
+            cords = (1000, 570)
+            pyautogui.click(x=cords[0], y=cords[1])
             await worker_sleep(5)
 
             # Clicando sim em janela de confirmar observacao
             console.print("Clicando sim em janela de confirmar observacao")
-            await emsys.verify_warning_and_error("Gerar Registros", "&Sim")
-            await worker_sleep(5)
-
-            # Clicando sim em janela de confirmar observacao
-            console.print("Clicando sim em janela de confirmar observacao")
-            await emsys.verify_warning_and_error("Gerar Registros", "&Sim")
+            cords = (920, 560)
+            pyautogui.click(x=cords[0], y=cords[1])
             await worker_sleep(5)
 
             # Esperando janela aguarde
@@ -217,12 +224,15 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Clicando sim em janela gerar Num Serie
             console.print("Clicando sim em janela gerar Numero de Serie")
-            await emsys.verify_warning_and_error("Gerar Registros", "&Sim")
+            cords = (920, 560)
+            pyautogui.click(x=cords[0], y=cords[1])
             await worker_sleep(5)
 
-            # Clicando sim em janela somar valores
-            console.print("Clicando sim em janela somar valores")
-            await emsys.verify_warning_and_error("Gerar Registros", "&Sim")
+            # Clicando sim em janela somar os valores de IPI, Frete..
+            console.print("Clicando sim em janela somar os valores de IPI Frete")
+            cords = (920, 560)
+            pyautogui.click(x=cords[0], y=cords[1])
+            await worker_sleep(5)
 
             # Esperando janela aguarde
             console.print("Aguardando tela de aguarde ser finalizada")

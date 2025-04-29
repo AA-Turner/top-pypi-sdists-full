@@ -31,6 +31,7 @@ from coremltools.converters.mil.testing_utils import (
 from coremltools.optimize.coreml._quantization_passes import (
     insert_prefix_quantize_dequantize_pair as _insert_prefix_quantize_dequantize_pair,
 )
+from coremltools.optimize.coreml.experimental._post_training_quantization import _get_activation_calibration_stats
 
 
 class TestCompressionNumerical:
@@ -2549,10 +2550,9 @@ class TestPalettizer(TestCompressionPasses):
 
         prog = self._get_test_program()
         with pytest.raises(
-            AssertionError,
+            ValueError,
             match=re.escape(
-                "The pre-iOS18 palettization only supports per-tensor lut, but got more than one lut "
-                "on 0th axis. LUT shape: (30, 1, 1, 1, 16, 1)\nPlease set the minimum_deployment_target to iOS18"
+                "Please re-convert your model with minimum_deployment_target set to at least ct.target.iOS18"
             ),
         ):
             compressor.apply(prog)
@@ -3709,3 +3709,85 @@ class TestLinearActivationQuantizer(TestCompressionPasses):
             "dequantize",
             "cast",
         ]
+
+
+class TestGetActivationStats(TestCompressionPasses):
+    def test_get_activation_calibration_stats_basic(self):
+        """
+        Calibration a floating point model with sample data.
+        """
+
+        # Prepare sample data
+        sample_data = []
+        for _ in range(3):
+            input_data = np.random.rand(5, 10, 4, 4)
+            sample_data.append({"data_0": input_data})
+
+        # Loading a floating point mlmodel
+        mlmodel = self._get_test_mlmodel_conv_concat()
+
+        _ = _get_activation_calibration_stats(mlmodel, sample_data)
+
+    def test_get_activation_calibration_stats_skip_invalid_ops(self):
+        """
+        Calibration a floating point model with sample data.
+        rdar://130623705 A unit test for model with boolean type intermediate tensor.
+        """
+
+        # Prepare sample data
+        sample_data = []
+        for _ in range(3):
+            input_data = np.random.rand(5, 10, 4, 4)
+            sample_data.append({"data_0": input_data})
+
+        # Loading a floating point mlmodel
+        mlmodel = self._get_test_mlmodel_conv_concat()
+
+        _ = _get_activation_calibration_stats(mlmodel, sample_data)
+
+    def test_get_activation_calibration_stats_concat_surrounding_ops(self):
+        """
+        Calibration a floating point model with sample data.
+        rdar://132017374 A unit test for model with concat would be surrounded by quantize/dequantize pairs after activation quantization.
+        The activation_stats of concat surrounding nodes should be the same, so quantize/dequantize pairs could share same scale/zp.
+        """
+
+        # Prepare sample data
+        sample_data = []
+        for _ in range(3):
+            input_data = np.random.rand(5, 10, 4, 4)
+            sample_data.append({"data_0": input_data})
+
+        # Loading a floating point mlmodel
+        mlmodel = self._get_test_mlmodel_conv_concat()
+
+        activation_stats = _get_activation_calibration_stats(mlmodel, sample_data)
+
+        activation_stats_unique = set()
+        for value in activation_stats.values():
+            activation_stats_unique.add((value["rmin"], value["rmax"]))
+
+        # Since mlmodel has a concat with 2 inputs and 1 output, we should see at least 3 rmin/rmax pairs are identical in activation_stats.
+        # If we dedup rmin/rmax pairs with identical values, the length of unique values should at least reduced by 2 compared with original one.
+        assert len(activation_stats) - len(activation_stats_unique) >= 2
+
+    def test_get_activation_calibration_stats_excludes_model_outputs(self):
+        """
+        The activation calibration stats shouldn't include the model's final outputs.
+        """
+        # Prepare sample data
+        sample_data = []
+        for _ in range(3):
+            input_data = np.random.rand(5, 10, 4, 4)
+            sample_data.append({"data_0": input_data})
+
+        # Loading a floating point mlmodel
+        mlmodel = self._get_test_mlmodel_conv_concat()
+
+        activation_stats = _get_activation_calibration_stats(mlmodel, sample_data)
+
+        model_spec = mlmodel.get_spec()
+        output_count = len(mlmodel.get_spec().description.output)
+        for i in range(0, output_count):
+            output_name = model_spec.description.output[i].name
+            assert output_name not in activation_stats

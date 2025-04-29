@@ -8,7 +8,7 @@ class BandFormat(object):
 The format used for each band element.
 
 Each corresponds to a native C type for the current machine. For example,
-#VIPS_FORMAT_USHORT is <type>unsigned short</type>.
+:class:`.enums.BandFormat.USHORT` is `unsigned short`.
 
 Attributes:
 
@@ -52,7 +52,7 @@ Attributes:
 class BlendMode(object):
     """BlendMode.
 
-The various Porter-Duff and PDF blend modes. See vips_composite(),
+The various Porter-Duff and PDF blend modes. See :meth:`.Image.composite`,
 for example.
 
 The Cairo docs have a nice explanation of all the blend modes:
@@ -174,7 +174,7 @@ class Interpretation(object):
     """Interpretation.
 
 How the values in an image should be interpreted. For example, a
-three-band float image of type #VIPS_INTERPRETATION_LAB should have its
+three-band float image of type @VIPS_INTERPRETATION_LAB should have its
 pixels interpreted as coordinates in CIE Lab space.
 
 RGB and sRGB are treated in the same way. Use the colourspace functions if
@@ -197,7 +197,7 @@ Attributes:
 
     CMYK (str): the first four bands are in CMYK space
 
-    LABQ (str): implies #VIPS_CODING_LABQ
+    LABQ (str): implies @VIPS_CODING_LABQ
 
     RGB (str): generic RGB space
 
@@ -250,34 +250,35 @@ Attributes:
 class DemandStyle(object):
     """DemandStyle.
 
-See vips_image_pipelinev(). Operations can hint
+See :meth:`.Image.pipelinev`. Operations can hint
 the kind of demand geometry they prefer
 to the VIPS image IO system.
 
 These demand styles are given below in order of increasing
 specialisation.  When demanding output from a pipeline,
-vips_image_generate()
+:meth:`.Image.generate`
 will use the most general style requested by the operations
 in the pipeline.
 
-#VIPS_DEMAND_STYLE_SMALLTILE --- This is the most general demand format.
+@VIPS_DEMAND_STYLE_SMALLTILE -- This is the most general demand format.
 Output is demanded in small (around 100x100 pel) sections. This style works
 reasonably efficiently, even for bizarre operations like 45 degree rotate.
 
-#VIPS_DEMAND_STYLE_FATSTRIP --- This operation would like to output strips
+@VIPS_DEMAND_STYLE_FATSTRIP -- This operation would like to output strips
 the width of the image and as high as possible. This option is suitable
 for area operations which do not violently transform coordinates, such
-as vips_conv().
+as :meth:`.Image.conv`.
 
-#VIPS_DEMAND_STYLE_THINSTRIP --- This operation would like to output strips
+@VIPS_DEMAND_STYLE_THINSTRIP -- This operation would like to output strips
 the width of the image and a few pels high. This option is suitable for
 point-to-point operations, such as those in the arithmetic package.
 
-#VIPS_DEMAND_STYLE_ANY --- This image is not being demand-read from a disc
+@VIPS_DEMAND_STYLE_ANY -- This image is not being demand-read from a disc
 file (even indirectly) so any demand style is OK. It's used for things like
-vips_black() where the pixels are calculated.
+:meth:`.Image.black` where the pixels are calculated.
 
-See also: vips_image_pipelinev().
+::: seealso
+    :meth:`.Image.pipelinev`.
 
 Attributes:
 
@@ -503,7 +504,7 @@ Attributes:
 class Combine(object):
     """Combine.
 
-How to combine values. See vips_compass(), for example.
+How to combine values. See :meth:`.Image.compass`, for example.
 
 Attributes:
 
@@ -523,8 +524,8 @@ Attributes:
 class Access(object):
     """Access.
 
-The type of access an operation has to supply. See vips_tilecache()
-and #VipsForeign.
+The type of access an operation has to supply. See :meth:`.Image.tilecache`
+and :class:`.Foreign`.
 
 @VIPS_ACCESS_RANDOM means requests can come in any order.
 
@@ -547,7 +548,7 @@ Attributes:
 class Extend(object):
     """Extend.
 
-See vips_embed(), vips_conv(), vips_affine() and so on.
+See :meth:`.Image.embed`, :meth:`.Image.conv`, :meth:`.Image.affine` and so on.
 
 When the edges of an image are extended, you can specify
 how you want the extension done.
@@ -569,7 +570,8 @@ edges
 We have to specify the exact value of each enum member since we have to
 keep these frozen for back compat with vips7.
 
-See also: vips_embed().
+::: seealso
+    :meth:`.Image.embed`.
 
 Attributes:
 
@@ -598,7 +600,7 @@ Attributes:
 class CompassDirection(object):
     """CompassDirection.
 
-A direction on a compass. Used for vips_gravity(), for example.
+A direction on a compass. Used for :meth:`.Image.gravity`, for example.
 
 Attributes:
 
@@ -636,12 +638,13 @@ Attributes:
 class Direction(object):
     """Direction.
 
-See vips_flip(), vips_join() and so on.
+See :meth:`.Image.flip`, :meth:`.Image.join` and so on.
 
-Operations like vips_flip() need to be told whether to flip left-right or
+Operations like :meth:`.Image.flip` need to be told whether to flip left-right or
 top-bottom.
 
-See also: vips_flip(), vips_join().
+::: seealso
+    :meth:`.Image.flip`, :meth:`.Image.join`.
 
 Attributes:
 
@@ -658,12 +661,13 @@ Attributes:
 class Align(object):
     """Align.
 
-See vips_join() and so on.
+See :meth:`.Image.join` and so on.
 
-Operations like vips_join() need to be told whether to align images on the
+Operations like :meth:`.Image.join` need to be told whether to align images on the
 low or high coordinate edge, or centre.
 
-See also: vips_join().
+::: seealso
+    :meth:`.Image.join`.
 
 Attributes:
 
@@ -684,14 +688,15 @@ class Interesting(object):
     """Interesting.
 
 Pick the algorithm vips uses to decide image "interestingness". This is used
-by vips_smartcrop(), for example, to decide what parts of the image to
+by :meth:`.Image.smartcrop`, for example, to decide what parts of the image to
 keep.
 
 #VIPS_INTERESTING_NONE and #VIPS_INTERESTING_LOW mean the same -- the
 crop is positioned at the top or left. #VIPS_INTERESTING_HIGH positions at
 the bottom or right.
 
-See also: vips_smartcrop().
+::: seealso
+    :meth:`.Image.smartcrop`.
 
 Attributes:
 
@@ -723,11 +728,12 @@ Attributes:
 class Angle(object):
     """Angle.
 
-See vips_rot() and so on.
+See :meth:`.Image.rot` and so on.
 
 Fixed rotate angles.
 
-See also: vips_rot().
+::: seealso
+    :meth:`.Image.rot`.
 
 Attributes:
 
@@ -750,11 +756,12 @@ Attributes:
 class Angle45(object):
     """Angle45.
 
-See vips_rot45() and so on.
+See :meth:`.Image.rot45` and so on.
 
 Fixed rotate angles.
 
-See also: vips_rot45().
+::: seealso
+    :meth:`.Image.rot45`.
 
 Attributes:
 
@@ -809,10 +816,11 @@ Attributes:
 class TextWrap(object):
     """TextWrap.
 
-Sets the word wrapping style for vips_text() when used with a maximum
+Sets the word wrapping style for :meth:`.Image.text` when used with a maximum
 width.
 
-See also: vips_text().
+::: seealso
+    :meth:`.Image.text`.
 
 Attributes:
 
@@ -830,6 +838,32 @@ Attributes:
     CHAR = 'char'
     WORD_CHAR = 'word-char'
     NONE = 'none'
+
+
+class SdfShape(object):
+    """SdfShape.
+
+The SDF to generate,
+
+::: seealso
+    :meth:`.Image.sdf`.
+
+Attributes:
+
+    CIRCLE (str): a circle at @a, radius @r
+
+    BOX (str): a box from @a to @b
+
+    ROUNDED_BOX (str): a box with rounded @corners from @a to @b
+
+    LINE (str): a line from @a to @b
+
+    """
+
+    CIRCLE = 'circle'
+    BOX = 'box'
+    ROUNDED_BOX = 'rounded-box'
+    LINE = 'line'
 
 
 class FailOn(object):
@@ -1220,12 +1254,15 @@ Attributes:
 
     ABSOLUTE (str): absolute colorimetric rendering intent
 
+    AUTO (str): the rendering intent that the profile suggests
+
     """
 
     PERCEPTUAL = 'perceptual'
     RELATIVE = 'relative'
     SATURATION = 'saturation'
     ABSOLUTE = 'absolute'
+    AUTO = 'auto'
 
 
 class Kernel(object):
@@ -1247,6 +1284,10 @@ Attributes:
 
     LANCZOS3 (str): Convolve with a three-lobe Lanczos kernel.
 
+    MKS2013 (str): Convolve with Magic Kernel Sharp 2013.
+
+    MKS2021 (str): Convolve with Magic Kernel Sharp 2021.
+
     """
 
     NEAREST = 'nearest'
@@ -1255,13 +1296,15 @@ Attributes:
     MITCHELL = 'mitchell'
     LANCZOS2 = 'lanczos2'
     LANCZOS3 = 'lanczos3'
+    MKS2013 = 'mks2013'
+    MKS2021 = 'mks2021'
 
 
 class PCS(object):
     """PCS.
 
-Pick a Profile Connection Space for vips_icc_import() and
-vips_icc_export(). LAB is usually best, XYZ can be more convenient in some
+Pick a Profile Connection Space for :meth:`.Image.icc_import` and
+:meth:`.Image.icc_export`. LAB is usually best, XYZ can be more convenient in some
 cases.
 
 Attributes:
@@ -1298,12 +1341,13 @@ Attributes:
 class CombineMode(object):
     """CombineMode.
 
-See vips_draw_image() and so on.
+See :meth:`.Image.draw_image` and so on.
 
-Operations like vips_draw_image() need to be told how to combine images
+Operations like :meth:`.Image.draw_image` need to be told how to combine images
 from two sources.
 
-See also: vips_join().
+::: seealso
+    :meth:`.Image.join`.
 
 Attributes:
 

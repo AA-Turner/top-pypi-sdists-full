@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.23.2
+Version: 0.24.0
 Summary: LLMs on Apple silicon with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors
@@ -20,6 +20,8 @@ Requires-Dist: datasets; extra == "test"
 Provides-Extra: evaluate
 Requires-Dist: lm-eval; extra == "evaluate"
 Requires-Dist: tqdm; extra == "evaluate"
+Provides-Extra: awq
+Requires-Dist: datasets; extra == "awq"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

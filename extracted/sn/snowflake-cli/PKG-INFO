@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-cli
-Version: 3.7.0
+Version: 3.7.1
 Summary: Snowflake CLI
 Project-URL: Source code, https://github.com/snowflakedb/snowflake-cli
 Project-URL: Bug Tracker, https://github.com/snowflakedb/snowflake-cli/issues
@@ -217,6 +217,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
 Requires-Python: >=3.10
+Requires-Dist: certifi==2025.1.31
 Requires-Dist: gitpython==3.1.44
 Requires-Dist: jinja2==3.1.6
 Requires-Dist: packaging

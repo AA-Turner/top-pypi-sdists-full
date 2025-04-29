@@ -18,6 +18,7 @@ class ModelStorageTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -615,11 +616,11 @@ class ModelStorageTestCase(TestCase):
         Model = pool.get('test.modelstorage')
         record, = Model.create([{}])
 
-        Model.check_xml_record([record], {'name': "Test"})
+        Model.write([record], {'name': "Test"})
 
     @with_transaction()
-    def test_check_xml_record_with_record_no_matching_values(self):
-        "Test check_xml_record with record and no matching values"
+    def test_check_xml_record_with_record_no_matching_fields(self):
+        "Test check_xml_record with record and no matching fields"
         pool = Pool()
         Model = pool.get('test.modelstorage')
         ModelData = pool.get('ir.model.data')
@@ -629,15 +630,15 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': ModelData.dump_values({}),
+                    'field_names': None,
                     'noupdate': False,
                     }])
 
-        Model.check_xml_record([record], {'name': "Test"})
+        Model.write([record], {'name': "Test"})
 
     @with_transaction()
-    def test_check_xml_record_with_record_matching_values(self):
-        "Test check_xml_record with record and matching values"
+    def test_check_xml_record_with_record_matching_fields(self):
+        "Test check_xml_record with record and matching fields"
         pool = Pool()
         Model = pool.get('test.modelstorage')
         ModelData = pool.get('ir.model.data')
@@ -647,16 +648,16 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': ModelData.dump_values({'name': "Foo"}),
+                    'field_names': ('name',),
                     'noupdate': False,
                     }])
 
         with self.assertRaises(AccessError):
-            Model.check_xml_record([record], {'name': "Bar"})
+            Model.write([record], {'name': "Bar"})
 
     @with_transaction()
-    def test_check_xml_record_with_record_matching_values_noupdate(self):
-        "Test check_xml_record with record and matching values but noupdate"
+    def test_check_xml_record_with_record_matching_fields_noupdate(self):
+        "Test check_xml_record with record and matching fields but no update"
         pool = Pool()
         Model = pool.get('test.modelstorage')
         ModelData = pool.get('ir.model.data')
@@ -666,14 +667,14 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': ModelData.dump_values({'name': "Foo"}),
+                    'field_names': ('name',),
                     'noupdate': True,
                     }])
 
-        Model.check_xml_record([record], {'name': "Bar"})
+        Model.write([record], {'name': "Bar"})
 
     @with_transaction(user=0)
-    def test_check_xml_record_with_record_matching_values_root(self):
+    def test_check_xml_record_with_record_matching_fields_root(self):
         "Test check_xml_record with record with matching values as root"
         pool = Pool()
         Model = pool.get('test.modelstorage')
@@ -684,14 +685,14 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': ModelData.dump_values({'name': "Foo"}),
+                    'field_names': ('name',),
                     'noupdate': False,
                     }])
 
-        Model.check_xml_record([record], {'name': "Bar"})
+        Model.write([record], {'name': "Bar"})
 
     @with_transaction()
-    def test_check_xml_record_with_record_no_values(self):
+    def test_check_xml_record_with_record_no_fields(self):
         "Test check_xml_record with record and no values"
         pool = Pool()
         Model = pool.get('test.modelstorage')
@@ -702,16 +703,16 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': None,
+                    'field_names': None,
                     'noupdate': False,
                     }])
 
         with self.assertRaises(AccessError):
-            Model.check_xml_record([record], None)
+            Model.delete([record])
 
     @with_transaction()
-    def test_check_xml_record_with_record_no_values_noupdate(self):
-        "Test check_xml_record with record and no values but noupdate"
+    def test_check_xml_record_with_record_no_fields_noupdate(self):
+        "Test check_xml_record with record and no fields but no update"
         pool = Pool()
         Model = pool.get('test.modelstorage')
         ModelData = pool.get('ir.model.data')
@@ -721,11 +722,11 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': None,
+                    'field_names': None,
                     'noupdate': True,
                     }])
 
-        Model.check_xml_record([record], None)
+        Model.delete([record])
 
     @with_transaction()
     def test_delete_clear_db_id_model_data_noupdate(self):
@@ -739,7 +740,7 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': None,
+                    'field_names': None,
                     'noupdate': True,
                     }])
 
@@ -749,7 +750,7 @@ class ModelStorageTestCase(TestCase):
 
     @with_transaction(user=0)
     def test_delete_model_data_without_noupdate(self):
-        "Test delete record from model data without noupdate"
+        "Test delete record from model data without no update"
         pool = Pool()
         Model = pool.get('test.modelstorage')
         ModelData = pool.get('ir.model.data')
@@ -759,7 +760,7 @@ class ModelStorageTestCase(TestCase):
                     'model': 'test.modelstorage',
                     'module': 'tests',
                     'db_id': record.id,
-                    'values': None,
+                    'field_names': None,
                     'noupdate': False,
                     }])
 
@@ -771,6 +772,7 @@ class EvalEnvironmentTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -878,3 +880,48 @@ class EvalEnvironmentTestCase(TestCase):
             record = Model(record.id)
 
             self.assertEqual(record.name, "Test")
+
+    @with_transaction()
+    def test_compute_fields_on_create(self):
+        "Test compute fields on create"
+        pool = Pool()
+        Model = pool.get('test.modelstorage.compute_fields')
+
+        record, = Model.create([{'value': 1}])
+
+        self.assertEqual(record.computed_value, 2)
+
+    @with_transaction()
+    def test_compute_fields_on_write(self):
+        "Test compute fields on write"
+        pool = Pool()
+        Model = pool.get('test.modelstorage.compute_fields')
+
+        record, = Model.create([{'value': 1}])
+        Model.write([record], {'value': 2})
+
+        self.assertEqual(record.computed_value, 3)
+
+    @with_transaction()
+    def test_compute_fields_in_save_values(self):
+        "Test compute fields in save values"
+        pool = Pool()
+        Model = pool.get('test.modelstorage.compute_fields')
+
+        record = Model()
+        record.value = 1
+
+        self.assertEqual(record._save_values(), {
+                'value': 1,
+                'computed_value': 2,
+                })
+
+    @with_transaction()
+    def test_compute_fields_in_save_values_without_attribute(self):
+        "Test compute fields in save values"
+        pool = Pool()
+        Model = pool.get('test.modelstorage.compute_fields')
+
+        record = Model()
+
+        self.assertEqual(record._save_values(), {})

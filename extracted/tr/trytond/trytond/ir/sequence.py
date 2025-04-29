@@ -32,23 +32,23 @@ class SQLSequenceError(ValidationError):
 
 
 class SequenceType(ModelSQL, ModelView):
-    "Sequence type"
     __name__ = 'ir.sequence.type'
 
     name = fields.Char('Sequence Name', required=True, translate=True)
+    groups = fields.Many2Many(
+        'ir.sequence.type-res.group', 'sequence_type', 'group', "Groups",
+        help="Groups allowed to edit the sequences of this type.")
 
-    @classmethod
-    def __register__(cls, module):
-        super().__register__(module)
-        table_h = cls.__table_handler__(module)
 
-        # Migration from 5.8: remove code
-        # We keep the column until ir.sequence has been migrated
-        table_h.not_null_action('code', action='remove')
+class SequenceTypeGroup(ModelSQL):
+    __name__ = 'ir.sequence.type-res.group'
+    sequence_type = fields.Many2One(
+        'ir.sequence.type', "Sequence Type", ondelete='CASCADE', required=True)
+    group = fields.Many2One(
+        'res.group', "Group", ondelete='CASCADE', required=True)
 
 
 class Sequence(DeactivableMixin, ModelSQL, ModelView):
-    "Sequence"
     __name__ = 'ir.sequence'
 
     _strict = False
@@ -89,11 +89,16 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
             'invisible': ~Eval('type').in_(['incremental']),
             'required': Eval('type').in_(['incremental']),
             }, depends=['type'])
-    timestamp_rounding = fields.Float('Timestamp Rounding', required=True,
+    timestamp_rounding = fields.Float(
+        "Timestamp Rounding", required=True,
+        domain=[
+            ('timestamp_rounding', '>', 0),
+            ],
         states={
             'invisible': ~Eval('type').in_(
                 ['decimal timestamp', 'hexadecimal timestamp']),
-            }, depends=['type'])
+            },
+        depends=['type'])
     timestamp_offset = fields.Float('Timestamp Offset', required=True,
         states={
             'invisible': ~Eval('type').in_(
@@ -110,34 +115,13 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(Sequence, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls._sql_constraints += [
             ('check_timestamp_rounding',
                 Check(table, table.timestamp_rounding > 0),
                 'Timestamp rounding should be greater than 0'),
             ]
-
-    @classmethod
-    def __register__(cls, module):
-        pool = Pool()
-        SequenceType = pool.get('ir.sequence.type')
-        cursor = Transaction().connection.cursor()
-        table = cls.__table__()
-        sequence_type = SequenceType.__table__()
-
-        super().__register__(module)
-
-        table_h = cls.__table_handler__(module)
-
-        # Migration from 5.8: replace code by sequence_type
-        if table_h.column_exist('code'):
-            cursor.execute(*table.update(
-                    [table.sequence_type],
-                    sequence_type.select(
-                        sequence_type.id,
-                        where=sequence_type.code == table.code)))
-            table_h.drop_column('code')
 
     @staticmethod
     def default_type():
@@ -182,7 +166,7 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def set_number_next(cls, sequences, name, value):
-        super(Sequence, cls).write(sequences, {
+        super().write(sequences, {
                 'number_next_internal': value,
                 })
 
@@ -200,7 +184,7 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def create(cls, vlist):
-        sequences = super(Sequence, cls).create(vlist)
+        sequences = super().create(vlist)
         for sequence, values in zip(sequences, vlist):
             if sql_sequence and not cls._strict:
                 sequence.update_sql_sequence(values.get('number_next',
@@ -227,7 +211,7 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
         if sql_sequence and not cls._strict:
             for sequence in sequences:
                 sequence.delete_sql_sequence()
-        return super(Sequence, cls).delete(sequences)
+        return super().delete(sequences)
 
     @classmethod
     def validate(cls, sequences):
@@ -456,7 +440,6 @@ class Sequence(DeactivableMixin, ModelSQL, ModelView):
 
 
 class SequenceStrict(Sequence):
-    "Sequence Strict"
     __name__ = 'ir.sequence.strict'
     _table = None  # Needed to reset Sequence._table
     _strict = True

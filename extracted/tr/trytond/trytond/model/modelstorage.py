@@ -5,6 +5,7 @@ import base64
 import csv
 import datetime
 import decimal
+import math
 import random
 import time
 import warnings
@@ -40,6 +41,7 @@ _cache_count_timeout = config.getint(
 _cache_count_clear = config.getint(
     'cache', 'count_clear', default=1000)
 _request_timeout = config.getint('request', 'timeout', default=0)
+_request_records_limit = config.getint('request', 'records_limit')
 
 
 def local_cache(Model, transaction=None):
@@ -128,29 +130,77 @@ class ModelStorage(Model):
     @classmethod
     def __setup__(cls):
         from .modelview import ModelView
-        super(ModelStorage, cls).__setup__()
+        super().__setup__()
         if issubclass(cls, ModelView):
             cls.__rpc__.update({
-                    'create': RPC(readonly=False,
+                    'create': RPC(
+                        readonly=False,
+                        size_limits={
+                            0: _request_records_limit,
+                            },
                         result=lambda r: list(map(int, r))),
-                    'read': RPC(timeout=_request_timeout),
-                    'write': RPC(readonly=False,
-                        instantiate=slice(0, None, 2)),
-                    'delete': RPC(readonly=False, instantiate=0),
-                    'copy': RPC(readonly=False, instantiate=0, unique=False,
+                    'read': RPC(
+                        timeout=_request_timeout,
+                        size_limits={
+                            0: _request_records_limit,
+                            }),
+                    'write': RPC(
+                        readonly=False,
+                        instantiate=slice(0, None, 2),
+                        size_limits={
+                            (0, None, 2): _request_records_limit,
+                            }),
+                    'delete': RPC(
+                        readonly=False,
+                        instantiate=0,
+                        size_limits={
+                            (0, None, 2): _request_records_limit,
+                            }),
+                    'copy': RPC(
+                        readonly=False,
+                        instantiate=0,
+                        unique=False,
+                        size_limits={
+                            0: _request_records_limit,
+                            },
                         result=lambda r: list(map(int, r))),
                     'search': RPC(
                         result=lambda r: list(map(int, r)),
+                        size_limits={
+                            2: _request_records_limit,
+                            },
                         timeout=_request_timeout),
-                    'search_count': RPC(timeout=_request_timeout),
-                    'search_read': RPC(timeout=_request_timeout),
+                    'search_count': RPC(
+                        timeout=_request_timeout,
+                        size_limits={
+                            2: _request_records_limit,
+                            }),
+                    'search_read': RPC(
+                        timeout=_request_timeout,
+                        size_limits={
+                            2: _request_records_limit,
+                            }),
                     'resources': RPC(
-                        instantiate=0, unique=False,
+                        instantiate=0,
+                        unique=False,
                         timeout=_request_timeout),
-                    'export_data_domain': RPC(timeout=_request_timeout),
+                    'export_data_domain': RPC(
+                        timeout=_request_timeout,
+                        size_limits={
+                            4: _request_records_limit,
+                            }),
                     'export_data': RPC(
-                        instantiate=0, unique=False, timeout=_request_timeout),
-                    'import_data': RPC(readonly=False),
+                        instantiate=0,
+                        unique=False,
+                        size_limits={
+                            0: _request_records_limit,
+                            },
+                        timeout=_request_timeout),
+                    'import_data': RPC(
+                        readonly=False,
+                        size_limits={
+                            1: _request_records_limit,
+                            }),
                     })
         if cls._log is None:
             cls._log = not cls.__name__.startswith('ir.')
@@ -195,13 +245,16 @@ class ModelStorage(Model):
                     **extra))
 
     @classmethod
-    def create(cls, vlist):
-        '''
-        Returns the list of created records.
-        '''
+    def preprocess_values(cls, mode, values):
+        assert mode in {'create', 'write'}
+        return values.copy()
+
+    @classmethod
+    def _before_create(cls, vlist):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
         ModelFieldAccess = pool.get('ir.model.field.access')
+        transaction = Transaction()
 
         ModelAccess.check(cls.__name__, 'create')
 
@@ -209,7 +262,7 @@ class ModelStorage(Model):
         ModelFieldAccess.check(cls.__name__, all_fields, 'write')
 
         # Increase transaction counter
-        Transaction().counter += 1
+        transaction.counter += 1
 
         count = cls._count_cache.get(cls.__name__)
         if count is not None:
@@ -217,32 +270,59 @@ class ModelStorage(Model):
                 cls._count_cache.set(cls.__name__, None)
             else:
                 cls._count_cache.set(cls.__name__, count + len(vlist))
+        with without_check_access():
+            return [
+                cls.preprocess_values('create', values) for values in vlist]
 
     @classmethod
-    @without_check_access
-    def trigger_create(cls, records):
-        '''
-        Trigger create actions
-        '''
+    def create(cls, vlist):
+        "Returns the list of created records."
+        raise NotImplementedError
+
+    @classmethod
+    def _after_create(cls, ids):
         Trigger = Pool().get('ir.trigger')
-        triggers = Trigger.get_triggers(cls.__name__, 'create')
-        if not triggers:
-            return
-        for trigger in triggers:
-            trigger.queue_trigger_action(records)
+        transaction = Transaction()
+        check_access = transaction.user and transaction.check_access
+
+        with without_check_access():
+            triggers = Trigger.get_triggers(cls.__name__, 'create')
+
+            for sub_ids in grouped_slice(ids, record_cache_size(transaction)):
+                records = cls.browse(sub_ids)
+                cls._validate(records)
+                cls.check_modification(
+                    'create', records, external=check_access)
+                cls._compute_fields(records)
+                cls.on_modification('create', records)
+                if triggers:
+                    for trigger in triggers:
+                        trigger.queue_trigger_action(records)
+
+            transaction.create_records[cls.__name__].update(ids)
+            return ids
 
     @classmethod
-    def read(cls, ids, fields_names):
-        '''
-        Read fields_names of record ids.
-        The order is not guaranteed.
-        '''
+    def _before_read(cls, ids, fields_names):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
         ModelFieldAccess = pool.get('ir.model.field.access')
         ModelAccess.check(cls.__name__, 'read')
         ModelFieldAccess.check(cls.__name__, fields_names, 'read')
-        return []
+        return ids, fields_names
+
+    @classmethod
+    def read(cls, ids, fields_names):
+        """
+        Read fields_names of record ids.
+        The order is not guaranteed.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    @without_check_access
+    def _after_read(cls, vlist):
+        return vlist
 
     @classmethod
     def index_get_field(cls, name):
@@ -250,70 +330,91 @@ class ModelStorage(Model):
         return 0
 
     @classmethod
-    def write(cls, records, values, *args):
-        '''
-        Write values on records.
-        '''
+    def _before_write(cls, *args):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
         ModelFieldAccess = pool.get('ir.model.field.access')
+        Trigger = pool.get('ir.trigger')
         transaction = Transaction()
+        check_access = transaction.user and transaction.check_access
 
         assert not len(args) % 2
-        actions = iter((records, values) + args)
-        all_records = []
-        all_fields = set()
-        for records, values in zip(actions, actions):
-            cls.check_xml_record(records, values)
-            all_records += records
-            all_fields.update(values.keys())
-            if transaction.check_access and values:
-                cls.log(records, 'write', ','.join(sorted(values.keys())))
 
         ModelAccess.check(cls.__name__, 'write')
-        ModelFieldAccess.check(cls.__name__, all_fields, 'write')
+
+        actions = iter(args)
+        args = []
+        field_names = set()
+        on_write = []
+        all_records, ids = [], []
+        for records, values in zip(actions, actions):
+            cls.__check_xml_record(records, values)
+            ModelFieldAccess.check(cls.__name__, values.keys(), 'write')
+            with without_check_access():
+                cls.check_modification(
+                    'write', records, values, external=check_access)
+                on_write.extend(cls.on_write(records, values))
+                args.append(records)
+                args.append(cls.preprocess_values('write', values))
+                if check_access and values:
+                    cls.log(records, 'write', ','.join(sorted(values.keys())))
+                field_names.update(values.keys())
+                all_records.extend(records)
+                ids.extend(map(int, records))
+
+        trigger_eligibles = {}
+        with without_check_access():
+            # Call before cursor cache cleaning
+            triggers = Trigger.get_triggers(cls.__name__, 'write')
+            if triggers:
+                for trigger in triggers:
+                    trigger_eligibles[trigger] = []
+                    for record in all_records:
+                        if not Trigger.eval(trigger, record):
+                            trigger_eligibles[trigger].append(record)
 
         # Increase transaction counter
-        Transaction().counter += 1
+        transaction.counter += 1
 
         # Clean local cache
         for record in all_records:
             record._local_cache.pop(record.id, None)
 
         # Clean transaction cache
-        for cache in Transaction().cache.values():
+        for cache in transaction.cache.values():
             if cls.__name__ in cache:
                 cache_cls = cache[cls.__name__]
                 for record in all_records:
                     cache_cls.pop(record.id, None)
 
+        return ids, field_names, on_write, trigger_eligibles, *args
+
     @classmethod
-    @without_check_access
-    def trigger_write_get_eligibles(cls, records):
+    def write(cls, records, values, *args):
         '''
-        Return eligible records for write actions by triggers
+        Write values on records.
         '''
-        Trigger = Pool().get('ir.trigger')
-        triggers = Trigger.get_triggers(cls.__name__, 'write')
-        if not triggers:
-            return {}
-        eligibles = {}
-        for trigger in triggers:
-            eligibles[trigger] = []
-            for record in records:
-                if not Trigger.eval(trigger, record):
-                    eligibles[trigger].append(record)
-        return eligibles
+        raise NotImplementedError
 
     @classmethod
     @without_check_access
-    def trigger_write(cls, eligibles):
-        '''
-        Trigger write actions.
-        eligibles is a dictionary of the lists of eligible records by triggers
-        '''
-        for trigger, records in eligibles.items():
+    def _after_write(cls, ids, field_names, on_write, trigger_eligibles):
+        transaction = Transaction()
+
+        for sub_ids in grouped_slice(ids, record_cache_size(transaction)):
+            records = cls.browse(sub_ids)
+            cls._validate(records, field_names=field_names)
+            cls._compute_fields(records, field_names=field_names)
+            cls.on_modification('write', records, field_names)
+        for meth in on_write:
+            meth()
+
+        for trigger, records in trigger_eligibles.items():
             trigger.queue_trigger_action(records)
+
+    @classmethod
+    def on_write(cls, records, values):
+        return []
 
     @classmethod
     def index_set_field(cls, name):
@@ -321,22 +422,30 @@ class ModelStorage(Model):
         return 0
 
     @classmethod
-    def delete(cls, records):
-        '''
-        Delete records.
-        '''
+    def _before_delete(cls, records):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
         ModelData = pool.get('ir.model.data')
+        Trigger = pool.get('ir.trigger')
         transaction = Transaction()
+        check_access = transaction.user and transaction.check_access
 
         ModelAccess.check(cls.__name__, 'delete')
-        cls.check_xml_record(records, None)
-        if ModelData.has_model(cls.__name__):
-            ModelData.clean(records)
+        cls.__check_xml_record(records, None)
+        with without_check_access():
+            cls.check_modification('delete', records, external=check_access)
+            if ModelData.has_model(cls.__name__):
+                ModelData.clean(records)
+            if check_access:
+                cls.log(records, 'delete')
+            on_delete = cls.on_delete(records)
+            cls.on_modification('delete', records)
 
-        if transaction.check_access:
-            cls.log(records, 'delete')
+            triggers = Trigger.get_triggers(cls.__name__, 'delete')
+            if triggers:
+                for trigger in triggers:
+                    # Do not queue because records will be deleted
+                    trigger.trigger_action(records)
 
         # Increase transaction counter
         transaction.counter += 1
@@ -346,7 +455,7 @@ class ModelStorage(Model):
             record._local_cache.pop(record.id, None)
 
         # Clean transaction cache
-        for cache in Transaction().cache.values():
+        for cache in transaction.cache.values():
             if cls.__name__ in cache:
                 cache_cls = cache[cls.__name__]
                 for record in records:
@@ -359,19 +468,45 @@ class ModelStorage(Model):
             else:
                 cls._count_cache.set(cls.__name__, count - len(records))
 
+        ids = [r.id for r in records]
+        if cls.__name__ in transaction.delete_records:
+            ids = ids[:]
+            for del_id in transaction.delete_records[cls.__name__]:
+                while ids:
+                    try:
+                        ids.remove(del_id)
+                    except ValueError:
+                        break
+        transaction.delete_records[cls.__name__].update(ids)
+        return ids, on_delete
+
+    @classmethod
+    def delete(cls, records):
+        "Delete records"
+        raise NotImplementedError
+
     @classmethod
     @without_check_access
-    def trigger_delete(cls, records):
-        '''
-        Trigger delete actions
-        '''
-        Trigger = Pool().get('ir.trigger')
-        triggers = Trigger.get_triggers(cls.__name__, 'delete')
-        if not triggers:
-            return
-        for trigger in triggers:
-            # Do not queue because records will be deleted
-            trigger.trigger_action(records)
+    def _after_delete(cls, ids, on_delete):
+        pool = Pool()
+        Translation = pool.get('ir.translation')
+        if any(getattr(f, 'translate', False) and not hasattr(f, 'set')
+                for f in cls._fields.values()):
+            Translation.delete_ids(cls.__name__, 'model', ids)
+        for meth in on_delete:
+            meth()
+
+    @classmethod
+    def check_modification(cls, mode, records, values=None, external=False):
+        assert mode in {'create', 'write', 'delete'}
+
+    @classmethod
+    def on_modification(cls, mode, records, field_names=None):
+        assert mode in {'create', 'write', 'delete'}
+
+    @classmethod
+    def on_delete(cls, records):
+        return []
 
     @classmethod
     def copy(cls, records, default=None):
@@ -1173,13 +1308,27 @@ class ModelStorage(Model):
         return count
 
     @classmethod
-    def check_xml_record(cls, records, values):
+    def __check_xml_record(cls, records, values):
         ModelData = Pool().get('ir.model.data')
         # Allow root user to update/delete
         if (Transaction().user == 0
                 or not ModelData.has_model(cls.__name__)):
             return
         ModelData.can_modify(records, values)
+
+    @classmethod
+    @without_check_access
+    def _compute_fields(cls, records, field_names=None):
+        to_write = []
+        for record in records:
+            values = record.compute_fields(field_names)
+            if values:
+                to_write.extend([[record], values])
+        if to_write:
+            cls.write(*to_write)
+
+    def compute_fields(self, field_names=None):
+        return {}
 
     @classmethod
     def validate(cls, records):
@@ -1190,12 +1339,8 @@ class ModelStorage(Model):
         pass
 
     @classmethod
-    @without_check_access
     def _validate(cls, records, field_names=None):
         pool = Pool()
-        # Ensure only records to validate are read,
-        # also convert iterator to list
-        records = cls.browse(records)
 
         def is_pyson(test):
             if isinstance(test, PYSON):
@@ -1455,7 +1600,7 @@ class ModelStorage(Model):
                 def digits_test(record, digits, field_name):
                     def raise_error(value):
                         error_args = cls.__names__(field_name, record)
-                        error_args['digits'] = digits[1]
+                        error_args['digits'] = digits
                         raise DigitsValidationError(
                             gettext('ir.msg_digits_validation_record',
                                 **error_args))
@@ -1467,16 +1612,20 @@ class ModelStorage(Model):
                             digits = digit_record.get_digits()
                         else:
                             digits = None
-                    if (value is None
-                            or not digits
-                            or any(d is None for d in digits)):
+                    if value is None or not digits:
                         return
-                    if isinstance(value, Decimal):
-                        if value.as_tuple().exponent < -digits[1]:
+
+                    int_size, dec_size = digits
+                    if int_size is not None and value:
+                        if math.ceil(math.log10(abs(value))) > int_size:
                             raise_error(value)
-                    else:
-                        if round(value, digits[1]) != value:
-                            raise_error(value)
+                    if dec_size is not None:
+                        if isinstance(value, Decimal):
+                            if value.as_tuple().exponent < -dec_size:
+                                raise_error(value)
+                        else:
+                            if round(value, dec_size) != value:
+                                raise_error(value)
                 # validate digits
                 if getattr(field, 'digits', None):
                     if is_pyson(field.digits):
@@ -1619,8 +1768,9 @@ class ModelStorage(Model):
         if id is not None:
             id = int(id)
         if _ids is not None:
-            self._ids = _ids
             assert id in _ids
+            assert all(isinstance(i, int) for i in _ids)
+            self._ids = _ids
         else:
             self._ids = [id]
 
@@ -1635,7 +1785,7 @@ class ModelStorage(Model):
         else:
             self._local_cache = local_cache(self.__class__, transaction)
 
-        super(ModelStorage, self).__init__(id, **kwargs)
+        super().__init__(id, **kwargs)
 
     @property
     def _cache(self):
@@ -1643,7 +1793,7 @@ class ModelStorage(Model):
 
     def __getattr__(self, name):
         try:
-            return super(ModelStorage, self).__getattr__(name)
+            return super().__getattr__(name)
         except AttributeError:
             if name.startswith('_') or self.id is None or self.id < 0:
                 raise
@@ -1767,13 +1917,12 @@ class ModelStorage(Model):
                 self._cache.size_limit, self._local_cache.size_limit,
                 self._transaction.database.IN_MAX))
         index = self._ids.index(self.id)
-        ids = chain(islice(self._ids, index, None),
-            islice(self._ids, 0, max(index - 1, 0)))
-        ids = islice(unique(filter(filter_, ids)), read_size)
+        ids = islice(self._ids, index, index + read_size)
+        ids = unique(filter(filter_, ids))
 
         kwargs_cache = {}
         pysoned_ctx = {}
-        transaction = Transaction()
+        transaction = self._transaction
 
         def create_instances(Model, value, cache_key=None):
             cache_key = (Model, cache_key)
@@ -1834,18 +1983,16 @@ class ModelStorage(Model):
         model2ids = {}
         model2cache = {}
         # Read the data
-        with Transaction().set_current_transaction(self._transaction), \
+        with Transaction().set_current_transaction(transaction), \
                 self._transaction.set_user(self._user), \
                 self._transaction.reset_context(), \
                 self._transaction.set_context(self._context), \
-                without_check_access() as transaction:
+                without_check_access():
             if (self.id in self._cache and name in self._cache[self.id]
                     and ffields.keys() <= set(self._cache[self.id]._keys())):
                 # Use values from cache
                 read_data = []
-                for id_ in islice(chain(islice(self._ids, index, None),
-                            islice(self._ids, 0, max(index - 1, 0))),
-                        read_size):
+                for id_ in islice(self._ids, index, index + read_size):
                     if id_ in self._cache:
                         data = {'id': id_}
                         for fname in ffields:
@@ -1971,6 +2118,11 @@ class ModelStorage(Model):
                 if to_write:
                     value.extend(to_write)
             values[fname] = value
+        try:
+            values.update(self.compute_fields(values.keys()))
+        except AttributeError:
+            if self.id is not None and self.id >= 0:
+                raise
         return values
 
     @dualmethod
@@ -2015,12 +2167,14 @@ class ModelStorage(Model):
                     if to_create:
                         news = cls.create([save_values[r] for r in to_create])
                         new_ids = []
+                        new_local_cache = local_cache(cls, transaction)
                         for record, new in zip(to_create, news):
                             record._ids.remove(record.id)
                             record._id = new.id
                             # Group all records that are alone
                             if not record._ids:
                                 record._ids = new_ids
+                                record._local_cache = new_local_cache
                             record._ids.append(record.id)
                     if to_write:
                         cls.write(*sum(
@@ -2040,7 +2194,7 @@ class EvalEnvironment(dict):
     __slots__ = ('_record', '_model')
 
     def __init__(self, record, Model):
-        super(EvalEnvironment, self).__init__()
+        super().__init__()
         self._record = record
         self._model = Model
 
@@ -2061,7 +2215,7 @@ class EvalEnvironment(dict):
                 return [r.id for r in value]
             else:
                 return value
-        return super(EvalEnvironment, self).__getitem__(item)
+        return super().__getitem__(item)
 
     def __getattr__(self, item):
         try:
@@ -2074,7 +2228,7 @@ class EvalEnvironment(dict):
             return self.__getitem__(item)
         except Exception:
             pass
-        return super(EvalEnvironment, self).get(item, default)
+        return super().get(item, default)
 
     def __bool__(self):
         return bool(self._record)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation
-Version: 0.1.27
+Version: 0.1.28
 Summary: OpenInference instrumentation utilities
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation
 Author-email: OpenInference Authors <oss@arize.com>
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.8
-Requires-Dist: openinference-semantic-conventions>=0.1.6
+Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-sdk
 Provides-Extra: test

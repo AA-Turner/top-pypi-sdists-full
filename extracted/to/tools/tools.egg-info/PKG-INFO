@@ -1,17 +1,37 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.1
 Name: tools
-Version: 0.1.9
-Summary: Set of tools for web scraping projects
-Home-page: UNKNOWN
-Author: Gregory Petukhov
-Author-email: lorien@lorien.name
-License: MIT
-Description: UNKNOWN
-Platform: UNKNOWN
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: Implementation :: CPython
+Version: 1.0
+Summary: python syntax tool
+Home-page: https://github.com/jsyoo61/tools
+Author: JaeSung Yoo
+Author-email: jsyoo61@unc.edu
+Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+# tools-jsyoo61
+
+(`tools` package was replaced on 2025.04.28. If you're looking for web scraping tools, visit http://pypi.python.org/pypi/weblib)
+
+Python syntax tools for faster programming. [github](https://github.com/jsyoo61/tools) \
+jsyoo61@unc.edu
+
+    pip install tools
+
+    import tools as T
+    T.save_pickle(data, 'data.p')
+    data = T.load_pickle('data.p')
+
+Most useful functions are in `tools.tools`\
+API dependent tools are in their corresponding folders: `tools.API_name` (i.e. `tools.torch.optim`)
+
+Planning to document using chatGPT,
+Not documented yet, so you'll have to look at documents written inside the codes. (Most codes contain explanation)
+
+I'm open to using my tools for any purpose, and I would appreciate it if the users let me know.
+Please email me before using it.
+
+I'm happy to discuss questions or suggestions, please contact me via email. :) \

@@ -6,7 +6,7 @@ requires = [ "setuptools>=45", "wheel" ]
 [project]
 name = "albumentations"
 
-version = "2.0.5"
+version = "2.0.6"
 
 description = "Fast, flexible, and advanced augmentation library for deep learning, computer vision, and medical imaging. Albumentations offers a wide range of transformations for both 2D (images, masks, bboxes, keypoints) and 3D (volumes, volumetric masks, keypoints) data, with optimized performance and seamless integration into ML workflows."
 readme = "README.md"
@@ -174,7 +174,6 @@ exclude = [
   ".vscode",
   "__pypackages__",
   "_build",
-  "benchmark",
   "buck-out",
   "build",
   "dist",
@@ -204,15 +203,15 @@ lint.ignore = [
   "B006",
   "B008",
   "B027",
-  "D100",
-  "D101",
-  "D102",
-  "D103",
   "D104",
   "D105",
   "D106",
   "D107",
   "D205",
+  "D213",
+  "D400",
+  "D401",
+  "D404",
   "D415",
   "EM101",
   "EM102",
@@ -224,7 +223,6 @@ lint.ignore = [
   "PLR0911",
   "PLR0913",
   "PLR2004",
-  "PTH123",
   "S311",
   "S608",
   "TC001",
@@ -232,16 +230,6 @@ lint.ignore = [
   "TC003",
   "TRY003",
 ]
-
-# Allow fix for all enabled rules (when `--fix`) is provided.
-
-lint.explicit-preview-rules = true
-lint.fixable = [ "ALL" ]
-lint.unfixable = [  ]
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-# Like Black, use double quotes for strings.
-lint.pydocstyle.convention = "google"
 
 [tool.mypy]
 plugins = [ "pydantic.mypy" ]
@@ -259,6 +247,18 @@ disable_error_code = [ "valid-type" ]
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
 
+[tool.pydocstyle]
+# Allow fix for all enabled rules (when `--fix`) is provided.
+
+lint.explicit-preview-rules = true
+lint.fixable = [ "ALL" ]
+lint.unfixable = [  ]
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+# Like Black, use double quotes for strings.
+lint.pydocstyle.convention = "google"
+lint.pydocstyle.ignore-magic-methods = true
+
 [tool.albumentations.maintainers]
 emeritus = [
   "Alexander Buslaev",
@@ -271,3 +271,18 @@ emeritus = [
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+[tool.codeflash]
+# All paths are relative to this pyproject.toml's directory.
+module-root = "albumentations"
+tests-root = "tests"
+test-framework = "pytest"
+ignore-paths = [  ]
+formatter-cmds = [ "ruff check --exit-zero --fix $file", "ruff format $file" ]
+
+[tool.google_docstring_parser]
+paths = [ "albumentations", "tools" ] # Directories or files to scan
+require_param_types = true            # Require parameter types in docstrings
+exclude_files = [ "__init__.py" ]     # Files to exclude from checks
+verbose = false                       # Enable verbose output
+check_references = true

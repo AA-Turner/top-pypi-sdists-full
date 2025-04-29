@@ -27,9 +27,15 @@ __all__ = (
     "CachePolicyQueryStringBehaviorType",
     "CachePolicyTypeType",
     "CertificateSourceType",
+    "CertificateTransparencyLoggingPreferenceType",
     "CloudFrontServiceName",
+    "ConnectionModeType",
     "ContinuousDeploymentPolicyTypeType",
+    "CustomizationActionTypeType",
     "DistributionDeployedWaiterName",
+    "DistributionResourceTypeType",
+    "DnsConfigurationStatusType",
+    "DomainStatusType",
     "EventTypeType",
     "FormatType",
     "FrameOptionsListType",
@@ -40,13 +46,21 @@ __all__ = (
     "ICPRecordalStatusType",
     "ImportSourceTypeType",
     "InvalidationCompletedWaiterName",
+    "InvalidationForDistributionTenantCompletedWaiterName",
     "ItemSelectionType",
     "ListCloudFrontOriginAccessIdentitiesPaginatorName",
+    "ListConnectionGroupsPaginatorName",
+    "ListDistributionTenantsByCustomizationPaginatorName",
+    "ListDistributionTenantsPaginatorName",
+    "ListDistributionsByConnectionModePaginatorName",
     "ListDistributionsPaginatorName",
+    "ListDomainConflictsPaginatorName",
+    "ListInvalidationsForDistributionTenantPaginatorName",
     "ListInvalidationsPaginatorName",
     "ListKeyValueStoresPaginatorName",
     "ListPublicKeysPaginatorName",
     "ListStreamingDistributionsPaginatorName",
+    "ManagedCertificateStatusType",
     "MethodType",
     "MinimumProtocolVersionType",
     "OriginAccessControlOriginTypesType",
@@ -69,6 +83,7 @@ __all__ = (
     "ServiceName",
     "SslProtocolType",
     "StreamingDistributionDeployedWaiterName",
+    "ValidationTokenHostType",
     "ViewerProtocolPolicyType",
     "WaiterName",
 )
@@ -78,8 +93,16 @@ CachePolicyHeaderBehaviorType = Literal["none", "whitelist"]
 CachePolicyQueryStringBehaviorType = Literal["all", "allExcept", "none", "whitelist"]
 CachePolicyTypeType = Literal["custom", "managed"]
 CertificateSourceType = Literal["acm", "cloudfront", "iam"]
+CertificateTransparencyLoggingPreferenceType = Literal["disabled", "enabled"]
+ConnectionModeType = Literal["direct", "tenant-only"]
 ContinuousDeploymentPolicyTypeType = Literal["SingleHeader", "SingleWeight"]
+CustomizationActionTypeType = Literal["disable", "override"]
 DistributionDeployedWaiterName = Literal["distribution_deployed"]
+DistributionResourceTypeType = Literal["distribution", "distribution-tenant"]
+DnsConfigurationStatusType = Literal[
+    "invalid-configuration", "unknown-configuration", "valid-configuration"
+]
+DomainStatusType = Literal["active", "inactive"]
 EventTypeType = Literal["origin-request", "origin-response", "viewer-request", "viewer-response"]
 FormatType = Literal["URLEncoded"]
 FrameOptionsListType = Literal["DENY", "SAMEORIGIN"]
@@ -90,15 +113,37 @@ HttpVersionType = Literal["http1.1", "http2", "http2and3", "http3"]
 ICPRecordalStatusType = Literal["APPROVED", "PENDING", "SUSPENDED"]
 ImportSourceTypeType = Literal["S3"]
 InvalidationCompletedWaiterName = Literal["invalidation_completed"]
+InvalidationForDistributionTenantCompletedWaiterName = Literal[
+    "invalidation_for_distribution_tenant_completed"
+]
 ItemSelectionType = Literal["all", "none", "whitelist"]
 ListCloudFrontOriginAccessIdentitiesPaginatorName = Literal[
     "list_cloud_front_origin_access_identities"
 ]
+ListConnectionGroupsPaginatorName = Literal["list_connection_groups"]
+ListDistributionTenantsByCustomizationPaginatorName = Literal[
+    "list_distribution_tenants_by_customization"
+]
+ListDistributionTenantsPaginatorName = Literal["list_distribution_tenants"]
+ListDistributionsByConnectionModePaginatorName = Literal["list_distributions_by_connection_mode"]
 ListDistributionsPaginatorName = Literal["list_distributions"]
+ListDomainConflictsPaginatorName = Literal["list_domain_conflicts"]
+ListInvalidationsForDistributionTenantPaginatorName = Literal[
+    "list_invalidations_for_distribution_tenant"
+]
 ListInvalidationsPaginatorName = Literal["list_invalidations"]
 ListKeyValueStoresPaginatorName = Literal["list_key_value_stores"]
 ListPublicKeysPaginatorName = Literal["list_public_keys"]
 ListStreamingDistributionsPaginatorName = Literal["list_streaming_distributions"]
+ManagedCertificateStatusType = Literal[
+    "expired",
+    "failed",
+    "inactive",
+    "issued",
+    "pending-validation",
+    "revoked",
+    "validation-timed-out",
+]
 MethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 MinimumProtocolVersionType = Literal[
     "SSLv3", "TLSv1", "TLSv1.1_2016", "TLSv1.2_2018", "TLSv1.2_2019", "TLSv1.2_2021", "TLSv1_2016"
@@ -114,7 +159,7 @@ OriginRequestPolicyHeaderBehaviorType = Literal[
 ]
 OriginRequestPolicyQueryStringBehaviorType = Literal["all", "allExcept", "none", "whitelist"]
 OriginRequestPolicyTypeType = Literal["custom", "managed"]
-PriceClassType = Literal["PriceClass_100", "PriceClass_200", "PriceClass_All"]
+PriceClassType = Literal["None", "PriceClass_100", "PriceClass_200", "PriceClass_All"]
 RealtimeMetricsSubscriptionStatusType = Literal["Disabled", "Enabled"]
 ReferrerPolicyListType = Literal[
     "no-referrer",
@@ -133,6 +178,7 @@ ResponseHeadersPolicyTypeType = Literal["custom", "managed"]
 SSLSupportMethodType = Literal["sni-only", "static-ip", "vip"]
 SslProtocolType = Literal["SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"]
 StreamingDistributionDeployedWaiterName = Literal["streaming_distribution_deployed"]
+ValidationTokenHostType = Literal["cloudfront", "self-hosted"]
 ViewerProtocolPolicyType = Literal["allow-all", "https-only", "redirect-to-https"]
 CloudFrontServiceName = Literal["cloudfront"]
 ServiceName = Literal[
@@ -555,12 +601,21 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_cloud_front_origin_access_identities",
+    "list_connection_groups",
+    "list_distribution_tenants",
+    "list_distribution_tenants_by_customization",
     "list_distributions",
+    "list_distributions_by_connection_mode",
+    "list_domain_conflicts",
     "list_invalidations",
+    "list_invalidations_for_distribution_tenant",
     "list_key_value_stores",
     "list_public_keys",
     "list_streaming_distributions",
 ]
 WaiterName = Literal[
-    "distribution_deployed", "invalidation_completed", "streaming_distribution_deployed"
+    "distribution_deployed",
+    "invalidation_completed",
+    "invalidation_for_distribution_tenant_completed",
+    "streaming_distribution_deployed",
 ]

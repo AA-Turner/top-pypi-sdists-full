@@ -24,14 +24,6 @@ from kafka.protocol.metadata import MetadataResponse
 from kafka.structs import OffsetAndMetadata, TopicPartition
 from kafka.util import WeakMethod
 
-@pytest.fixture
-def client(conn, mocker):
-    cli = KafkaClient(api_version=(0, 9))
-    mocker.patch.object(cli, '_init_connect', return_value=True)
-    try:
-        yield cli
-    finally:
-        cli._close()
 
 @pytest.fixture
 def coordinator(client, metrics, mocker):
@@ -239,17 +231,23 @@ def test_need_rejoin(coordinator):
 
 
 def test_refresh_committed_offsets_if_needed(mocker, coordinator):
+    tp0 = TopicPartition('foobar', 0)
+    tp1 = TopicPartition('foobar', 1)
     mocker.patch.object(ConsumerCoordinator, 'fetch_committed_offsets',
                         return_value = {
-                            TopicPartition('foobar', 0): OffsetAndMetadata(123, '', -1),
-                            TopicPartition('foobar', 1): OffsetAndMetadata(234, '', -1)})
-    coordinator._subscription.assign_from_user([TopicPartition('foobar', 0)])
-    assert coordinator._subscription.needs_fetch_committed_offsets is True
+                            tp0: OffsetAndMetadata(123, '', -1),
+                            tp1: OffsetAndMetadata(234, '', -1)})
+    coordinator._subscription.assign_from_user([tp0, tp1])
+    coordinator._subscription.request_offset_reset(tp0)
+    coordinator._subscription.request_offset_reset(tp1)
+    assert coordinator._subscription.is_offset_reset_needed(tp0)
+    assert coordinator._subscription.is_offset_reset_needed(tp1)
     coordinator.refresh_committed_offsets_if_needed()
     assignment = coordinator._subscription.assignment
-    assert assignment[TopicPartition('foobar', 0)].committed == OffsetAndMetadata(123, '', -1)
-    assert TopicPartition('foobar', 1) not in assignment
-    assert coordinator._subscription.needs_fetch_committed_offsets is False
+    assert assignment[tp0].position == OffsetAndMetadata(123, '', -1)
+    assert assignment[tp1].position == OffsetAndMetadata(234, '', -1)
+    assert not coordinator._subscription.is_offset_reset_needed(tp0)
+    assert not coordinator._subscription.is_offset_reset_needed(tp1)
 
 
 def test_fetch_committed_offsets(mocker, coordinator):
@@ -306,7 +304,7 @@ def test_close(mocker, coordinator):
     coordinator._handle_leave_group_response.assert_called_with('foobar')
 
     assert coordinator.generation() is None
-    assert coordinator._generation is Generation.NO_GENERATION
+    assert coordinator._generation == Generation.NO_GENERATION
     assert coordinator.state is MemberState.UNJOINED
     assert coordinator.rejoin_needed is True
 
@@ -444,7 +442,7 @@ def test_send_offset_commit_request_fail(mocker, patched_coord, offsets):
     # No coordinator
     ret = patched_coord._send_offset_commit_request(offsets)
     assert ret.failed()
-    assert isinstance(ret.exception, Errors.GroupCoordinatorNotAvailableError)
+    assert isinstance(ret.exception, Errors.CoordinatorNotAvailableError)
 
 
 @pytest.mark.parametrize('api_version,req_type', [
@@ -497,11 +495,11 @@ def test_send_offset_commit_request_success(mocker, patched_coord, offsets):
     (OffsetCommitResponse[0]([('foobar', [(0, 28), (1, 28)])]),
      Errors.InvalidCommitOffsetSizeError, False),
     (OffsetCommitResponse[0]([('foobar', [(0, 14), (1, 14)])]),
-     Errors.GroupLoadInProgressError, False),
+     Errors.CoordinatorLoadInProgressError, False),
     (OffsetCommitResponse[0]([('foobar', [(0, 15), (1, 15)])]),
-     Errors.GroupCoordinatorNotAvailableError, True),
+     Errors.CoordinatorNotAvailableError, True),
     (OffsetCommitResponse[0]([('foobar', [(0, 16), (1, 16)])]),
-     Errors.NotCoordinatorForGroupError, True),
+     Errors.NotCoordinatorError, True),
     (OffsetCommitResponse[0]([('foobar', [(0, 7), (1, 7)])]),
      Errors.RequestTimedOutError, True),
     (OffsetCommitResponse[0]([('foobar', [(0, 25), (1, 25)])]),
@@ -557,7 +555,7 @@ def test_send_offset_fetch_request_fail(mocker, patched_coord, partitions):
     # No coordinator
     ret = patched_coord._send_offset_fetch_request(partitions)
     assert ret.failed()
-    assert isinstance(ret.exception, Errors.GroupCoordinatorNotAvailableError)
+    assert isinstance(ret.exception, Errors.CoordinatorNotAvailableError)
 
 
 @pytest.mark.parametrize('api_version,req_type', [
@@ -606,9 +604,9 @@ def test_send_offset_fetch_request_success(patched_coord, partitions):
 
 @pytest.mark.parametrize('response,error,dead', [
     (OffsetFetchResponse[0]([('foobar', [(0, 123, '', 14), (1, 234, '', 14)])]),
-     Errors.GroupLoadInProgressError, False),
+     Errors.CoordinatorLoadInProgressError, False),
     (OffsetFetchResponse[0]([('foobar', [(0, 123, '', 16), (1, 234, '', 16)])]),
-     Errors.NotCoordinatorForGroupError, True),
+     Errors.NotCoordinatorError, True),
     (OffsetFetchResponse[0]([('foobar', [(0, 123, '', 25), (1, 234, '', 25)])]),
      Errors.UnknownMemberIdError, False),
     (OffsetFetchResponse[0]([('foobar', [(0, 123, '', 22), (1, 234, '', 22)])]),

@@ -15,7 +15,6 @@ class Icon(
             'module_ref', 'module', 'ir.module,name', "Module",
             readonly=True, required=True, ondelete='CASCADE'),
         sequence_ordered(), ModelSQL, ModelView):
-    'Icon'
     __name__ = 'ir.ui.icon'
 
     name = fields.Char('Name', required=True)
@@ -26,19 +25,10 @@ class Icon(
 
     @classmethod
     def __setup__(cls):
-        super(Icon, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'list_icons': RPC(),
                 })
-
-    @classmethod
-    def __register__(cls, module_name):
-        super().__register__(module_name)
-
-        table = cls.__table_handler__(module_name)
-
-        # Migration from 5.0: remove required on sequence
-        table.not_null_action('sequence', 'remove')
 
     @staticmethod
     def default_module():
@@ -71,17 +61,6 @@ class Icon(
             return fp.read()
 
     @classmethod
-    def create(cls, vlist):
-        icons = super().create(vlist)
-        cls._list_icons.clear()
-        return icons
-
-    @classmethod
-    def write(cls, *args):
-        super().write(*args)
-        cls._list_icons.clear()
-
-    @classmethod
-    def delete(cls, icons):
-        super().delete(icons)
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._list_icons.clear()

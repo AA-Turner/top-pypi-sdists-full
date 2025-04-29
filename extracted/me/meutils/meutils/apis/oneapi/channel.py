@@ -94,9 +94,9 @@ async def create_or_update_channel(api_key, base_url: Optional[str] = "https://a
         # "other": "",
         # "balance": 0,
         # "balance_updated_time": 0,
-        "models": "gemini-2.0-flash",
+        "models": "gemini-1.0-pro-vision-latest,gemini-pro-vision,gemini-1.5-pro-latest,gemini-1.5-pro-001,gemini-1.5-pro-002,gemini-1.5-pro,gemini-1.5-flash-latest,gemini-1.5-flash-001,gemini-1.5-flash-001-tuning,gemini-1.5-flash,gemini-1.5-flash-002,gemini-1.5-flash-8b,gemini-1.5-flash-8b-001,gemini-1.5-flash-8b-latest,gemini-1.5-flash-8b-exp-0827,gemini-1.5-flash-8b-exp-0924,gemini-2.5-pro-exp-03-25,gemini-2.5-pro-preview-03-25,gemini-2.5-flash-preview-04-17,gemini-2.0-flash-exp,gemini-2.0-flash,gemini-2.0-flash-001,gemini-2.0-flash-exp-image-generation,gemini-2.0-flash-lite-001,gemini-2.0-flash-lite,gemini-2.0-flash-lite-preview-02-05,gemini-2.0-flash-lite-preview,gemini-2.0-pro-exp,gemini-2.0-pro-exp-02-05,gemini-2.0-flash-thinking-exp-01-21,gemini-2.0-flash-thinking-exp,gemini-2.0-flash-thinking-exp-1219,learnlm-1.5-pro-experimental,learnlm-2.0-flash-experimental,gemma-3-1b-it,gemma-3-4b-it,gemma-3-12b-it,gemma-3-27b-it,gemini-2.0-flash-live-001",
         # "used_quota": 0,
-        "model_mapping": "",
+        "model_mapping": """{"gemini-2.5-pro-preview-03-25": "gemini-2.5-pro-exp-03-25"}""",
         # "status_code_mapping": "",
         # "priority": 0,
         # "auto_ban": 1,
@@ -125,7 +125,7 @@ async def delete_channel(id, base_url: Optional[str] = "https://api.ffire.cc"):
     if isinstance(id, str):
         ids = [id]
 
-    for _ids in tqdm(ids | xgroup(128)):
+    for _ids in tqdm(ids | xgroup(256)):
         payload = {
             "ids": list(_ids)
         }
@@ -144,4 +144,4 @@ if __name__ == '__main__':
     # arun(create_or_update_channel(tokens[:1]))
     arun(create_or_update_channel(tokens))
 
-    # arun(delete_channel(range(7000, 9000)))
+    # arun(delete_channel(range(10000, 20000)))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-debug-toolbar
-Version: 5.1.0
+Version: 5.2.0
 Summary: A configurable set of panels that display various debug information about the current request/response.
 Project-URL: Changelog, https://django-debug-toolbar.readthedocs.io/en/latest/changes.html
 Project-URL: Documentation, https://django-debug-toolbar.readthedocs.io/
@@ -76,7 +76,7 @@ Here's a screenshot of the toolbar in action:
 In addition to the built-in panels, a number of third-party panels are
 contributed by the community.
 
-The current stable version of the Debug Toolbar is 5.1.0. It works on
+The current stable version of the Debug Toolbar is 5.2.0. It works on
 Django ≥ 4.2.0.
 
 The Debug Toolbar has experimental support for `Django's asynchronous views

@@ -581,6 +581,32 @@ def dot(context, node):
 
 
 @register_torch_op
+def linalg_vecdot(context: TranscriptionContext, node: InternalTorchIRNode):
+    def _parse_positional_args(context, node) -> Tuple[Var]:
+        inputs = _get_inputs(context, node, expected=(2, 3))
+        nargs = len(inputs)
+
+        x = inputs[0]
+        y = inputs[1]
+        dim = inputs[2] if nargs > 2 else -1
+
+        return x, y, dim
+
+    def _parse_keyword_args(context, node, dim) -> Var:
+        dim = _get_kwinputs(context, node, "dim", default=[dim])[0]
+        return dim
+
+    x, y, dim = _parse_positional_args(context, node)
+    dim = _parse_keyword_args(context, node, dim)
+
+    if isinstance(dim, Var):
+        dim = dim.val
+
+    xy = mb.mul(x=x, y=y)
+    sum_xy = mb.reduce_sum(x=xy, axes=[dim])
+    context.add(sum_xy, node.name)
+
+@register_torch_op
 def mv(context, node):
     inputs = _get_inputs(context, node, expected=2)
     expand = mb.expand_dims(x=inputs[1], axes=[-1], name=node.name + "_expanded")
@@ -1384,12 +1410,16 @@ def _convolution(context, node):
             if len(post_crop) == 2 and conv.rank == 3:
                 # Number of elements to crop from right = post_crop[-1].
                 # Since slicing supports negative indexing, end_id = -1 * post_crop[-1]
+                end_mask = False
+                if post_crop[-1] == 0:
+                    end_mask = True
+
                 conv = mb.slice_by_index(
                     x=conv,
                     begin=[0, 0, post_crop[0]],
                     end=[0, 0, -1 * post_crop[-1]],
                     begin_mask=[True, True, False],
-                    end_mask=[True, True, False],
+                    end_mask=[True, True, end_mask],
                     name=node.name,
                 )
             elif len(post_crop) == 4 and conv.rank == 4:
@@ -2019,7 +2049,7 @@ def mul(context, node):
     context.add(res)
 
 
-@register_torch_op
+@register_torch_op(torch_alias=["pow.tensor_tensor"])
 def pow(context, node):
     inputs = _get_inputs(context, node, expected=2)
     x, y = promote_input_dtypes(inputs)
@@ -2677,13 +2707,36 @@ def batch_norm(context, node):
         )
         return bn
 
+    def preprocess_batch_norm_params():
+        """
+        Before iOS17, the params needed to have the same dtype as input, we can just
+        cast them to the same dtype as the input.
+        Since iOS17, the batch_norm op allows params to have different dtypes from
+        input, but the params themselves need to have the same dtype.
+        """
+        nonlocal running_mean, running_var, weight, bias, eps
+        batch_norm_params = [running_mean, running_var, weight, bias, eps]
+        if is_current_opset_version_compatible_with(target.iOS17):
+            running_mean, running_var, weight, bias, eps = promote_input_dtypes(batch_norm_params)
+        else:
+            new_params = []
+            for batch_norm_param in batch_norm_params:
+                if batch_norm_param.dtype != _input.dtype:
+                    batch_norm_param = mb.cast(
+                        x=batch_norm_param, dtype=types.builtin_to_string(_input.dtype)
+                    )
+                new_params.append(batch_norm_param)
+            running_mean, running_var, weight, bias, eps = new_params
+
     is_batch_norm_1d_rank_2 = input_rank == 2
 
     if training or running_mean.val is None or running_var.val is None or weight is None or bias is None:
         bn = _add_batch_norm_dynamic()
     elif is_batch_norm_1d_rank_2:
+        preprocess_batch_norm_params()
         bn = _add_batch_norm_1d()
     else:
+        preprocess_batch_norm_params()
         bn = _add_batch_norm()
 
     if node.kind == "_native_batch_norm_legit_no_training":
@@ -4189,6 +4242,12 @@ def tupleunpack(context, node):
     inputs = _get_inputs(context, node, expected=1)
     values = inputs[0]
 
+    if isinstance(values, (Var)) and values.op.op_type == "shape":
+        for i in range(len(node.outputs)):
+            val = _list_select(values, i)
+            context.add(val, node.outputs[i])
+        return
+
     # Node input could have been turned into constant array in @tupleconstruct
     if not isinstance(values, (tuple, list)):
         if values.val is not None:
@@ -5391,13 +5450,21 @@ def full(context, node):
     # dtype could be torch.dtype or an integer that maps to a numpy.dtype
     dtype = None
     if len(inputs) < 3 or inputs[2] is None:
-        dtype = np.float32
+        dtype = _get_kwinputs(context, node, "dtype", default=[np.float32])[0]
+        if isinstance(dtype, Var):
+            dtype = dtype.val
+        if isinstance(dtype, (int, np.integer)):
+            dtype = NUM_TO_NUMPY_DTYPE[dtype]
     elif isinstance(inputs[2].val, torch.dtype):
         dtype = NUM_TO_NUMPY_DTYPE[TORCH_DTYPE_TO_NUM[inputs[2].val]]
     elif isinstance(inputs[2].val, (int, np.generic)):
         dtype = NUM_TO_NUMPY_DTYPE[inputs[2].val]
     else:
         raise ValueError(f"unsupported type {type(inputs[2].val)}.")
+    # Core ML `fill` op supports fp16, fp32, i32, bool value
+    # so any integer other than i32 has to be cast to i32
+    if dtype != np.int32 and np.issubdtype(dtype, np.integer):
+        dtype = np.int32
 
     val = dtype(inputs[1].val)
 
@@ -5479,11 +5546,17 @@ def rand_like(context, node):
 
 @register_torch_op
 def randn(context, node):
-    inputs = _get_inputs(context, node, expected=[5, 6])
+    inputs = _get_inputs(
+        context,
+        node,
+        expected={TorchFrontend.TORCHSCRIPT: [5, 6]},
+        min_expected={TorchFrontend.TORCHEXPORT: 1, TorchFrontend.EXECUTORCH: 1},
+    )
 
     shape = inputs[0]
-    dtype = inputs[1]
-    _assert_torch_dtype_num_is_not_complex_number(dtype)
+    if len(inputs) >= 2:
+        dtype = inputs[1]
+        _assert_torch_dtype_num_is_not_complex_number(dtype)
     rand_normal = mb.random_normal(shape=shape)
     rand_fp32 = mb.cast(x=rand_normal, dtype="fp32", name=node.name)
     context.add(rand_fp32)
@@ -6267,7 +6340,7 @@ def noop(context, node):
         context.add(_input, torch_name=node.name)
 
 
-@register_torch_op
+@register_torch_op(torch_alias=["argmin"])
 def argmax(context, node):
     def _parse_positional_args(context, node) -> Tuple[Var]:
         inputs = _get_inputs(context, node, expected=(1, 2, 3, 4))
@@ -6278,7 +6351,7 @@ def argmax(context, node):
         dim = inputs[1] if nargs > 1 else None
         keepdim = inputs[2] if nargs > 2 else False
 
-        # When node.kind == argmax.out, there can be 1 more arg `Tensor(a!) out`,
+        # When node.kind == argmax.out or node.kind == argmin.out, there can be 1 more arg `Tensor(a!) out`,
         # which is for in-place mutation, so we ignore it since Core ML is functional
         return x, dim, keepdim
 
@@ -6295,9 +6368,13 @@ def argmax(context, node):
         keepdim = keepdim.val
 
     if types.is_int(x.dtype) and x.dtype._width == 64:
-        # MIL reduce_argmax doesn't support int64.
+        # MIL reduce_argmax and reduce_argmin doesn't support int64.
         x = mb.cast(x=x, dtype="int32")
-    res = mb.reduce_argmax(x=x, axis=dim, keep_dims=keepdim, name=node.name)
+    if node.kind == "argmax":
+        res = mb.reduce_argmax(x=x, axis=dim, keep_dims=keepdim, name=node.name)
+    else:
+        assert node.kind == "argmin"
+        res = mb.reduce_argmin(x=x, axis=dim, keep_dims=keepdim, name=node.name)
     context.add(res)
 
 

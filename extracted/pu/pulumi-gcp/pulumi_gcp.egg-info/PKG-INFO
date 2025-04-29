@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_gcp
-Version: 8.27.0
+Version: 8.27.1
 Summary: A Pulumi package for creating and managing Google Cloud Platform resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

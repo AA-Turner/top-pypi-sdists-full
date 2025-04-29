@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk8s",
-    "version": "2.69.64",
+    "version": "2.69.65",
     "description": "This is the core library of Cloud Development Kit (CDK) for Kubernetes (cdk8s). cdk8s apps synthesize into standard Kubernetes manifests which can be applied to any Kubernetes cluster.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdk8s-team/cdk8s-core.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk8s._jsii": [
-            "cdk8s@2.69.64.jsii.tgz"
+            "cdk8s@2.69.65.jsii.tgz"
         ],
         "cdk8s": [
             "py.typed"

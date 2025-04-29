@@ -18,6 +18,7 @@ from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
 from ..models.entry_updated_review_record_event import EntryUpdatedReviewRecordEvent
+from ..models.entry_updated_review_snapshot_beta_event import EntryUpdatedReviewSnapshotBetaEvent
 from ..models.request_created_event import RequestCreatedEvent
 from ..models.request_updated_fields_event import RequestUpdatedFieldsEvent
 from ..models.stage_entry_created_event import StageEntryCreatedEvent
@@ -50,6 +51,7 @@ class EventsPaginatedList:
                 EntryCreatedEvent,
                 EntryUpdatedFieldsEvent,
                 EntryUpdatedReviewRecordEvent,
+                EntryUpdatedReviewSnapshotBetaEvent,
                 StageEntryCreatedEvent,
                 StageEntryUpdatedFieldsEvent,
                 StageEntryUpdatedReviewRecordEvent,
@@ -101,6 +103,9 @@ class EventsPaginatedList:
                     events_item = events_item_data.to_dict()
 
                 elif isinstance(events_item_data, EntryUpdatedReviewRecordEvent):
+                    events_item = events_item_data.to_dict()
+
+                elif isinstance(events_item_data, EntryUpdatedReviewSnapshotBetaEvent):
                     events_item = events_item_data.to_dict()
 
                 elif isinstance(events_item_data, StageEntryCreatedEvent):
@@ -189,6 +194,7 @@ class EventsPaginatedList:
                     EntryCreatedEvent,
                     EntryUpdatedFieldsEvent,
                     EntryUpdatedReviewRecordEvent,
+                    EntryUpdatedReviewSnapshotBetaEvent,
                     StageEntryCreatedEvent,
                     StageEntryUpdatedFieldsEvent,
                     StageEntryUpdatedReviewRecordEvent,
@@ -224,6 +230,7 @@ class EventsPaginatedList:
                     EntryCreatedEvent,
                     EntryUpdatedFieldsEvent,
                     EntryUpdatedReviewRecordEvent,
+                    EntryUpdatedReviewSnapshotBetaEvent,
                     StageEntryCreatedEvent,
                     StageEntryUpdatedFieldsEvent,
                     StageEntryUpdatedReviewRecordEvent,
@@ -251,6 +258,7 @@ class EventsPaginatedList:
                         EntryCreatedEvent,
                         EntryUpdatedFieldsEvent,
                         EntryUpdatedReviewRecordEvent,
+                        EntryUpdatedReviewSnapshotBetaEvent,
                         StageEntryCreatedEvent,
                         StageEntryUpdatedFieldsEvent,
                         StageEntryUpdatedReviewRecordEvent,
@@ -280,6 +288,7 @@ class EventsPaginatedList:
                             EntryCreatedEvent,
                             EntryUpdatedFieldsEvent,
                             EntryUpdatedReviewRecordEvent,
+                            EntryUpdatedReviewSnapshotBetaEvent,
                             StageEntryCreatedEvent,
                             StageEntryUpdatedFieldsEvent,
                             StageEntryUpdatedReviewRecordEvent,
@@ -318,6 +327,10 @@ class EventsPaginatedList:
                             return event
                         if discriminator_value == "v2-beta.automationOutputProcessor.uploaded":
                             event = AutomationOutputProcessorUploadedV2BetaEvent.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2-beta.entry.updated.reviewSnapshot":
+                            event = EntryUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=False)
 
                             return event
                         if discriminator_value == "v2.assayRun.created":
@@ -422,6 +435,14 @@ class EventsPaginatedList:
                         if not isinstance(data, dict):
                             raise TypeError()
                         event = EntryUpdatedReviewRecordEvent.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = EntryUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=True)
 
                         return event
                     except:  # noqa: E722
@@ -608,6 +629,7 @@ class EventsPaginatedList:
                             EntryCreatedEvent,
                             EntryUpdatedFieldsEvent,
                             EntryUpdatedReviewRecordEvent,
+                            EntryUpdatedReviewSnapshotBetaEvent,
                             StageEntryCreatedEvent,
                             StageEntryUpdatedFieldsEvent,
                             StageEntryUpdatedReviewRecordEvent,
@@ -682,6 +704,7 @@ class EventsPaginatedList:
             EntryCreatedEvent,
             EntryUpdatedFieldsEvent,
             EntryUpdatedReviewRecordEvent,
+            EntryUpdatedReviewSnapshotBetaEvent,
             StageEntryCreatedEvent,
             StageEntryUpdatedFieldsEvent,
             StageEntryUpdatedReviewRecordEvent,
@@ -718,6 +741,7 @@ class EventsPaginatedList:
                 EntryCreatedEvent,
                 EntryUpdatedFieldsEvent,
                 EntryUpdatedReviewRecordEvent,
+                EntryUpdatedReviewSnapshotBetaEvent,
                 StageEntryCreatedEvent,
                 StageEntryUpdatedFieldsEvent,
                 StageEntryUpdatedReviewRecordEvent,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus
-Version: 2.5.7
+Version: 2.5.8
 Summary: Python Sdk for Milvus
 Author-email: Milvus Team <milvus-team@zilliz.com>
 Project-URL: repository, https://github.com/milvus-io/pymilvus

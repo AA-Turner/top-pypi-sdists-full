@@ -44,7 +44,7 @@ class Date(Field):
         if timezone:
             expression = AtTimeZone(expression, 'utc')
             expression = AtTimeZone(expression, timezone)
-        return super(Date, self).sql_cast(expression)
+        return super().sql_cast(expression)
 
     def __set__(self, inst, value):
         if isinstance(value, str):
@@ -111,13 +111,14 @@ class DateTime(Timestamp):
         '''
         :param format: The validation format as used by strftime.
         '''
-        super(DateTime, self).__init__(string=string, help=help,
+        super().__init__(string=string, help=help,
             required=required, readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)
         self.format = format
 
-    __init__.__doc__ += Field.__init__.__doc__
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     def sql_format(self, value):
         value = super().sql_format(value)
@@ -155,7 +156,7 @@ class Time(FormatMixin, Field):
     def sql_cast(self, expression):
         if backend.name == 'sqlite':
             return SQLite_Time(expression)
-        return super(Time, self).sql_cast(expression)
+        return super().sql_cast(expression)
 
     def __set__(self, inst, value):
         if isinstance(value, str):
@@ -176,7 +177,7 @@ class TimeDelta(Field):
         :param converter: The name of the context key containing
             the time converter.
         '''
-        super(TimeDelta, self).__init__(string=string, help=help,
+        super().__init__(string=string, help=help,
             required=required, readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)

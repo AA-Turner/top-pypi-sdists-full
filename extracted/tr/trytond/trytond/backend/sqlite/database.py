@@ -1,6 +1,6 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
-import datetime
+import datetime as dt
 import logging
 import math
 import os
@@ -24,6 +24,7 @@ from sql.functions import (
     Substring, Trim)
 from sql.operators import Equal
 
+from trytond import __series__
 from trytond.backend.database import DatabaseInterface, SQLType
 from trytond.config import config, parse_uri
 from trytond.tools import safe_join
@@ -51,76 +52,171 @@ class SQLiteExtract(Function):
     _function = 'EXTRACT'
 
     @staticmethod
-    def extract(lookup_type, date):
-        if date is None:
+    def extract(lookup_type, source):
+        if source is None:
             return None
-        if len(date) == 10:
-            year, month, day = map(int, date.split('-'))
-            date = datetime.date(year, month, day)
+
+        if isinstance(source, (int, float)):  # interval
+            source = dt.timedelta(seconds=source)
         else:
-            datepart, timepart = date.split(" ")
-            year, month, day = map(int, datepart.split("-"))
-            timepart_full = timepart.split(".")
-            hours, minutes, seconds = map(int, timepart_full[0].split(":"))
-            if len(timepart_full) == 2:
-                microseconds = int(timepart_full[1])
+            for fromisoformat in [
+                    dt.date.fromisoformat,
+                    dt.time.fromisoformat,
+                    dt.datetime.fromisoformat,
+                    ]:
+                try:
+                    source = fromisoformat(source)
+                except ValueError:
+                    continue
+                break
             else:
-                microseconds = 0
-            date = datetime.datetime(year, month, day, hours, minutes, seconds,
-                microseconds)
-        if lookup_type.lower() == 'century':
-            return date.year / 100 + (date.year % 100 and 1 or 0)
-        elif lookup_type.lower() == 'decade':
-            return date.year / 10
-        elif lookup_type.lower() == 'dow':
-            return (date.weekday() + 1) % 7
-        elif lookup_type.lower() == 'doy':
-            return date.timetuple().tm_yday
-        elif lookup_type.lower() == 'epoch':
-            return int(time.mktime(date.timetuple()))
-        elif lookup_type.lower() == 'microseconds':
-            return date.microsecond
-        elif lookup_type.lower() == 'millennium':
-            return date.year / 1000 + (date.year % 1000 and 1 or 0)
-        elif lookup_type.lower() == 'milliseconds':
-            return date.microsecond / 1000
-        elif lookup_type.lower() == 'quarter':
-            return date.month / 4 + 1
-        elif lookup_type.lower() == 'week':
-            return date.isocalendar()[1]
-        return getattr(date, lookup_type.lower())
+                raise ValueError
+        lookup_type = lookup_type.lower()
+        if lookup_type == 'century':
+            if isinstance(source, dt.date):
+                return source.year // 100 + (source.year % 100 and 1 or 0)
+            elif isinstance(source, dt.timedelta):
+                return 0
+        elif lookup_type == 'day':
+            if isinstance(source, dt.date):
+                return source.day
+            elif isinstance(source, dt.timedelta):
+                return source.days
+        elif lookup_type == 'decade':
+            if isinstance(source, dt.date):
+                return source.year // 10
+        elif lookup_type == 'dow':
+            if isinstance(source, dt.date):
+                return (source.weekday() + 1) % 7
+        elif lookup_type == 'doy':
+            if isinstance(source, dt.date):
+                return source.timetuple().tm_yday
+        elif lookup_type == 'epoch':
+            if isinstance(source, dt.datetime):
+                return source.timestamp()
+            elif isinstance(source, dt.date):
+                return int(dt.datetime.combine(source, dt.time()).timestamp())
+            elif isinstance(source, dt.timedelta):
+                return (
+                    source.days * 24 * 60 * 60
+                    + source.seconds
+                    + source.microseconds / 1_000_000)
+        elif lookup_type == 'hour':
+            if isinstance(source, (dt.datetime, dt.time)):
+                return source.hour
+            elif isinstance(source, dt.timedelta):
+                return source.seconds // 60 // 60
+        elif lookup_type == 'isodow':
+            if isinstance(source, dt.date):
+                return source.isoweekday()
+        elif lookup_type == 'isoyear':
+            if isinstance(source, dt.date):
+                return source.isocalendar()[0]
+        elif lookup_type == 'microseconds':
+            if isinstance(source, (dt.datetime, dt.time)):
+                return source.second * 1_000_000 + source.microsecond
+            elif isinstance(source, dt.timedelta):
+                return (source.seconds % 60) * 1_000_000 + source.microseconds
+        elif lookup_type == 'millennium':
+            if isinstance(source, dt.date):
+                return source.year // 1000 + (source.year % 1000 and 1 or 0)
+            elif isinstance(source, dt.timedelta):
+                return 0
+        elif lookup_type == 'milliseconds':
+            if isinstance(source, (dt.datetime, dt.time)):
+                return source.second * 1_000 + source.microsecond / 1_000
+            elif isinstance(source, dt.timedelta):
+                return (
+                    (source.seconds % 60) * 1_000
+                    + source.microseconds / 1_000)
+        elif lookup_type == 'minute':
+            if isinstance(source, (dt.datetime, dt.time)):
+                return source.minute
+            elif isinstance(source, dt.timedelta):
+                return source.seconds // 60
+        elif lookup_type == 'month':
+            if isinstance(source, dt.date):
+                return source.month
+            elif isinstance(source, dt.timedelta):
+                return 0
+        elif lookup_type == 'quarter':
+            if isinstance(source, dt.date):
+                return source.month // 4 + 1
+            elif isinstance(source, dt.timedelta):
+                return 1
+        elif lookup_type == 'second':
+            if isinstance(source, (dt.datetime, dt.time)):
+                return source.second + source.microsecond / 1_000_000
+            elif isinstance(source, dt.timedelta):
+                return (source.seconds % 60) + source.microseconds / 1_000_000
+        elif lookup_type == 'week':
+            if isinstance(source, dt.date):
+                return source.isocalendar()[1]
+        elif lookup_type == 'year':
+            if isinstance(source, dt.date):
+                return source.year
+            elif isinstance(source, dt.timedelta):
+                return 0
+        raise ValueError
 
 
-def date_trunc(_type, date):
-    if not _type:
-        return date
-    if date is None:
+def date_trunc(field, source):
+    if field is None or source is None:
         return None
-    for format_ in [
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S',
-            '%Y-%m-%d',
-            '%H:%M:%S',
+    if isinstance(source, (int, float)):  # interval
+        return _date_trunc_interval(field, source)
+    for fromisoformat in [
+            dt.date.fromisoformat,
+            dt.time.fromisoformat,
+            dt.datetime.fromisoformat,
             ]:
         try:
-            value = datetime.datetime.strptime(date, format_)
+            value = fromisoformat(source)
         except ValueError:
             continue
         else:
             break
     else:
         return None
+    field = field.lower()
     for attribute, replace in [
             ('microsecond', 0),
             ('second', 0),
             ('minute', 0),
             ('hour', 0),
             ('day', 1),
-            ('month', 1)]:
-        if _type.lower().startswith(attribute):
+            ('month', 1),
+            ]:
+        if field.startswith(attribute):
             break
-        value = value.replace(**{attribute: replace})
-    return str(value)
+        if hasattr(value, attribute):
+            value = value.replace(**{attribute: replace})
+    if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
+        value = dt.datetime.combine(value, dt.time())
+    elif isinstance(value, dt.time):
+        value = (
+            dt.datetime.combine(dt.date.min, value)
+            - dt.datetime.min)
+    if isinstance(value, dt.datetime):
+        return adapt_datetime(value)
+    else:
+        return adapt_timedelta(value)
+
+
+def _date_trunc_interval(field, source):
+    value = dt.timedelta(seconds=source)
+    field = field.lower()
+    for attribute, delta in [
+            ('microseconds', value.microseconds),
+            ('seconds', value.seconds % 60),
+            ('minutes', (value.seconds // 60) % 60),
+            ('hours', (value.seconds // (60 * 60)) % 24),
+            ('days', value.days),
+            ]:
+        if field.startswith(attribute[:-1]):
+            break
+        value -= dt.timedelta(**{attribute: delta})
+    return adapt_timedelta(value)
 
 
 def split_part(text, delimiter, count):
@@ -150,21 +246,24 @@ def replace(text, pattern, replacement):
 def now():
     transaction = Transaction()
     return _nows.setdefault(transaction, {}).setdefault(
-        transaction.started_at, datetime.datetime.now().isoformat(' '))
+        transaction.started_at, dt.datetime.now().isoformat(' '))
 
 
 _nows = WeakKeyDictionary()
 
 
 def to_char(value, format):
-    try:
-        value = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
-    except ValueError:
+    for fromisoformat in [
+            dt.date.fromisoformat,
+            dt.time.fromisoformat,
+            dt.datetime.fromisoformat,
+            ]:
         try:
-            value = datetime.datetime.strptime(value, '%Y-%m-%d').date()
+            value = fromisoformat(value)
         except ValueError:
-            pass
-    if isinstance(value, datetime.date):
+            continue
+        break
+    if isinstance(value, dt.date):
         # Convert SQL pattern into compatible Python
         return value.strftime(format
             .replace('%', '%%')
@@ -194,7 +293,7 @@ def to_char(value, format):
             .replace('D', '%w')
             .replace('TZ', '%Z')
             )
-    elif isinstance(value, datetime.timedelta):
+    elif isinstance(value, dt.timedelta):
         raise NotImplementedError
     else:
         raise NotImplementedError
@@ -334,13 +433,15 @@ class SQLiteCursor(sqlite.Cursor):
 class SQLiteConnection(sqlite.Connection):
 
     def cursor(self):
-        return super(SQLiteConnection, self).cursor(SQLiteCursor)
+        return super().cursor(SQLiteCursor)
 
 
 class Database(DatabaseInterface):
 
     _local = threading.local()
     _conn = None
+    _list_cache = {}
+    _list_cache_timestamp = {}
     flavor = Flavor(
         paramstyle='qmark', function_mapping=MAPPING, null_ordering=False,
         max_limit=-1)
@@ -361,7 +462,7 @@ class Database(DatabaseInterface):
         return DatabaseInterface.__new__(cls, name=name)
 
     def __init__(self, name=_default_name):
-        super(Database, self).__init__(name=name)
+        super().__init__(name=name)
         if name == ':memory:':
             Database._local.memory_database = self
 
@@ -426,6 +527,13 @@ class Database(DatabaseInterface):
                 and logger.isEnabledFor(logging.DEBUG)):
             self._conn.set_trace_callback(logger.debug)
         self._conn.execute('PRAGMA foreign_keys = ON')
+        self._conn.execute('PRAGMA journal_mode = WAL')
+        self._conn.execute('PRAGMA synchronous = NORMAL')
+        try:
+            self._conn.execute('PRAGMA optimize')
+        except DatabaseOperationalError:
+            # database may be locked
+            pass
         return self
 
     def _make_uri(self):
@@ -495,18 +603,33 @@ class Database(DatabaseInterface):
         with sqlite.connect(path) as conn:
             cursor = conn.cursor()
             cursor.close()
+        cls._list_cache.clear()
 
     @classmethod
     def drop(cls, connection, database_name):
-        if database_name == ':memory:':
-            cls._local.memory_database._conn = None
-            return
         if os.sep in database_name:
             return
-        os.remove(os.path.join(config.get('database', 'path'),
-            database_name + '.sqlite'))
+        if database_name == ':memory:':
+            cls._local.memory_database._conn = None
+        else:
+            file = os.path.join(
+                config.get('database', 'path'), database_name + '.sqlite')
+            os.remove(file)
+            for suffix in ['-shm', '-wal']:
+                try:
+                    os.remove(file + suffix)
+                except FileNotFoundError:
+                    pass
+        cls._list_cache.clear()
 
     def list(self, hostname=None):
+        now = time.time()
+        timeout = config.getint('session', 'timeout')
+        res = self.__class__._list_cache.get(hostname)
+        timestamp = self.__class__._list_cache_timestamp.get(hostname, now)
+        if res and abs(timestamp - now) < timeout:
+            return res
+
         res = []
         listdir = [':memory:']
         try:
@@ -525,9 +648,12 @@ class Database(DatabaseInterface):
                     logger.debug(
                         'Test failed for "%s"', db_name, exc_info=True)
                     continue
-                if database.test(hostname=hostname):
+                if database.test(hostname=hostname, series=True):
                     res.append(db_name)
                 database.close()
+
+        self.__class__._list_cache[hostname] = res
+        self.__class__._list_cache_timestamp[hostname] = now
         return res
 
     def init(self):
@@ -563,28 +689,29 @@ class Database(DatabaseInterface):
                     cursor.execute(*insert)
             conn.commit()
 
-    def test(self, hostname=None):
-        Flavor.set(self.flavor)
-        tables = ['ir_model', 'ir_model_field', 'ir_ui_view', 'ir_ui_menu',
-            'res_user', 'res_group', 'ir_module', 'ir_module_dependency',
-            'ir_translation', 'ir_lang', 'ir_configuration']
-        sqlite_master = Table('sqlite_master')
-        select = sqlite_master.select(sqlite_master.name)
-        select.where = sqlite_master.type == 'table'
-        select.where &= sqlite_master.name.in_(tables)
+    def test(self, hostname=None, series=False):
         with self._conn as conn:
             cursor = conn.cursor()
             try:
-                cursor.execute(*select)
+                cursor.execute(
+                    'SELECT name FROM sqlite_master '
+                    'WHERE type = ? AND name = ?',
+                    ('table', 'ir_configuration'))
             except Exception:
                 return False
-            if len(cursor.fetchall()) != len(tables):
+            if not cursor.fetchall():
                 return False
-            if hostname:
-                configuration = Table('ir_configuration')
+            if series:
                 try:
-                    cursor.execute(*configuration.select(
-                            configuration.hostname))
+                    cursor.execute('SELECT series FROM ir_configuration')
+                except Exception:
+                    return False
+                config_series = {s for s, in cursor if s}
+                if config_series and __series__ not in config_series:
+                    return False
+            if hostname:
+                try:
+                    cursor.execute('SELECT hostname FROM ir_configuration')
                 except Exception:
                     return False
                 hostnames = {h for h, in cursor if h}
@@ -601,7 +728,12 @@ class Database(DatabaseInterface):
         cursor.execute(*table.select(Count(Literal('*'))))
         return cursor.fetchone()[0]
 
-    def lock(self, connection, table):
+    @classmethod
+    def lock(cls, connection, table):
+        pass
+
+    @classmethod
+    def lock_records(cls, connection, table, ids):
         pass
 
     def lock_id(self, id, timeout=None):
@@ -665,10 +797,10 @@ def adapt_timedelta(val):
 
 
 sqlite.register_adapter(Decimal, adapt_decimal)
-sqlite.register_adapter(datetime.date, adapt_date)
-sqlite.register_adapter(datetime.datetime, adapt_datetime)
-sqlite.register_adapter(datetime.time, adapt_time)
-sqlite.register_adapter(datetime.timedelta, adapt_timedelta)
+sqlite.register_adapter(dt.date, adapt_date)
+sqlite.register_adapter(dt.datetime, adapt_datetime)
+sqlite.register_adapter(dt.time, adapt_time)
+sqlite.register_adapter(dt.timedelta, adapt_timedelta)
 
 
 def convert_numeric(val):
@@ -676,29 +808,29 @@ def convert_numeric(val):
 
 
 def convert_date(val):
-    return datetime.date.fromisoformat(val.decode())
+    return dt.date.fromisoformat(val.decode())
 
 
 def convert_datetime(val):
-    return datetime.datetime.fromisoformat(val.decode())
+    return dt.datetime.fromisoformat(val.decode())
 
 
 def convert_time(val):
-    return datetime.time.fromisoformat(val.decode())
+    return dt.time.fromisoformat(val.decode())
 
 
 def convert_interval(value):
     value = float(value)
     # It is not allowed to instatiate timedelta with the min/max total seconds
     if value >= _interval_max:
-        return datetime.timedelta.max
+        return dt.timedelta.max
     elif value <= _interval_min:
-        return datetime.timedelta.min
-    return datetime.timedelta(seconds=value)
+        return dt.timedelta.min
+    return dt.timedelta(seconds=value)
 
 
-_interval_max = datetime.timedelta.max.total_seconds()
-_interval_min = datetime.timedelta.min.total_seconds()
+_interval_max = dt.timedelta.max.total_seconds()
+_interval_min = dt.timedelta.min.total_seconds()
 
 
 sqlite.register_converter('NUMERIC', convert_numeric)

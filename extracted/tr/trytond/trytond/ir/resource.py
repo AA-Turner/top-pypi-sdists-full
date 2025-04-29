@@ -38,7 +38,7 @@ class ResourceAccessMixin(ModelStorage):
         pool = Pool()
         Model = pool.get('ir.model')
         ModelAccess = pool.get('ir.model.access')
-        models = Model.get_name_items()
+        models = Model.get_name_items((ModelStorage, ModelView))
         if Transaction().check_access:
             access = ModelAccess.get_access([m for m, _ in models])
             models = [(m, n) for m, n in models if access[m]['read']]
@@ -48,18 +48,20 @@ class ResourceAccessMixin(ModelStorage):
     def check_access(cls, ids, mode='read'):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
+        Rule = pool.get('ir.rule')
         transaction = Transaction()
         if transaction.user == 0 or not transaction.check_access:
             return
-        model_names = set()
+        records = defaultdict(set)
         with without_check_access():
             for record in cls.browse(ids):
                 if record.resource:
-                    model_names.add(str(record.resource).split(',')[0])
-        for model_name in model_names:
+                    records[record.resource.__name__].add(record.resource.id)
+        for model_name, ids in records.items():
             checks = cls._convert_check_access(model_name, mode)
-            for model, check_mode in checks:
-                ModelAccess.check(model, mode=check_mode)
+            for model_name, check_mode in checks:
+                ModelAccess.check(model_name, mode=check_mode)
+                Rule.check(model_name, ids, mode=check_mode)
 
     @classmethod
     def _convert_check_access(cls, model, mode):
@@ -115,13 +117,13 @@ class ResourceAccessMixin(ModelStorage):
 
     @classmethod
     def write(cls, records, values, *args):
-        all_records = []
+        all_ids = []
         actions = iter((records, values) + args)
         for other_records, _ in zip(actions, actions):
-            all_records += other_records
-        cls.check_access([a.id for a in all_records], mode='write')
+            all_ids.extend(r.id for r in other_records)
+        cls.check_access(all_ids, mode='write')
         super().write(records, values, *args)
-        cls.check_access(all_records, mode='write')
+        cls.check_access(all_ids, mode='write')
 
     @classmethod
     def create(cls, vlist):
@@ -154,7 +156,7 @@ class ResourceMixin(ResourceAccessMixin, ModelStorage, ModelView):
 
     @classmethod
     def __setup__(cls):
-        super(ResourceMixin, cls).__setup__()
+        super().__setup__()
         cls._order.insert(0, ('last_modification', 'DESC'))
         cls.resource.required = True
 

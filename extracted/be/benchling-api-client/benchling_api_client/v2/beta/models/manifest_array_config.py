@@ -48,21 +48,21 @@ class ManifestArrayConfig:
         ]
     ]
     _type: ManifestArrayConfigType
-    _description: Union[Unset, None, str] = UNSET
-    _name: Union[Unset, str] = UNSET
     _default_element_name: Union[Unset, str] = UNSET
+    _description: Union[Unset, None, str] = UNSET
     _max_elements: Union[Unset, int] = UNSET
     _min_elements: Union[Unset, int] = UNSET
+    _name: Union[Unset, str] = UNSET
 
     def __repr__(self):
         fields = []
         fields.append("element_definition={}".format(repr(self._element_definition)))
         fields.append("type={}".format(repr(self._type)))
-        fields.append("description={}".format(repr(self._description)))
-        fields.append("name={}".format(repr(self._name)))
         fields.append("default_element_name={}".format(repr(self._default_element_name)))
+        fields.append("description={}".format(repr(self._description)))
         fields.append("max_elements={}".format(repr(self._max_elements)))
         fields.append("min_elements={}".format(repr(self._min_elements)))
+        fields.append("name={}".format(repr(self._name)))
         return "ManifestArrayConfig({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -116,11 +116,11 @@ class ManifestArrayConfig:
 
         type = self._type.value
 
-        description = self._description
-        name = self._name
         default_element_name = self._default_element_name
+        description = self._description
         max_elements = self._max_elements
         min_elements = self._min_elements
+        name = self._name
 
         field_dict: Dict[str, Any] = {}
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
@@ -128,16 +128,16 @@ class ManifestArrayConfig:
             field_dict["elementDefinition"] = element_definition
         if type is not UNSET:
             field_dict["type"] = type
-        if description is not UNSET:
-            field_dict["description"] = description
-        if name is not UNSET:
-            field_dict["name"] = name
         if default_element_name is not UNSET:
             field_dict["defaultElementName"] = default_element_name
+        if description is not UNSET:
+            field_dict["description"] = description
         if max_elements is not UNSET:
             field_dict["maxElements"] = max_elements
         if min_elements is not UNSET:
             field_dict["minElements"] = min_elements
+        if name is not UNSET:
+            field_dict["name"] = name
 
         return field_dict
 
@@ -474,28 +474,6 @@ class ManifestArrayConfig:
                 raise
             type = cast(ManifestArrayConfigType, UNSET)
 
-        def get_description() -> Union[Unset, None, str]:
-            description = d.pop("description")
-            return description
-
-        try:
-            description = get_description()
-        except KeyError:
-            if strict:
-                raise
-            description = cast(Union[Unset, None, str], UNSET)
-
-        def get_name() -> Union[Unset, str]:
-            name = d.pop("name")
-            return name
-
-        try:
-            name = get_name()
-        except KeyError:
-            if strict:
-                raise
-            name = cast(Union[Unset, str], UNSET)
-
         def get_default_element_name() -> Union[Unset, str]:
             default_element_name = d.pop("defaultElementName")
             return default_element_name
@@ -506,6 +484,17 @@ class ManifestArrayConfig:
             if strict:
                 raise
             default_element_name = cast(Union[Unset, str], UNSET)
+
+        def get_description() -> Union[Unset, None, str]:
+            description = d.pop("description")
+            return description
+
+        try:
+            description = get_description()
+        except KeyError:
+            if strict:
+                raise
+            description = cast(Union[Unset, None, str], UNSET)
 
         def get_max_elements() -> Union[Unset, int]:
             max_elements = d.pop("maxElements")
@@ -529,14 +518,25 @@ class ManifestArrayConfig:
                 raise
             min_elements = cast(Union[Unset, int], UNSET)
 
+        def get_name() -> Union[Unset, str]:
+            name = d.pop("name")
+            return name
+
+        try:
+            name = get_name()
+        except KeyError:
+            if strict:
+                raise
+            name = cast(Union[Unset, str], UNSET)
+
         manifest_array_config = cls(
             element_definition=element_definition,
             type=type,
-            description=description,
-            name=name,
             default_element_name=default_element_name,
+            description=description,
             max_elements=max_elements,
             min_elements=min_elements,
+            name=name,
         )
 
         return manifest_array_config
@@ -607,34 +607,6 @@ class ManifestArrayConfig:
         self._type = value
 
     @property
-    def description(self) -> Optional[str]:
-        if isinstance(self._description, Unset):
-            raise NotPresentError(self, "description")
-        return self._description
-
-    @description.setter
-    def description(self, value: Optional[str]) -> None:
-        self._description = value
-
-    @description.deleter
-    def description(self) -> None:
-        self._description = UNSET
-
-    @property
-    def name(self) -> str:
-        if isinstance(self._name, Unset):
-            raise NotPresentError(self, "name")
-        return self._name
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
-
-    @name.deleter
-    def name(self) -> None:
-        self._name = UNSET
-
-    @property
     def default_element_name(self) -> str:
         if isinstance(self._default_element_name, Unset):
             raise NotPresentError(self, "default_element_name")
@@ -647,6 +619,20 @@ class ManifestArrayConfig:
     @default_element_name.deleter
     def default_element_name(self) -> None:
         self._default_element_name = UNSET
+
+    @property
+    def description(self) -> Optional[str]:
+        if isinstance(self._description, Unset):
+            raise NotPresentError(self, "description")
+        return self._description
+
+    @description.setter
+    def description(self, value: Optional[str]) -> None:
+        self._description = value
+
+    @description.deleter
+    def description(self) -> None:
+        self._description = UNSET
 
     @property
     def max_elements(self) -> int:
@@ -675,3 +661,17 @@ class ManifestArrayConfig:
     @min_elements.deleter
     def min_elements(self) -> None:
         self._min_elements = UNSET
+
+    @property
+    def name(self) -> str:
+        if isinstance(self._name, Unset):
+            raise NotPresentError(self, "name")
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        self._name = UNSET

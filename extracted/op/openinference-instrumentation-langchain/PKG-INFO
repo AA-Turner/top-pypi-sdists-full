@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-langchain
-Version: 0.1.41
+Version: 0.1.42
 Summary: OpenInference LangChain Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-langchain
 Author-email: OpenInference Authors <oss@arize.com>
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.9
 Requires-Dist: openinference-instrumentation>=0.1.27
-Requires-Dist: openinference-semantic-conventions>=0.1.9
+Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions

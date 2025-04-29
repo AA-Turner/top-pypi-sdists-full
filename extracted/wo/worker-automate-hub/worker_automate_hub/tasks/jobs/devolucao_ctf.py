@@ -41,6 +41,8 @@ from worker_automate_hub.utils.util import (
     nf_busca_nf_saida,
     pessoas_ativa_cliente_fornecedor,
     nf_devolucao_liquidar_cupom,
+    status_trasmissao,
+    find_warning_nop_divergence,
     gerenciador_nf_header,
     cadastro_pre_venda_header,
     incluir_registro,
@@ -873,30 +875,10 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     )
                 
 
-                console.print("Verificando se a nota foi transmitida com sucesso")
-                app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
-                main_window = app["TFrmProcessamentoNFe2"]
-                main_window.set_focus()
-
-                tpanel_footer = main_window.child_window(class_name="TGroupBox", found_index=0)
-
-                rect = tpanel_footer.rectangle()
-                center_x = (rect.left + rect.right) // 2
-                center_y = (rect.top + rect.bottom) // 2
-
-                pyautogui.moveTo(center_x, center_y)
-                double_click(coords=(center_x, center_y))
-
-                with pyautogui.hold('ctrl'):
-                    pyautogui.press('c')
-                await worker_sleep(1)
-                with pyautogui.hold('ctrl'):
-                    pyautogui.press('c')
-
-                win32clipboard.OpenClipboard()
-                pop_up_status = win32clipboard.GetClipboardData().strip()
+                pop_up_status = await status_trasmissao()
                 win32clipboard.CloseClipboard()
                 console.print(f"Status copiado: {pop_up_status}")
+
 
                 if "autorizado o uso da nf-e" in pop_up_status.lower():
                     console.print("Sucesso ao transmitir...\n")
@@ -963,6 +945,40 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                         status=RpaHistoricoStatusEnum.Falha,
                         tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                     )
+                # elif '773' in pop_up_status.lower():
+                #     get_error_msg = await get_text_display_window(pop_up_status)
+                #     console.print(f"Mensagem Rejeição: {get_error_msg}")
+                #     retorno = f"Erro ao transmitir, mensagem de rejeição {get_error_msg} \nEtapas Executadas:\n{steps}"
+                #     return RpaRetornoProcessoDTO(
+                #         sucesso=False,
+                #         retorno=retorno,
+                #         status=RpaHistoricoStatusEnum.Falha,
+                #         tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                #     )
+                # elif '204' in pop_up_status.lower():
+                #     app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
+                #     main_window = app["TFrmGerenciadorNFe2"]
+                #     main_window.set_focus()
+
+                #     console.print("Obtendo informacao da tela para o botao Transfimitir\n")
+                #     tpanel_footer = main_window.child_window(class_name="TPanel", found_index=1)
+                #     btn_transmitir = tpanel_footer.child_window(class_name="TBitBtn", found_index=5)
+                #     btn_transmitir.click()
+                # else:
+                #     await worker_sleep(10)
+                #     i = 0
+                #     while i < 3:
+                #         app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=15)
+                #         main_window = app["TFrmGerenciadorNFe2"]
+                #         main_window.set_focus()
+                #         await worker_sleep(2)
+                #         console.print(f"\n'Gerenciador de Notas Fiscais'aberta com sucesso",style="bold green")
+                #         selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_cliente_incorreto)
+                #         if selecionar_itens_gerenciador_nfe.sucesso:
+                #             console.print("PROCESSO EXECUTADO COM SUCESSO, SEGUINDO COM O PROCESSO PARA TRANSMITIR A NF-E...\n")
+                #             app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
+                #             main_window = app["TFrmGerenciadorNFe2"]
+                #             main_window.set_focus()
 
 
                 #PROCESSO DE IMPRESSÃO 
@@ -1501,38 +1517,81 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                         await worker_sleep(2)
 
                         totais_panel = panel_TNotebook.child_window(title="Totais")
+                        totais_panel.set_focus()
+
                         total_pre_venda_field = totais_panel.child_window(class_name="TDBIEditNumber", found_index=0)
                         valor_total_value = total_pre_venda_field.window_text()
+
+                        console.print(f'Valor capturado: {valor_total_value}')
 
                         await worker_sleep(1)
 
                         recebimento_caixa_panel = panel_TNotebook.child_window(title="Recebimento Pelo Caixa")
                         valor_field = recebimento_caixa_panel.child_window(class_name="TDBIEditNumber", found_index=0)
+                        valor_field.click()
+                        await worker_sleep(1)
+
                         valor_field.set_edit_text(valor_total_value)
+
+                        console.print(f'Valor inserido: {valor_total_value}')
 
                         await worker_sleep(2)
 
-                        #CONFIRMANDO NA TELA DE PRE VENDA
-                        try:
-                            console.print("CLICANDO EM CONFIRMAR... \n")
-                            app = Application().connect(class_name="TFrmPreVenda", timeout=60)
-                            main_window = app["TFrmPreVenda"]
-                            main_window.set_focus()
+                        console.print(f'Incluindo registro')
 
-                            panel_Tnotebook = main_window.child_window(class_name="TNotebook", found_index=0)
-                            panel_Tnotebook = panel_Tnotebook.child_window(class_name="TPage", found_index=0)
-                            btn_confirmar = panel_Tnotebook.child_window(class_name="TBitBtn", found_index=11)
-                            btn_confirmar.click()
-                            console.print("CONFIRMAR CLICADO COM SUCESSO... \n")
-                            await worker_sleep(3)
-                        except Exception as e:
-                            retorno = f"Não foi possivel clicar em Confirma na tela de Pre Venda \nEtapas Executadas:\n{steps}"
-                            return RpaRetornoProcessoDTO(
-                                sucesso=False,
-                                retorno=retorno,
-                                status=RpaHistoricoStatusEnum.Falha,
-                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-                            )
+                        incluir_registro_btn = recebimento_caixa_panel.child_window(class_name="TDBIBitBtn", found_index=2)
+                        incluir_registro_btn.click()
+
+                        await worker_sleep(2)
+
+
+                        #VERIFICANDO A EXISTENCIA DE WARNINGS 
+                        console.print("Verificando a existência de Warning... \n")
+                        warning_pop_up = await is_window_open("Warning")
+                        if warning_pop_up["IsOpened"] == True:
+                            console.print("possui Pop-up de Warning, analisando... \n")
+                            ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
+                            if ocr_pop_warning.sucesso == True:
+                                retorno = f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno} \nEtapas Executadas:\n{steps}"
+                                return RpaRetornoProcessoDTO(
+                                    sucesso=False,
+                                    retorno=retorno,
+                                    status=RpaHistoricoStatusEnum.Falha,
+                                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                                )
+                            else:
+                                retorno = f"{ocr_pop_warning.retorno} \nEtapas Executadas:\n{steps}"
+                                return RpaRetornoProcessoDTO(
+                                    sucesso=False,
+                                    retorno=retorno,
+                                    status=RpaHistoricoStatusEnum.Falha,
+                                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                )
+                        else:
+                            console.print("Não possui pop de Warning...\n")
+
+
+                        # #CONFIRMANDO NA TELA DE PRE VENDA
+                        # try:
+                        #     console.print("CLICANDO EM CONFIRMAR... \n")
+                        #     app = Application().connect(class_name="TFrmPreVenda", timeout=60)
+                        #     main_window = app["TFrmPreVenda"]
+                        #     main_window.set_focus()
+
+                        #     panel_Tnotebook = main_window.child_window(class_name="TNotebook", found_index=0)
+                        #     panel_Tnotebook = panel_Tnotebook.child_window(class_name="TPage", found_index=0)
+                        #     btn_confirmar = panel_Tnotebook.child_window(class_name="TBitBtn", found_index=11)
+                        #     btn_confirmar.click()
+                        #     console.print("CONFIRMAR CLICADO COM SUCESSO... \n")
+                        #     await worker_sleep(3)
+                        # except Exception as e:
+                        #     retorno = f"Não foi possivel clicar em Confirma na tela de Pre Venda \nEtapas Executadas:\n{steps}"
+                        #     return RpaRetornoProcessoDTO(
+                        #         sucesso=False,
+                        #         retorno=retorno,
+                        #         status=RpaHistoricoStatusEnum.Falha,
+                        #         tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                        #     )
 
 
                         # Inclui registro
@@ -2967,38 +3026,57 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     await worker_sleep(2)
 
                     totais_panel = panel_TNotebook.child_window(title="Totais")
+                    totais_panel.set_focus()
+
                     total_pre_venda_field = totais_panel.child_window(class_name="TDBIEditNumber", found_index=0)
                     valor_total_value = total_pre_venda_field.window_text()
+
+                    console.print(f'Valor capturado: {valor_total_value}')
 
                     await worker_sleep(1)
 
                     recebimento_caixa_panel = panel_TNotebook.child_window(title="Recebimento Pelo Caixa")
                     valor_field = recebimento_caixa_panel.child_window(class_name="TDBIEditNumber", found_index=0)
+                    valor_field.click()
+                    await worker_sleep(1)
                     valor_field.set_edit_text(valor_total_value)
+
+                    console.print(f'Valor inserido: {valor_total_value}')
 
                     await worker_sleep(2)
 
-                    #CONFIRMANDO NA TELA DE PRE VENDA
-                    try:
-                        console.print("CLICANDO EM CONFIRMAR... \n")
-                        app = Application().connect(class_name="TFrmPreVenda", timeout=60)
-                        main_window = app["TFrmPreVenda"]
-                        main_window.set_focus()
+                    console.print(f'Incluindo registro')
 
-                        panel_Tnotebook = main_window.child_window(class_name="TNotebook", found_index=0)
-                        panel_Tnotebook = panel_Tnotebook.child_window(class_name="TPage", found_index=0)
-                        btn_confirmar = panel_Tnotebook.child_window(class_name="TBitBtn", found_index=11)
-                        btn_confirmar.click()
-                        console.print("CONFIRMAR CLICADO COM SUCESSO... \n")
-                        await worker_sleep(3)
-                    except Exception as e:
-                        retorno = f"Não foi possivel clicar em Confirma na tela de Pre Venda \nEtapas Executadas:\n{steps}"
-                        return RpaRetornoProcessoDTO(
-                            sucesso=False,
-                            retorno=retorno,
-                            status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    incluir_registro_btn = recebimento_caixa_panel.child_window(class_name="TDBIBitBtn", found_index=2)
+                    incluir_registro_btn.click()
+
+                    await worker_sleep(2)
+
+
+                    #VERIFICANDO A EXISTENCIA DE WARNINGS 
+                    console.print("Verificando a existência de Warning... \n")
+                    warning_pop_up = await is_window_open("Warning")
+                    if warning_pop_up["IsOpened"] == True:
+                        console.print("possui Pop-up de Warning, analisando... \n")
+                        ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
+                        if ocr_pop_warning.sucesso == True:
+                            retorno = f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno} \nEtapas Executadas:\n{steps}"
+                            return RpaRetornoProcessoDTO(
+                                sucesso=False,
+                                retorno=retorno,
+                                status=RpaHistoricoStatusEnum.Falha,
+                                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                             )
+                        else:
+                            retorno = f"{ocr_pop_warning.retorno} \nEtapas Executadas:\n{steps}"
+                            return RpaRetornoProcessoDTO(
+                                sucesso=False,
+                                retorno=retorno,
+                                status=RpaHistoricoStatusEnum.Falha,
+                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                            )
+                    else:
+                        console.print("Não possui pop de Warning...\n")
 
 
                     

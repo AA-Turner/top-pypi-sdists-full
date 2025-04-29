@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from ._common import Action, is_subclass, parser_context
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace, NSKeyError, split_key, split_key_root
-from ._optionals import get_config_read_mode
+from ._optionals import _get_config_read_mode
 from ._type_checking import ActionsContainer, ArgumentParser
 from ._util import (
     Path,
@@ -64,7 +64,7 @@ def _find_action_and_subcommand(
         actions = [a for a in actions if not isinstance(a, exclude)]
     fallback_action = None
     for action in actions:
-        if action.dest == dest:
+        if action.dest == dest or f"--{dest}" in action.option_strings:
             if isinstance(action, _ActionConfigLoad):
                 fallback_action = action
             else:
@@ -194,7 +194,7 @@ class ActionConfigFile(Action):
         with _ActionSubCommands.not_single_subcommand(), previous_config_context(cfg), skip_apply_links():
             kwargs = {"env": False, "defaults": False, "_skip_validation": True, "_fail_no_subcommand": False}
             try:
-                cfg_path: Optional[Path] = Path(value, mode=get_config_read_mode())
+                cfg_path: Optional[Path] = Path(value, mode=_get_config_read_mode())
             except TypeError as ex_path:
                 try:
                     if isinstance(load_value(value), str):
@@ -578,6 +578,9 @@ class ActionParser:
         base_action_group._actions = filter_default_actions(base_action_group._actions)
         base_action_group._group_actions = filter_default_actions(base_action_group._group_actions)
         extra_action_groups = subparser._action_groups[2:]
+        for group in extra_action_groups:
+            if group.dest is not None:
+                group.dest = dest + "." + group.dest
 
         parser.add_argument(args[0], action=_ActionConfigLoad)
         parser.required_args.update(required_args)

@@ -231,7 +231,10 @@ def get_flash_attention2_extensions(cuda_version: int, extra_compile_args):
         if "hdim224" in Path(f).name:
             continue
         sources.append(str(Path(f).relative_to(flash_root)))
-    common_extra_compile_args = ["-DFLASHATTENTION_DISABLE_ALIBI"]
+    common_extra_compile_args = [
+        "-DFLASHATTENTION_DISABLE_ALIBI",
+        "-DFLASHATTENTION_DISABLE_SOFTCAP",
+    ]
     return [
         CUDAExtension(
             name="xformers._C_flashattention",
@@ -316,14 +319,31 @@ def get_flash_attention3_extensions(cuda_version: int, extra_compile_args):
         str(Path(f).relative_to(flash_root))
         for f in glob.glob(os.path.join(flash_root, "hopper", "*.cu"))
         + glob.glob(os.path.join(flash_root, "hopper", "*.cpp"))
+        + glob.glob(os.path.join(flash_root, "hopper", "instantiations", "*.cu"))
     ]
-    sources = [s for s in sources if "flash_bwd_hdim256_fp16_sm90.cu" not in s]
+    # hdimall and softcapall are .cu files which include all the other .cu files
+    # for explicit values hence causing us to build these kernels twice.
+    sources = [s for s in sources if ("hdimall" not in s and "softcapall" not in s)]
+
+    # We don't care/expose softcap and fp8 and paged attention,
+    # hence we disable them for faster builds.
+    sources = [
+        s
+        for s in sources
+        if all(substr not in s for substr in ("softcap", "e4m3", "paged"))
+    ]
+    common_extra_compile_args = [
+        "-DFLASHATTENTION_DISABLE_SOFTCAP",
+        "-DFLASHATTENTION_DISABLE_FP8",
+        "-DFLASHATTENTION_DISABLE_PAGEDKV",
+    ]
+
     return [
         CUDAExtension(
             name="xformers._C_flashattention3",
             sources=[os.path.join(flash_root, path) for path in sources],
             extra_compile_args={
-                "cxx": extra_compile_args.get("cxx", []),
+                "cxx": extra_compile_args.get("cxx", []) + common_extra_compile_args,
                 "nvcc": extra_compile_args.get("nvcc", [])
                 + [
                     "-O3",
@@ -349,6 +369,7 @@ def get_flash_attention3_extensions(cuda_version: int, extra_compile_args):
                     "-DDQINRMEM",
                 ]
                 + nvcc_archs_flags
+                + common_extra_compile_args
                 + get_extra_nvcc_flags_for_build_type(cuda_version),
             },
             include_dirs=[
@@ -507,9 +528,9 @@ def get_extensions():
             # If we force 'torch FA switch' then setup will fail when no compatibility
             if (
                 xformers_pt_flash_attn is None or xformers_pt_flash_attn == "1"
-            ) and attn_compat_module.is_pt_flash_compatible(
+            ) and attn_compat_module.is_pt_flash_old(
                 force=xformers_pt_flash_attn == "1"
-            ):
+            ) is not None:
                 use_pt_flash = True
             else:
                 ext_modules += get_flash_attention2_extensions(
@@ -531,14 +552,6 @@ def get_extensions():
     elif torch.version.hip and (
         torch.cuda.is_available() or os.getenv("HIP_ARCHITECTURES", "") != ""
     ):
-        disable_hd256_hip_fmha = os.getenv("DISABLE_HD256_HIP_FMHA", "0")
-        if disable_hd256_hip_fmha == "1":
-            source_hip_maxk_256 = []
-            for ff in source_hip:
-                if ff.endswith("maxk_256.cpp"):
-                    source_hip_maxk_256 += [ff]
-            source_hip = list(set(source_hip) - set(source_hip_maxk_256))
-
         rename_cpp_cu(source_hip)
         hip_version = get_hip_version(ROCM_HOME)
 
@@ -558,8 +571,6 @@ def get_extensions():
         ]
 
         generator_flag = []
-        if disable_hd256_hip_fmha == "1":
-            generator_flag += ["-DFMHA_SUPPORT_MAX_HEADDIM_128=1"]
 
         cc_flag = ["-DBUILD_PYTHON_PACKAGE"]
         use_rtn_bf16_convert = os.getenv("ENABLE_HIP_FMHA_RTN_BF16_CONVERT", "0")
@@ -584,6 +595,7 @@ def get_extensions():
                 "-DCK_TILE_FMHA_FWD_FAST_EXP2=1",
                 "-fgpu-flush-denormals-to-zero",
                 "-Werror",
+                "-Wc++11-narrowing",
                 "-Woverloaded-virtual",
                 "-mllvm",
                 "-enable-post-misched=0",

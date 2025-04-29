@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: glean-sdk
-Version: 64.1.1
+Version: 64.2.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Rust

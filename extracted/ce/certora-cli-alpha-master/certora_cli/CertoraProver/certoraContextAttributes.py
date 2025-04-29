@@ -526,7 +526,7 @@ class EvmAttributes(AttrUtil.Attributes):
         affects_build_cache_key=True,
         disables_build_cache=False,
         config_data=AttributeJobConfigData(
-            main_section=MainSection.PACKAGES
+            main_section=MainSection.NEW_SECTION
         )
     )
 
@@ -605,7 +605,7 @@ class EvmAttributes(AttrUtil.Attributes):
         affects_build_cache_key=True,  # not sure, better be careful
         disables_build_cache=False,
         config_data=AttributeJobConfigData(
-            main_section=MainSection.LINKS
+            main_section=MainSection.NEW_SECTION
         )
     )
 
@@ -740,7 +740,8 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=None
     )
 
     BUILD_CACHE = AttrUtil.AttributeDefinition(
@@ -1623,6 +1624,15 @@ class RustAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    CARGO_TOOLS_VERSION = AttrUtil.AttributeDefinition(
+        help_msg="Platform tools version to use",
+        default_desc="Platform tools version is chosen automatically",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
 
 class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes, InternalUseAttributes,
                           BackendAttributes):
@@ -1637,7 +1647,7 @@ class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes,
         affects_build_cache_key=True,
         disables_build_cache=False,
         config_data=AttributeJobConfigData(
-            main_section=MainSection.FILES
+            main_section=MainSection.NEW_SECTION
         )
     )
 
@@ -1654,7 +1664,7 @@ class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAt
         affects_build_cache_key=True,
         disables_build_cache=False,
         config_data=AttributeJobConfigData(
-            main_section=MainSection.FILES
+            main_section=MainSection.NEW_SECTION
         )
     )
 
@@ -1672,14 +1682,13 @@ class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAtt
         affects_build_cache_key=True,
         disables_build_cache=False,
         config_data=AttributeJobConfigData(
-            main_section=MainSection.FILES
+            main_section=MainSection.NEW_SECTION
         )
     )
 
     SOLANA_INLINING = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_readable_file,
         arg_type=AttrUtil.AttrArgType.LIST,
-        jar_flag='-solanaInlining',
         help_msg="a list of paths for the inlining files of Solana contracts",
         argparse_args={
             'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
@@ -1692,7 +1701,6 @@ class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAtt
     SOLANA_SUMMARIES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_readable_file,
         arg_type=AttrUtil.AttrArgType.LIST,
-        jar_flag='-solanaSummaries',
         help_msg="a list of paths for the summaries files of Solana contracts",
         argparse_args={
             'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,

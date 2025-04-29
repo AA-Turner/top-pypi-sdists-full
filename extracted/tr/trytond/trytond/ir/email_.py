@@ -58,7 +58,6 @@ def _formataddr(pair):
 
 
 class Email(ResourceAccessMixin, ModelSQL, ModelView):
-    "Email"
     __name__ = 'ir.email'
 
     user = fields.Function(fields.Char("User"), 'get_user')
@@ -233,7 +232,6 @@ class Email(ResourceAccessMixin, ModelSQL, ModelView):
 
 
 class EmailAddress(ModelSQL):
-    "Email Address"
     __name__ = 'ir.email.address'
 
     email = fields.Many2One(
@@ -242,7 +240,6 @@ class EmailAddress(ModelSQL):
 
 
 class EmailTemplate(ModelSQL, ModelView):
-    "Email Template"
     __name__ = 'ir.email.template'
 
     model = fields.Many2One('ir.model', "Model", required=True)
@@ -333,7 +330,7 @@ class EmailTemplate(ModelSQL, ModelView):
     @fields.depends('model')
     def on_change_with_model_name(self, name=None):
         if self.model:
-            return self.model.model
+            return self.model.name
 
     @classmethod
     def validate_fields(cls, templates, field_names):
@@ -406,7 +403,7 @@ class EmailTemplate(ModelSQL, ModelView):
 
     def get(self, record):
         pool = Pool()
-        Model = pool.get(self.model.model)
+        Model = pool.get(self.model.name)
         record = Model(int(record))
 
         values = {}
@@ -488,12 +485,12 @@ class EmailTemplate(ModelSQL, ModelView):
         values = {}
 
         fields = Field.search([
-                ('model.model', '=', model),
+                ('model.name', '=', model),
                 ('name', 'not in', cls._get_default_exclude(record)),
                 ['OR',
                     ('relation', 'in', cls.email_models()),
                     [
-                        ('model.model', 'in', cls.email_models()),
+                        ('model.name', 'in', cls.email_models()),
                         ('name', '=', 'id'),
                         ],
                     ],
@@ -565,24 +562,13 @@ class EmailTemplate(ModelSQL, ModelView):
             return record.language
 
     @classmethod
-    def create(cls, vlist):
-        ModelView._view_toolbar_get_cache.clear()
-        return super().create(vlist)
-
-    @classmethod
-    def write(cls, *args):
-        if any({'name', 'model'} & v.keys() for v in args[1:None:2]):
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
+        if not field_names or {'name', 'model'} & set(field_names):
             ModelView._view_toolbar_get_cache.clear()
-        super().write(*args)
-
-    @classmethod
-    def delete(cls, records):
-        ModelView._view_toolbar_get_cache.clear()
-        super().delete(records)
 
 
 class EmailTemplate_Report(ModelSQL):
-    "Email Template - Report"
     __name__ = 'ir.email.template-ir.action.report'
 
     template = fields.Many2One(

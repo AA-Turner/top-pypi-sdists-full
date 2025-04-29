@@ -42,7 +42,7 @@ dependencies = [
     "rich >=10.11.0",
 ]
 readme = "README.md"
-version = "0.15.2"
+version = "0.15.3"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"

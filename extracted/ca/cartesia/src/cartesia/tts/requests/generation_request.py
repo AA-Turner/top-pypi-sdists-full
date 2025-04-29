@@ -13,7 +13,7 @@ from ...core.serialization import FieldMetadata
 class GenerationRequestParams(typing_extensions.TypedDict):
     model_id: str
     """
-    The ID of the model to use for the generation. See [Models](/build-with-sonic/models) for available models.
+    The ID of the model to use for the generation. See [Models](/build-with-cartesia/models) for available models.
     """
 
     transcript: typing.Optional[typing.Any]
@@ -30,11 +30,29 @@ class GenerationRequestParams(typing_extensions.TypedDict):
     If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
     """
 
+    text_cfg: typing_extensions.NotRequired[float]
+    """
+    The text [classifier-free guidance](https://arxiv.org/abs/2207.12598) value for the request.
+    
+    Higher values causes the model to attend more to the text but speed up the generation. Lower values reduce the speaking rate but can increase the risk of hallucinations. The default value is `3.0`. For a slower speaking rate, we recommend values between `2.0` and `3.0`. Values are supported between `1.5` and `3.0`.
+    
+    This parameter is only supported for `sonic-2` models.
+    """
+
     context_id: typing_extensions.NotRequired[ContextId]
     continue_: typing_extensions.NotRequired[typing_extensions.Annotated[bool, FieldMetadata(alias="continue")]]
     """
     Whether this input may be followed by more inputs.
     If not specified, this defaults to `false`.
+    """
+
+    max_buffer_delay_ms: typing_extensions.NotRequired[int]
+    """
+    The maximum time in milliseconds to buffer text before starting generation. Values between [0, 1000]ms are supported. Defaults to 0 (no buffering).
+    
+    When set, the model will buffer incoming text chunks until it's confident it has enough context to generate high-quality speech, or the buffer delay elapses, whichever comes first. Without this option set, the model will kick off generations immediately, ceding control of buffering to the user.
+    
+    Use this to balance responsiveness with higher quality speech generation, which often benefits from having more context.
     """
 
     flush: typing_extensions.NotRequired[bool]

@@ -3,7 +3,7 @@
 
 from copy import copy
 
-from trytond.model.model import record
+from trytond.model.model import humanize, record
 from trytond.pool import Pool
 from trytond.tests.test_tryton import (
     TestCase, activate_module, with_transaction)
@@ -15,6 +15,7 @@ class ModelTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -375,6 +376,37 @@ class ModelTestCase(TestCase):
                     })
 
     @with_transaction()
+    def test_default_get_with_instance_rec_name(self):
+        "Test default_get with instance and rec_name"
+        pool = Pool()
+        Model = pool.get('test.model.default')
+        Target = pool.get('test.model')
+
+        target = Target(name="Target")
+        target.save()
+
+        with Transaction().set_context(default_target=target):
+            self.assertEqual(
+                Model.default_get(['target'], with_rec_name=True), {
+                    'target': target.id,
+                    'target.': {
+                        'rec_name': "Target",
+                        },
+                    })
+
+    @with_transaction()
+    def test_default_get_with_model_reference_rec_name(self):
+        "Test default_get with model reference and rec_name"
+        pool = Pool()
+        Model = pool.get('test.model.default')
+
+        with Transaction().set_context(default_reference='test.model,-1'):
+            self.assertEqual(
+                Model.default_get(['reference'], with_rec_name=True), {
+                    'reference': 'test.model,-1',
+                    })
+
+    @with_transaction()
     def test_default_get_without_rec_name(self):
         "Test default_get without rec_name"
         pool = Pool()
@@ -390,6 +422,21 @@ class ModelTestCase(TestCase):
                     'target': target.id,
                     })
 
+    def test_humanize(self):
+        "Test humanize name"
+        for name, result in [
+                ('res.foo', "Foo"),
+                ('ir.foo', "Foo"),
+                ('ir.foo-res.bar', "Foo - Bar"),
+                ('foo.foo', "Foo"),
+                ('foo.bar', "Foo Bar"),
+                ('foo_bar', "Foo Bar"),
+                ('foo-bar', "Foo - Bar"),
+                ('bar_foo.foo', "Bar Foo"),
+                ]:
+            with self.subTest(name=name):
+                self.assertEqual(humanize(name), result)
+
 
 class ModelTranslationTestCase(TestCase):
     "Test Model translation"
@@ -398,6 +445,7 @@ class ModelTranslationTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
         cls.setup_language()
 

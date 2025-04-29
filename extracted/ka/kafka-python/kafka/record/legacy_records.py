@@ -52,7 +52,7 @@ from kafka.codec import (
     gzip_decode, snappy_decode, lz4_decode, lz4_decode_old_kafka,
 )
 import kafka.codec as codecs
-from kafka.errors import CorruptRecordException, UnsupportedCodecError
+from kafka.errors import CorruptRecordError, UnsupportedCodecError
 
 
 class LegacyRecordBase(object):
@@ -129,7 +129,7 @@ class LegacyRecordBase(object):
 
 class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
 
-    __slots__ = ("_buffer", "_magic", "_offset", "_crc", "_timestamp",
+    __slots__ = ("_buffer", "_magic", "_offset", "_length", "_crc", "_timestamp",
                  "_attributes", "_decompressed")
 
     def __init__(self, buffer, magic):
@@ -141,10 +141,19 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
         assert magic == magic_
 
         self._offset = offset
+        self._length = length
         self._crc = crc
         self._timestamp = timestamp
         self._attributes = attrs
         self._decompressed = False
+
+    @property
+    def base_offset(self):
+        return self._offset
+
+    @property
+    def size_in_bytes(self):
+        return self._length + self.LOG_OVERHEAD
 
     @property
     def timestamp_type(self):
@@ -182,7 +191,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
         value_size = struct.unpack_from(">i", self._buffer, pos)[0]
         pos += self.VALUE_LENGTH
         if value_size == -1:
-            raise CorruptRecordException("Value of compressed message is None")
+            raise CorruptRecordError("Value of compressed message is None")
         else:
             data = self._buffer[pos:pos + value_size]
 

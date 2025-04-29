@@ -3,9 +3,9 @@
 from trytond.pool import Pool
 
 from . import (
-    action, attachment, avatar, cache, calendar_, configuration, cron, date,
-    email_, error, export, lang, message, model, module, note, queue_, routes,
-    rule, sequence, session, translation, trigger, ui)
+    action, attachment, avatar, cache, calendar_, chat, configuration, cron,
+    date, email_, error, export, lang, message, model, module, note, queue_,
+    routes, rule, sequence, session, translation, trigger, ui)
 
 __all__ = ['register', 'routes']
 
@@ -23,9 +23,11 @@ def register():
         translation.TranslationExportStart,
         translation.TranslationExportResult,
         sequence.SequenceType,
+        sequence.SequenceTypeGroup,
         sequence.Sequence,
         sequence.SequenceStrict,
         ui.menu.UIMenu,
+        ui.menu.UIMenuGroup,
         ui.menu.UIMenuFavorite,
         ui.view.View,
         ui.view.ShowViewStart,
@@ -35,6 +37,7 @@ def register():
         ui.view.ViewSearch,
         ui.icon.Icon,
         action.Action,
+        action.ActionGroup,
         action.ActionKeyword,
         action.ActionReport,
         action.ActionActWindow,
@@ -46,6 +49,7 @@ def register():
         model.ModelAccess,
         model.ModelFieldAccess,
         model.ModelButton,
+        model.ModelButtonGroup,
         model.ModelButtonRule,
         model.ModelButtonClick,
         model.ModelButtonReset,
@@ -63,7 +67,10 @@ def register():
         lang.LangConfigStart,
         export.Export,
         export.ExportLine,
+        export.ExportGroup,
+        export.ExportWriteGroup,
         rule.RuleGroup,
+        rule.RuleGroup_Group,
         rule.Rule,
         module.Module,
         module.ModuleDependency,
@@ -89,6 +96,9 @@ def register():
         email_.EmailTemplate,
         email_.EmailTemplate_Report,
         error.Error,
+        chat.Channel,
+        chat.Follower,
+        chat.Message,
         module='ir', type_='model')
     Pool.register(
         translation.TranslationSet,

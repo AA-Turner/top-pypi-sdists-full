@@ -13,6 +13,7 @@ from sql.functions import CurrentTimestamp
 
 import trytond.convert as convert
 import trytond.tools as tools
+from trytond import __series__
 from trytond.config import config
 from trytond.const import MODULES_GROUP
 from trytond.exceptions import MissingDependenciesException
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 ir_module = Table('ir_module')
 ir_model_data = Table('ir_model_data')
+ir_configuration = Table('ir_configuration')
 
 MODULES_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -63,7 +65,7 @@ class Graph(dict):
 
 class Node(list):
     def __init__(self, name):
-        super(Node, self).__init__()
+        super().__init__()
         self.name = name
         self.info = None
         self.__depth = 0
@@ -85,7 +87,7 @@ class Node(list):
     def append(self, node):
         assert isinstance(node, Node)
         node.depth = self.depth + 1
-        super(Node, self).append(node)
+        super().append(node)
 
 
 def create_graph(modules):
@@ -159,7 +161,7 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
         transaction.connection, t)
     with transaction.connection.cursor() as cursor:
         modules = [x.name for x in graph]
-        module2state = dict()
+        module2state = defaultdict(lambda: 'not activated')
         for sub_modules in tools.grouped_slice(modules):
             cursor.execute(*ir_module.select(ir_module.name, ir_module.state,
                     where=ir_module.name.in_(list(sub_modules))))
@@ -172,32 +174,51 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
                     [ir_module.name, ir_module.state],
                     [[m, 'not activated'] for m in new_modules]))
 
+        def register_classes(classes, module):
+            for type in list(classes.keys()):
+                for cls in classes[type]:
+                    logger.info('%s register %s', module, cls.__name__)
+                    cls.__register__(module)
+
+        to_install_states = {'to activate', 'to upgrade'}
+        early_modules = ['ir', 'res']
+        early_classes = {}
+        for module in early_modules:
+            early_classes[module] = pool.fill(module, modules)
+        if update:
+            for module in early_modules:
+                pool.setup(early_classes[module])
+            for module in early_modules:
+                if (is_module_to_install(module, update)
+                        or module2state[module] in to_install_states):
+                    register_classes(early_classes[module], module)
+
         for node in graph:
             module = node.name
             if module not in MODULES:
                 continue
             logger.info('%s load', module)
-            classes = pool.fill(module, modules)
-            if update:
-                # Clear all caches to prevent _record with wrong schema to
-                # linger
-                transaction.cache.clear()
-                pool.setup(classes)
-            package_state = module2state.get(module, 'not activated')
+            if module in early_modules:
+                classes = early_classes[module]
+            else:
+                classes = pool.fill(module, modules)
+                if update:
+                    # Clear all caches to prevent _record with wrong schema to
+                    # linger
+                    transaction.cache.clear()
+                    pool.setup(classes)
+            package_state = module2state[module]
             if (is_module_to_install(module, update)
-                    or (update
-                        and package_state in ('to activate', 'to upgrade'))):
-                if package_state not in ('to activate', 'to upgrade'):
+                    or (update and package_state in to_install_states)):
+                if package_state not in to_install_states:
                     if package_state == 'activated':
                         package_state = 'to upgrade'
                     elif package_state != 'to remove':
                         package_state = 'to activate'
                 for child in node:
                     module2state[child.name] = package_state
-                for type in list(classes.keys()):
-                    for cls in classes[type]:
-                        logger.info('%s register %s', module, cls.__name__)
-                        cls.__register__(module)
+                if module not in early_modules:
+                    register_classes(classes, module)
                 for model in classes['model']:
                     if hasattr(model, '_history'):
                         models_to_update_history.add(model.__name__)
@@ -269,6 +290,8 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
                     model._update_sql_indexes(concurrently=concurrently)
 
         if update:
+            cursor.execute(*ir_configuration.update(
+                    [ir_configuration.series], [__series__]))
             if indexes or indexes is None:
                 create_indexes(concurrently=False)
             else:

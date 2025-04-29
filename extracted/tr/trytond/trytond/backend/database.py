@@ -51,7 +51,7 @@ class DatabaseInterface(object):
     def init(self):
         raise NotImplementedError
 
-    def test(self, hostname=None):
+    def test(self, hostname=None, series=False):
         '''
         Test if it is a Tryton database.
         '''
@@ -71,6 +71,10 @@ class DatabaseInterface(object):
 
     @classmethod
     def lock(cls, connection, table):
+        raise NotImplementedError
+
+    @classmethod
+    def lock_records(cls, connection, table, ids):
         raise NotImplementedError
 
     def lock_id(self, id, timeout=None):

@@ -19,6 +19,15 @@ from trytond.wizard import Button, StateView, Wizard
 
 from ..action import DomainError, ViewError
 
+# Numbers taken from Bootstrap's breakpoints
+WIDTH_BREAKPOINTS = [
+    1400,
+    1200,
+    992,
+    768,
+    576,
+    ]
+
 
 class XMLError(ValidationError):
     pass
@@ -26,7 +35,7 @@ class XMLError(ValidationError):
 
 class View(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             ondelete='CASCADE'),
         fields.fmany2one(
             'field_children', 'field_childs,model',
@@ -101,7 +110,7 @@ class View(
 
     @classmethod
     def __setup__(cls):
-        super(View, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls.priority.required = True
 
@@ -199,7 +208,7 @@ class View(
 
     @classmethod
     def validate(cls, views):
-        super(View, cls).validate(views)
+        super().validate(views)
         cls.check_xml(views)
 
     @classmethod
@@ -266,24 +275,8 @@ class View(
         cls.write(views, {'data': value})
 
     @classmethod
-    def delete(cls, views):
-        super(View, cls).delete(views)
-        # Restart the cache
-        cls._view_get_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-
-    @classmethod
-    def create(cls, vlist):
-        views = super(View, cls).create(vlist)
-        # Restart the cache
-        cls._view_get_cache.clear()
-        ModelView._fields_view_get_cache.clear()
-        return views
-
-    @classmethod
-    def write(cls, views, values, *args):
-        super(View, cls).write(views, values, *args)
-        # Restart the cache
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._view_get_cache.clear()
         ModelView._fields_view_get_cache.clear()
 
@@ -445,7 +438,7 @@ class ShowView(Wizard):
 
 class ViewTreeWidth(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         fields.fmany2one(
             'field_ref', 'field,model', 'ir.model.field,name,model', "Field",
@@ -460,14 +453,16 @@ class ViewTreeWidth(
     field = fields.Char('Field', required=True)
     user = fields.Many2One('res.user', 'User', required=True,
         ondelete='CASCADE')
+    screen_width = fields.Integer("Screen Width")
     width = fields.Integer('Width', required=True)
 
     @classmethod
     def __setup__(cls):
-        super(ViewTreeWidth, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls.__rpc__.update({
                 'set_width': RPC(readonly=False),
+                'reset_width': RPC(readonly=False),
                 })
         cls._sql_indexes.add(
             Index(
@@ -492,49 +487,107 @@ class ViewTreeWidth(
             ]
 
     @classmethod
-    def delete(cls, records):
-        ModelView._fields_view_get_cache.clear()
-        super(ViewTreeWidth, cls).delete(records)
-
-    @classmethod
-    def create(cls, vlist):
-        res = super(ViewTreeWidth, cls).create(vlist)
-        ModelView._fields_view_get_cache.clear()
-        return res
-
-    @classmethod
-    def write(cls, records, values, *args):
-        super(ViewTreeWidth, cls).write(records, values, *args)
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         ModelView._fields_view_get_cache.clear()
 
     @classmethod
-    def set_width(cls, model, fields):
+    def get_width(cls, model, width):
+        for screen_width in WIDTH_BREAKPOINTS:
+            if width >= screen_width:
+                break
+        else:
+            screen_width = 0
+
+        user = Transaction().user
+        records = cls.search([
+            ('user', '=', user),
+            ('model', '=', model),
+            ('screen_width', '=', screen_width),
+            ])
+
+        if not records:
+            records = cls.search([
+                ('user', '=', user),
+                ('model', '=', model),
+                ['OR',
+                    ('screen_width', '<=', screen_width),
+                    ('screen_width', '=', None),
+                    ],
+                ],
+                order=[
+                    ('screen_width', 'DESC NULLS LAST'),
+                    ])
+        widths = {}
+        for width in records:
+            if width.field not in widths:
+                widths[width.field] = width.width
+        return widths
+
+    @classmethod
+    def set_width(cls, model, fields, width):
         '''
         Set width for the current user on the model.
         fields is a dictionary with key: field name and value: width.
         '''
-        records = cls.search([
-            ('user', '=', Transaction().user),
-            ('model', '=', model),
-            ('field', 'in', list(fields.keys())),
-            ])
-        cls.delete(records)
+        for screen_width in WIDTH_BREAKPOINTS:
+            if width >= screen_width:
+                break
+        else:
+            screen_width = 0
 
-        to_create = []
-        for field in list(fields.keys()):
-            to_create.append({
-                    'model': model,
-                    'field': field,
-                    'user': Transaction().user,
-                    'width': fields[field],
-                    })
-        if to_create:
-            cls.create(to_create)
+        user_id = Transaction().user
+        records = cls.search([
+                ('user', '=', user_id),
+                ('model', '=', model),
+                ('field', 'in', list(fields.keys())),
+                ['OR',
+                    ('screen_width', '=', screen_width),
+                    ('screen_width', '=', None),
+                    ],
+                ])
+
+        fields = fields.copy()
+        to_save = []
+        for tree_width in records:
+            if tree_width.screen_width == screen_width:
+                tree_width.width = fields.pop(tree_width.field)
+                to_save.append(tree_width)
+
+        for name, width in fields.items():
+            to_save.append(cls(
+                    user=user_id,
+                    model=model,
+                    field=name,
+                    screen_width=screen_width,
+                    width=width))
+
+        if to_save:
+            cls.save(to_save)
+
+    @classmethod
+    def reset_width(cls, model, width):
+        for screen_width in WIDTH_BREAKPOINTS:
+            if width >= screen_width:
+                break
+        else:
+            screen_width = 0
+
+        user_id = Transaction().user
+        records = cls.search([
+                ('user', '=', user_id),
+                ('model', '=', model),
+                ['OR',
+                    ('screen_width', '=', screen_width),
+                    ('screen_width', '=', None),
+                    ],
+                ])
+        cls.delete(records)
 
 
 class ViewTreeOptional(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         fields.fmany2one(
             'field_ref', 'field,model', 'ir.model.field,name,model', "Field",
@@ -602,20 +655,9 @@ class ViewTreeOptional(
                         view=record.view.rec_name))
 
     @classmethod
-    def create(cls, vlist):
-        records = super().create(vlist)
+    def on_modification(cls, mode, record, field_names=None):
+        super().on_modification(mode, record, field_names=field_names)
         ModelView._fields_view_get_cache.clear()
-        return records
-
-    @classmethod
-    def write(cls, *args):
-        super().write(*args)
-        ModelView._fields_view_get_cache.clear()
-
-    @classmethod
-    def delete(cls, records):
-        ModelView._fields_view_get_cache.clear()
-        super().delete(records)
 
     @classmethod
     def set_optional(cls, view_id, fields):
@@ -645,7 +687,7 @@ class ViewTreeOptional(
 
 class ViewTreeState(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         fields.fmany2one(
             'child_field', 'child_name,model', 'ir.model.field,name,model',
@@ -667,7 +709,7 @@ class ViewTreeState(
 
     @classmethod
     def __setup__(cls):
-        super(ViewTreeState, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'set': RPC(readonly=False, check_access=False),
                 'get': RPC(check_access=False, cache=dict(days=1)),
@@ -733,7 +775,7 @@ class ViewTreeState(
 
 class ViewSearch(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         ModelSQL, ModelView):
     "View Search"
@@ -746,20 +788,12 @@ class ViewSearch(
 
     @classmethod
     def __setup__(cls):
-        super(ViewSearch, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'get': RPC(check_access=False),
                 'set': RPC(check_access=False, readonly=False),
                 'unset': RPC(check_access=False, readonly=False),
                 })
-
-    @classmethod
-    def __register__(cls, module):
-        super().__register__(module)
-        table_h = cls.__table_handler__(module)
-
-        # Migration from 5.6: remove user required
-        table_h.not_null_action('user', 'remove')
 
     @staticmethod
     def default_user():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-openai
-Version: 0.39.3
+Version: 0.39.4
 Summary: OpenTelemetry OpenAI instrumentation
 License: Apache-2.0
 Author: Gal Kleinman

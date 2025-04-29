@@ -1,6 +1,7 @@
 import inspect
 import json
 import time
+from datetime import datetime, date
 from typing import Optional, Any
 import traceback
 from py4j.protocol import Py4JError, Py4JJavaError
@@ -747,6 +748,29 @@ class MetricsCollector:
                         value = getattr(current_obj, slot)
                         if should_include(slot, value):
                             stack.append((value, new_dict, slot))
+                elif type(current_obj) is datetime:
+                    # Convert datetime to string
+                    if current_obj.tzinfo is None:
+                        processed[obj_id] = current_obj.strftime("%d-%m-%YT%H:%M:%SZ")
+                    else:
+                        processed[obj_id] = current_obj.strftime("%d-%m-%YT%H:%M:%SZ%z")
+                    if parent_obj is not None:
+                        if isinstance(parent_obj, dict):
+                            parent_obj[key_in_parent] = processed[obj_id]
+                        elif isinstance(parent_obj, list):
+                            parent_obj.append(processed[obj_id])
+                    else:
+                        result = processed[obj_id]
+                elif type(current_obj) is date:
+                    # Convert date to string
+                    processed[obj_id] = current_obj.strftime("%d-%m-%Y")
+                    if parent_obj is not None:
+                        if isinstance(parent_obj, dict):
+                            parent_obj[key_in_parent] = processed[obj_id]
+                        elif isinstance(parent_obj, list):
+                            parent_obj.append(processed[obj_id])
+                    else:
+                        result = processed[obj_id]
                 else:
                     # Leaf node
                     processed[obj_id] = current_obj

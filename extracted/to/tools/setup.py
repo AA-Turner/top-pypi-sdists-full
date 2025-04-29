@@ -1,25 +1,26 @@
-from setuptools import setup, find_packages
-import os
+from tools import __version__
+print(f'Installing tools@{__version__}')
 
-ROOT = os.path.dirname(os.path.realpath(__file__))
+import setuptools
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
-setup(
-    name = 'tools',
-    version = '0.1.9',
-    description = 'Set of tools for web scraping projects',
-    author = 'Gregory Petukhov',
-    author_email = 'lorien@lorien.name',
-    install_requires = ['pytils', 'six', 'lxml'],
-    packages = find_packages(),
-    license = "MIT",
-    classifiers = (
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'License :: OSI Approved :: MIT License',
-        'Topic :: Software Development :: Libraries :: Application Frameworks',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-    ),
+setuptools.setup(
+    name="tools",
+    version=__version__,
+    author="JaeSung Yoo",
+    author_email="jsyoo61@unc.edu",
+    description="python syntax tool",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/jsyoo61/tools",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.6',
+    # install_requires=['numpy','pandas','matplotlib']
 )

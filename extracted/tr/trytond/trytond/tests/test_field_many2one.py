@@ -14,6 +14,7 @@ class FieldMany2OneTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     @with_transaction()
@@ -61,7 +62,7 @@ class FieldMany2OneTestCase(TestCase):
         "Test create many2one with valid domain"
         pool = Pool()
         Target = pool.get('test.many2one_target')
-        Many2One = pool.get('test.many2one_domainvalidation')
+        Many2One = pool.get('test.many2one_domain_validation')
         target, = Target.create([{'value': 6}])
 
         many2one, = Many2One.create([{
@@ -75,7 +76,7 @@ class FieldMany2OneTestCase(TestCase):
         "Test create many2one with invalid domain"
         pool = Pool()
         Target = pool.get('test.many2one_target')
-        Many2One = pool.get('test.many2one_domainvalidation')
+        Many2One = pool.get('test.many2one_domain_validation')
         target, = Target.create([{'value': 1}])
 
         with self.assertRaisesRegex(
@@ -92,7 +93,7 @@ class FieldMany2OneTestCase(TestCase):
         "Test create many2one with domain and inactive target"
         pool = Pool()
         Target = pool.get('test.many2one_target')
-        Many2One = pool.get('test.many2one_domainvalidation')
+        Many2One = pool.get('test.many2one_domain_validation')
         target, = Target.create([{'value': 6, 'active': False}])
 
         many2one, = Many2One.create([{
@@ -235,6 +236,46 @@ class FieldMany2OneTestCase(TestCase):
         self.assertListEqual(result, [])
 
     @with_transaction()
+    def test_set_instance(self):
+        "Test set instance"
+        pool = Pool()
+        Many2One = pool.get('test.many2one')
+        Target = pool.get('test.many2one_target')
+
+        record = Many2One()
+        record.many2one = target = Target()
+
+        self.assertIs(record.many2one, target)
+
+    @with_transaction()
+    def test_set_dict(self):
+        "Test set dictionary"
+        pool = Pool()
+        Many2One = pool.get('test.many2one')
+        Target = pool.get('test.many2one_target')
+
+        record = Many2One()
+        record.many2one = {'value': 42}
+
+        self.assertIsInstance(record.many2one, Target)
+        self.assertEqual(record.many2one.value, 42)
+
+    @with_transaction()
+    def test_set_integer(self):
+        "Test set integer"
+        pool = Pool()
+        Many2One = pool.get('test.many2one')
+        Target = pool.get('test.many2one_target')
+
+        target = Target(value=42)
+        target.save()
+        record = Many2One()
+        record.many2one = target.id
+
+        self.assertIsInstance(record.many2one, Target)
+        self.assertEqual(record.many2one.value, 42)
+
+    @with_transaction()
     def test_context_attribute(self):
         "Test context on many2one attribute"
         pool = Pool()
@@ -282,6 +323,7 @@ class FieldMany2OneTreeTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         activate_module('tests')
 
     def create_tree(self, Many2One):

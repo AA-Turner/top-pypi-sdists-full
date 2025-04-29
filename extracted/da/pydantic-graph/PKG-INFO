@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-graph
-Version: 0.1.6
+Version: 0.1.8
 Summary: Graph and state machine library
 Project-URL: Homepage, https://ai.pydantic.dev/graph/tree/main/pydantic_graph
 Project-URL: Source, https://github.com/pydantic/pydantic-ai

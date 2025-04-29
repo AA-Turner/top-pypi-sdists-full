@@ -43,6 +43,7 @@ from ._actions import (
     _find_parent_action,
     _is_action_value_list,
     parent_parsers_context,
+    parse_kwargs,
     remove_actions,
 )
 from ._common import (
@@ -484,16 +485,6 @@ class ActionTypeHint(Action):
             )
         )
 
-    @staticmethod
-    def apply_appends(parser, cfg):
-        for key in [k for k in cfg.keys() if k.endswith("+")]:
-            action = _find_action(parser, key[:-1])
-            if ActionTypeHint.supports_append(action):
-                with parser_context(load_value_mode=parser.parser_mode):
-                    val = action._check_type_(cfg[key], append=True, cfg=cfg)
-                cfg[key[:-1]] = val
-                cfg.pop(key)
-
     def serialize(self, value, dump_kwargs=None):
         sub_add_kwargs = getattr(self, "sub_add_kwargs", {})
         with dump_kwargs_context(dump_kwargs):
@@ -644,7 +635,7 @@ class ActionTypeHint(Action):
         parser = parent_parser.get()
         parser = type(parser)(exit_on_error=False, logger=parser.logger, parser_mode=parser.parser_mode)
         remove_actions(parser, (ActionConfigFile, _ActionPrintConfig))
-        if inspect.isclass(val_class):
+        if inspect.isclass(val_class) or inspect.isclass(get_typehint_origin(val_class)):
             parser.add_class_arguments(val_class, **kwargs)
         else:
             kwargs = {k: v for k, v in kwargs.items() if k != "instantiate"}
@@ -879,9 +870,9 @@ def adapt_typehints(
         list_path = None
         if enable_path and type(val) is str:
             with suppress(TypeError):
-                from ._optionals import get_config_read_mode
+                from ._optionals import _get_config_read_mode
 
-                list_path = Path(val, mode=get_config_read_mode())
+                list_path = Path(val, mode=_get_config_read_mode())
                 val = list_path.get_content().splitlines()
         if isinstance(val, NestedArg) and subtypehints is not None:
             val = (prev_val[:-1] if isinstance(prev_val, list) else []) + [val]
@@ -1058,10 +1049,14 @@ def adapt_typehints(
         if serialize and isinstance(val, str):
             return val
 
-        val_input = val
+        prev_implicit_defaults = False
         if prev_val is None and not inspect.isabstract(typehint) and not is_protocol(typehint):
             with suppress(ValueError):
                 prev_val = Namespace(class_path=get_import_path(typehint))  # implicit class_path
+                if parse_kwargs.get().get("defaults") is True:
+                    prev_implicit_defaults = True
+
+        val_input = val
         val = subclass_spec_as_namespace(val, prev_val)
         if not is_subclass_spec(val):
             msg = "Does not implement protocol" if is_protocol(typehint) else "Not a valid subclass of"
@@ -1088,6 +1083,9 @@ def adapt_typehints(
                     return_type = get_return_type(val_class, logger)
                     if is_subclass_or_implements_protocol(return_type, typehint):
                         not_subclass = False
+            elif prev_implicit_defaults:
+                inner_parser = ActionTypeHint.get_class_parser(typehint, sub_add_kwargs)
+                prev_val.init_args = inner_parser.get_defaults()
             if not_subclass:
                 msg = "implement protocol" if is_protocol(typehint) else "correspond to a subclass of"
                 raise_unexpected_value(f"Import path {val['class_path']} does not {msg} {typehint.__name__}")

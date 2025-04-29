@@ -1,3 +1,10 @@
+"""Functional implementations for domain adaptation image transformations.
+
+This module provides low-level functions and classes for performing domain adaptation
+between images. It includes implementations for histogram matching, Fourier domain adaptation,
+and pixel distribution matching with various normalization techniques.
+"""
+
 from __future__ import annotations
 
 import abc
@@ -180,6 +187,24 @@ def adapt_pixel_distribution(
     transform_type: Literal["pca", "standard", "minmax"],
     weight: float,
 ) -> np.ndarray:
+    """Adapt the pixel distribution of an image to match a reference image.
+
+    This function adapts the pixel distribution of an image to match a reference image
+    using a specified transformation type and weight.
+
+    Args:
+        img (np.ndarray): The input image to be adapted.
+        ref (np.ndarray): The reference image.
+        transform_type (Literal["pca", "standard", "minmax"]): The type of transformation to use.
+        weight (float): The weight of the transformation.
+
+    Returns:
+        np.ndarray: The adapted image.
+
+    Raises:
+        ValueError: If the input image and reference image have different dtypes or numbers of channels.
+
+    """
     if img.dtype != ref.dtype:
         raise ValueError("Input image and reference image must have the same dtype.")
     img_num_channels = get_num_channels(img)
@@ -275,9 +300,9 @@ def fourier_domain_adaptation(img: np.ndarray, target_img: np.ndarray, beta: flo
         >>> assert adapted_img.shape == source_img.shape
 
     References:
-        - "FDA: Fourier Domain Adaptation for Semantic Segmentation"
-          (Yang and Soatto, 2020, CVPR)
-          https://openaccess.thecvf.com/content_CVPR_2020/papers/Yang_FDA_Fourier_Domain_Adaptation_for_Semantic_Segmentation_CVPR_2020_paper.pdf
+        FDA: Fourier Domain Adaptation for Semantic Segmentation: Yang and Soatto, 2020, CVPR
+            https://openaccess.thecvf.com/content_CVPR_2020/papers/Yang_FDA_Fourier_Domain_Adaptation_for_Semantic_Segmentation_CVPR_2020_paper.pdf
+
     """
     src_img = img.astype(np.float32)
     trg_img = target_img.astype(np.float32)
@@ -352,6 +377,7 @@ def apply_histogram(img: np.ndarray, reference_image: np.ndarray, blend_ratio: f
         - The function uses a custom implementation of histogram matching based on OpenCV and NumPy.
         - The @clipped and @preserve_channel_dim decorators ensure the output is within
           the valid range and maintains the original number of dimensions.
+
     """
     # Resize reference image only if necessary
     if img.shape[:2] != reference_image.shape[:2]:
@@ -375,16 +401,17 @@ def match_histograms(image: np.ndarray, reference: np.ndarray) -> np.ndarray:
     The adjustment is applied separately for each channel.
 
     Args:
-        image: Input image. Can be gray-scale or in color.
-        reference: Image to match histogram of. Must have the same number of channels as image.
-        channel_axis: If None, the image is assumed to be a grayscale (single channel) image.
-            Otherwise, this parameter indicates which axis of the array corresponds to channels.
+        image (np.ndarray): Input image. Can be gray-scale or in color.
+        reference (np.ndarray): Image to match histogram of. Must have the same number of channels as image.
+        channel_axis (int | None): If None, the image is assumed to be a grayscale (single channel) image.
+            Otherwise, this indicates which axis of the array corresponds to channels.
 
     Returns:
         np.ndarray: Transformed input image.
 
     Raises:
         ValueError: Thrown when the number of channels in the input image and the reference differ.
+
     """
     if reference.dtype != np.uint8:
         reference = from_float(reference, np.uint8)

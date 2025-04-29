@@ -12,10 +12,10 @@
 #
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+import dataclasses
 import json
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from pathlib import Path
 import sys
 
@@ -31,21 +31,40 @@ class MainSection(Enum):
     GENERAL = "GENERAL"
     SOLIDITY_COMPILER = "SOLIDITY_COMPILER"
     GIT = "GIT"
-    FILES = "FILES"
-    LINKS = "LINKS"
-    PACKAGES = "PACKAGES"
-    METADATA = "METADATA"
+    NEW_SECTION = "NEW_SECTION"
 
 
-class FlagType(Enum):
-    VALUE_FLAG = "VALUE"
-    LIST_FLAG = "LIST"
-    MAP_FLAG = "MAP"
+class ContentType(Enum):
+    SIMPLE = "SIMPLE"
+    COMPLEX = "COMPLEX"
+    FLAG = "FLAG"
+
+
+@dataclasses.dataclass
+class InnerContent:
+    inner_title: str
+    content_type: str
+    content: Any
+    doc_link: str = ''
+    tooltip: str = ''
+    unsound: str = 'false'
+
+    def __post_init__(self) -> None:
+        if isinstance(self.content, bool):
+            self.content = 'true' if self.content else 'false'
+        if isinstance(self.unsound, bool):
+            self.unsound = 'true' if self.unsound else 'false'
+
+
+@dataclasses.dataclass
+class CardContent:
+    card_title: str
+    content_type: str
+    content: Any
 
 
 DOC_LINK_PREFIX = 'https://docs.certora.com/en/latest/docs/'
 GIT_ATTRIBUTES = ['origin', 'revision', 'branch', 'dirty']
-SPECIAL_MAIN_SECTIONS = ['files', 'links', 'packages']
 
 
 class AttributeJobConfigData:
@@ -87,18 +106,25 @@ class RunConfigurationLayout:
     configuration_layout : Dict -- An aggregated configuration for a specific run, nested by main section, subsection.
         Each leaf contains data about attribute value, type, documentation link and UI data.
     """
-    def __init__(self, configuration_layout: Dict[str, Any]):
+
+    configuration_layout: list[Any]
+
+    def __init__(self, configuration_layout: list[Any]):
         # Dynamically allocate class attributes from dict
-        for key, value in configuration_layout.items():
-            setattr(self, key, value)
+        self.configuration_layout = configuration_layout
 
     def __repr__(self) -> str:
-        return "\n".join(f"{key}: {value}" for key, value in self.__dict__.items())
+        try:
+            return json.dumps(self.configuration_layout, indent=2, sort_keys=True)
+        except TypeError:
+            # Fallback if something isn't serializable
+            return str(self.configuration_layout)
 
     @classmethod
-    def dump_file(cls, data: dict) -> None:
+    def dump_file(cls, data: list) -> None:
+        sorted_data = sort_configuration_layout(data)
         with Utils.get_configuration_layout_data_file().open("w+") as f:
-            json.dump(data, f, indent=4, sort_keys=True, cls=MetadataEncoder)
+            json.dump(sorted_data, f, indent=4, cls=MetadataEncoder)
 
     @classmethod
     def load_file(cls) -> dict:
@@ -110,12 +136,11 @@ class RunConfigurationLayout:
             raise
 
     def dump(self) -> None:
-        if self.__dict__:  # dictionary containing all the attributes defined for GitInfo
-            try:
-                self.dump_file(self.__dict__)
-            except Exception as e:
-                print(f"failed to write configuration layout file {Utils.get_configuration_layout_data_file()}\n{e}")
-                raise
+        try:
+            self.dump_file(self.configuration_layout)
+        except Exception as e:
+            print(f"Failed to write configuration layout file: {Utils.get_configuration_layout_data_file()}\n{e}")
+            raise
 
 
 def collect_configuration_layout() -> RunConfigurationLayout:
@@ -127,7 +152,7 @@ def collect_configuration_layout() -> RunConfigurationLayout:
         metadata = RunMetaData.load_file()
     except Exception as e:
         print(f"failed to load job metadata! cannot create a configuration layout file without metadata!\n{e}")
-        return RunConfigurationLayout(configuration_layout={})
+        return RunConfigurationLayout(configuration_layout=[])
 
     attributes_configs = collect_attribute_configs(metadata)
     configuration_layout = collect_run_config_from_metadata(attributes_configs, metadata)
@@ -154,89 +179,199 @@ def get_doc_link(attr) -> str:  # type: ignore
     return doc_link
 
 
-def collect_attribute_configs(metadata: dict) -> dict:
+def create_or_get_card_content(output: list[CardContent], name: str) -> CardContent:
+    """
+        Returns an existing CardContent by name or creates and appends a new one if it doesn't exist.
+        Card content type will always be complex in this case.
+        Args:
+            output (list[CardContent]): List of CardContent objects.
+            name (str): Title of the card to find or create.
+
+        Returns:
+            CardContent: The found or newly created CardContent.
+        """
+    main_section = next((section for section in output if section.card_title == name), None)
+    if main_section is None:
+        main_section = CardContent(
+            card_title=name,
+            content_type=ContentType.COMPLEX.value,
+            content=[]
+        )
+        output.append(main_section)
+    return main_section
+
+
+def create_inner_content(name: str, content_type: ContentType, value: Any, doc_link: str,
+                         config_data: AttributeJobConfigData) -> InnerContent:
+    return InnerContent(
+        inner_title=name,
+        content_type=content_type.value,
+        content=value,
+        doc_link=doc_link,
+        tooltip=config_data.tooltip or '',
+        unsound='true' if config_data.unsound else 'false'
+    )
+
+
+def collect_attribute_configs(metadata: dict) -> list[CardContent]:
+    """
+    Collects and organizes attribute configurations into a structured list of CardContent objects.
+
+    This function iterates through all available attributes defined, checks if relevant metadata is provided
+    for each attribute, and organizes the data into sections and subsections based on configuration rules.
+
+    Attributes are grouped under their respective main sections, with special handling for:
+    - Simple value attributes
+    - List and dictionary attributes
+    - Attributes requiring new sections (e.g., Files, Links, Packages)
+
+    Args:
+        metadata (dict): Metadata dictionary containing attribute values.
+
+    Returns:
+        list: A list of CardContent objects representing the structured configuration view,
+              ready for rendering or further processing.
+    """
     attr_list = Attrs.get_attribute_class().attribute_list()
-    output: Dict[str, Any] = {}
+    output: list[CardContent] = []
 
     for attr in attr_list:
         attr_name = attr.name.lower()
         if attr.config_data is None:
             continue
 
-        if metadata.get(attr_name) is None and metadata.get('conf', {}).get(attr_name) is None:
+        attr_value = metadata.get(attr_name) or metadata.get('conf', {}).get(attr_name)
+        if attr_value is None:
             continue
 
-        attr_value = metadata.get(attr_name) or metadata.get('conf', {}).get(attr_name)
         config_data: AttributeJobConfigData = attr.config_data
         doc_link = config_data.doc_link or get_doc_link(attr)
 
-        # Get or create the main section
+        # Find or create the main section
         main_section_key = config_data.main_section.value.lower()
-        main_section = output.setdefault(main_section_key, {})
+        main_section = create_or_get_card_content(output, main_section_key)
 
-        # Get or create the subsection (if it exists) and flag_type
+        # Files, Links and Packages are special cases where the main section is the attribute itself
+        if main_section_key == MainSection.NEW_SECTION.value.lower():
+            main_section.card_title = attr_name
+            main_section.content_type = ContentType.SIMPLE.value
+            main_section.content.append(
+                create_inner_content(attr_name, ContentType.SIMPLE, attr_value, doc_link, config_data)
+            )
+            continue
+
+        # Find or create the subsection (if it exists)
         if isinstance(attr_value, list):
-            # Files, Links and Packages are special cases where the main section is the attribute itself
-            if main_section_key in SPECIAL_MAIN_SECTIONS:
-                current_section = output
-                attr_name = main_section_key
-            else:
-                current_section = main_section
+            current_section: Any = main_section
+            content_type = ContentType.SIMPLE
 
-            flag_type = FlagType.LIST_FLAG
         elif isinstance(attr_value, dict):
             current_section = main_section
-            flag_type = FlagType.MAP_FLAG
+            content_type = ContentType.COMPLEX
+            attr_value = [
+                create_inner_content(key, ContentType.FLAG, value, doc_link, config_data)
+                for key, value in attr_value.items()
+            ]
         else:
+            # this attribute is a value attribute without a subsection, it will be placed in flags.
             subsection_key = config_data.subsection.lower() if config_data.subsection else 'flags'
-            current_section = main_section.setdefault(subsection_key, {})
-            flag_type = FlagType.VALUE_FLAG
+            current_section = next((section for section in main_section.content
+                                    if section.inner_title == subsection_key), None)
+            if current_section is None:
+                current_section = InnerContent(
+                    inner_title=subsection_key,
+                    content_type=ContentType.COMPLEX.value,
+                    content=[]
+                )
+                main_section.content.append(current_section)
+
+            content_type = ContentType.FLAG
 
         # Update the current section with attribute details
-        current_section[attr_name] = {
-            'value': attr_value,
-            'flag_type': flag_type.value.lower(),
-            'doc_link': doc_link,
-            'tooltip': config_data.tooltip,
-            'unsound': config_data.unsound
-        }
+        current_section.content.append(
+            create_inner_content(attr_name, content_type, attr_value, doc_link, config_data)
+        )
 
     return output
 
 
-def collect_run_config_from_metadata(attributes_configs: dict, metadata: dict) -> dict:
+def collect_run_config_from_metadata(attributes_configs: list[CardContent], metadata: dict) -> list[CardContent]:
     """
     Adding CLI and Git configuration from metadata
     """
-    metadata_section = attributes_configs.setdefault(MainSection.METADATA.value.lower(), {})
 
     # Define a mapping of metadata attributes to their keys in general_section
     metadata_mappings = {
-        'cli_version': metadata.get('CLI_version'),
-        'main_spec': metadata.get('main_spec'),
-        'solc_version': metadata.get('conf', {}).get('solc'),
-        'verify': metadata.get('conf', {}).get('verify'),
+        'CLI Version': metadata.get('CLI_version'),
+        'Verify': metadata.get('conf', {}).get('verify'),
     }
+
+    general_section = create_or_get_card_content(attributes_configs, MainSection.GENERAL.value.lower())
 
     # Add metadata attributes dynamically if they exist
     for key, value in metadata_mappings.items():
         if value:
-            metadata_section[key] = {
-                'value': value,
-                'flag_type': FlagType.VALUE_FLAG.value,
-                'doc_link': '',
-                'tooltip': '',
-            }
+            general_section.content.append(InnerContent(
+                inner_title=key,
+                content_type=ContentType.FLAG.value,
+                content=value,
+            ))
 
-    # Adding GIT configuration from metadata
-    git_section = attributes_configs.setdefault(MainSection.GIT.value.lower(), {})
+    # Adding GIT configuration from metadata only if attributes are found
+    git_content = []
     for attr in GIT_ATTRIBUTES:
         if attr_value := metadata.get(attr):
-            git_section[attr] = {
-                'value': attr_value,
-                'flag_type': FlagType.MAP_FLAG.value,
-                'doc_link': '',
-                'tooltip': ''
-            }
+            git_content.append(InnerContent(
+                inner_title=attr,
+                content_type=ContentType.FLAG.value,
+                content=attr_value,
+            ))
+
+    if git_content:
+        git_section = create_or_get_card_content(attributes_configs, MainSection.GIT.value.lower())
+        git_section.content = git_content
 
     return attributes_configs
+
+
+def sort_configuration_layout(data: list[CardContent]) -> list[CardContent]:
+    """
+    Sorts a configuration layout:
+    - Top-level sorted by 'card_title'
+    - Nested content sorted by 'inner_title', with 'Verify' first
+    """
+    priority = {
+        "Verify": 0,
+        "general": 0,
+        "solc": 0,
+        "CLI Version": 1,
+        "flags": 2
+    }
+
+    def inner_sort_key(item: Any) -> Any:
+        if isinstance(item, CardContent):
+            title = item.card_title
+            return priority.get(title, 3), title.lower()
+        elif isinstance(item, InnerContent):
+            title = item.inner_title
+            return priority.get(title, 3), title.lower()
+        else:
+            return item
+
+    def sort_content(content: list[InnerContent]) -> list[InnerContent]:
+        sorted_content = []
+        for item in content:
+            if isinstance(item.content, list):
+                # Recurse into nested 'content'
+                item.content = sorted(item.content, key=inner_sort_key)
+            sorted_content.append(item)
+        return sorted(sorted_content, key=inner_sort_key)
+
+    # Sort top-level entries by 'card_title'
+    sorted_data = sorted(data, key=inner_sort_key)
+
+    # Sort nested 'content'
+    for section in sorted_data:
+        section.content = sort_content(section.content)
+
+    return sorted_data

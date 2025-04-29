@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-wallet
-Version: 3.0.8
+Version: 3.0.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
@@ -16,7 +16,6 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: eth-utils<2.3.0
 Requires-Dist: password-strength
 Requires-Dist: cryptography~=43.0.1
 Requires-Dist: py-bip39-bindings==0.1.11

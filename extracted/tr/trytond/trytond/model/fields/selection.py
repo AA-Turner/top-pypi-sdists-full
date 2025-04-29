@@ -113,7 +113,7 @@ class Selection(SelectionMixin, Field):
             to store and the second is the value to display.
         :param sort: A boolean to sort or not the selections.
         '''
-        super(Selection, self).__init__(string=string, help=help,
+        super().__init__(string=string, help=help,
             required=required, readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)
@@ -130,10 +130,12 @@ class Selection(SelectionMixin, Field):
         self.sort = sort
         self.translate_selection = translate
         self.help_selection = help_selection
-    __init__.__doc__ += Field.__init__.__doc__
+
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     def set_rpc(self, model):
-        super(Selection, self).set_rpc(model)
+        super().set_rpc(model)
         if not isinstance(self.selection, (list, tuple)):
             assert hasattr(model, self.selection), \
                 'Missing %s on model %s' % (self.selection, model.__name__)

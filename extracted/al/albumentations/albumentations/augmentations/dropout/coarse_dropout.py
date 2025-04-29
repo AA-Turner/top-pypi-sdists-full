@@ -1,3 +1,12 @@
+"""Implementation of coarse dropout and random erasing augmentations.
+
+This module provides several variations of coarse dropout augmentations, which drop out
+rectangular regions from images. It includes CoarseDropout for randomly placed dropouts,
+ConstrainedCoarseDropout for dropping out regions based on masks or bounding boxes,
+and Erasing for random erasing augmentation. These techniques help models become more
+robust to occlusions and varying object completeness.
+"""
+
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
@@ -87,6 +96,7 @@ class CoarseDropout(BaseDropout):
         - CutOut: https://arxiv.org/abs/1708.04552
         - Random Erasing: https://arxiv.org/abs/1708.04896
         - OpenCV Inpainting methods: https://docs.opencv.org/master/df/d3d/tutorial_py_inpainting.html
+
     """
 
     class InitSchema(BaseDropout.InitSchema):
@@ -149,6 +159,16 @@ class CoarseDropout(BaseDropout):
         return hole_heights, hole_widths
 
     def get_params_dependent_on_data(self, params: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        """Get parameters dependent on the data.
+
+        Args:
+            params (dict[str, Any]): Dictionary containing parameters.
+            data (dict[str, Any]): Dictionary containing data.
+
+        Returns:
+            dict[str, Any]: Dictionary with parameters for transformation.
+
+        """
         image_shape = params["shape"][:2]
 
         num_holes = self.py_random.randint(*self.num_holes_range)
@@ -170,9 +190,6 @@ class CoarseDropout(BaseDropout):
         holes = np.stack([x_min, y_min, x_max, y_max], axis=-1)
 
         return {"holes": holes, "seed": self.random_generator.integers(0, 2**32 - 1)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (*super().get_transform_init_args_names(), "num_holes_range", "hole_height_range", "hole_width_range")
 
 
 class Erasing(BaseDropout):
@@ -235,6 +252,7 @@ class Erasing(BaseDropout):
         - Paper: https://arxiv.org/abs/1708.04896
         - Implementation inspired by torchvision:
           https://pytorch.org/vision/stable/transforms.html#torchvision.transforms.RandomErasing
+
     """
 
     class InitSchema(BaseDropout.InitSchema):
@@ -319,8 +337,8 @@ class Erasing(BaseDropout):
         aspect_ratio = self.py_random.uniform(min_r, max_r)
 
         # Calculate dimensions
-        h = int(round(np.sqrt(erase_area / aspect_ratio)))
-        w = int(round(np.sqrt(erase_area * aspect_ratio)))
+        h = round(np.sqrt(erase_area / aspect_ratio))
+        w = round(np.sqrt(erase_area * aspect_ratio))
 
         # Sample position
         top = self.py_random.randint(0, height - h)
@@ -328,9 +346,6 @@ class Erasing(BaseDropout):
 
         holes = np.array([[left, top, left + w, top + h]], dtype=np.int32)
         return {"holes": holes, "seed": self.random_generator.integers(0, 2**32 - 1)}
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return "scale", "ratio", "fill", "fill_mask"
 
 
 class ConstrainedCoarseDropout(BaseDropout):
@@ -435,6 +450,7 @@ class ConstrainedCoarseDropout(BaseDropout):
         ...     bboxes=[[0, 0, 100, 100, 'car'], [150, 150, 300, 300, 'person']],
         ...     labels=['car', 'person']
         ... )
+
     """
 
     class InitSchema(BaseDropout.InitSchema):
@@ -549,13 +565,3 @@ class ConstrainedCoarseDropout(BaseDropout):
             "holes": holes,
             "seed": self.random_generator.integers(0, 2**32 - 1),
         }
-
-    def get_transform_init_args_names(self) -> tuple[str, ...]:
-        return (
-            *super().get_transform_init_args_names(),
-            "num_holes_range",
-            "hole_height_range",
-            "hole_width_range",
-            "mask_indices",
-            "bbox_labels",
-        )

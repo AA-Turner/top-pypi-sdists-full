@@ -14,6 +14,11 @@ from abc import ABC, abstractmethod
 from pathlib_abc._glob import _PathGlobber
 from pathlib_abc._os import magic_open, ensure_distinct_paths, ensure_different_files, copyfileobj
 from typing import Optional, Protocol, runtime_checkable
+try:
+    from io import text_encoding
+except ImportError:
+    def text_encoding(encoding):
+        return encoding
 
 
 __all__ = ['PathParser', 'PathInfo', 'JoinablePath', 'ReadablePath', 'WritablePath', 'magic_open']
@@ -35,7 +40,7 @@ def _explode_path(path, split):
 
 
 @runtime_checkable
-class _PathParser(Protocol):
+class PathParser(Protocol):
     """Protocol for path parsers, which do low-level path manipulation.
 
     Path parsers provide a subset of the os.path API, specifically those
@@ -61,7 +66,7 @@ class PathInfo(Protocol):
     def is_symlink(self) -> bool: ...
 
 
-class _JoinablePath(ABC):
+class JoinablePath(ABC):
     """Abstract base class for pure path objects.
 
     This class *does not* provide several magic methods that are defined in
@@ -227,7 +232,7 @@ class _JoinablePath(ABC):
         return match(str(self)) is not None
 
 
-class _ReadablePath(_JoinablePath):
+class ReadablePath(JoinablePath):
     """Abstract base class for readable path objects.
 
     The Path class implements this ABC for local filesystem paths. Users may
@@ -264,6 +269,9 @@ class _ReadablePath(_JoinablePath):
         """
         Open the file in text mode, read it, and close the file.
         """
+        # Call io.text_encoding() here to ensure any warning is raised at an
+        # appropriate stack level.
+        encoding = text_encoding(encoding)
         with magic_open(self, mode='r', encoding=encoding, errors=errors, newline=newline) as f:
             return f.read()
 
@@ -348,7 +356,7 @@ class _ReadablePath(_JoinablePath):
         return self.copy(target_dir / name, **kwargs)
 
 
-class _WritablePath(_JoinablePath):
+class WritablePath(JoinablePath):
     """Abstract base class for writable path objects.
 
     The Path class implements this ABC for local filesystem paths. Users may
@@ -393,6 +401,9 @@ class _WritablePath(_JoinablePath):
         """
         Open the file in text mode, write to it, and close the file.
         """
+        # Call io.text_encoding() here to ensure any warning is raised at an
+        # appropriate stack level.
+        encoding = text_encoding(encoding)
         if not isinstance(data, str):
             raise TypeError('data must be str, not %s' %
                             data.__class__.__name__)
@@ -420,7 +431,8 @@ class _WritablePath(_JoinablePath):
                         copyfileobj(source_f, target_f)
 
 
-PathParser = _PathParser
-JoinablePath = _JoinablePath
-ReadablePath = _ReadablePath
-WritablePath = _WritablePath
+# For tests.
+_PathParser = PathParser
+_JoinablePath = JoinablePath
+_ReadablePath = ReadablePath
+_WritablePath = WritablePath

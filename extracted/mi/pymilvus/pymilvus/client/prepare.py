@@ -1007,6 +1007,9 @@ class Prepare:
         if param.get(HINTS) is not None:
             search_params[HINTS] = param[HINTS]
 
+        if param.get("analyzer_name") is not None:
+            search_params["analyzer_name"] = param["analyzer_name"]
+
         search_params["params"] = get_params(param)
 
         req_params = [
@@ -1724,3 +1727,24 @@ class Prepare:
             privileges=[milvus_types.PrivilegeEntity(name=p) for p in privileges],
             type=operate_privilege_group_type,
         )
+
+    @classmethod
+    def run_analyzer(
+        cls,
+        texts: Union[str, List[str]],
+        analyzer_params: Union[str, Dict],
+        with_hash: bool = False,
+        with_detail: bool = False,
+    ):
+        req = milvus_types.RunAnalyzerRequest(with_hash=with_hash, with_detail=with_detail)
+        if isinstance(texts, str):
+            req.placeholder.append(texts.encode("utf-8"))
+        else:
+            req.placeholder.extend([text.encode("utf-8") for text in texts])
+
+        if isinstance(analyzer_params, dict):
+            req.analyzer_params = ujson.dumps(analyzer_params)
+        else:
+            req.analyzer_params = analyzer_params
+
+        return req

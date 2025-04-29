@@ -7,9 +7,10 @@ from sql import Literal
 from trytond.cache import Cache
 from trytond.i18n import gettext
 from trytond.model import Check, Index, ModelSQL, ModelView, fields
-from trytond.model.exceptions import ValidationError
+from trytond.model.exceptions import AccessError, ValidationError
 from trytond.pool import Pool
-from trytond.pyson import PYSONDecoder
+from trytond.pyson import Eval, If, PYSONDecoder
+from trytond.tools import grouped_slice
 from trytond.transaction import Transaction, inactive_records
 
 
@@ -41,21 +42,36 @@ def _get_access_models(Model, names=None, model2field=None, path=None):
 
 class RuleGroup(
         fields.fmany2one(
-            'model_ref', 'model', 'ir.model,model', "Model",
+            'model_ref', 'model', 'ir.model,name', "Model",
             required=True, ondelete='CASCADE'),
         ModelSQL, ModelView):
-    "Rule group"
     __name__ = 'ir.rule.group'
     name = fields.Char(
         "Name", translate=True, required=True,
         help="Displayed to users when access error is raised for this rule.")
     model = fields.Char("Model", required=True)
-    global_p = fields.Boolean('Global',
+    global_p = fields.Boolean(
+        "Global",
+        domain=[
+            If(Eval('default_p', False),
+                ('global_p', '=', False),
+                ()),
+            ],
         help="Make the rule global \nso every users must follow this rule.")
-    default_p = fields.Boolean('Default',
+    default_p = fields.Boolean(
+        "Default",
+        domain=[
+            If(Eval('global_p', False),
+                ('default_p', '=', False),
+                ()),
+            ],
         help="Add this rule to all users by default.")
+    groups = fields.Many2Many(
+        'ir.rule.group-res.group', 'rule_group', 'group', "Groups")
     rules = fields.One2Many('ir.rule', 'rule_group', 'Tests',
-        help="The rule is satisfied if at least one test is True.")
+        help="The rule is satisfied if at least one test is True.\n"
+        "If there is no test defined, "
+        "the rule is always satisfied if not global.")
     perm_read = fields.Boolean('Read Access')
     perm_write = fields.Boolean('Write Access')
     perm_create = fields.Boolean('Create Access')
@@ -63,7 +79,7 @@ class RuleGroup(
 
     @classmethod
     def __setup__(cls):
-        super(RuleGroup, cls).__setup__()
+        super().__setup__()
         t = cls.__table__()
 
         cls._order.insert(0, ('model', 'ASC'))
@@ -96,7 +112,7 @@ class RuleGroup(
             table_h.column_rename('model', '_temp_model')
             table_h.add_column('model', 'VARCHAR')
             cursor.execute(*table.update(
-                    [table.model], [model.model],
+                    [table.model], [model.name],
                     from_=[model],
                     where=table._temp_model == model.id))
             table_h.drop_column('_temp_model')
@@ -128,27 +144,22 @@ class RuleGroup(
         return True
 
     @classmethod
-    def delete(cls, groups):
-        super(RuleGroup, cls).delete(groups)
-        # Restart the cache on the domain_get method of ir.rule
-        Pool().get('ir.rule')._domain_get_cache.clear()
+    def on_modification(cls, mode, groups, field_names=None):
+        pool = Pool()
+        Rule = pool.get('ir.rule')
+        super().on_modification(mode, groups, field_names=field_names)
+        Rule._domain_get_cache.clear()
 
-    @classmethod
-    def create(cls, vlist):
-        res = super(RuleGroup, cls).create(vlist)
-        # Restart the cache on the domain_get method of ir.rule
-        Pool().get('ir.rule')._domain_get_cache.clear()
-        return res
 
-    @classmethod
-    def write(cls, groups, vals, *args):
-        super(RuleGroup, cls).write(groups, vals, *args)
-        # Restart the cache on the domain_get method of ir.rule
-        Pool().get('ir.rule')._domain_get_cache.clear()
+class RuleGroup_Group(ModelSQL):
+    __name__ = 'ir.rule.group-res.group'
+    rule_group = fields.Many2One(
+        'ir.rule.group', "Rule Group", ondelete='CASCADE', required=True)
+    group = fields.Many2One(
+        'res.group', "Group", ondelete='CASCADE', required=True)
 
 
 class Rule(ModelSQL, ModelView):
-    "Rule"
     __name__ = 'ir.rule'
     rule_group = fields.Many2One('ir.rule.group', 'Group',
        required=True, ondelete="CASCADE")
@@ -330,20 +341,48 @@ class Rule(ModelSQL, ModelView):
             return Model.search(domain, order=[], query=True)
 
     @classmethod
-    def delete(cls, rules):
-        super(Rule, cls).delete(rules)
-        # Restart the cache on the domain_get method of ir.rule
-        cls._domain_get_cache.clear()
+    def check(cls, model_name, ids, mode='read'):
+        pool = Pool()
+        Model = pool.get(model_name)
+        transaction = Transaction()
+
+        def test_domain(ids, domain):
+            wrong_ids = []
+            # Use root to prevent infinite recursion
+            with transaction.set_user(0, set_context=True), inactive_records():
+                for sub_ids in grouped_slice(ids):
+                    sub_ids = list(sub_ids)
+                    records = Model.search([
+                            ('id', 'in', sub_ids),
+                            domain,
+                            ], order=[])
+                    wrong_ids.extend(
+                        set(sub_ids).difference(map(int, records)))
+            return wrong_ids
+
+        domain = cls.domain_get(model_name, mode=mode)
+        forbidden = test_domain(ids, domain)
+        if forbidden:
+            ids = ', '.join(map(str, forbidden[:5]))
+            if len(forbidden) > 5:
+                ids += '...'
+            rules = []
+            clause, clause_global = cls.get(model_name, mode=mode)
+            if clause:
+                dom = list(clause.values())
+                dom.insert(0, 'OR')
+                if test_domain(forbidden, dom):
+                    rules.extend(clause.keys())
+                for rule, dom in clause_global.items():
+                    if test_domain(forbidden, dom):
+                        rules.append(rule)
+            raise AccessError(gettext(
+                    f'ir.msg_{mode}_rule_error',
+                    ids=ids,
+                    rules='\n'.join(r.name for r in rules),
+                    **Model.__names__()))
 
     @classmethod
-    def create(cls, vlist):
-        res = super(Rule, cls).create(vlist)
-        # Restart the cache on the domain_get method of ir.rule
-        cls._domain_get_cache.clear()
-        return res
-
-    @classmethod
-    def write(cls, rules, vals, *args):
-        super(Rule, cls).write(rules, vals, *args)
-        # Restart the cache on the domain_get method
+    def on_modification(cls, mode, rules, field_names=None):
+        super().on_modification(mode, rules, field_names=field_names)
         cls._domain_get_cache.clear()

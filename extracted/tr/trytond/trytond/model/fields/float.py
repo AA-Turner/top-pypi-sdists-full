@@ -12,11 +12,11 @@ def digits_validate(value):
                 'digits must be a tuple or a string'
         if isinstance(value, tuple):
             for i in value:
-                assert isinstance(i, (int, PYSON)), \
-                    'digits must be tuple of integers or PYSON'
+                assert isinstance(i, (type(None), int, PYSON)), \
+                    "digits must be tuple of integers, PYSON or None"
                 if isinstance(i, PYSON):
-                    assert i.types() == {int}, \
-                        'PYSON digits must return an integer'
+                    assert i.types() <= {int, type(None)}, \
+                        "PYSON digits must return an integer or None"
 
 
 def _get_digits_depends(field):
@@ -39,14 +39,15 @@ class Float(Field):
         :param digits: a list of two integers defining the total
             of digits and the number of decimals of the float.
         '''
-        super(Float, self).__init__(string=string, help=help,
+        super().__init__(string=string, help=help,
             required=required, readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)
         self.__digits = None
         self.digits = digits
 
-    __init__.__doc__ += Field.__init__.__doc__
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     def _get_digits(self):
         return self.__digits

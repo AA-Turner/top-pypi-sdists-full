@@ -21,12 +21,12 @@ class RowBinaryEncoderError(Exception):
 
 
 class RowBinaryEncoder():
-    def __init__(self, schema: str, legacy_conversion_mode: bool = True, enable_debugging: bool = False):
+    def __init__(self, schema: str, legacy_conversion_mode: bool = True):
         if not isinstance(schema, str):
             raise TypeError("Schema must be a string")
 
         try:
-            self._encoder_ptr = create_row_binary_encoder(schema, legacy_conversion_mode, enable_debugging)
+            self._encoder_ptr = create_row_binary_encoder(schema, legacy_conversion_mode)
             if not self._encoder_ptr:
                 raise RowBinaryEncoderError("Failed to create encoder")
         except Exception as e:

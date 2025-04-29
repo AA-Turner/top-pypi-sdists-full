@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-lint
-Version: 25.2.1
+Version: 25.4.0
 Summary: Checks playbooks for practices and behavior that could potentially be improved
 Author-email: Will Thames <will@thames.id.au>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

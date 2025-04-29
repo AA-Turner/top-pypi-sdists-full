@@ -17,19 +17,6 @@ from pyspark.sql.types import (
 import uuid, enum
 
 
-# ---------------------------------------------------------------------------
-# Helpers for safe identifier handling
-# ---------------------------------------------------------------------------
-def q(name: str) -> str:
-    """Quote a Spark identifier so it can contain any character."""
-    return f"`{name.replace('`', '``')}`"
-
-
-def sc(struct: str, field: str) -> str:
-    """Return 'struct.`field`' with the field safely quoted."""
-    return f"{struct}.{q(field)}"
-
-
 class DiffKeys(enum.Enum):
     JOINED = "joined"
     SUMMARY = "summary"
@@ -110,6 +97,19 @@ def needs_complex_comparison(data_type):
 
 class DataFrameDiff:
     COMPUTED_DIFFS = {}
+
+    # ---------------------------------------------------------------------------
+    # Helpers for safe identifier handling
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def prophecy_q(name: str) -> str:
+        """Quote a Spark identifier so it can contain any character."""
+        return f"`{name.replace('`', '``')}`"
+
+    @staticmethod
+    def prophecy_sc(struct: str, field: str) -> str:
+        """Return 'struct.`field`' with the field safely quoted."""
+        return f"{struct}.{DataFrameDiff.prophecy_q(field)}"
 
     @classmethod
     def get_precedence(cls, dt: DataType) -> int:
@@ -274,30 +274,46 @@ class DataFrameDiff:
         return df_unique, df_not_unique
 
     @classmethod
-    def create_joined_df(cls, df1, df2, key_columns, value_columns):
+    def create_joined_df(
+        cls,
+        generated_df,
+        expected_df,
+        key_columns,
+        value_columns,
+        join_type="full_outer",
+    ):
         """
         Compare two DataFrames and identify presence in left, right, and differences in values.
 
-        :param df1: First / Calculated DataFrame (left)
-        :param df2: Second / Expected DataFrame (right)
+        :param generated_df: First / Calculated DataFrame (left)
+        :param expected_df: Second / Expected DataFrame (right)
         :param key_columns: List of key columns for joining
         :param value_columns: List of value columns to compare
         :return: Resultant DataFrame with key columns, presence flags, and value comparison
         """
 
-        df1, df2 = cls.align_dataframes_schemas(df1, df2)
+        join_type = join_type.lower()
+        if join_type not in {"full_outer", "left", "right", "inner"}:
+            raise ValueError(f"Unsupported join_type '{join_type}'.")
+
+        generated_df, expected_df = cls.align_dataframes_schemas(
+            generated_df, expected_df
+        )
 
         # Construct a null-safe join condition for each key column.
         join_condition = [F.expr(f"left.{col} <=> right.{col}") for col in key_columns]
 
         # Perform a full outer join on the key columns
-        joined_df = df1.alias("left").join(
-            df2.alias("right"), on=join_condition, how="full_outer"
+        joined_df = generated_df.alias("left").join(
+            expected_df.alias("right"), on=join_condition, how=join_type
         )
 
         # Compute coalesced key columns and presence flags
         coalesced_keys = [
-            F.coalesce(F.col(sc("left", col)), F.col(sc("right", col))).alias(col)
+            F.coalesce(
+                F.col(DataFrameDiff.prophecy_sc("left", col)),
+                F.col(DataFrameDiff.prophecy_sc("right", col)),
+            ).alias(col)
             for col in key_columns
         ]
 
@@ -306,7 +322,7 @@ class DataFrameDiff:
                 F.expr(
                     " AND ".join(
                         [
-                            f"coalesce(left.{q(col)}, right.{q(col)}) <=> left.{q(col)}"
+                            f"coalesce(left.{DataFrameDiff.prophecy_q(col)}, right.{DataFrameDiff.prophecy_q(col)}) <=> left.{DataFrameDiff.prophecy_q(col)}"
                             for col in key_columns
                         ]
                     )
@@ -322,7 +338,7 @@ class DataFrameDiff:
                 F.expr(
                     " AND ".join(
                         [
-                            f"coalesce(left.{q(col)}, right.{q(col)}) <=> right.{q(col)}"
+                            f"coalesce(left.{DataFrameDiff.prophecy_q(col)}, right.{DataFrameDiff.prophecy_q(col)}) <=> right.{DataFrameDiff.prophecy_q(col)}"
                             for col in key_columns
                         ]
                     )
@@ -337,16 +353,16 @@ class DataFrameDiff:
         # If a column is missing in a DataFrame, we substitute it with a null literal.
         left_value_exprs = [
             (
-                F.col(sc("left", col)).alias(col)
-                if col in df1.columns
+                F.col(DataFrameDiff.prophecy_sc("left", col)).alias(col)
+                if col in generated_df.columns
                 else F.lit(None).alias(col)
             )
             for col in value_columns
         ]
         right_value_exprs = [
             (
-                F.col(sc("right", col)).alias(col)
-                if col in df2.columns
+                F.col(DataFrameDiff.prophecy_sc("right", col)).alias(col)
+                if col in expected_df.columns
                 else F.lit(None).alias(col)
             )
             for col in value_columns
@@ -430,9 +446,7 @@ class DataFrameDiff:
                 )
             else:
                 # For simple types, use the original approach with <=>
-                expr_str = (
-                    f"{sc(left_struct, field_name)} <=> {sc(right_struct, field_name)}"
-                )
+                expr_str = f"{DataFrameDiff.prophecy_sc(left_struct, field_name)} <=> {DataFrameDiff.prophecy_sc(right_struct, field_name)}"
                 comparison_expr = (
                     F.when(both_rows_exist, F.expr(expr_str))
                     .otherwise(F.lit(False))
@@ -480,14 +494,22 @@ class DataFrameDiff:
         for column in fields:
             # Aggregator for the number of matches in the current column
             match_aggregator = F.coalesce(
-                F.sum(F.when(F.col(sc(comparison_struct, column)), 1).otherwise(0)),
+                F.sum(
+                    F.when(
+                        F.col(DataFrameDiff.prophecy_sc(comparison_struct, column)), 1
+                    ).otherwise(0)
+                ),
                 F.lit(0),
             ).alias(f"{column}_match_count")
             per_column_aggregators.append(match_aggregator)
 
             # Aggregator for the number of mismatches in the current column
             mismatch_aggregator = F.coalesce(
-                F.sum(F.when(~F.col(sc(comparison_struct, column)), 1).otherwise(0)),
+                F.sum(
+                    F.when(
+                        ~F.col(DataFrameDiff.prophecy_sc(comparison_struct, column)), 1
+                    ).otherwise(0)
+                ),
                 F.lit(0),
             ).alias(f"{column}_mismatch_count")
             per_column_aggregators.append(mismatch_aggregator)
@@ -681,24 +703,31 @@ class DataFrameDiff:
             if col_name in left_df.columns and col_name in right_df.columns:
                 select_exprs.append(
                     F.when(
-                        F.col(sc("compared_values", col_name)) == True,
-                        F.array(F.col(sc("left_values", col_name))),
+                        F.col(DataFrameDiff.prophecy_sc("compared_values", col_name))
+                        == True,
+                        F.array(
+                            F.col(DataFrameDiff.prophecy_sc("left_values", col_name))
+                        ),
                     )
                     .otherwise(
                         F.array(
-                            F.col(sc("left_values", col_name)),
-                            F.col(sc("right_values", col_name)),
+                            F.col(DataFrameDiff.prophecy_sc("left_values", col_name)),
+                            F.col(DataFrameDiff.prophecy_sc("right_values", col_name)),
                         )
                     )
                     .alias(col_name)
                 )
             elif col_name in left_df.columns:
                 select_exprs.append(
-                    F.array(F.col(sc("left_values", col_name))).alias(col_name)
+                    F.array(
+                        F.col(DataFrameDiff.prophecy_sc("left_values", col_name))
+                    ).alias(col_name)
                 )
             elif col_name in right_df.columns:
                 select_exprs.append(
-                    F.array(F.col(sc("right_values", col_name))).alias(col_name)
+                    F.array(
+                        F.col(DataFrameDiff.prophecy_sc("right_values", col_name))
+                    ).alias(col_name)
                 )
 
         # Append the additional columns.
@@ -709,8 +738,16 @@ class DataFrameDiff:
         return joined_df.select(*select_exprs)
 
     @classmethod
-    def create_diff(cls, expected_df, generated_df, key_columns, diff_key):
-        # Validate that all key columns exist in both dataframes
+    def create_diff(
+        cls,
+        expected_df,
+        generated_df,
+        key_columns,
+        diff_key,
+        column_subset=None,
+        join_type: str = "full_outer",
+    ):
+        # First, validate that all key columns exist in both full DataFrames.
         missing_in_expected = [
             col for col in key_columns if col not in expected_df.columns
         ]
@@ -737,13 +774,53 @@ class DataFrameDiff:
 
             raise ValueError(error_message)
 
-        value_columns = cls.get_value_columns(expected_df, generated_df, key_columns)
+        # If a column_subset is provided, perform additional checks.
+        if column_subset is not None:
+            # Ensure that all key columns are in column_subset.
+            missing_keys = set(key_columns) - set(column_subset)
+            if missing_keys:
+                raise ValueError(
+                    f"Key columns {list(missing_keys)} must be included in column_subset."
+                )
+
+            # Check that all columns in column_subset exist in both DataFrames.
+            missing_expected = set(column_subset) - set(expected_df.columns)
+            missing_generated = set(column_subset) - set(generated_df.columns)
+            error_msgs = []
+            if missing_expected:
+                error_msgs.append(
+                    f"Columns missing in expected dataset: {list(missing_expected)}"
+                )
+            if missing_generated:
+                error_msgs.append(
+                    f"Columns missing in generated dataset: {list(missing_generated)}"
+                )
+            if error_msgs:
+                raise ValueError(" ".join(error_msgs))
+
+            # Use the subset for the diff computation.
+            processed_expected_df = expected_df.select(*column_subset)
+            processed_generated_df = generated_df.select(*column_subset)
+        else:
+            processed_expected_df = expected_df
+            processed_generated_df = generated_df
+
+        # Determine the value columns for diff using the (possibly subsetted) DataFrames.
+        value_columns = cls.get_value_columns(
+            processed_expected_df, processed_generated_df, key_columns
+        )
+
+        # Create the joined DataFrame after splitting on primary key uniqueness.
         joined_df = cls.create_joined_df(
-            # pass unique df
-            df1=cls.split_df_by_pk_uniqueness(generated_df, key_columns=key_columns)[0],
-            df2=cls.split_df_by_pk_uniqueness(expected_df, key_columns=key_columns)[0],
+            generated_df=cls.split_df_by_pk_uniqueness(
+                processed_generated_df, key_columns=key_columns
+            )[0],
+            expected_df=cls.split_df_by_pk_uniqueness(
+                processed_expected_df, key_columns=key_columns
+            )[0],
             key_columns=key_columns,
             value_columns=value_columns,
+            join_type=join_type,
         )
         joined_df = cls.add_row_matches_column(joined_df)
         joined_df = cls.add_column_comparison_results(joined_df)
@@ -752,16 +829,17 @@ class DataFrameDiff:
             joined_df,
             key_columns,
             value_columns,
-            left_df=generated_df,
-            right_df=expected_df,
+            left_df=processed_generated_df,
+            right_df=processed_expected_df,
         )
 
+        # Register the diff results with the full DataFrames.
         cls.COMPUTED_DIFFS[diff_key] = {
             DiffKeys.JOINED.value: joined_df,
             DiffKeys.SUMMARY.value: summary_df,
             DiffKeys.CLEANED.value: clean_joined_df,
-            DiffKeys.EXPECTED.value: expected_df,
-            DiffKeys.GENERATED.value: generated_df,
+            DiffKeys.EXPECTED.value: expected_df,  # full expected DataFrame registered.
+            DiffKeys.GENERATED.value: generated_df,  # full generated DataFrame registered.
             DiffKeys.KEY_COLUMNS.value: key_columns,
             DiffKeys.VALUE_COLUMNS.value: value_columns,
         }

@@ -1,11 +1,9 @@
-use crate::apply_option;
 use crate::error::Error;
 use crate::{
     async_impl::{Response, WebSocket},
     typing::param::{RequestParams, WebSocketParams},
     typing::{Method, Version},
 };
-
 use pyo3::PyResult;
 use rquest::redirect::Policy;
 use rquest::{Client, header};

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: social-auth-core
-Version: 4.6.0
+Version: 4.6.1
 Summary: Python social authentication made simple.
 Author-email: Matias Aguirre <matiasaguirre@gmail.com>, Michal Čihař <michal@weblate.org>
 License-Expression: BSD-3-Clause

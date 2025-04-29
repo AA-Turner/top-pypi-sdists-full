@@ -49,7 +49,8 @@ class BaseLM(ABC):
         self.history = []
 
     def _process_lm_response(self, response, prompt, messages, **kwargs):
-        if kwargs.get("logprobs"):
+        merged_kwargs = {**self.kwargs, **kwargs}
+        if merged_kwargs.get("logprobs"):
             outputs = [
                 {
                     "text": c.message.content if hasattr(c, "message") else c["text"],
@@ -90,6 +91,7 @@ class BaseLM(ABC):
 
         return outputs
 
+    @with_callbacks
     async def acall(self, prompt=None, messages=None, **kwargs):
         response = await self.aforward(prompt=prompt, messages=messages, **kwargs)
         outputs = self._process_lm_response(response, prompt, messages, **kwargs)

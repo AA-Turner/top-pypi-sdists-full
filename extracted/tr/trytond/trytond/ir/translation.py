@@ -2,7 +2,6 @@
 # this repository contains the full copyright notices and license terms.
 import os
 from collections import defaultdict
-from difflib import SequenceMatcher
 from io import BytesIO
 
 import polib
@@ -53,7 +52,7 @@ class OverriddenError(UserError):
 class TrytonPOFile(polib.POFile):
 
     def sort(self):
-        return super(TrytonPOFile, self).sort(
+        return super().sort(
             key=lambda x: (x.msgctxt, x.msgid))
 
 
@@ -65,7 +64,6 @@ class Translation(
             'overriding_module_ref', 'overriding_module', 'ir.module,name',
             "Overriding Module", readonly=True),
         ModelSQL, ModelView):
-    "Translation"
     __name__ = "ir.translation"
 
     name = fields.Char('Field Name', required=True)
@@ -73,8 +71,25 @@ class Translation(
     lang = fields.Selection('get_language', string='Language')
     type = fields.Selection(TRANSLATION_TYPE, string='Type',
        required=True)
+
     src = fields.Text('Source')
+    src_plural = fields.Text("Source Plural")
+
     value = fields.Text('Translation Value')
+    value_1 = fields.Text(
+        "Translation Value 1",
+        states={
+            'invisible': ~Eval('src_plural'),
+            })
+    value_2 = fields.Text("Translation Value 2",
+        states={
+            'invisible': ~Eval('src_plural'),
+            })
+    value_3 = fields.Text("Translation Value 3",
+        states={
+            'invisible': ~Eval('src_plural'),
+            })
+
     module = fields.Char('Module', readonly=True)
     fuzzy = fields.Boolean('Fuzzy')
     model = fields.Function(fields.Char('Model'), 'get_model',
@@ -119,26 +134,12 @@ class Translation(
                 })
 
     @classmethod
-    def __register__(cls, module_name):
-        table = cls.__table_handler__(module_name)
-
-        # Migration from 5.0: remove src_md5
-        if table.column_exist('src_md5'):
-            table.drop_constraint('translation_md5_uniq')
-            table.drop_column('src_md5')
-
-        super(Translation, cls).__register__(module_name)
-
-    @classmethod
     def register_model(cls, model, module_name):
         cursor = Transaction().connection.cursor()
         ir_translation = cls.__table__()
 
-        if not model.__doc__:
-            return
-
-        name = model.__name__ + ',name'
-        src = model._get_name()
+        name = model.__name__ + ',string'
+        src = model.__string__
         if not src:
             return
         cursor.execute(*ir_translation.select(ir_translation.id,
@@ -319,7 +320,13 @@ class Translation(
 
     @classmethod
     def view_attributes(cls):
-        return [('/form//field[@name="value"]', 'spell', Eval('lang'))]
+        return [
+            ('/form//field[@name="value"]'
+                '|/form//field[@name="value_1"]'
+                '|/form//field[@name="value_2"]'
+                '|/form//field[@name="value_3"]',
+                'spell', Eval('lang')),
+            ]
 
     @classmethod
     @without_check_access
@@ -338,7 +345,7 @@ class Translation(
         if name.split(',')[0] in ('ir.model.field', 'ir.model'):
             field_name = name.split(',')[1]
             if name.split(',')[0] == 'ir.model.field':
-                if field_name == 'field_description':
+                if field_name == 'string':
                     ttype = 'field'
                 else:
                     ttype = 'help'
@@ -352,7 +359,7 @@ class Translation(
                 if ttype in ('field', 'help'):
                     name = record.model + ',' + record.name
                 else:
-                    name = record.model + ',' + field_name
+                    name = record.name + ',' + field_name
                 trans_args.append((name, ttype, lang, None))
             cls.get_sources(trans_args)
 
@@ -360,7 +367,7 @@ class Translation(
                 if ttype in ('field', 'help'):
                     name = record.model + ',' + record.name
                 else:
-                    name = record.model + ',' + field_name
+                    name = record.name + ',' + field_name
                 translations[record.id] = cls.get_source(name, ttype, lang)
                 if translations[record.id] is None:
                     with Transaction().set_context(language=lang):
@@ -377,12 +384,10 @@ class Translation(
                                 value = field.help
                         else:
                             try:
-                                model = pool.get(record.model)
+                                model = pool.get(record.name)
                             except KeyError:
                                 continue
-                            if not model.__doc__:
-                                continue
-                            value = model._get_name()
+                            value = model.__string__
                         if isinstance(value, StringPartitioned):
                             for source in value:
                                 translations[record.id] += source
@@ -454,7 +459,7 @@ class Translation(
         model_name, field_name = name.split(',')
         if model_name in ('ir.model.field', 'ir.model'):
             if model_name == 'ir.model.field':
-                if field_name == 'field_description':
+                if field_name == 'string':
                     ttype = 'field'
                 else:
                     ttype = 'help'
@@ -469,7 +474,7 @@ class Translation(
                 if ttype in ('field', 'help'):
                     return record.model + ',' + record.name
                 else:
-                    return record.model + ',' + field_name
+                    return record.name + ',' + field_name
 
             name2translations = defaultdict(list)
             for translation in cls.search([
@@ -482,7 +487,7 @@ class Translation(
 
             to_save, to_delete = [], []
             for record, value in zip(records, values):
-                translations = name2translations.get(get_name(record))
+                translations = name2translations[get_name(record)]
                 if lang == INTERNAL_LANG:
                     src = value
                 else:
@@ -491,7 +496,7 @@ class Translation(
                     if not src and not value:
                         continue
                     translation = cls()
-                    translation.name = name
+                    translation.name = get_name(record)
                     translation.lang = lang
                     translation.type = ttype
                     translations.append(translation)
@@ -655,8 +660,11 @@ class Translation(
         return res
 
     @classmethod
-    def get_report(cls, report_name, text):
+    def get_report(cls, report_name, text, text_plural=None, n=0):
+        pool = Pool()
+        Lang = pool.get('ir.lang')
         language = Transaction().language
+        lang = Lang.get(language)
         key = (report_name, language)
         if cls._translation_report_cache.get(key) is None:
             cache = {}
@@ -672,10 +680,24 @@ class Translation(
                         ('res_id', '=', -1),
                         ], order=[('module', 'DESC')])
                 for translation in translations:
-                    cache.setdefault(translation.src, translation.value)
+                    cache.setdefault(
+                        (translation.src, translation.src_plural),
+                        [translation.value,
+                            translation.value_1,
+                            translation.value_2,
+                            translation.value_3])
                 code = get_parent(code)
             cls._translation_report_cache.set(key, cache)
-        return cls._translation_report_cache.get(key, {}).get(text, text)
+        values = cls._translation_report_cache.get(key, {}).get(
+            (text, text_plural), [text] * lang.nplurals)
+        if text_plural is not None:
+            index = lang.get_plural(n)
+        else:
+            index = 0
+        try:
+            return values[index]
+        except IndexError:
+            return text
 
     @classmethod
     def copy(cls, translations, default=None):
@@ -685,26 +707,16 @@ class Translation(
         return super().copy(translations, default=default)
 
     @classmethod
-    def delete(cls, translations):
-        cls.__clear_cache_for(translations)
-        return super().delete(translations)
+    def preprocess_values(cls, mode, values):
+        context = Transaction().context
+        values = super().preprocess_values(mode, values)
+        if mode == 'create' and not values.get('module'):
+            values['module'] = context.get('module')
+        return values
 
     @classmethod
-    def create(cls, vlist):
-        vlist = [x.copy() for x in vlist]
-
-        for vals in vlist:
-            if not vals.get('module'):
-                if Transaction().context.get('module'):
-                    vals['module'] = Transaction().context['module']
-        translations = super().create(vlist)
-        cls.__clear_cache_for(translations)
-        return translations
-
-    @classmethod
-    def write(cls, *args):
-        super().write(*args)
-        translations = sum(args[0:None:2], [])
+    def on_modification(cls, mode, translations, field_names=None):
+        super().on_modification(mode, translations, field_names=field_names)
         cls.__clear_cache_for(translations)
 
     @classmethod
@@ -718,7 +730,7 @@ class Translation(
     @classmethod
     def _clear_cache_for(cls, types, models):
         pool = Pool()
-        if 'field' in types and 'ir.message' in models:
+        if 'model' in types and 'ir.message' in models:
             pool.get('ir.message')._message_cache.clear()
         if 'field' in types and 'ir.model' in models:
             pool.get('ir.model')._get_names_cache.clear()
@@ -754,11 +766,29 @@ class Translation(
         'Returns a translation instance for a entry of pofile and its res_id'
         ttype, name, res_id = entry.msgctxt.split(':')
         src = entry.msgid
-        value = entry.msgstr
+        if entry.msgid_plural:
+            src_plural = entry.msgid_plural
+            value = entry.msgstr_plural.get(0)
+            value_1 = entry.msgstr_plural.get(1)
+            value_2 = entry.msgstr_plural.get(2)
+            value_3 = entry.msgstr_plural.get(3)
+        else:
+            src_plural = None
+            value = entry.msgstr
+            value_1 = value_2 = value_3 = None
         fuzzy = 'fuzzy' in entry.flags
 
-        translation = cls(name=name, type=ttype, src=src, fuzzy=fuzzy,
-            value=value)
+        translation = cls(
+            name=name,
+            type=ttype,
+            src=src,
+            src_plural=src_plural,
+            fuzzy=fuzzy,
+            value=value,
+            value_1=value_1,
+            value_2=value_2,
+            value_3=value_3,
+            )
         return translation, res_id
 
     @classmethod
@@ -790,9 +820,6 @@ class Translation(
                 ('module', '=', module),
                 ], order=[])
         for translation in module_translations:
-            # Migration from 5.0: ignore error type
-            if translation.type == 'error':
-                continue
             key = translation.unique_key
             if not key:
                 raise ValueError('Unknow translation type: %s' %
@@ -822,9 +849,17 @@ class Translation(
                 if new_translation.type in {
                         'report', 'view', 'wizard_button', 'selection'}:
                     domain.append(('src', '=', new_translation.src))
+                    domain.append(('src_plural', '=',
+                            new_translation.src_plural))
                 translation, = cls.search(domain)
-                if translation.value != new_translation.value:
+                if ((translation.value != new_translation.value)
+                        or (translation.value_1 != new_translation.value_1)
+                        or (translation.value_2 != new_translation.value_2)
+                        or (translation.value_3 != new_translation.value_3)):
                     translation.value = new_translation.value
+                    translation.value_1 = new_translation.value_1
+                    translation.value_2 = new_translation.value_2
+                    translation.value_3 = new_translation.value_3
                     translation.overriding_module = module
                     translation.fuzzy = new_translation.fuzzy
                     return translation
@@ -847,9 +882,6 @@ class Translation(
                     if entry.obsolete:
                         continue
                     translation, res_id = cls.from_poentry(entry)
-                    # Migration from 5.0: ignore error type
-                    if translation.type == 'error':
-                        continue
                     translation.lang = lang
                     translation.module = module
                     noupdate = False
@@ -890,6 +922,9 @@ class Translation(
                             old_translation = id2translation[translation_id]
                             if not noupdate:
                                 old_translation.value = translation.value
+                                old_translation.value_1 = translation.value_1
+                                old_translation.value_2 = translation.value_2
+                                old_translation.value_3 = translation.value_3
                                 old_translation.fuzzy = translation.fuzzy
                                 to_save.append(old_translation)
                             else:
@@ -960,10 +995,24 @@ class Translation(
                 else:
                     continue
                 trans_ctxt += '%s' % res_id
-            entry = polib.POEntry(msgid=(translation.src or ''),
-                msgstr=(translation.value or ''), msgctxt=trans_ctxt,
+            entry = polib.POEntry(
+                msgid=(translation.src or ''),
+                msgctxt=trans_ctxt,
                 flags=flags)
-            if entry.msgid or entry.msgstr:
+            if translation.src_plural:
+                entry.msgid_plural = translation.src_plural
+                entry.msgstr = ''
+                entry.msgstr_plural = {}
+                entry.msgstr_plural[0] = translation.value or ''
+                if translation.value_1:
+                    entry.msgstr_plural[1] = translation.value_1
+                    if translation.value_2:
+                        entry.msgstr_plural[2] = translation.value_2
+                        if translation.value_3:
+                            entry.msgstr_plural[3] = translation.value_3
+            else:
+                entry.msgstr = translation.value or ''
+            if entry.msgid or entry.msgstr or entry.msgstr_plural:
                 pofile.append(entry)
 
         if pofile:
@@ -974,17 +1023,14 @@ class Translation(
 
 
 class TranslationSetStart(ModelView):
-    "Set Translation"
     __name__ = 'ir.translation.set.start'
 
 
 class TranslationSetSucceed(ModelView):
-    "Set Translation"
     __name__ = 'ir.translation.set.succeed'
 
 
 class TranslationSet(Wizard):
-    "Set Translation"
     __name__ = "ir.translation.set"
 
     start = StateView('ir.translation.set.start',
@@ -1087,61 +1133,57 @@ class TranslationSet(Wizard):
                     continue
 
                 cursor.execute(*translation.select(
-                        translation.id, translation.name, translation.src,
+                        translation.id, translation.name,
+                        translation.src, translation.src_plural,
                         where=(translation.lang == INTERNAL_LANG)
                         & (translation.type == 'report')
                         & (translation.name == report.report_name)
                         & (translation.module == module)))
-                trans_reports = {t['src']: t for t in cursor_dict(cursor)}
+                trans_reports = {
+                    (t['src'], t['src_plural']): t
+                    for t in cursor_dict(cursor)}
 
                 strings = report_strings[report.report_name, report.module]
                 func_name = 'extract_report_%s' % report.template_extension
                 strings.update(getattr(self, func_name)(content))
 
                 for string in strings:
-                    done = False
+                    if isinstance(string, str):
+                        string = (string, None)
                     if string in trans_reports:
                         del trans_reports[string]
                         continue
-                    for string_trans in trans_reports:
-                        if string_trans in strings:
-                            continue
-                        seqmatch = SequenceMatcher(lambda x: x == ' ',
-                                string, string_trans)
-                        if seqmatch.ratio() == 1.0:
-                            del trans_reports[report.report_name][string_trans]
-                            done = True
-                            break
-                        if seqmatch.ratio() > 0.6:
-                            cursor.execute(*translation.update(
-                                    [translation.src, translation.fuzzy],
-                                    [string, True],
-                                    where=(
-                                        translation.name == report.report_name)
-                                    & (translation.type == 'report')
-                                    & (translation.src == string_trans)
-                                    & (translation.module == module)))
-                            del trans_reports[string_trans]
-                            done = True
-                            break
-                    if not done:
-                        cursor.execute(*translation.insert(
-                                [translation.name, translation.lang,
-                                    translation.type, translation.src,
-                                    translation.value, translation.module,
-                                    translation.fuzzy, translation.res_id],
-                                [[
-                                        report.report_name, INTERNAL_LANG,
-                                        'report', string,
-                                        '', module,
-                                        False, -1]]))
+                    cursor.execute(*translation.insert(
+                            [translation.name, translation.lang,
+                                translation.type, translation.src,
+                                translation.src_plural, translation.value,
+                                translation.value_1, translation.value_2,
+                                translation.value_3, translation.module,
+                                translation.fuzzy, translation.res_id],
+                            [
+                                [report.report_name, INTERNAL_LANG,
+                                    'report', string[0],
+                                    string[1], '',
+                                    '', '',
+                                    '', module,
+                                    False, -1]]))
         for (report_name, module), strings in report_strings.items():
             query = translation.delete(
                 where=(translation.name == report_name)
                 & (translation.type == 'report')
                 & (translation.module == module))
             if strings:
-                query.where &= ~translation.src.in_(list(strings))
+                src_where = Literal(True)
+                for string in strings:
+                    if isinstance(string, str):
+                        src = string
+                        src_plural = None
+                    else:
+                        src, src_plural = string
+                    query.where |= (
+                        (translation.src != src)
+                        & (translation.src_plural != src_plural))
+                query.where &= ~src_where
             cursor.execute(*query)
 
     def _translate_view(self, element):
@@ -1200,40 +1242,23 @@ class TranslationSet(Wizard):
             if not strings:
                 continue
             for string in set(strings):
-                done = False
                 if string in trans_views:
                     del trans_views[string]
                     continue
-                for string_trans in trans_views:
-                    if string_trans in strings:
-                        continue
-                    seqmatch = SequenceMatcher(lambda x: x == ' ',
-                            string, string_trans)
-                    if seqmatch.ratio() == 1.0:
-                        del trans_views[string_trans]
-                        done = True
-                        break
-                    if seqmatch.ratio() > 0.6:
-                        cursor.execute(*translation.update(
-                                [translation.src,
-                                    translation.fuzzy],
-                                [string, True],
-                                where=(translation.id
-                                    == trans_views[string_trans]['id'])))
-                        del trans_views[string_trans]
-                        done = True
-                        break
-                if not done:
-                    cursor.execute(*translation.insert(
-                            [translation.name, translation.lang,
-                                translation.type, translation.src,
-                                translation.value, translation.module,
-                                translation.fuzzy, translation.res_id],
-                            [[
-                                    view.model, INTERNAL_LANG,
-                                    'view', string,
-                                    '', view.module,
-                                    False, -1]]))
+                cursor.execute(*translation.insert(
+                        [translation.name, translation.lang,
+                            translation.type, translation.src,
+                            translation.src_plural, translation.value,
+                            translation.value_1, translation.value_2,
+                            translation.value_3, translation.module,
+                            translation.fuzzy, translation.res_id],
+                        [
+                            [view.model, INTERNAL_LANG,
+                                'view', string,
+                                '', '',
+                                '', '',
+                                '', view.module,
+                                False, -1]]))
             if strings:
                 cursor.execute(*translation.delete(
                         where=(translation.name == view.model)
@@ -1248,17 +1273,14 @@ class TranslationSet(Wizard):
 
 
 class TranslationCleanStart(ModelView):
-    'Clean translation'
     __name__ = 'ir.translation.clean.start'
 
 
 class TranslationCleanSucceed(ModelView):
-    'Clean translation'
     __name__ = 'ir.translation.clean.succeed'
 
 
 class TranslationClean(Wizard):
-    "Clean translation"
     __name__ = 'ir.translation.clean'
 
     start = StateView('ir.translation.clean.start',
@@ -1307,7 +1329,7 @@ class TranslationClean(Wizard):
             if (not hasattr(field, 'translate')
                     or not field.translate):
                 return True
-        elif field_name not in ('name'):
+        elif field_name != 'string':
             return True
 
     @staticmethod
@@ -1409,8 +1431,7 @@ class TranslationClean(Wizard):
         for translation in translations:
             if getattr(self, '_clean_%s' % translation.type)(translation):
                 to_delete.append(translation.id)
-            elif translation.type in ('field', 'model', 'wizard_button',
-                    'help'):
+            elif translation.type in {'field', 'model', 'wizard_button'}:
                 key = (translation.module, translation.lang, translation.type,
                     translation.name, translation.res_id)
                 if key in keys:
@@ -1444,7 +1465,6 @@ class TranslationClean(Wizard):
 
 
 class TranslationUpdateStart(ModelView):
-    "Update translation"
     __name__ = 'ir.translation.update.start'
 
     language = fields.Many2One('ir.lang', 'Language', required=True,
@@ -1459,13 +1479,12 @@ class TranslationUpdateStart(ModelView):
                     ('code', '=', code),
                     ('translatable', '=', True),
                     ], limit=1)
-            return lang.id
+            return lang
         except ValueError:
             return None
 
 
 class TranslationUpdate(Wizard):
-    "Update translation"
     __name__ = "ir.translation.update"
 
     _source_types = ['report', 'view', 'wizard_button', 'selection']
@@ -1507,9 +1526,14 @@ class TranslationUpdate(Wizard):
             source_clause = Literal(True)
         default_lang = Config.get_language()
 
-        columns = [translation.name.as_('name'),
-            translation.res_id.as_('res_id'), translation.type.as_('type'),
-            translation.src.as_('src'), translation.module.as_('module')]
+        columns = [
+            translation.name.as_('name'),
+            translation.res_id.as_('res_id'),
+            translation.type.as_('type'),
+            translation.src.as_('src'),
+            translation.src_plural.as_('src_plural'),
+            translation.module.as_('module'),
+            ]
         cursor.execute(*(translation.select(*columns,
                     where=(translation.lang == default_lang)
                     & source_clause
@@ -1521,13 +1545,14 @@ class TranslationUpdate(Wizard):
         to_create = []
         for row in cursor_dict(cursor):
             to_create.append({
-                'name': row['name'],
-                'res_id': row['res_id'],
-                'lang': lang,
-                'type': row['type'],
-                'src': row['src'],
-                'module': row['module'],
-                })
+                    'name': row['name'],
+                    'res_id': row['res_id'],
+                    'lang': lang,
+                    'type': row['type'],
+                    'src': row['src'],
+                    'src_plural': row['src_plural'],
+                    'module': row['module'],
+                    })
         if to_create:
             Translation.create(to_create)
 
@@ -1549,6 +1574,7 @@ class TranslationUpdate(Wizard):
                         & (translation.res_id == row['res_id'])
                         & (translation.type == row['type'])
                         & (translation.src == row['src'])
+                        & (translation.src_plural == row['src_plural'])
                         & (translation.module == row['module'])
                         & (translation.lang == lang)))
 
@@ -1594,9 +1620,14 @@ class TranslationUpdate(Wizard):
                         & (translation.module == row['module'])
                         & (translation.lang == lang)))
 
-        columns = [translation.name.as_('name'),
-            translation.res_id.as_('res_id'), translation.type.as_('type'),
-            translation.src.as_('src'), translation.module.as_('module')]
+        columns = [
+            translation.name.as_('name'),
+            translation.res_id.as_('res_id'),
+            translation.type.as_('type'),
+            translation.src.as_('src'),
+            translation.src_plural.as_('src_plural'),
+            translation.module.as_('module'),
+            ]
         cursor.execute(*(translation.select(*columns,
                     where=(translation.lang == default_lang)
                     & translation.type.in_(self._updatable_types))
@@ -1605,8 +1636,9 @@ class TranslationUpdate(Wizard):
                     & translation.type.in_(self._updatable_types))))
         for row in cursor_dict(cursor):
             cursor_update.execute(*translation.update(
-                    [translation.fuzzy, translation.src],
-                    [True, row['src']],
+                    [translation.fuzzy, translation.src,
+                        translation.src_plural],
+                    [True, row['src'], row['src_plural']],
                     where=(translation.name == row['name'])
                     & (translation.type == row['type'])
                     & (translation.lang == lang)
@@ -1624,6 +1656,7 @@ class TranslationUpdate(Wizard):
                         & (translation.lang == lang)
                         & (translation.src != '')
                         & (translation.src != Null)))
+                & (translation.src_plural == Null)
                 & (translation.value != '')
                 & (translation.value != Null),
                 group_by=translation.src))
@@ -1650,7 +1683,6 @@ class TranslationUpdate(Wizard):
 
 
 class TranslationExportStart(ModelView):
-    "Export translation"
     __name__ = 'ir.translation.export.start'
 
     language = fields.Many2One('ir.lang', 'Language', required=True,
@@ -1670,13 +1702,12 @@ class TranslationExportStart(ModelView):
         domain = [('code', '=', code)] + cls.language.domain
         try:
             lang, = Lang.search(domain, limit=1)
-            return lang.id
+            return lang
         except ValueError:
             return None
 
 
 class TranslationExportResult(ModelView):
-    "Export translation"
     __name__ = 'ir.translation.export.result'
 
     language = fields.Many2One('ir.lang', 'Language', readonly=True)
@@ -1686,7 +1717,6 @@ class TranslationExportResult(ModelView):
 
 
 class TranslationExport(Wizard):
-    "Export translation"
     __name__ = "ir.translation.export"
 
     start = StateView('ir.translation.export.start',
@@ -1720,7 +1750,6 @@ class TranslationExport(Wizard):
 
 
 class TranslationReport(Wizard):
-    "Open translations of report"
     __name__ = 'ir.translation.report'
     start_state = 'open_'
     open_ = StateAction('ir.act_translation_report')

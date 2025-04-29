@@ -34,6 +34,7 @@ CLIENT_ICONS = [(x, x) for x in [
         'tryton-close',
         'tryton-copy',
         'tryton-create',
+        'tryton-chat',
         'tryton-date',
         'tryton-delete',
         'tryton-download',
@@ -84,7 +85,6 @@ class UIMenu(
         sequence_ordered(order='ASC NULLS LAST'),
         tree(separator=' / '),
         ModelSQL, ModelView):
-    "UI menu"
     __name__ = 'ir.ui.menu'
 
     name = fields.Char('Menu', required=True, translate=True)
@@ -106,6 +106,8 @@ class UIMenu(
         filter=[
             ('keyword', '=', 'tree_open'),
             ])
+    groups = fields.Many2Many(
+        'ir.ui.menu-res.group', 'menu', 'group', "Groups")
     favorite = fields.Function(fields.Boolean('Favorite'), 'get_favorite')
     favorites = fields.Many2Many(
         'ir.ui.menu.favorite', 'menu', 'user', "Favorites")
@@ -159,7 +161,7 @@ class UIMenu(
                     return False
             return True
 
-        menus = super(UIMenu, cls).search(domain, offset=offset, limit=limit,
+        menus = super().search(domain, offset=offset, limit=limit,
                 order=order, count=False, query=query)
         if query:
             return menus
@@ -262,8 +264,15 @@ class UIMenu(
         return menu2favorite
 
 
+class UIMenuGroup(ModelSQL):
+    __name__ = 'ir.ui.menu-res.group'
+    menu = fields.Many2One(
+        'ir.ui.menu', "Menu", ondelete='CASCADE', required=True)
+    group = fields.Many2One(
+        'res.group', "Group", ondelete='CASCADE', required=True)
+
+
 class UIMenuFavorite(ModelSQL):
-    "Menu Favorite"
     __name__ = 'ir.ui.menu.favorite'
 
     menu = fields.Many2One('ir.ui.menu', 'Menu', required=True,
@@ -273,7 +282,7 @@ class UIMenuFavorite(ModelSQL):
 
     @classmethod
     def __setup__(cls):
-        super(UIMenuFavorite, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'get': RPC(check_access=False),
                 'set': RPC(check_access=False, readonly=False),

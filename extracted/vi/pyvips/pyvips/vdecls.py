@@ -72,8 +72,10 @@ def cdefs(features):
         const char* g_type_name (GType gtype);
         GType g_type_from_name (const char* name);
 
-        typedef ... VipsTypeMap2Fn;
-        void* vips_type_map (GType base, VipsTypeMap2Fn fn, void* a, void* b);
+        typedef void* (*VipsTypeMap2Fn) (GType type, void* a, void* b);
+        void* vips_type_map (GType base, void* fn, void* a, void* b);
+
+        void vips_shutdown (void);
 
         const char* vips_error_buffer (void);
         void vips_error_clear (void);
@@ -356,6 +358,7 @@ def cdefs(features):
         int vips_cache_get_size();
         size_t vips_cache_get_max_mem();
         int vips_cache_get_max_files();
+
     '''
 
     # we must only define this in ABI mode ... in API mode we use
@@ -472,11 +475,9 @@ def cdefs(features):
 
     # add contents of features as a comment ... handy for debugging
     for key, value in features.items():
-        code += '//%s = %s\n' % (key, value)
+        code += f'//{key} = {value}\n'
 
     return code
 
 
-__all__ = [
-    'cdefs'
-]
+__all__ = ['cdefs']

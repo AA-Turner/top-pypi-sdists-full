@@ -95,7 +95,6 @@ RECENT_JOBS_FILE = Path(".certora_recent_jobs.json")
 LAST_CONF_FILE = Path("run.conf")
 EMV_JAR = Path("emv.jar")
 CERTORA_SOURCES = Path(".certora_sources")
-SOLANA_DEFAULT_COMMAND = "cargo +solana build-sbf"
 SOLANA_INLINING = "solana_inlining"
 SOLANA_SUMMARIES = "solana_summaries"
 
@@ -1269,6 +1268,7 @@ class TestValue(NoValEnum):
     AFTER_GENERATE_COLLECT_REPORT = auto()
     AFTER_BUILD_RUST = auto()
     AFTER_RULE_SPLIT = auto()
+    SOLANA_BUILD_CMD = auto()
 
 class FeValue(NoValEnum):
     PRODUCTION = auto()

@@ -7,12 +7,11 @@ from trytond.rpc import RPC
 
 
 class Date(Model):
-    'Date'
     __name__ = 'ir.date'
 
     @classmethod
     def __setup__(cls):
-        super(Date, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
                 'today': RPC(),
                 })

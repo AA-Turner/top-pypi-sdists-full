@@ -1030,6 +1030,8 @@ class MethodImplOptions(Enum):
 
     AGGRESSIVE_OPTIMIZATION = ...
 
+    ASYNC = ...
+
     INTERNAL_CALL = ...
 
 
@@ -1801,6 +1803,30 @@ class CallerMemberNameAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class AsyncHelpers(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def await(task: System.Threading.Tasks.Task) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def await(task: System.Threading.Tasks.ValueTask) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def await(configured_awaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def await(configured_awaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable) -> None:
         ...
 
 

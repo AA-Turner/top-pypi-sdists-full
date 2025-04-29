@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jsonargparse import ArgumentParser
+from jsonargparse import ArgumentParser, set_parsing_settings
 from jsonargparse._completions import norm_name
 from jsonargparse._parameter_resolvers import get_signature_parameters
 from jsonargparse._typehints import type_to_str
@@ -47,8 +47,17 @@ def get_shtab_script(parser, shell):
     return get_parse_args_stdout(parser, [f"--print_shtab={shell}"])
 
 
+def is_positional(dest, parser):
+    if parser is not None:
+        action = next(a for a in parser._actions if a.dest == dest)
+        return action.option_strings == []
+    return False
+
+
 def assert_bash_typehint_completions(subtests, shtab_script, completions):
+    parser = None
     if isinstance(shtab_script, ArgumentParser):
+        parser = shtab_script
         shtab_script = get_shtab_script(shtab_script, "bash")
     with tempfile.TemporaryDirectory() as tmpdir:
         shtab_script_path = Path(tmpdir) / "comp.sh"
@@ -67,6 +76,8 @@ def assert_bash_typehint_completions(subtests, shtab_script, completions):
                     assert f"Expected type: {typehint}; {extra} matched choices" in err.decode()
                 else:
                     assert f"Expected type: {typehint}; Accepted by subclasses: {extra}" in err.decode()
+                if is_positional(dest, parser):
+                    assert f"Argument: {dest}; Expected type: {typehint}" in err.decode()
 
 
 def test_bash_any(parser, subtests):
@@ -183,6 +194,27 @@ def test_bash_positional(parser, subtests):
             ("name", typehint, "Al", ["Alice"], "1/2"),
         ],
     )
+
+
+def test_shtab_bash_optionals_as_positionals(parser, subtests):
+    with patch.dict("jsonargparse._common.parsing_settings"):
+        set_parsing_settings(parse_optionals_as_positionals=True)
+        parser.prog = "tool"
+
+        parser.add_argument("job", type=str)
+        parser.add_argument("--amount", type=int, default=0)
+        parser.add_argument("--flag", type=bool, default=False)
+        assert_bash_typehint_completions(
+            subtests,
+            parser,
+            [
+                ("job", str, "", [], None),
+                ("job", str, "easy", [], None),
+                ("amount", int, "easy ", [], None),
+                ("amount", int, "easy 10", [], None),
+                ("flag", bool, "easy 10 x", [], "0/2"),
+            ],
+        )
 
 
 def test_bash_config(parser):

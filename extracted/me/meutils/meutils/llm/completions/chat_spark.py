@@ -25,9 +25,21 @@ class Completions(object):
         self.api_key = api_key
 
     async def create(self, request: CompletionRequest):
+        logger.debug(request.last_user_content)
+
         if request.last_user_content.startswith("http"):  # 文件问答-单轮
             file_url, *texts = request.last_user_content.split(maxsplit=1) + ["总结下"]
             text = texts[0]
+
+            # # 图片：走4v
+            # if guess_mime_type(file_url).startswith("image"):
+            #     request.model = "glm-4v-flash"
+            #     request.messages = [
+            #         {
+            #             'role': 'user',
+            #             'content': [{"type": "image_url", "image_url": {"url": file_url}}]
+            #         }
+            #     ]
 
             file_content = await file_extract(file_url)
 
@@ -42,7 +54,7 @@ class Completions(object):
 
             if guess_mime_type(url).startswith("image"):  # 图片问答
 
-                request.model = "doubao-1.5-vision-pro-32k"  # 6月过期
+                request.model = "glm-4v-flash"  # 6月过期
                 for i, message in enumerate(request.messages):
                     if message.get("role") == "user":
                         user_contents = message.get("content")
@@ -85,7 +97,7 @@ if __name__ == '__main__':
     request = CompletionRequest(
         # model="qwen-turbo-2024-11-01",
         # model="claude-3-5-sonnet-20241022",
-        model="gpt-4o-mini",
+        model="deepsek-chat",
 
         messages=[
             # {
@@ -114,13 +126,15 @@ if __name__ == '__main__':
             {
                 'role': 'user',
                 # "content": '你好',
-                # "content": [
-                #     {"type": "text", "text": "描述第一张图片"},
-                #
-                #     {"type": "image_url", "image_url": "https://oss.ffire.cc/files/kling_watermark.png"},
-                #     # {"type": "image_url", "image_url": "https://oss.ffire.cc/files/nsfw.jpg"}
-                #
-                # ],
+                "content": [
+                    {"type": "text", "text": "https://oss.ffire.cc/files/kling_watermark.png 描述第一张图片"},
+
+                    # {"type": "text", "text": "描述第一张图片"},
+                    #
+                    # {"type": "image_url", "image_url": "https://oss.ffire.cc/files/kling_watermark.png"},
+                    #     # {"type": "image_url", "image_url": "https://oss.ffire.cc/files/nsfw.jpg"}
+                    #
+                ],
 
                 # 'content': {
                 #     "type": "file_url",
@@ -133,7 +147,7 @@ if __name__ == '__main__':
                 # "content": "https://mj101-1317487292.cos.ap-shanghai.myqcloud.com/ai/test.pdf\n\n总结下"
 
                 # "content": "https://admin.ilovechatgpt.top/file/lunIMYAIzhinengzhushouduishenghuodocx_14905733.docx 总结",
-            "content": "http://admin.ilovechatgpt.top/file/xinjianMicrosoftWordwendangdoc-9052714901036-bGSJLeKbqQdnIZZn.doc 111111234234",
+                # "content": "http://admin.ilovechatgpt.top/file/xinjianMicrosoftWordwendangdoc-9052714901036-bGSJLeKbqQdnIZZn.doc 111111234234",
 
             },
             #

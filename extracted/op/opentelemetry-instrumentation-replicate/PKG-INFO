@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-replicate
-Version: 0.39.3
+Version: 0.39.4
 Summary: OpenTelemetry Replicate instrumentation
 License: Apache-2.0
 Author: Kartik Prajapati

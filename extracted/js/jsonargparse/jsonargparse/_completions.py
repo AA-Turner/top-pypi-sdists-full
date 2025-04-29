@@ -6,12 +6,14 @@ import re
 from collections import defaultdict
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
+from copy import copy
 from enum import Enum
 from importlib.util import find_spec
 from subprocess import PIPE, Popen
 from typing import List, Literal, Union
 
 from ._actions import ActionConfigFile, _ActionConfigLoad, _ActionHelpClassPath, remove_actions
+from ._common import get_optionals_as_positionals_actions, get_parsing_setting
 from ._parameter_resolvers import get_signature_parameters
 from ._typehints import (
     ActionTypeHint,
@@ -129,6 +131,12 @@ def shtab_prepare_actions(parser) -> None:
     if parser._subcommands_action:
         for subparser in parser._subcommands_action._name_parser_map.values():
             shtab_prepare_actions(subparser)
+    if get_parsing_setting("parse_optionals_as_positionals"):
+        for action in get_optionals_as_positionals_actions(parser):
+            clone = copy(action)
+            clone.option_strings = []
+            clone.nargs = "?"
+            parser._actions.append(clone)
     for action in parser._actions:
         shtab_prepare_action(action, parser)
 
@@ -166,6 +174,8 @@ def shtab_prepare_action(action, parser) -> None:
         choices = get_typehint_choices(action._typehint, prefix, parser, skip)
         if shtab_shell.get() == "bash":
             message = f"Expected type: {type_to_str(action._typehint)}"
+            if action.option_strings == []:
+                message = f"Argument: {action.dest}; " + message
             add_bash_typehint_completion(parser, action, message, choices)
             choices = None
     elif isinstance(action, _ActionHelpClassPath):

@@ -32,7 +32,7 @@ class Char(FieldTranslate):
         '''
         if loading is None:
             loading = 'lazy' if translate else 'eager'
-        super(Char, self).__init__(string=string, help=help, required=required,
+        super().__init__(string=string, help=help, required=required,
             readonly=readonly, domain=domain, states=states,
             on_change=on_change, on_change_with=on_change_with,
             depends=depends, context=context, loading=loading)
@@ -45,7 +45,9 @@ class Char(FieldTranslate):
         self.translate = translate
         self.__size = None
         self.size = size
-    __init__.__doc__ += Field.__init__.__doc__
+
+    if __init__.__doc__:
+        __init__.__doc__ += Field.__init__.__doc__
 
     def _get_size(self):
         return self.__size
@@ -103,7 +105,7 @@ class Char(FieldTranslate):
         return super().sql_format(value)
 
     def set_rpc(self, model):
-        super(Char, self).set_rpc(model)
+        super().set_rpc(model)
         if self.autocomplete:
             func_name = 'autocomplete_%s' % self.name
             assert hasattr(model, func_name), \
@@ -111,14 +113,19 @@ class Char(FieldTranslate):
             model.__rpc__.setdefault(func_name, RPC(instantiate=0))
 
     def _domain_column(self, operator, column):
-        column = super(Char, self)._domain_column(operator, column)
+        column = super()._domain_column(operator, column)
+        column = Coalesce(column, '')
         if self.search_unaccented and operator.endswith('ilike'):
             database = Transaction().database
             column = database.unaccent(column)
         return column
 
     def _domain_value(self, operator, value):
-        value = super(Char, self)._domain_value(operator, value)
+        if operator in {'in', 'not in'}:
+            value = [v if v is not None else '' for v in value]
+        elif value is None:
+            value = ''
+        value = super()._domain_value(operator, value)
         if self.search_unaccented and operator.endswith('ilike'):
             database = Transaction().database
             value = database.unaccent(value)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.3
+Version: 0.2.4
 Summary: Microsoft Azure CLI Developer Tools
 Home-page: https://github.com/Azure/azure-cli-dev-tools
 Author: Microsoft Corporation
@@ -40,6 +40,7 @@ Requires-Dist: azure-cli-diff-tool~=0.1.0
 Requires-Dist: packaging
 Requires-Dist: tqdm
 Requires-Dist: wheel==0.30.0
+Requires-Dist: setuptools==70.0.0
 Requires-Dist: microsoft-security-utilities-secret-masker~=1.0.0b4
 Dynamic: author
 Dynamic: author-email
@@ -159,6 +160,10 @@ License
 
 Release History
 ===============
+0.2.4
+++++++
+* pin setuptools to 70.0.0
+
 0.2.3
 ++++++
 * `azdev linter`: Fix `list index out of range` in missing_command_test_coverage regex

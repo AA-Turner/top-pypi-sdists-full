@@ -14,7 +14,6 @@ _reset_interval = _session_timeout // 10
 
 
 class Session(ModelSQL):
-    "Session"
     __name__ = 'ir.session'
     _rec_name = 'key'
 
@@ -23,7 +22,7 @@ class Session(ModelSQL):
 
     @classmethod
     def __setup__(cls):
-        super(Session, cls).__setup__()
+        super().__setup__()
         table = cls.__table__()
         cls.__rpc__ = {}
         cls._sql_indexes.update({
@@ -43,9 +42,9 @@ class Session(ModelSQL):
         return token_hex(nbytes)
 
     @classmethod
-    def write(cls, *args):
-        super().write(*args)
-        for sessions in args[0:None:2]:
+    def on_modification(cls, mode, sessions, field_names=None):
+        super().on_modification(mode, sessions, field_names=field_names)
+        if mode == 'write':
             for session in sessions:
                 cls._session_reset_cache.set(session.key, session.write_date)
 
@@ -149,24 +148,21 @@ class Session(ModelSQL):
         cls.delete(sessions)
 
     @classmethod
-    def create(cls, vlist):
-        vlist = [v.copy() for v in vlist]
-        for values in vlist:
-            # Ensure to get a different key for each record
-            # default methods are called only once
-            values.setdefault('key', cls.default_key())
-        return super(Session, cls).create(vlist)
+    def preprocess_values(cls, mode, values):
+        values = super().preprocess_values(mode, values)
+        if mode == 'create' and 'key' not in values:
+            values['key'] = cls.default_key()
+        return values
 
 
 class SessionWizard(ModelSQL):
-    "Session Wizard"
     __name__ = 'ir.session.wizard'
 
     data = fields.Text('Data')
 
     @classmethod
     def __setup__(cls):
-        super(SessionWizard, cls).__setup__()
+        super().__setup__()
         cls.__rpc__ = {}
 
     @staticmethod

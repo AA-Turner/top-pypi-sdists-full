@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: PyArtifactory
-Version: 2.8.0
+Version: 2.8.1
 Summary: Typed interactions with the Jfrog Artifactory REST API
 License: MIT
 Keywords: artifactory

@@ -65,6 +65,7 @@ class PgQueuer:
         batch_size: int = 10,
         mode: QueueExecutionMode = QueueExecutionMode.continuous,
         max_concurrent_tasks: int | None = None,
+        shutdown_on_listener_failure: bool = False,
     ) -> None:
         """
         Run both QueueManager and SchedulerManager concurrently.
@@ -84,6 +85,7 @@ class PgQueuer:
                         dequeue_timeout=dequeue_timeout,
                         mode=mode,
                         max_concurrent_tasks=max_concurrent_tasks,
+                        shutdown_on_listener_failure=shutdown_on_listener_failure,
                     )
                 )
             )
@@ -98,7 +100,6 @@ class PgQueuer:
         concurrency_limit: int = 0,
         retry_timer: timedelta = timedelta(seconds=0),
         serialized_dispatch: bool = False,
-        executor: type[AbstractEntrypointExecutor] | None = None,
         executor_factory: Callable[
             [EntrypointExecutorParameters],
             AbstractEntrypointExecutor,
@@ -111,7 +112,6 @@ class PgQueuer:
             concurrency_limit=concurrency_limit,
             retry_timer=retry_timer,
             serialized_dispatch=serialized_dispatch,
-            executor=executor,
             executor_factory=executor_factory,
         )
 
@@ -119,7 +119,6 @@ class PgQueuer:
         self,
         entrypoint: str,
         expression: str,
-        executor: type[AbstractScheduleExecutor] | None = None,
         executor_factory: Callable[
             [ScheduleExecutorFactoryParameters],
             AbstractScheduleExecutor,
@@ -130,7 +129,6 @@ class PgQueuer:
         return self.sm.schedule(
             entrypoint=entrypoint,
             expression=expression,
-            executor=executor,
             executor_factory=executor_factory,
             clean_old=clean_old,
         )

@@ -19,6 +19,7 @@ from kafka.partitioner.default import DefaultPartitioner
 from kafka.producer.future import FutureRecordMetadata, FutureProduceResult
 from kafka.producer.record_accumulator import AtomicInteger, RecordAccumulator
 from kafka.producer.sender import Sender
+from kafka.producer.transaction_manager import TransactionManager
 from kafka.record.default_records import DefaultRecordBatchBuilder
 from kafka.record.legacy_records import LegacyRecordBatchBuilder
 from kafka.serializer import Serializer
@@ -36,8 +37,8 @@ class KafkaProducer(object):
     The producer is thread safe and sharing a single producer instance across
     threads will generally be faster than having multiple instances.
 
-    The producer consists of a pool of buffer space that holds records that
-    haven't yet been transmitted to the server as well as a background I/O
+    The producer consists of a RecordAccumulator which holds records that
+    haven't yet been transmitted to the server, and a Sender background I/O
     thread that is responsible for turning these records into requests and
     transmitting them to the cluster.
 
@@ -76,6 +77,47 @@ class KafkaProducer(object):
     The key_serializer and value_serializer instruct how to turn the key and
     value objects the user provides into bytes.
 
+    From Kafka 0.11, the KafkaProducer supports two additional modes:
+    the idempotent producer and the transactional producer.
+    The idempotent producer strengthens Kafka's delivery semantics from
+    at least once to exactly once delivery. In particular, producer retries
+    will no longer introduce duplicates. The transactional producer allows an
+    application to send messages to multiple partitions (and topics!)
+    atomically.
+
+    To enable idempotence, the `enable_idempotence` configuration must be set
+    to True. If set, the `retries` config will default to `float('inf')` and
+    the `acks` config will default to 'all'. There are no API changes for the
+    idempotent producer, so existing applications will not need to be modified
+    to take advantage of this feature.
+
+    To take advantage of the idempotent producer, it is imperative to avoid
+    application level re-sends since these cannot be de-duplicated. As such, if
+    an application enables idempotence, it is recommended to leave the
+    `retries` config unset, as it will be defaulted to `float('inf')`.
+    Additionally, if a :meth:`~kafka.KafkaProducer.send` returns an error even
+    with infinite retries (for instance if the message expires in the buffer
+    before being sent), then it is recommended to shut down the producer and
+    check the contents of the last produced message to ensure that it is not
+    duplicated. Finally, the producer can only guarantee idempotence for
+    messages sent within a single session.
+
+    To use the transactional producer and the attendant APIs, you must set the
+    `transactional_id` configuration property. If the `transactional_id` is
+    set, idempotence is automatically enabled along with the producer configs
+    which idempotence depends on. Further, topics which are included in
+    transactions should be configured for durability. In particular, the
+    `replication.factor` should be at least `3`, and the `min.insync.replicas`
+    for these topics should be set to 2. Finally, in order for transactional
+    guarantees to be realized from end-to-end, the consumers must be
+    configured to read only committed messages as well.
+
+    The purpose of the `transactional_id` is to enable transaction recovery
+    across multiple sessions of a single producer instance. It would typically
+    be derived from the shard identifier in a partitioned, stateful,
+    application. As such, it should be unique to each producer instance running
+    within a partitioned application.
+
     Keyword Arguments:
         bootstrap_servers: 'host[:port]' string (or list of 'host[:port]'
             strings) that the producer should contact to bootstrap initial
@@ -93,6 +135,28 @@ class KafkaProducer(object):
         value_serializer (callable): used to convert user-supplied message
             values to bytes. If not None, called as f(value), should return
             bytes. Default: None.
+        enable_idempotence (bool): When set to True, the producer will ensure
+            that exactly one copy of each message is written in the stream.
+            If False, producer retries due to broker failures, etc., may write
+            duplicates of the retried message in the stream. Default: False.
+
+            Note that enabling idempotence requires
+            `max_in_flight_requests_per_connection` to be set to 1 and `retries`
+            cannot be zero. Additionally, `acks` must be set to 'all'. If these
+            values are left at their defaults, the producer will override the
+            defaults to be suitable. If the values are set to something
+            incompatible with the idempotent producer, a KafkaConfigurationError
+            will be raised.
+        delivery_timeout_ms (float): An upper bound on the time to report success
+            or failure after producer.send() returns. This limits the total time
+            that a record will be delayed prior to sending, the time to await
+            acknowledgement from the broker (if expected), and the time allowed
+            for retriable send failures. The producer may report failure to send
+            a record earlier than this config if either an unrecoverable error is
+            encountered, the retries have been exhausted, or the record is added
+            to a batch which reached an earlier delivery expiration deadline.
+            The value of this config should be greater than or equal to the
+            sum of (request_timeout_ms + linger_ms). Default: 120000.
         acks (0, 1, 'all'): The number of acknowledgments the producer requires
             the leader to have received before considering a request complete.
             This controls the durability of records that are sent. The
@@ -120,7 +184,7 @@ class KafkaProducer(object):
             Compression is of full batches of data, so the efficacy of batching
             will also impact the compression ratio (more batching means better
             compression). Default: None.
-        retries (int): Setting a value greater than zero will cause the client
+        retries (numeric): Setting a value greater than zero will cause the client
             to resend any record whose send fails with a potentially transient
             error. Note that this retry is no different than if the client
             resent the record upon receiving the error. Allowing retries
@@ -128,8 +192,12 @@ class KafkaProducer(object):
             potentially change the ordering of records because if two batches
             are sent to a single partition, and the first fails and is retried
             but the second succeeds, then the records in the second batch may
-            appear first.
-            Default: 0.
+            appear first. Note additionally that produce requests will be
+            failed before the number of retries has been exhausted if the timeout
+            configured by delivery_timeout_ms expires first before successful
+            acknowledgement. Users should generally prefer to leave this config
+            unset and instead use delivery_timeout_ms to control retry behavior.
+            Default: float('inf') (infinite)
         batch_size (int): Requests sent to brokers will contain multiple
             batches, one for each partition with data available to be sent.
             A small batch size will make batching less common and may reduce
@@ -303,10 +371,14 @@ class KafkaProducer(object):
         'client_id': None,
         'key_serializer': None,
         'value_serializer': None,
+        'enable_idempotence': False,
+        'transactional_id': None,
+        'transaction_timeout_ms': 60000,
+        'delivery_timeout_ms': 120000,
         'acks': 1,
         'bootstrap_topics_filter': set(),
         'compression_type': None,
-        'retries': 0,
+        'retries': float('inf'),
         'batch_size': 16384,
         'linger_ms': 0,
         'partitioner': DefaultPartitioner(),
@@ -363,8 +435,8 @@ class KafkaProducer(object):
     }
 
     def __init__(self, **configs):
-        log.debug("Starting the Kafka producer")  # trace
         self.config = copy.copy(self.DEFAULT_CONFIG)
+        user_provided_configs = set(configs.keys())
         for key in self.config:
             if key in configs:
                 self.config[key] = configs.pop(key)
@@ -391,8 +463,10 @@ class KafkaProducer(object):
                 self.config['api_version'] = None
             else:
                 self.config['api_version'] = tuple(map(int, deprecated.split('.')))
-            log.warning('use api_version=%s [tuple] -- "%s" as str is deprecated',
-                        str(self.config['api_version']), deprecated)
+            log.warning('%s: use api_version=%s [tuple] -- "%s" as str is deprecated',
+                        str(self), str(self.config['api_version']), deprecated)
+
+        log.debug("%s: Starting Kafka producer", str(self))
 
         # Configure metrics
         if self.config['metrics_enabled']:
@@ -428,13 +502,58 @@ class KafkaProducer(object):
             assert checker(), "Libraries for {} compression codec not found".format(ct)
             self.config['compression_attrs'] = compression_attrs
 
-        message_version = self._max_usable_produce_magic()
-        self._accumulator = RecordAccumulator(message_version=message_version, **self.config)
         self._metadata = client.cluster
+        self._transaction_manager = None
+        self._init_transactions_result = None
+        if 'enable_idempotence' in user_provided_configs and not self.config['enable_idempotence'] and self.config['transactional_id']:
+            raise Errors.KafkaConfigurationError("Cannot set transactional_id without enable_idempotence.")
+
+        if self.config['transactional_id']:
+            self.config['enable_idempotence'] = True
+
+        if self.config['enable_idempotence']:
+            assert self.config['api_version'] >= (0, 11), "Transactional/Idempotent producer requires >= Kafka 0.11 Brokers"
+
+            self._transaction_manager = TransactionManager(
+                transactional_id=self.config['transactional_id'],
+                transaction_timeout_ms=self.config['transaction_timeout_ms'],
+                retry_backoff_ms=self.config['retry_backoff_ms'],
+                api_version=self.config['api_version'],
+                metadata=self._metadata,
+            )
+            if self._transaction_manager.is_transactional():
+                log.info("%s: Instantiated a transactional producer.", str(self))
+            else:
+                log.info("%s: Instantiated an idempotent producer.", str(self))
+
+            if self.config['retries'] == 0:
+                raise Errors.KafkaConfigurationError("Must set 'retries' to non-zero when using the idempotent producer.")
+
+            if 'max_in_flight_requests_per_connection' not in user_provided_configs:
+                log.info("%s: Overriding the default 'max_in_flight_requests_per_connection' to 1 since idempontence is enabled.", str(self))
+                self.config['max_in_flight_requests_per_connection'] = 1
+            elif self.config['max_in_flight_requests_per_connection'] != 1:
+                raise Errors.KafkaConfigurationError("Must set 'max_in_flight_requests_per_connection' to 1 in order"
+                                                     " to use the idempotent producer."
+                                                     " Otherwise we cannot guarantee idempotence.")
+
+            if 'acks' not in user_provided_configs:
+                log.info("%s: Overriding the default 'acks' config to 'all' since idempotence is enabled", str(self))
+                self.config['acks'] = -1
+            elif self.config['acks'] != -1:
+                raise Errors.KafkaConfigurationError("Must set 'acks' config to 'all' in order to use the idempotent"
+                                                     " producer. Otherwise we cannot guarantee idempotence")
+
+        message_version = self.max_usable_produce_magic(self.config['api_version'])
+        self._accumulator = RecordAccumulator(
+                transaction_manager=self._transaction_manager,
+                message_version=message_version,
+                **self.config)
         guarantee_message_order = bool(self.config['max_in_flight_requests_per_connection'] == 1)
         self._sender = Sender(client, self._metadata,
                               self._accumulator,
                               metrics=self._metrics,
+                              transaction_manager=self._transaction_manager,
                               guarantee_message_order=guarantee_message_order,
                               **self.config)
         self._sender.daemon = True
@@ -443,7 +562,7 @@ class KafkaProducer(object):
 
         self._cleanup = self._cleanup_factory()
         atexit.register(self._cleanup)
-        log.debug("Kafka producer started")
+        log.debug("%s: Kafka producer started", str(self))
 
     def bootstrap_connected(self):
         """Return True if the bootstrap is connected."""
@@ -498,7 +617,7 @@ class KafkaProducer(object):
         self._unregister_cleanup()
 
         if not hasattr(self, '_closed') or self._closed:
-            log.info('Kafka producer closed')
+            log.info('%s: Kafka producer closed', str(self))
             return
         if timeout is None:
             # threading.TIMEOUT_MAX is available in Python3.3+
@@ -508,16 +627,16 @@ class KafkaProducer(object):
         else:
             assert timeout >= 0
 
-        log.info("Closing the Kafka producer with %s secs timeout.", timeout)
+        log.info("%s: Closing the Kafka producer with %s secs timeout.", str(self), timeout)
         self.flush(timeout)
         invoked_from_callback = bool(threading.current_thread() is self._sender)
         if timeout > 0:
             if invoked_from_callback:
-                log.warning("Overriding close timeout %s secs to 0 in order to"
+                log.warning("%s: Overriding close timeout %s secs to 0 in order to"
                             " prevent useless blocking due to self-join. This"
                             " means you have incorrectly invoked close with a"
                             " non-zero timeout from the producer call-back.",
-                            timeout)
+                            str(self), timeout)
             else:
                 # Try to close gracefully.
                 if self._sender is not None:
@@ -525,9 +644,9 @@ class KafkaProducer(object):
                     self._sender.join(timeout)
 
         if self._sender is not None and self._sender.is_alive():
-            log.info("Proceeding to force close the producer since pending"
+            log.info("%s: Proceeding to force close the producer since pending"
                      " requests could not be completed within timeout %s.",
-                     timeout)
+                     str(self), timeout)
             self._sender.force_close()
 
         if self._metrics:
@@ -541,29 +660,138 @@ class KafkaProducer(object):
         except AttributeError:
             pass
         self._closed = True
-        log.debug("The Kafka producer has closed.")
+        log.debug("%s: The Kafka producer has closed.", str(self))
 
     def partitions_for(self, topic):
         """Returns set of all known partitions for the topic."""
         max_wait = self.config['max_block_ms'] / 1000
         return self._wait_on_metadata(topic, max_wait)
 
-    def _max_usable_produce_magic(self):
-        if self.config['api_version'] >= (0, 11):
+    @classmethod
+    def max_usable_produce_magic(cls, api_version):
+        if api_version >= (0, 11):
             return 2
-        elif self.config['api_version'] >= (0, 10, 0):
+        elif api_version >= (0, 10, 0):
             return 1
         else:
             return 0
 
     def _estimate_size_in_bytes(self, key, value, headers=[]):
-        magic = self._max_usable_produce_magic()
+        magic = self.max_usable_produce_magic(self.config['api_version'])
         if magic == 2:
             return DefaultRecordBatchBuilder.estimate_size_in_bytes(
                 key, value, headers)
         else:
             return LegacyRecordBatchBuilder.estimate_size_in_bytes(
                 magic, self.config['compression_type'], key, value)
+
+    def init_transactions(self):
+        """
+        Needs to be called before any other methods when the transactional.id is set in the configuration.
+
+        This method does the following:
+          1. Ensures any transactions initiated by previous instances of the producer with the same
+             transactional_id are completed. If the previous instance had failed with a transaction in
+             progress, it will be aborted. If the last transaction had begun completion,
+             but not yet finished, this method awaits its completion.
+          2. Gets the internal producer id and epoch, used in all future transactional
+             messages issued by the producer.
+
+        Note that this method will raise KafkaTimeoutError if the transactional state cannot
+        be initialized before expiration of `max_block_ms`.
+
+        Retrying after a KafkaTimeoutError will continue to wait for the prior request to succeed or fail.
+        Retrying after any other exception will start a new initialization attempt.
+        Retrying after a successful initialization will do nothing.
+
+        Raises:
+            IllegalStateError: if no transactional_id has been configured
+            AuthorizationError: fatal error indicating that the configured
+                transactional_id is not authorized.
+            KafkaError: if the producer has encountered a previous fatal error or for any other unexpected error
+            KafkaTimeoutError: if the time taken for initialize the transaction has surpassed `max.block.ms`.
+        """
+        if not self._transaction_manager:
+            raise Errors.IllegalStateError("Cannot call init_transactions without setting a transactional_id.")
+        if self._init_transactions_result is None:
+            self._init_transactions_result = self._transaction_manager.initialize_transactions()
+            self._sender.wakeup()
+
+        try:
+            if not self._init_transactions_result.wait(timeout_ms=self.config['max_block_ms']):
+                raise Errors.KafkaTimeoutError("Timeout expired while initializing transactional state in %s ms." % (self.config['max_block_ms'],))
+        finally:
+            if self._init_transactions_result.failed:
+                self._init_transactions_result = None
+
+    def begin_transaction(self):
+        """ Should be called before the start of each new transaction.
+
+        Note that prior to the first invocation of this method,
+        you must invoke `init_transactions()` exactly one time.
+
+        Raises:
+            ProducerFencedError if another producer is with the same
+                transactional_id is active.
+        """
+        # Set the transactional bit in the producer.
+        if not self._transaction_manager:
+            raise Errors.IllegalStateError("Cannot use transactional methods without enabling transactions")
+        self._transaction_manager.begin_transaction()
+
+    def send_offsets_to_transaction(self, offsets, consumer_group_id):
+        """
+        Sends a list of consumed offsets to the consumer group coordinator, and also marks
+        those offsets as part of the current transaction. These offsets will be considered
+        consumed only if the transaction is committed successfully.
+
+        This method should be used when you need to batch consumed and produced messages
+        together, typically in a consume-transform-produce pattern.
+
+        Arguments:
+            offsets ({TopicPartition: OffsetAndMetadata}): map of topic-partition -> offsets to commit
+                as part of current transaction.
+            consumer_group_id (str): Name of consumer group for offsets commit.
+
+        Raises:
+            IllegalStateError: if no transactional_id, or transaction has not been started.
+            ProducerFencedError: fatal error indicating another producer with the same transactional_id is active.
+            UnsupportedVersionError: fatal error indicating the broker does not support transactions (i.e. if < 0.11).
+            UnsupportedForMessageFormatError: fatal error indicating the message format used for the offsets
+                topic on the broker does not support transactions.
+            AuthorizationError: fatal error indicating that the configured transactional_id is not authorized.
+            KafkaErro:r if the producer has encountered a previous fatal or abortable error, or for any
+                other unexpected error
+        """
+        if not self._transaction_manager:
+            raise Errors.IllegalStateError("Cannot use transactional methods without enabling transactions")
+        result = self._transaction_manager.send_offsets_to_transaction(offsets, consumer_group_id)
+        self._sender.wakeup()
+        result.wait()
+
+    def commit_transaction(self):
+        """ Commits the ongoing transaction.
+
+        Raises: ProducerFencedError if another producer with the same
+                transactional_id is active.
+        """
+        if not self._transaction_manager:
+            raise Errors.IllegalStateError("Cannot commit transaction since transactions are not enabled")
+        result = self._transaction_manager.begin_commit()
+        self._sender.wakeup()
+        result.wait()
+
+    def abort_transaction(self):
+        """ Aborts the ongoing transaction.
+
+        Raises: ProducerFencedError if another producer with the same
+                transactional_id is active.
+        """
+        if not self._transaction_manager:
+            raise Errors.IllegalStateError("Cannot abort transaction since transactions are not enabled.")
+        result = self._transaction_manager.begin_abort()
+        self._sender.wakeup()
+        result.wait()
 
     def send(self, topic, value=None, key=None, headers=None, partition=None, timestamp_ms=None):
         """Publish a message to a topic.
@@ -641,13 +869,17 @@ class KafkaProducer(object):
             self._ensure_valid_record_size(message_size)
 
             tp = TopicPartition(topic, partition)
-            log.debug("Sending (key=%r value=%r headers=%r) to %s", key, value, headers, tp)
+            log.debug("%s: Sending (key=%r value=%r headers=%r) to %s", str(self), key, value, headers, tp)
+
+            if self._transaction_manager and self._transaction_manager.is_transactional():
+                self._transaction_manager.maybe_add_partition_to_transaction(tp)
+
             result = self._accumulator.append(tp, timestamp_ms,
                                               key_bytes, value_bytes, headers)
             future, batch_is_full, new_batch_created = result
             if batch_is_full or new_batch_created:
-                log.debug("Waking up the sender since %s is either full or"
-                          " getting a new batch", tp)
+                log.debug("%s: Waking up the sender since %s is either full or"
+                          " getting a new batch", str(self), tp)
                 self._sender.wakeup()
 
             return future
@@ -655,7 +887,7 @@ class KafkaProducer(object):
             # for API exceptions return them in the future,
             # for other exceptions raise directly
         except Errors.BrokerResponseError as e:
-            log.error("Exception occurred during message send: %s", e)
+            log.error("%s: Exception occurred during message send: %s", str(self), e)
             return FutureRecordMetadata(
                 FutureProduceResult(TopicPartition(topic, partition)),
                 -1, None, None,
@@ -686,7 +918,7 @@ class KafkaProducer(object):
             KafkaTimeoutError: failure to flush buffered records within the
                 provided timeout
         """
-        log.debug("Flushing accumulated records in producer.")  # trace
+        log.debug("%s: Flushing accumulated records in producer.", str(self))
         self._accumulator.begin_flush()
         self._sender.wakeup()
         self._accumulator.await_flush_completion(timeout=timeout)
@@ -732,7 +964,7 @@ class KafkaProducer(object):
             if not metadata_event:
                 metadata_event = threading.Event()
 
-            log.debug("Requesting metadata update for topic %s", topic)
+            log.debug("%s: Requesting metadata update for topic %s", str(self), topic)
 
             metadata_event.clear()
             future = self._metadata.request_update()
@@ -746,7 +978,7 @@ class KafkaProducer(object):
                 raise Errors.TopicAuthorizationFailedError(set([topic]))
             else:
                 elapsed = time.time() - begin
-                log.debug("_wait_on_metadata woke after %s secs.", elapsed)
+                log.debug("%s: _wait_on_metadata woke after %s secs.", str(self), elapsed)
 
     def _serialize(self, f, topic, data):
         if not f:
@@ -793,3 +1025,6 @@ class KafkaProducer(object):
                 metrics[k.group][k.name] = {}
             metrics[k.group][k.name] = v.value()
         return metrics
+
+    def __str__(self):
+        return "<KafkaProducer client_id=%s transactional_id=%s>" % (self.config['client_id'], self.config['transactional_id'])

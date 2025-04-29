@@ -30,6 +30,10 @@ GoodputType = goodput_utils.GoodputType
 GoodputCache = goodput_cache.GoodputCache
 GoodputInfo = goodput_utils.GoodputInfo
 StepInfo = goodput_utils.StepInfo
+# Data structure to store the type of unproductive time (BadputType) and the
+# corresponding time in seconds. If the BadputType is CUSTOM_BADPUT_EVENTS, the
+# value is a dictionary of user defined event type and the corresponding time
+# in seconds.
 UnproductiveTimeDict = dict[
     BadputType, Union[float, dict[str, float]]
 ]
@@ -756,6 +760,7 @@ class GoodputCalculator:
     def _get_segment_productive_and_unproductive_time(
         step_start_data: dict[int, float],
         curr_step: int,
+        entries_to_process: list[Any],
     ) -> tuple[
         float,
         UnproductiveTimeDict,
@@ -767,9 +772,7 @@ class GoodputCalculator:
       min_step = min(step_start_data.keys())
 
       # Extract custom sync intervals
-      custom_sync_intervals = _extract_custom_sync_intervals(
-          self._goodput_cache.get_cached_entries()
-      )
+      custom_sync_intervals = _extract_custom_sync_intervals(entries_to_process)
 
       # Compute adjusted segmentproductive and unproductive times
       (
@@ -827,11 +830,12 @@ class GoodputCalculator:
     data_loading_badput = 0.0
     sync_data_loading = True
     current_sync_data_loading = None
-    entries_to_process = (
-        self._interval_entries
-        if interval_query
-        else self._goodput_cache.get_cached_entries()
-    )
+    if interval_query:
+      entries_to_process = self._interval_entries
+    else:
+      with self._goodput_cache_lock:
+        entries_to_process = list(self._goodput_cache.get_cached_entries())
+
     self._number_of_interruptions = 0
     for payload in entries_to_process:
       if _JOB_START_TIME in payload:
@@ -855,7 +859,7 @@ class GoodputCalculator:
           # Compute segment productive and unproductive time.
           segment_productive_time, segment_unproductive_time = (
               _get_segment_productive_and_unproductive_time(
-                  step_start_data, curr_step
+                  step_start_data, curr_step, entries_to_process
               )
           )
           # Accumulate the segment productive time.
@@ -1012,7 +1016,7 @@ class GoodputCalculator:
     last_step = max(list(step_start_data.keys()))
     segment_productive_time, segment_unproductive_time = (
         _get_segment_productive_and_unproductive_time(
-            step_start_data, last_step
+            step_start_data, last_step, entries_to_process
         )
     )
     productive_training_time += segment_productive_time
@@ -1053,7 +1057,9 @@ class GoodputCalculator:
     # will be used to compute total runtime of the job.
     job_start_time = None
     job_end_time = None
-    for payload in self._goodput_cache.get_cached_entries():
+    with self._goodput_cache_lock:
+      cached_entries = list(self._goodput_cache.get_cached_entries())
+    for payload in cached_entries:
       # Locate the earliest timestamp recorded for the job's start.
       if _JOB_START_TIME in payload and job_start_time is None:
         job_start_time = payload[_JOB_START_TIME]
@@ -1386,6 +1392,9 @@ class GoodputCalculator:
         previous_step_start_time = step_start_time
     return step_times
 
+  def _contains_step_entries(self, entries: list[Any]) -> bool:
+    return any(_STEP_START_TIME in entry for entry in entries)
+
   def get_step_deviation(
       self, configured_ideal_step_time: Optional[float] = None
   ) -> dict[int, float]:
@@ -1404,15 +1413,17 @@ class GoodputCalculator:
     new_entries = self._fetch_new_entries(query_time)
     with self._goodput_cache_lock:
       step_info = self._goodput_cache.get_step_info()
-    if new_entries:
-      process_entries = new_entries
-    elif step_info is None or not step_info.step_deviations:
-      process_entries = self._goodput_cache.get_cached_entries()
-    else:
-      # No new entries and deviations already computed
+
+    if (
+        not self._contains_step_entries(new_entries)
+        and step_info
+        and step_info.step_deviations
+    ):
       return step_info.step_deviations
 
-    # Compute step times from the log entries.
+    with self._goodput_cache_lock:
+      process_entries = self._goodput_cache.get_step_entries()
+
     step_times = self._get_step_times(process_entries)
 
     if not step_times:
@@ -1420,21 +1431,11 @@ class GoodputCalculator:
           'No step times available and no previous step deviations found.'
       )
 
-    # Get the previous ideal step time from the cache.
-    previous_ideal_step_time = (
-        step_info.ideal_step_time
-        if step_info and step_info.ideal_step_time
-        else None
-    )
-
     # Compute ideal step time.
     ideal_step_time = (
         configured_ideal_step_time
         if configured_ideal_step_time is not None
-        else compute_ideal_step_time(
-            step_times=list(step_times.values()),
-            previous_ideal_step_time=previous_ideal_step_time,
-        )
+        else compute_ideal_step_time(list(step_times.values()))
     )
     if not ideal_step_time:
       raise ValueError(

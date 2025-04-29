@@ -8,7 +8,7 @@ show_missing = true
 
 [tool.poetry]
 name = "opentelemetry-instrumentation-llamaindex"
-version = "0.39.3"
+version = "0.39.4"
 description = "OpenTelemetry LlamaIndex instrumentation"
 authors = [
   "Gal Kleinman <gal@traceloop.com>",
@@ -43,9 +43,9 @@ openai = "^1.52.2"
 opentelemetry-sdk = "^1.27.0"
 llama-index = "^0.12.6"
 llama-index-postprocessor-cohere-rerank = "^0.3.0"
-opentelemetry-instrumentation-openai = "==0.39.3"
-opentelemetry-instrumentation-cohere = "==0.39.3"
-opentelemetry-instrumentation-chromadb = "==0.39.3"
+opentelemetry-instrumentation-openai = "==0.39.4"
+opentelemetry-instrumentation-cohere = "==0.39.4"
+opentelemetry-instrumentation-chromadb = "==0.39.4"
 sqlalchemy = "^2.0.31"
 llama-index-agent-openai = "^0.4.1"
 llama-index-vector-stores-chroma = "^0.4.1"

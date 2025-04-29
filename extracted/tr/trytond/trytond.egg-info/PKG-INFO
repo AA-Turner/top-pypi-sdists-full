@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: trytond
-Version: 7.4.10
+Version: 7.6.0
 Summary: Tryton server
 Home-page: http://www.tryton.org/
-Download-URL: http://downloads.tryton.org/7.4/
+Download-URL: http://downloads.tryton.org/7.6/
 Author: Tryton
 Author-email: foundation@tryton.org
 License: GPL-3
@@ -42,14 +42,14 @@ Classifier: Natural Language :: Turkish
 Classifier: Natural Language :: Ukrainian
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: defusedxml
 Requires-Dist: lxml>=2.0
@@ -58,8 +58,9 @@ Requires-Dist: Genshi
 Requires-Dist: python-dateutil
 Requires-Dist: polib
 Requires-Dist: python-sql>=1.5
+Requires-Dist: simpleeval
 Requires-Dist: werkzeug>=0.12
-Requires-Dist: passlib>=1.7.0
+Requires-Dist: pwdlib[argon2]>=0.2
 Requires-Dist: pytz; python_version < "3.9"
 Requires-Dist: backports.entry-points-selectable; python_version < "3.10"
 Provides-Extra: test
@@ -71,10 +72,6 @@ Provides-Extra: graphviz
 Requires-Dist: pydot; extra == "graphviz"
 Provides-Extra: levenshtein
 Requires-Dist: python-Levenshtein; extra == "levenshtein"
-Provides-Extra: bcrypt
-Requires-Dist: passlib[bcrypt]; extra == "bcrypt"
-Provides-Extra: argon2
-Requires-Dist: passlib[argon2]; extra == "argon2"
 Provides-Extra: html2text
 Requires-Dist: html2text; extra == "html2text"
 Provides-Extra: weasyprint

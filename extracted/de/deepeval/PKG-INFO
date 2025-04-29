@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 2.7.6
+Version: 2.7.9
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0

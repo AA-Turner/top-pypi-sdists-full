@@ -12,6 +12,7 @@ from contextlib import suppress
 import anyio
 import httpx
 import pytest
+import yaml
 
 import kr8s
 from kr8s._async_utils import anext
@@ -534,6 +535,12 @@ async def test_pod_label(example_pod_spec):
     assert "foo" in pod.labels
     with pytest.raises(ValueError):
         await pod.label({})
+    await pod.label("foo-")
+    assert "foo" not in pod.labels
+    await pod.label(fizz="buzz")
+    assert "fizz" in pod.labels
+    await pod.remove_label("fizz")
+    assert "fizz" not in pod.labels
     await pod.delete()
 
 
@@ -581,11 +588,14 @@ async def test_all_v1_objects_represented():
         "rbac.authorization.k8s.io/v1",
         "apiextensions.k8s.io/v1",
     )
-    # for supported_api in supported_apis:
-    #     assert supported_api in [obj["version"] for obj in objects]
     objects = [obj for obj in k8s_objects if obj["version"] in supported_apis]
+    failures = []
     for obj in objects:
-        assert get_class(obj["kind"], obj["version"])
+        try:
+            assert get_class(obj["kind"], obj["version"])
+        except KeyError:
+            failures.append(f"{obj['kind']} ({obj['name']}.{obj['version']})")
+    assert not failures, f"Failed to find {len(failures)} objects: {failures}"
 
 
 async def test_object_from_spec(example_pod_spec, example_service_spec):
@@ -956,6 +966,12 @@ async def test_pod_to_dict(example_pod_spec):
     assert dict(pod) == pod.raw
 
 
+async def test_pod_to_yaml(example_pod_spec):
+    pod = Pod(example_pod_spec)
+    assert f"name: {pod.name}" in pod.to_yaml()
+    assert yaml.safe_load(pod.to_yaml()) == example_pod_spec
+
+
 async def test_adoption(nginx_service):
     [nginx_pod, *_] = await nginx_service.ready_pods()
     await nginx_service.adopt(nginx_pod)
@@ -1099,6 +1115,23 @@ async def test_pod_exec_not_ready(ns):
         assert await pod.ready()
     finally:
         await pod.delete()
+
+
+async def test_service_exec(nginx_service):
+    ex = await nginx_service.exec(["date"])
+    assert isinstance(ex, CompletedExec)
+    assert str(datetime.datetime.now().year) in ex.stdout.decode()
+    assert ex.args == ["date"]
+    assert ex.stderr == b""
+    assert ex.returncode == 0
+
+
+async def test_configmap_exec_raises():
+    cm = await ConfigMap(
+        {"metadata": {"name": "nginx", "namespace": "default"}, "data": {"foo": "bar"}}
+    )
+    with pytest.raises(NotImplementedError):
+        await cm.exec(["date"])
 
 
 async def test_configmap_data(ns):

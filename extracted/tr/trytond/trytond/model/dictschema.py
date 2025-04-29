@@ -14,6 +14,9 @@ from trytond.rpc import RPC
 from trytond.tools import slugify
 from trytond.transaction import Transaction
 
+_request_timeout = config.getint('request', 'timeout', default=0)
+_request_records_limit = config.getint('request', 'records_limit')
+
 
 class DomainError(ValidationError):
     pass
@@ -37,6 +40,7 @@ class DictSchemaMixin(object):
             ('boolean', lazy_gettext('ir.msg_dict_schema_boolean')),
             ('integer', lazy_gettext('ir.msg_dict_schema_integer')),
             ('char', lazy_gettext('ir.msg_dict_schema_char')),
+            ('color', lazy_gettext('ir.msg_dict_schema_color')),
             ('float', lazy_gettext('ir.msg_dict_schema_float')),
             ('numeric', lazy_gettext('ir.msg_dict_schema_numeric')),
             ('date', lazy_gettext('ir.msg_dict_schema_date')),
@@ -88,10 +92,18 @@ class DictSchemaMixin(object):
 
     @classmethod
     def __setup__(cls):
-        super(DictSchemaMixin, cls).__setup__()
+        super().__setup__()
         cls.__rpc__.update({
-                'get_keys': RPC(instantiate=0),
-                'search_get_keys': RPC(),
+                'get_keys': RPC(
+                    instantiate=0,
+                    size_limits={
+                        0: _request_records_limit,
+                        }),
+                'search_get_keys': RPC(
+                    size_limits={
+                        1: _request_records_limit,
+                        },
+                    timeout=_request_timeout),
                 })
 
     @staticmethod
@@ -202,19 +214,8 @@ class DictSchemaMixin(object):
         return fields
 
     @classmethod
-    def create(cls, vlist):
-        records = super().create(vlist)
-        cls._relation_fields_cache.clear()
-        return records
-
-    @classmethod
-    def write(cls, *args):
-        super().write(*args)
-        cls._relation_fields_cache.clear()
-
-    @classmethod
-    def delete(cls, records):
-        super().delete(records)
+    def on_modification(cls, mode, records, field_names=None):
+        super().on_modification(mode, records, field_names=field_names)
         cls._relation_fields_cache.clear()
 
     def format(self, value, lang=None):

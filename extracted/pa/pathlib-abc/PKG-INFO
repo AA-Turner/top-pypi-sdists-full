@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pathlib_abc
-Version: 0.4.1
+Version: 0.4.3
 Summary: Backport of pathlib ABCs
 Project-URL: Homepage, https://github.com/barneygale/pathlib-abc
 Project-URL: Issues, https://github.com/barneygale/pathlib-abc/issues

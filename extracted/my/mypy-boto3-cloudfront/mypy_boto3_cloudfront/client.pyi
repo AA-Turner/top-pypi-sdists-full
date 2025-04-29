@@ -27,7 +27,13 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListCloudFrontOriginAccessIdentitiesPaginator,
+    ListConnectionGroupsPaginator,
+    ListDistributionsByConnectionModePaginator,
     ListDistributionsPaginator,
+    ListDistributionTenantsByCustomizationPaginator,
+    ListDistributionTenantsPaginator,
+    ListDomainConflictsPaginator,
+    ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
     ListPublicKeysPaginator,
@@ -35,6 +41,10 @@ from .paginator import (
 )
 from .type_defs import (
     AssociateAliasRequestTypeDef,
+    AssociateDistributionTenantWebACLRequestTypeDef,
+    AssociateDistributionTenantWebACLResultTypeDef,
+    AssociateDistributionWebACLRequestTypeDef,
+    AssociateDistributionWebACLResultTypeDef,
     CopyDistributionRequestTypeDef,
     CopyDistributionResultTypeDef,
     CreateAnycastIpListRequestTypeDef,
@@ -43,10 +53,14 @@ from .type_defs import (
     CreateCachePolicyResultTypeDef,
     CreateCloudFrontOriginAccessIdentityRequestTypeDef,
     CreateCloudFrontOriginAccessIdentityResultTypeDef,
+    CreateConnectionGroupRequestTypeDef,
+    CreateConnectionGroupResultTypeDef,
     CreateContinuousDeploymentPolicyRequestTypeDef,
     CreateContinuousDeploymentPolicyResultTypeDef,
     CreateDistributionRequestTypeDef,
     CreateDistributionResultTypeDef,
+    CreateDistributionTenantRequestTypeDef,
+    CreateDistributionTenantResultTypeDef,
     CreateDistributionWithTagsRequestTypeDef,
     CreateDistributionWithTagsResultTypeDef,
     CreateFieldLevelEncryptionConfigRequestTypeDef,
@@ -55,6 +69,8 @@ from .type_defs import (
     CreateFieldLevelEncryptionProfileResultTypeDef,
     CreateFunctionRequestTypeDef,
     CreateFunctionResultTypeDef,
+    CreateInvalidationForDistributionTenantRequestTypeDef,
+    CreateInvalidationForDistributionTenantResultTypeDef,
     CreateInvalidationRequestTypeDef,
     CreateInvalidationResultTypeDef,
     CreateKeyGroupRequestTypeDef,
@@ -82,8 +98,10 @@ from .type_defs import (
     DeleteAnycastIpListRequestTypeDef,
     DeleteCachePolicyRequestTypeDef,
     DeleteCloudFrontOriginAccessIdentityRequestTypeDef,
+    DeleteConnectionGroupRequestTypeDef,
     DeleteContinuousDeploymentPolicyRequestTypeDef,
     DeleteDistributionRequestTypeDef,
+    DeleteDistributionTenantRequestTypeDef,
     DeleteFieldLevelEncryptionConfigRequestTypeDef,
     DeleteFieldLevelEncryptionProfileRequestTypeDef,
     DeleteFunctionRequestTypeDef,
@@ -102,6 +120,10 @@ from .type_defs import (
     DescribeFunctionResultTypeDef,
     DescribeKeyValueStoreRequestTypeDef,
     DescribeKeyValueStoreResultTypeDef,
+    DisassociateDistributionTenantWebACLRequestTypeDef,
+    DisassociateDistributionTenantWebACLResultTypeDef,
+    DisassociateDistributionWebACLRequestTypeDef,
+    DisassociateDistributionWebACLResultTypeDef,
     EmptyResponseMetadataTypeDef,
     GetAnycastIpListRequestTypeDef,
     GetAnycastIpListResultTypeDef,
@@ -113,6 +135,10 @@ from .type_defs import (
     GetCloudFrontOriginAccessIdentityConfigResultTypeDef,
     GetCloudFrontOriginAccessIdentityRequestTypeDef,
     GetCloudFrontOriginAccessIdentityResultTypeDef,
+    GetConnectionGroupByRoutingEndpointRequestTypeDef,
+    GetConnectionGroupByRoutingEndpointResultTypeDef,
+    GetConnectionGroupRequestTypeDef,
+    GetConnectionGroupResultTypeDef,
     GetContinuousDeploymentPolicyConfigRequestTypeDef,
     GetContinuousDeploymentPolicyConfigResultTypeDef,
     GetContinuousDeploymentPolicyRequestTypeDef,
@@ -121,6 +147,10 @@ from .type_defs import (
     GetDistributionConfigResultTypeDef,
     GetDistributionRequestTypeDef,
     GetDistributionResultTypeDef,
+    GetDistributionTenantByDomainRequestTypeDef,
+    GetDistributionTenantByDomainResultTypeDef,
+    GetDistributionTenantRequestTypeDef,
+    GetDistributionTenantResultTypeDef,
     GetFieldLevelEncryptionConfigRequestTypeDef,
     GetFieldLevelEncryptionConfigResultTypeDef,
     GetFieldLevelEncryptionProfileConfigRequestTypeDef,
@@ -131,12 +161,16 @@ from .type_defs import (
     GetFieldLevelEncryptionResultTypeDef,
     GetFunctionRequestTypeDef,
     GetFunctionResultTypeDef,
+    GetInvalidationForDistributionTenantRequestTypeDef,
+    GetInvalidationForDistributionTenantResultTypeDef,
     GetInvalidationRequestTypeDef,
     GetInvalidationResultTypeDef,
     GetKeyGroupConfigRequestTypeDef,
     GetKeyGroupConfigResultTypeDef,
     GetKeyGroupRequestTypeDef,
     GetKeyGroupResultTypeDef,
+    GetManagedCertificateDetailsRequestTypeDef,
+    GetManagedCertificateDetailsResultTypeDef,
     GetMonitoringSubscriptionRequestTypeDef,
     GetMonitoringSubscriptionResultTypeDef,
     GetOriginAccessControlConfigRequestTypeDef,
@@ -171,12 +205,16 @@ from .type_defs import (
     ListCloudFrontOriginAccessIdentitiesResultTypeDef,
     ListConflictingAliasesRequestTypeDef,
     ListConflictingAliasesResultTypeDef,
+    ListConnectionGroupsRequestTypeDef,
+    ListConnectionGroupsResultTypeDef,
     ListContinuousDeploymentPoliciesRequestTypeDef,
     ListContinuousDeploymentPoliciesResultTypeDef,
     ListDistributionsByAnycastIpListIdRequestTypeDef,
     ListDistributionsByAnycastIpListIdResultTypeDef,
     ListDistributionsByCachePolicyIdRequestTypeDef,
     ListDistributionsByCachePolicyIdResultTypeDef,
+    ListDistributionsByConnectionModeRequestTypeDef,
+    ListDistributionsByConnectionModeResultTypeDef,
     ListDistributionsByKeyGroupRequestTypeDef,
     ListDistributionsByKeyGroupResultTypeDef,
     ListDistributionsByOriginRequestPolicyIdRequestTypeDef,
@@ -191,12 +229,20 @@ from .type_defs import (
     ListDistributionsByWebACLIdResultTypeDef,
     ListDistributionsRequestTypeDef,
     ListDistributionsResultTypeDef,
+    ListDistributionTenantsByCustomizationRequestTypeDef,
+    ListDistributionTenantsByCustomizationResultTypeDef,
+    ListDistributionTenantsRequestTypeDef,
+    ListDistributionTenantsResultTypeDef,
+    ListDomainConflictsRequestTypeDef,
+    ListDomainConflictsResultTypeDef,
     ListFieldLevelEncryptionConfigsRequestTypeDef,
     ListFieldLevelEncryptionConfigsResultTypeDef,
     ListFieldLevelEncryptionProfilesRequestTypeDef,
     ListFieldLevelEncryptionProfilesResultTypeDef,
     ListFunctionsRequestTypeDef,
     ListFunctionsResultTypeDef,
+    ListInvalidationsForDistributionTenantRequestTypeDef,
+    ListInvalidationsForDistributionTenantResultTypeDef,
     ListInvalidationsRequestTypeDef,
     ListInvalidationsResultTypeDef,
     ListKeyGroupsRequestTypeDef,
@@ -229,12 +275,18 @@ from .type_defs import (
     UpdateCachePolicyResultTypeDef,
     UpdateCloudFrontOriginAccessIdentityRequestTypeDef,
     UpdateCloudFrontOriginAccessIdentityResultTypeDef,
+    UpdateConnectionGroupRequestTypeDef,
+    UpdateConnectionGroupResultTypeDef,
     UpdateContinuousDeploymentPolicyRequestTypeDef,
     UpdateContinuousDeploymentPolicyResultTypeDef,
     UpdateDistributionRequestTypeDef,
     UpdateDistributionResultTypeDef,
+    UpdateDistributionTenantRequestTypeDef,
+    UpdateDistributionTenantResultTypeDef,
     UpdateDistributionWithStagingConfigRequestTypeDef,
     UpdateDistributionWithStagingConfigResultTypeDef,
+    UpdateDomainAssociationRequestTypeDef,
+    UpdateDomainAssociationResultTypeDef,
     UpdateFieldLevelEncryptionConfigRequestTypeDef,
     UpdateFieldLevelEncryptionConfigResultTypeDef,
     UpdateFieldLevelEncryptionProfileRequestTypeDef,
@@ -259,10 +311,13 @@ from .type_defs import (
     UpdateStreamingDistributionResultTypeDef,
     UpdateVpcOriginRequestTypeDef,
     UpdateVpcOriginResultTypeDef,
+    VerifyDnsConfigurationRequestTypeDef,
+    VerifyDnsConfigurationResultTypeDef,
 )
 from .waiter import (
     DistributionDeployedWaiter,
     InvalidationCompletedWaiter,
+    InvalidationForDistributionTenantCompletedWaiter,
     StreamingDistributionDeployedWaiter,
 )
 
@@ -313,6 +368,7 @@ class Exceptions(BaseClientExceptions):
     IllegalUpdate: Type[BotocoreClientError]
     InconsistentQuantities: Type[BotocoreClientError]
     InvalidArgument: Type[BotocoreClientError]
+    InvalidAssociation: Type[BotocoreClientError]
     InvalidDefaultRootObject: Type[BotocoreClientError]
     InvalidDomainNameForOriginAccessControl: Type[BotocoreClientError]
     InvalidErrorCode: Type[BotocoreClientError]
@@ -370,6 +426,7 @@ class Exceptions(BaseClientExceptions):
     RealtimeLogConfigInUse: Type[BotocoreClientError]
     RealtimeLogConfigOwnerMismatch: Type[BotocoreClientError]
     ResourceInUse: Type[BotocoreClientError]
+    ResourceNotDisabled: Type[BotocoreClientError]
     ResponseHeadersPolicyAlreadyExists: Type[BotocoreClientError]
     ResponseHeadersPolicyInUse: Type[BotocoreClientError]
     StagingDistributionInUse: Type[BotocoreClientError]
@@ -478,6 +535,26 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#associate_alias)
         """
 
+    def associate_distribution_tenant_web_acl(
+        self, **kwargs: Unpack[AssociateDistributionTenantWebACLRequestTypeDef]
+    ) -> AssociateDistributionTenantWebACLResultTypeDef:
+        """
+        Associates the WAF web ACL with a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_distribution_tenant_web_acl.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#associate_distribution_tenant_web_acl)
+        """
+
+    def associate_distribution_web_acl(
+        self, **kwargs: Unpack[AssociateDistributionWebACLRequestTypeDef]
+    ) -> AssociateDistributionWebACLResultTypeDef:
+        """
+        Associates the WAF web ACL with a distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_distribution_web_acl.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#associate_distribution_web_acl)
+        """
+
     def copy_distribution(
         self, **kwargs: Unpack[CopyDistributionRequestTypeDef]
     ) -> CopyDistributionResultTypeDef:
@@ -519,6 +596,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_cloud_front_origin_access_identity)
         """
 
+    def create_connection_group(
+        self, **kwargs: Unpack[CreateConnectionGroupRequestTypeDef]
+    ) -> CreateConnectionGroupResultTypeDef:
+        """
+        Creates a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_connection_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_connection_group)
+        """
+
     def create_continuous_deployment_policy(
         self, **kwargs: Unpack[CreateContinuousDeploymentPolicyRequestTypeDef]
     ) -> CreateContinuousDeploymentPolicyResultTypeDef:
@@ -538,6 +625,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_distribution.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_distribution)
+        """
+
+    def create_distribution_tenant(
+        self, **kwargs: Unpack[CreateDistributionTenantRequestTypeDef]
+    ) -> CreateDistributionTenantResultTypeDef:
+        """
+        Creates a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_distribution_tenant)
         """
 
     def create_distribution_with_tags(
@@ -588,6 +685,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_invalidation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_invalidation)
+        """
+
+    def create_invalidation_for_distribution_tenant(
+        self, **kwargs: Unpack[CreateInvalidationForDistributionTenantRequestTypeDef]
+    ) -> CreateInvalidationForDistributionTenantResultTypeDef:
+        """
+        Creates an invalidation for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_invalidation_for_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#create_invalidation_for_distribution_tenant)
         """
 
     def create_key_group(
@@ -736,6 +843,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#delete_cloud_front_origin_access_identity)
         """
 
+    def delete_connection_group(
+        self, **kwargs: Unpack[DeleteConnectionGroupRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_connection_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#delete_connection_group)
+        """
+
     def delete_continuous_deployment_policy(
         self, **kwargs: Unpack[DeleteContinuousDeploymentPolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -754,6 +871,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_distribution.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#delete_distribution)
+        """
+
+    def delete_distribution_tenant(
+        self, **kwargs: Unpack[DeleteDistributionTenantRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#delete_distribution_tenant)
         """
 
     def delete_field_level_encryption_config(
@@ -908,6 +1035,26 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#describe_key_value_store)
         """
 
+    def disassociate_distribution_tenant_web_acl(
+        self, **kwargs: Unpack[DisassociateDistributionTenantWebACLRequestTypeDef]
+    ) -> DisassociateDistributionTenantWebACLResultTypeDef:
+        """
+        Disassociates a distribution tenant from the WAF web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/disassociate_distribution_tenant_web_acl.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#disassociate_distribution_tenant_web_acl)
+        """
+
+    def disassociate_distribution_web_acl(
+        self, **kwargs: Unpack[DisassociateDistributionWebACLRequestTypeDef]
+    ) -> DisassociateDistributionWebACLResultTypeDef:
+        """
+        Disassociates a distribution from the WAF web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/disassociate_distribution_web_acl.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#disassociate_distribution_web_acl)
+        """
+
     def get_anycast_ip_list(
         self, **kwargs: Unpack[GetAnycastIpListRequestTypeDef]
     ) -> GetAnycastIpListResultTypeDef:
@@ -958,6 +1105,27 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_cloud_front_origin_access_identity_config)
         """
 
+    def get_connection_group(
+        self, **kwargs: Unpack[GetConnectionGroupRequestTypeDef]
+    ) -> GetConnectionGroupResultTypeDef:
+        """
+        Gets information about a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_connection_group)
+        """
+
+    def get_connection_group_by_routing_endpoint(
+        self, **kwargs: Unpack[GetConnectionGroupByRoutingEndpointRequestTypeDef]
+    ) -> GetConnectionGroupByRoutingEndpointResultTypeDef:
+        """
+        Gets information about a connection group by using the endpoint that you
+        specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_group_by_routing_endpoint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_connection_group_by_routing_endpoint)
+        """
+
     def get_continuous_deployment_policy(
         self, **kwargs: Unpack[GetContinuousDeploymentPolicyRequestTypeDef]
     ) -> GetContinuousDeploymentPolicyResultTypeDef:
@@ -997,6 +1165,26 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_distribution_config)
+        """
+
+    def get_distribution_tenant(
+        self, **kwargs: Unpack[GetDistributionTenantRequestTypeDef]
+    ) -> GetDistributionTenantResultTypeDef:
+        """
+        Gets information about a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_distribution_tenant)
+        """
+
+    def get_distribution_tenant_by_domain(
+        self, **kwargs: Unpack[GetDistributionTenantByDomainRequestTypeDef]
+    ) -> GetDistributionTenantByDomainResultTypeDef:
+        """
+        Gets information about a distribution tenant by the associated domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_tenant_by_domain.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_distribution_tenant_by_domain)
         """
 
     def get_field_level_encryption(
@@ -1057,6 +1245,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_invalidation)
         """
 
+    def get_invalidation_for_distribution_tenant(
+        self, **kwargs: Unpack[GetInvalidationForDistributionTenantRequestTypeDef]
+    ) -> GetInvalidationForDistributionTenantResultTypeDef:
+        """
+        Gets information about a specific invalidation for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_invalidation_for_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_invalidation_for_distribution_tenant)
+        """
+
     def get_key_group(
         self, **kwargs: Unpack[GetKeyGroupRequestTypeDef]
     ) -> GetKeyGroupResultTypeDef:
@@ -1076,6 +1274,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_key_group_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_key_group_config)
+        """
+
+    def get_managed_certificate_details(
+        self, **kwargs: Unpack[GetManagedCertificateDetailsRequestTypeDef]
+    ) -> GetManagedCertificateDetailsResultTypeDef:
+        """
+        Gets details about the CloudFront managed ACM certificate.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_managed_certificate_details.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_managed_certificate_details)
         """
 
     def get_monitoring_subscription(
@@ -1253,6 +1461,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_conflicting_aliases)
         """
 
+    def list_connection_groups(
+        self, **kwargs: Unpack[ListConnectionGroupsRequestTypeDef]
+    ) -> ListConnectionGroupsResultTypeDef:
+        """
+        Lists the connection groups in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_connection_groups.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_connection_groups)
+        """
+
     def list_continuous_deployment_policies(
         self, **kwargs: Unpack[ListContinuousDeploymentPoliciesRequestTypeDef]
     ) -> ListContinuousDeploymentPoliciesResultTypeDef:
@@ -1262,6 +1480,26 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_continuous_deployment_policies.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_continuous_deployment_policies)
+        """
+
+    def list_distribution_tenants(
+        self, **kwargs: Unpack[ListDistributionTenantsRequestTypeDef]
+    ) -> ListDistributionTenantsResultTypeDef:
+        """
+        Lists the distribution tenants in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distribution_tenants.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_distribution_tenants)
+        """
+
+    def list_distribution_tenants_by_customization(
+        self, **kwargs: Unpack[ListDistributionTenantsByCustomizationRequestTypeDef]
+    ) -> ListDistributionTenantsByCustomizationResultTypeDef:
+        """
+        Lists distribution tenants by the customization that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distribution_tenants_by_customization.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_distribution_tenants_by_customization)
         """
 
     def list_distributions(
@@ -1294,6 +1532,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_cache_policy_id.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_distributions_by_cache_policy_id)
+        """
+
+    def list_distributions_by_connection_mode(
+        self, **kwargs: Unpack[ListDistributionsByConnectionModeRequestTypeDef]
+    ) -> ListDistributionsByConnectionModeResultTypeDef:
+        """
+        Lists the distributions by the connection mode that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_connection_mode.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_distributions_by_connection_mode)
         """
 
     def list_distributions_by_key_group(
@@ -1360,6 +1608,17 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_distributions_by_web_acl_id)
         """
 
+    def list_domain_conflicts(
+        self, **kwargs: Unpack[ListDomainConflictsRequestTypeDef]
+    ) -> ListDomainConflictsResultTypeDef:
+        """
+        Lists existing domain associations that conflict with the domain that you
+        specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_domain_conflicts.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_domain_conflicts)
+        """
+
     def list_field_level_encryption_configs(
         self, **kwargs: Unpack[ListFieldLevelEncryptionConfigsRequestTypeDef]
     ) -> ListFieldLevelEncryptionConfigsResultTypeDef:
@@ -1400,6 +1659,16 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_invalidations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_invalidations)
+        """
+
+    def list_invalidations_for_distribution_tenant(
+        self, **kwargs: Unpack[ListInvalidationsForDistributionTenantRequestTypeDef]
+    ) -> ListInvalidationsForDistributionTenantResultTypeDef:
+        """
+        Lists the invalidations for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_invalidations_for_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#list_invalidations_for_distribution_tenant)
         """
 
     def list_key_groups(
@@ -1564,6 +1833,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_cloud_front_origin_access_identity)
         """
 
+    def update_connection_group(
+        self, **kwargs: Unpack[UpdateConnectionGroupRequestTypeDef]
+    ) -> UpdateConnectionGroupResultTypeDef:
+        """
+        Updates a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_connection_group.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_connection_group)
+        """
+
     def update_continuous_deployment_policy(
         self, **kwargs: Unpack[UpdateContinuousDeploymentPolicyRequestTypeDef]
     ) -> UpdateContinuousDeploymentPolicyResultTypeDef:
@@ -1584,6 +1863,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_distribution)
         """
 
+    def update_distribution_tenant(
+        self, **kwargs: Unpack[UpdateDistributionTenantRequestTypeDef]
+    ) -> UpdateDistributionTenantResultTypeDef:
+        """
+        Updates a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_distribution_tenant.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_distribution_tenant)
+        """
+
     def update_distribution_with_staging_config(
         self, **kwargs: Unpack[UpdateDistributionWithStagingConfigRequestTypeDef]
     ) -> UpdateDistributionWithStagingConfigResultTypeDef:
@@ -1593,6 +1882,17 @@ class CloudFrontClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_distribution_with_staging_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_distribution_with_staging_config)
+        """
+
+    def update_domain_association(
+        self, **kwargs: Unpack[UpdateDomainAssociationRequestTypeDef]
+    ) -> UpdateDomainAssociationResultTypeDef:
+        """
+        Moves a domain from its current distribution or distribution tenant to another
+        one.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_domain_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_domain_association)
         """
 
     def update_field_level_encryption_config(
@@ -1715,6 +2015,16 @@ class CloudFrontClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#update_vpc_origin)
         """
 
+    def verify_dns_configuration(
+        self, **kwargs: Unpack[VerifyDnsConfigurationRequestTypeDef]
+    ) -> VerifyDnsConfigurationResultTypeDef:
+        """
+        Verify the DNS configuration for your domain names.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/verify_dns_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#verify_dns_configuration)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cloud_front_origin_access_identities"]
@@ -1728,8 +2038,74 @@ class CloudFrontClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connection_groups"]
+    ) -> ListConnectionGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distribution_tenants_by_customization"]
+    ) -> ListDistributionTenantsByCustomizationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distribution_tenants"]
+    ) -> ListDistributionTenantsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_connection_mode"]
+    ) -> ListDistributionsByConnectionModePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_distributions"]
     ) -> ListDistributionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_domain_conflicts"]
+    ) -> ListDomainConflictsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_invalidations_for_distribution_tenant"]
+    ) -> ListInvalidationsForDistributionTenantPaginator:
         """
         Create a paginator for an operation.
 
@@ -1796,6 +2172,17 @@ class CloudFrontClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["invalidation_completed"]
     ) -> InvalidationCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["invalidation_for_distribution_tenant_completed"]
+    ) -> InvalidationForDistributionTenantCompletedWaiter:
         """
         Returns an object that can wait for some condition.
 
