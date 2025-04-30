@@ -1,7 +1,7 @@
 r'''
 # `google_securityposture_posture`
 
-Refer to the Terraform Registry for docs: [`google_securityposture_posture`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture).
+Refer to the Terraform Registry for docs: [`google_securityposture_posture`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityposturePosture(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.securityposturePosture.SecurityposturePosture",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture google_securityposture_posture}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture google_securityposture_posture}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SecurityposturePosture(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture google_securityposture_posture} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture google_securityposture_posture} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Location of the resource, eg: global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param parent: The parent of the resource, an organization. Format should be 'organizations/{organization_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
-        :param policy_sets: policy_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
-        :param posture_id: Id of the posture. It is an immutable field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
-        :param state: State of the posture. Update to state field should not be triggered along with with other field updates. Possible values: ["DEPRECATED", "DRAFT", "ACTIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
-        :param description: Description of the posture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
+        :param location: Location of the resource, eg: global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param parent: The parent of the resource, an organization. Format should be 'organizations/{organization_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
+        :param policy_sets: policy_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
+        :param posture_id: Id of the posture. It is an immutable field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
+        :param state: State of the posture. Update to state field should not be triggered along with with other field updates. Possible values: ["DEPRECATED", "DRAFT", "ACTIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
+        :param description: Description of the posture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SecurityposturePosture(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityposturePosture to import.
-        :param import_from_id: The id of the existing SecurityposturePosture that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityposturePosture that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityposturePosture to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class SecurityposturePosture(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.
         '''
         value = SecurityposturePostureTimeouts(
             create=create, delete=delete, update=update
@@ -398,14 +398,14 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Location of the resource, eg: global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param parent: The parent of the resource, an organization. Format should be 'organizations/{organization_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
-        :param policy_sets: policy_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
-        :param posture_id: Id of the posture. It is an immutable field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
-        :param state: State of the posture. Update to state field should not be triggered along with with other field updates. Possible values: ["DEPRECATED", "DRAFT", "ACTIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
-        :param description: Description of the posture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
+        :param location: Location of the resource, eg: global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param parent: The parent of the resource, an organization. Format should be 'organizations/{organization_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
+        :param policy_sets: policy_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
+        :param posture_id: Id of the posture. It is an immutable field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
+        :param state: State of the posture. Update to state field should not be triggered along with with other field updates. Possible values: ["DEPRECATED", "DRAFT", "ACTIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
+        :param description: Description of the posture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -524,7 +524,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Location of the resource, eg: global.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -534,7 +534,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The parent of the resource, an organization. Format should be 'organizations/{organization_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#parent SecurityposturePosture#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -546,7 +546,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySets"]]:
         '''policy_sets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_sets SecurityposturePosture#policy_sets}
         '''
         result = self._values.get("policy_sets")
         assert result is not None, "Required property 'policy_sets' is missing"
@@ -556,7 +556,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def posture_id(self) -> builtins.str:
         '''Id of the posture. It is an immutable field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#posture_id SecurityposturePosture#posture_id}
         '''
         result = self._values.get("posture_id")
         assert result is not None, "Required property 'posture_id' is missing"
@@ -569,7 +569,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Update to state field should not be triggered along with
         with other field updates. Possible values: ["DEPRECATED", "DRAFT", "ACTIVE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#state SecurityposturePosture#state}
         '''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
@@ -579,14 +579,14 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the posture.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#id SecurityposturePosture#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -598,7 +598,7 @@ class SecurityposturePostureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SecurityposturePostureTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#timeouts SecurityposturePosture#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecurityposturePostureTimeouts"], result)
@@ -633,9 +633,9 @@ class SecurityposturePosturePolicySets:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policies SecurityposturePosture#policies}
-        :param policy_set_id: ID of the policy set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_set_id SecurityposturePosture#policy_set_id}
-        :param description: Description of the policy set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policies SecurityposturePosture#policies}
+        :param policy_set_id: ID of the policy set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_set_id SecurityposturePosture#policy_set_id}
+        :param description: Description of the policy set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__158a0479c913000d5259fcf113f768bf6dfbdd791a0d5de6a4f9318927f2a100)
@@ -655,7 +655,7 @@ class SecurityposturePosturePolicySets:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPolicies"]]:
         '''policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policies SecurityposturePosture#policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policies SecurityposturePosture#policies}
         '''
         result = self._values.get("policies")
         assert result is not None, "Required property 'policies' is missing"
@@ -665,7 +665,7 @@ class SecurityposturePosturePolicySets:
     def policy_set_id(self) -> builtins.str:
         '''ID of the policy set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_set_id SecurityposturePosture#policy_set_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_set_id SecurityposturePosture#policy_set_id}
         '''
         result = self._values.get("policy_set_id")
         assert result is not None, "Required property 'policy_set_id' is missing"
@@ -675,7 +675,7 @@ class SecurityposturePosturePolicySets:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the policy set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -912,10 +912,10 @@ class SecurityposturePosturePolicySetsPolicies:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param constraint: constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#constraint SecurityposturePosture#constraint}
-        :param policy_id: ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_id SecurityposturePosture#policy_id}
-        :param compliance_standards: compliance_standards block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#compliance_standards SecurityposturePosture#compliance_standards}
-        :param description: Description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param constraint: constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#constraint SecurityposturePosture#constraint}
+        :param policy_id: ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_id SecurityposturePosture#policy_id}
+        :param compliance_standards: compliance_standards block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#compliance_standards SecurityposturePosture#compliance_standards}
+        :param description: Description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         if isinstance(constraint, dict):
             constraint = SecurityposturePosturePolicySetsPoliciesConstraint(**constraint)
@@ -938,7 +938,7 @@ class SecurityposturePosturePolicySetsPolicies:
     def constraint(self) -> "SecurityposturePosturePolicySetsPoliciesConstraint":
         '''constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#constraint SecurityposturePosture#constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#constraint SecurityposturePosture#constraint}
         '''
         result = self._values.get("constraint")
         assert result is not None, "Required property 'constraint' is missing"
@@ -948,7 +948,7 @@ class SecurityposturePosturePolicySetsPolicies:
     def policy_id(self) -> builtins.str:
         '''ID of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_id SecurityposturePosture#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_id SecurityposturePosture#policy_id}
         '''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
@@ -960,7 +960,7 @@ class SecurityposturePosturePolicySetsPolicies:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesComplianceStandards"]]]:
         '''compliance_standards block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#compliance_standards SecurityposturePosture#compliance_standards}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#compliance_standards SecurityposturePosture#compliance_standards}
         '''
         result = self._values.get("compliance_standards")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesComplianceStandards"]]], result)
@@ -969,7 +969,7 @@ class SecurityposturePosturePolicySetsPolicies:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -999,8 +999,8 @@ class SecurityposturePosturePolicySetsPoliciesComplianceStandards:
         standard: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param control: Mapping of security controls for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#control SecurityposturePosture#control}
-        :param standard: Mapping of compliance standards for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#standard SecurityposturePosture#standard}
+        :param control: Mapping of security controls for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#control SecurityposturePosture#control}
+        :param standard: Mapping of compliance standards for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#standard SecurityposturePosture#standard}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4504f51b8bd3d117a46b91ef8269013f937b9213bd8410689194a52a20af603f)
@@ -1016,7 +1016,7 @@ class SecurityposturePosturePolicySetsPoliciesComplianceStandards:
     def control(self) -> typing.Optional[builtins.str]:
         '''Mapping of security controls for the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#control SecurityposturePosture#control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#control SecurityposturePosture#control}
         '''
         result = self._values.get("control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1025,7 +1025,7 @@ class SecurityposturePosturePolicySetsPoliciesComplianceStandards:
     def standard(self) -> typing.Optional[builtins.str]:
         '''Mapping of compliance standards for the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#standard SecurityposturePosture#standard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#standard SecurityposturePosture#standard}
         '''
         result = self._values.get("standard")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,10 +1241,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraint:
         security_health_analytics_module: typing.Optional[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsModule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param org_policy_constraint: org_policy_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
-        :param org_policy_constraint_custom: org_policy_constraint_custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
-        :param security_health_analytics_custom_module: security_health_analytics_custom_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
-        :param security_health_analytics_module: security_health_analytics_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
+        :param org_policy_constraint: org_policy_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
+        :param org_policy_constraint_custom: org_policy_constraint_custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
+        :param security_health_analytics_custom_module: security_health_analytics_custom_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
+        :param security_health_analytics_module: security_health_analytics_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
         '''
         if isinstance(org_policy_constraint, dict):
             org_policy_constraint = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint(**org_policy_constraint)
@@ -1276,7 +1276,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraint:
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint"]:
         '''org_policy_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
         '''
         result = self._values.get("org_policy_constraint")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint"], result)
@@ -1287,7 +1287,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraint:
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustom"]:
         '''org_policy_constraint_custom block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
         '''
         result = self._values.get("org_policy_constraint_custom")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustom"], result)
@@ -1298,7 +1298,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraint:
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModule"]:
         '''security_health_analytics_custom_module block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
         '''
         result = self._values.get("security_health_analytics_custom_module")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModule"], result)
@@ -1309,7 +1309,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraint:
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsModule"]:
         '''security_health_analytics_module block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
         '''
         result = self._values.get("security_health_analytics_module")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsModule"], result)
@@ -1342,8 +1342,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint:
         policy_rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param canned_constraint_id: Organization policy canned constraint Id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
-        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        :param canned_constraint_id: Organization policy canned constraint Id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
+        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51d6ed0649dffde771f2c17dfcd719dcaa8e1210d716946e3a31e7d97d2a5972)
@@ -1358,7 +1358,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint:
     def canned_constraint_id(self) -> builtins.str:
         '''Organization policy canned constraint Id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
         '''
         result = self._values.get("canned_constraint_id")
         assert result is not None, "Required property 'canned_constraint_id' is missing"
@@ -1370,7 +1370,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRules"]]:
         '''policy_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
         '''
         result = self._values.get("policy_rules")
         assert result is not None, "Required property 'policy_rules' is missing"
@@ -1404,8 +1404,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         custom_constraint: typing.Optional[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
-        :param custom_constraint: custom_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
+        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        :param custom_constraint: custom_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
         '''
         if isinstance(custom_constraint, dict):
             custom_constraint = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint(**custom_constraint)
@@ -1425,7 +1425,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRules"]]:
         '''policy_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
         '''
         result = self._values.get("policy_rules")
         assert result is not None, "Required property 'policy_rules' is missing"
@@ -1437,7 +1437,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint"]:
         '''custom_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
         '''
         result = self._values.get("custom_constraint")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint"], result)
@@ -1480,13 +1480,13 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action_type: The action to take if the condition is met. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
-        :param condition: A CEL condition that refers to a supported service resource, for example 'resource.management.autoUpgrade == false'. For details about CEL usage, see `Common Expression Language <https://cloud.google.com/resource-manager/docs/organization-policy/creating-managing-custom-constraints#common_expression_language>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
-        :param method_types: A list of RESTful methods for which to enforce the constraint. Can be 'CREATE', 'UPDATE', or both. Not all Google Cloud services support both methods. To see supported methods for each service, find the service in `Supported services <https://cloud.google.com/resource-manager/docs/organization-policy/custom-constraint-supported-services>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
-        :param name: Immutable. The name of the custom constraint. This is unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
-        :param resource_types: Immutable. The fully qualified name of the Google Cloud REST resource containing the object and field you want to restrict. For example, 'container.googleapis.com/NodePool'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
-        :param description: A human-friendly description of the constraint to display as an error message when the policy is violated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param display_name: A human-friendly name for the constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        :param action_type: The action to take if the condition is met. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
+        :param condition: A CEL condition that refers to a supported service resource, for example 'resource.management.autoUpgrade == false'. For details about CEL usage, see `Common Expression Language <https://cloud.google.com/resource-manager/docs/organization-policy/creating-managing-custom-constraints#common_expression_language>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        :param method_types: A list of RESTful methods for which to enforce the constraint. Can be 'CREATE', 'UPDATE', or both. Not all Google Cloud services support both methods. To see supported methods for each service, find the service in `Supported services <https://cloud.google.com/resource-manager/docs/organization-policy/custom-constraint-supported-services>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
+        :param name: Immutable. The name of the custom constraint. This is unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
+        :param resource_types: Immutable. The fully qualified name of the Google Cloud REST resource containing the object and field you want to restrict. For example, 'container.googleapis.com/NodePool'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        :param description: A human-friendly description of the constraint to display as an error message when the policy is violated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param display_name: A human-friendly name for the constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52598a7a3bb4b9822e154263e3e3ffc7640b15172e8c0cc92866ae8b23acc323)
@@ -1513,7 +1513,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def action_type(self) -> builtins.str:
         '''The action to take if the condition is met. Possible values: ["ALLOW", "DENY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
         '''
         result = self._values.get("action_type")
         assert result is not None, "Required property 'action_type' is missing"
@@ -1523,7 +1523,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def condition(self) -> builtins.str:
         '''A CEL condition that refers to a supported service resource, for example 'resource.management.autoUpgrade == false'. For details about CEL usage, see `Common Expression Language <https://cloud.google.com/resource-manager/docs/organization-policy/creating-managing-custom-constraints#common_expression_language>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -1535,7 +1535,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
 
         Can be 'CREATE', 'UPDATE', or both. Not all Google Cloud services support both methods. To see supported methods for each service, find the service in `Supported services <https://cloud.google.com/resource-manager/docs/organization-policy/custom-constraint-supported-services>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
         '''
         result = self._values.get("method_types")
         assert result is not None, "Required property 'method_types' is missing"
@@ -1545,7 +1545,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def name(self) -> builtins.str:
         '''Immutable. The name of the custom constraint. This is unique within the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1557,7 +1557,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
 
         The fully qualified name of the Google Cloud REST resource containing the object and field you want to restrict. For example, 'container.googleapis.com/NodePool'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
         '''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
@@ -1567,7 +1567,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-friendly description of the constraint to display as an error message when the policy is violated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1576,7 +1576,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A human-friendly name for the constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1791,13 +1791,13 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action_type: The action to take if the condition is met. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
-        :param condition: A CEL condition that refers to a supported service resource, for example 'resource.management.autoUpgrade == false'. For details about CEL usage, see `Common Expression Language <https://cloud.google.com/resource-manager/docs/organization-policy/creating-managing-custom-constraints#common_expression_language>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
-        :param method_types: A list of RESTful methods for which to enforce the constraint. Can be 'CREATE', 'UPDATE', or both. Not all Google Cloud services support both methods. To see supported methods for each service, find the service in `Supported services <https://cloud.google.com/resource-manager/docs/organization-policy/custom-constraint-supported-services>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
-        :param name: Immutable. The name of the custom constraint. This is unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
-        :param resource_types: Immutable. The fully qualified name of the Google Cloud REST resource containing the object and field you want to restrict. For example, 'container.googleapis.com/NodePool'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
-        :param description: A human-friendly description of the constraint to display as an error message when the policy is violated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param display_name: A human-friendly name for the constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        :param action_type: The action to take if the condition is met. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#action_type SecurityposturePosture#action_type}
+        :param condition: A CEL condition that refers to a supported service resource, for example 'resource.management.autoUpgrade == false'. For details about CEL usage, see `Common Expression Language <https://cloud.google.com/resource-manager/docs/organization-policy/creating-managing-custom-constraints#common_expression_language>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        :param method_types: A list of RESTful methods for which to enforce the constraint. Can be 'CREATE', 'UPDATE', or both. Not all Google Cloud services support both methods. To see supported methods for each service, find the service in `Supported services <https://cloud.google.com/resource-manager/docs/organization-policy/custom-constraint-supported-services>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#method_types SecurityposturePosture#method_types}
+        :param name: Immutable. The name of the custom constraint. This is unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
+        :param resource_types: Immutable. The fully qualified name of the Google Cloud REST resource containing the object and field you want to restrict. For example, 'container.googleapis.com/NodePool'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        :param description: A human-friendly description of the constraint to display as an error message when the policy is violated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param display_name: A human-friendly name for the constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint(
             action_type=action_type,
@@ -1896,11 +1896,11 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         values: typing.Optional[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_all: Setting this to true means that all values are allowed. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
-        :param deny_all: Setting this to true means that all values are denied. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
-        :param enforce: If 'true', then the policy is enforced. If 'false', then any configuration is acceptable. This field can be set only in policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
+        :param allow_all: Setting this to true means that all values are allowed. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        :param deny_all: Setting this to true means that all values are denied. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
+        :param enforce: If 'true', then the policy is enforced. If 'false', then any configuration is acceptable. This field can be set only in policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
         '''
         if isinstance(condition, dict):
             condition = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesCondition(**condition)
@@ -1933,7 +1933,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
 
         This field can be set only in policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
         '''
         result = self._values.get("allow_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1944,7 +1944,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesCondition"], result)
@@ -1957,7 +1957,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
 
         This field can be set only in policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
         '''
         result = self._values.get("deny_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1971,7 +1971,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         If 'false', then any configuration is acceptable.
         This field can be set only in policies for boolean constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1982,7 +1982,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesValues"]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesValues"], result)
@@ -2019,10 +2019,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cda938d617df209eb6d3b6683c89bb6ecf2214eafe25c01bf11ffb0c1eb655c1)
@@ -2044,7 +2044,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -2054,7 +2054,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2063,7 +2063,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2072,7 +2072,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2336,10 +2336,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesCondition(
             expression=expression,
@@ -2358,8 +2358,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomPolicyRulesValues(
             allowed_values=allowed_values, denied_values=denied_values
@@ -2512,8 +2512,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__757ffe0ad3788e381c475a590ddcad968dd42d050bb5966fa048a62b869753a8)
@@ -2529,7 +2529,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values allowed at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
         '''
         result = self._values.get("allowed_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2538,7 +2538,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCusto
     def denied_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values denied at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         result = self._values.get("denied_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2739,11 +2739,11 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         values: typing.Optional[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_all: Setting this to true means that all values are allowed. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
-        :param deny_all: Setting this to true means that all values are denied. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
-        :param enforce: If 'true', then the policy is enforced. If 'false', then any configuration is acceptable. This field can be set only in policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
+        :param allow_all: Setting this to true means that all values are allowed. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        :param deny_all: Setting this to true means that all values are denied. This field can be set only in policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
+        :param enforce: If 'true', then the policy is enforced. If 'false', then any configuration is acceptable. This field can be set only in policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
         '''
         if isinstance(condition, dict):
             condition = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesCondition(**condition)
@@ -2776,7 +2776,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
 
         This field can be set only in policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allow_all SecurityposturePosture#allow_all}
         '''
         result = self._values.get("allow_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2787,7 +2787,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#condition SecurityposturePosture#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesCondition"], result)
@@ -2800,7 +2800,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
 
         This field can be set only in policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#deny_all SecurityposturePosture#deny_all}
         '''
         result = self._values.get("deny_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2814,7 +2814,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         If 'false', then any configuration is acceptable.
         This field can be set only in policies for boolean constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#enforce SecurityposturePosture#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2825,7 +2825,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesValues"]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#values SecurityposturePosture#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesValues"], result)
@@ -2862,10 +2862,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5104ee763db7378525f242674f3804b98977544f86c5d395e8fc22a1c269c82a)
@@ -2887,7 +2887,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -2897,7 +2897,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2906,7 +2906,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2915,7 +2915,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3179,10 +3179,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesCondition(
             expression=expression,
@@ -3201,8 +3201,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRulesValues(
             allowed_values=allowed_values, denied_values=denied_values
@@ -3355,8 +3355,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2117ff008fe59ed40cd970624068d654752ce6a8ee34898f63b443a99c2060f0)
@@ -3372,7 +3372,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values allowed at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#allowed_values SecurityposturePosture#allowed_values}
         '''
         result = self._values.get("allowed_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3381,7 +3381,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolic
     def denied_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values denied at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#denied_values SecurityposturePosture#denied_values}
         '''
         result = self._values.get("denied_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3506,8 +3506,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOutputReference(
         policy_rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintPolicyRules, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param canned_constraint_id: Organization policy canned constraint Id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
-        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        :param canned_constraint_id: Organization policy canned constraint Id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#canned_constraint_id SecurityposturePosture#canned_constraint_id}
+        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraint(
             canned_constraint_id=canned_constraint_id, policy_rules=policy_rules
@@ -3523,8 +3523,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOutputReference(
         custom_constraint: typing.Optional[typing.Union[SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustomCustomConstraint, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
-        :param custom_constraint: custom_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
+        :param policy_rules: policy_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#policy_rules SecurityposturePosture#policy_rules}
+        :param custom_constraint: custom_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_constraint SecurityposturePosture#custom_constraint}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintOrgPolicyConstraintCustom(
             policy_rules=policy_rules, custom_constraint=custom_constraint
@@ -3541,9 +3541,9 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOutputReference(
         module_enablement_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
-        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModule(
             config=config,
@@ -3561,8 +3561,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintOutputReference(
         module_enablement_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param module_name: The name of the module eg: BIGQUERY_TABLE_CMEK_DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
-        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        :param module_name: The name of the module eg: BIGQUERY_TABLE_CMEK_DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
+        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsModule(
             module_name=module_name, module_enablement_state=module_enablement_state
@@ -3678,9 +3678,9 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         module_enablement_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
-        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         if isinstance(config, dict):
             config = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfig(**config)
@@ -3703,7 +3703,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> "SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfig":
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#config SecurityposturePosture#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -3717,7 +3717,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         display name becomes the finding category for all findings that are
         returned by this custom module.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#display_name SecurityposturePosture#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3726,7 +3726,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def module_enablement_state(self) -> typing.Optional[builtins.str]:
         '''The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         result = self._values.get("module_enablement_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3767,12 +3767,12 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         recommendation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["SEVERITY_UNSPECIFIED", "CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["SEVERITY_UNSPECIFIED", "CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
         '''
         if isinstance(predicate, dict):
             predicate = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigPredicate(**predicate)
@@ -3806,7 +3806,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> "SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigPredicate":
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
         '''
         result = self._values.get("predicate")
         assert result is not None, "Required property 'predicate' is missing"
@@ -3818,7 +3818,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> "SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigResourceSelector":
         '''resource_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
         '''
         result = self._values.get("resource_selector")
         assert result is not None, "Required property 'resource_selector' is missing"
@@ -3828,7 +3828,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def severity(self) -> builtins.str:
         '''The severity to assign to findings generated by the module. Possible values: ["SEVERITY_UNSPECIFIED", "CRITICAL", "HIGH", "MEDIUM", "LOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
         '''
         result = self._values.get("severity")
         assert result is not None, "Required property 'severity' is missing"
@@ -3840,7 +3840,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutput"]:
         '''custom_output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
         '''
         result = self._values.get("custom_output")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutput"], result)
@@ -3849,7 +3849,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def description(self) -> typing.Optional[builtins.str]:
         '''Text that describes the vulnerability or misconfiguration that the custom module detects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3858,7 +3858,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def recommendation(self) -> typing.Optional[builtins.str]:
         '''An explanation of the recommended steps that security teams can take to resolve the detected issue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
         '''
         result = self._values.get("recommendation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3887,7 +3887,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputProperties", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2b7a3dec091b5091cb2936b9058b2269c442cb56ac85544cbb99891508c98b1)
@@ -3902,7 +3902,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputProperties"]]]:
         '''properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputProperties"]]], result)
@@ -4001,8 +4001,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         value_expression: typing.Optional[typing.Union["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputPropertiesValueExpression", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
-        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#value_expression SecurityposturePosture#value_expression}
+        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
+        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#value_expression SecurityposturePosture#value_expression}
         '''
         if isinstance(value_expression, dict):
             value_expression = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputPropertiesValueExpression(**value_expression)
@@ -4020,7 +4020,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def name(self) -> builtins.str:
         '''Name of the property for the custom output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#name SecurityposturePosture#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4032,7 +4032,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     ) -> typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputPropertiesValueExpression"]:
         '''value_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#value_expression SecurityposturePosture#value_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#value_expression SecurityposturePosture#value_expression}
         '''
         result = self._values.get("value_expression")
         return typing.cast(typing.Optional["SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputPropertiesValueExpression"], result)
@@ -4178,10 +4178,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputPropertiesValueExpression(
             expression=expression,
@@ -4265,10 +4265,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e9f5d28fcc9a14492d6d29be0f2e543fd8980597f2af23dd5dd00e3a479879d)
@@ -4290,7 +4290,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -4300,7 +4300,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4309,7 +4309,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4318,7 +4318,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4480,7 +4480,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutputProperties, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#properties SecurityposturePosture#properties}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigCustomOutput(
             properties=properties
@@ -4498,10 +4498,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigPredicate(
             expression=expression,
@@ -4519,7 +4519,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         resource_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigResourceSelector(
             resource_types=resource_types
@@ -4670,10 +4670,10 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
-        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        :param description: Description of the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea175bbda693b014a7b75fdd6c03c0f2d145d4a70179995cf996399444d24217)
@@ -4695,7 +4695,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#expression SecurityposturePosture#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -4705,7 +4705,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4714,7 +4714,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#location SecurityposturePosture#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4723,7 +4723,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#title SecurityposturePosture#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4866,7 +4866,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
 class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfigResourceSelector:
     def __init__(self, *, resource_types: typing.Sequence[builtins.str]) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58648b1b09ee7235f05d97c28f01150a807a468cb1aca59a24a7e678f634c2b9)
@@ -4879,7 +4879,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
     def resource_types(self) -> typing.List[builtins.str]:
         '''The resource types to run the detector on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_types SecurityposturePosture#resource_types}
         '''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
@@ -4984,12 +4984,12 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsC
         recommendation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["SEVERITY_UNSPECIFIED", "CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#predicate SecurityposturePosture#predicate}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#resource_selector SecurityposturePosture#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["SEVERITY_UNSPECIFIED", "CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#severity SecurityposturePosture#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#custom_output SecurityposturePosture#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#description SecurityposturePosture#description}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#recommendation SecurityposturePosture#recommendation}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsCustomModuleConfig(
             predicate=predicate,
@@ -5097,8 +5097,8 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsM
         module_enablement_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param module_name: The name of the module eg: BIGQUERY_TABLE_CMEK_DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
-        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        :param module_name: The name of the module eg: BIGQUERY_TABLE_CMEK_DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
+        :param module_enablement_state: The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0e18cc9fb4bb6b1113f3c1f5f6d30fc12f391c12c4794792eb644977f1e6f88)
@@ -5114,7 +5114,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsM
     def module_name(self) -> builtins.str:
         '''The name of the module eg: BIGQUERY_TABLE_CMEK_DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_name SecurityposturePosture#module_name}
         '''
         result = self._values.get("module_name")
         assert result is not None, "Required property 'module_name' is missing"
@@ -5124,7 +5124,7 @@ class SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsM
     def module_enablement_state(self) -> typing.Optional[builtins.str]:
         '''The state of enablement for the module at its level of the resource hierarchy. Possible values: ["ENABLEMENT_STATE_UNSPECIFIED", "ENABLED", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#module_enablement_state SecurityposturePosture#module_enablement_state}
         '''
         result = self._values.get("module_enablement_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5359,10 +5359,10 @@ class SecurityposturePosturePolicySetsPoliciesOutputReference(
         security_health_analytics_module: typing.Optional[typing.Union[SecurityposturePosturePolicySetsPoliciesConstraintSecurityHealthAnalyticsModule, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param org_policy_constraint: org_policy_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
-        :param org_policy_constraint_custom: org_policy_constraint_custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
-        :param security_health_analytics_custom_module: security_health_analytics_custom_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
-        :param security_health_analytics_module: security_health_analytics_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
+        :param org_policy_constraint: org_policy_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint SecurityposturePosture#org_policy_constraint}
+        :param org_policy_constraint_custom: org_policy_constraint_custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#org_policy_constraint_custom SecurityposturePosture#org_policy_constraint_custom}
+        :param security_health_analytics_custom_module: security_health_analytics_custom_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_custom_module SecurityposturePosture#security_health_analytics_custom_module}
+        :param security_health_analytics_module: security_health_analytics_module block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#security_health_analytics_module SecurityposturePosture#security_health_analytics_module}
         '''
         value = SecurityposturePosturePolicySetsPoliciesConstraint(
             org_policy_constraint=org_policy_constraint,
@@ -5475,9 +5475,9 @@ class SecurityposturePostureTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c66e3831f08480f8e684d847df1ec179a44af80da86227c277717f7d723c246)
@@ -5494,19 +5494,19 @@ class SecurityposturePostureTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#create SecurityposturePosture#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#delete SecurityposturePosture#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/securityposture_posture#update SecurityposturePosture#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

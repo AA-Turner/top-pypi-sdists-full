@@ -1,7 +1,7 @@
 r'''
 # `google_datastream_connection_profile`
 
-Refer to the Terraform Registry for docs: [`google_datastream_connection_profile`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile).
+Refer to the Terraform Registry for docs: [`google_datastream_connection_profile`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatastreamConnectionProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.datastreamConnectionProfile.DatastreamConnectionProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile google_datastream_connection_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile google_datastream_connection_profile}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class DatastreamConnectionProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile google_datastream_connection_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile google_datastream_connection_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connection_profile_id: The connection profile identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
-        :param location: The name of the location this connection profile is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
-        :param bigquery_profile: bigquery_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
-        :param create_without_validation: Create the connection profile without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
-        :param forward_ssh_connectivity: forward_ssh_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
-        :param gcs_profile: gcs_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
-        :param mysql_profile: mysql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
-        :param oracle_profile: oracle_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
-        :param postgresql_profile: postgresql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
-        :param private_connectivity: private_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.
-        :param sql_server_profile: sql_server_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
+        :param connection_profile_id: The connection profile identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
+        :param location: The name of the location this connection profile is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
+        :param bigquery_profile: bigquery_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
+        :param create_without_validation: Create the connection profile without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
+        :param forward_ssh_connectivity: forward_ssh_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
+        :param gcs_profile: gcs_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
+        :param mysql_profile: mysql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
+        :param oracle_profile: oracle_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
+        :param postgresql_profile: postgresql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
+        :param private_connectivity: private_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.
+        :param sql_server_profile: sql_server_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class DatastreamConnectionProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatastreamConnectionProfile to import.
-        :param import_from_id: The id of the existing DatastreamConnectionProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatastreamConnectionProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatastreamConnectionProfile to import is found.
         '''
         if __debug__:
@@ -176,11 +176,11 @@ class DatastreamConnectionProfile(
         private_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hostname: Hostname for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: SSH password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param private_key: SSH private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
+        :param hostname: Hostname for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: SSH password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param private_key: SSH private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
         '''
         value = DatastreamConnectionProfileForwardSshConnectivity(
             hostname=hostname,
@@ -200,8 +200,8 @@ class DatastreamConnectionProfile(
         root_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
-        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
+        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
+        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
         '''
         value = DatastreamConnectionProfileGcsProfile(
             bucket=bucket, root_path=root_path
@@ -221,12 +221,12 @@ class DatastreamConnectionProfile(
         ssl_config: typing.Optional[typing.Union["DatastreamConnectionProfileMysqlProfileSslConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: Hostname for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
+        :param hostname: Hostname for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
         '''
         value = DatastreamConnectionProfileMysqlProfile(
             hostname=hostname,
@@ -252,13 +252,13 @@ class DatastreamConnectionProfile(
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_service: Database for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
-        :param hostname: Hostname for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param connection_attributes: Connection string attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
-        :param password: Password for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database_service: Database for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
+        :param hostname: Hostname for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param connection_attributes: Connection string attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
+        :param password: Password for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         value = DatastreamConnectionProfileOracleProfile(
             database_service=database_service,
@@ -284,12 +284,12 @@ class DatastreamConnectionProfile(
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Database for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
-        :param hostname: Hostname for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database: Database for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        :param hostname: Hostname for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         value = DatastreamConnectionProfilePostgresqlProfile(
             database=database,
@@ -305,7 +305,7 @@ class DatastreamConnectionProfile(
     @jsii.member(jsii_name="putPrivateConnectivity")
     def put_private_connectivity(self, *, private_connection: builtins.str) -> None:
         '''
-        :param private_connection: A reference to a private connection resource. Format: 'projects/{project}/locations/{location}/privateConnections/{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
+        :param private_connection: A reference to a private connection resource. Format: 'projects/{project}/locations/{location}/privateConnections/{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
         '''
         value = DatastreamConnectionProfilePrivateConnectivity(
             private_connection=private_connection
@@ -325,12 +325,12 @@ class DatastreamConnectionProfile(
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Database for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
-        :param hostname: Hostname for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database: Database for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        :param hostname: Hostname for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         value = DatastreamConnectionProfileSqlServerProfile(
             database=database,
@@ -352,9 +352,9 @@ class DatastreamConnectionProfile(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.
         '''
         value = DatastreamConnectionProfileTimeouts(
             create=create, delete=delete, update=update
@@ -815,22 +815,22 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connection_profile_id: The connection profile identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
-        :param location: The name of the location this connection profile is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
-        :param bigquery_profile: bigquery_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
-        :param create_without_validation: Create the connection profile without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
-        :param forward_ssh_connectivity: forward_ssh_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
-        :param gcs_profile: gcs_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
-        :param mysql_profile: mysql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
-        :param oracle_profile: oracle_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
-        :param postgresql_profile: postgresql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
-        :param private_connectivity: private_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.
-        :param sql_server_profile: sql_server_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
+        :param connection_profile_id: The connection profile identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
+        :param location: The name of the location this connection profile is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
+        :param bigquery_profile: bigquery_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
+        :param create_without_validation: Create the connection profile without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
+        :param forward_ssh_connectivity: forward_ssh_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
+        :param gcs_profile: gcs_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
+        :param mysql_profile: mysql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
+        :param oracle_profile: oracle_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
+        :param postgresql_profile: postgresql_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
+        :param private_connectivity: private_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.
+        :param sql_server_profile: sql_server_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -991,7 +991,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connection_profile_id(self) -> builtins.str:
         '''The connection profile identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_profile_id DatastreamConnectionProfile#connection_profile_id}
         '''
         result = self._values.get("connection_profile_id")
         assert result is not None, "Required property 'connection_profile_id' is missing"
@@ -1001,7 +1001,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#display_name DatastreamConnectionProfile#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1011,7 +1011,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The name of the location this connection profile is located in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#location DatastreamConnectionProfile#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1023,7 +1023,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[DatastreamConnectionProfileBigqueryProfile]:
         '''bigquery_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bigquery_profile DatastreamConnectionProfile#bigquery_profile}
         '''
         result = self._values.get("bigquery_profile")
         return typing.cast(typing.Optional[DatastreamConnectionProfileBigqueryProfile], result)
@@ -1034,7 +1034,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Create the connection profile without validating it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create_without_validation DatastreamConnectionProfile#create_without_validation}
         '''
         result = self._values.get("create_without_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1045,7 +1045,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfileForwardSshConnectivity"]:
         '''forward_ssh_connectivity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#forward_ssh_connectivity DatastreamConnectionProfile#forward_ssh_connectivity}
         '''
         result = self._values.get("forward_ssh_connectivity")
         return typing.cast(typing.Optional["DatastreamConnectionProfileForwardSshConnectivity"], result)
@@ -1054,14 +1054,14 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcs_profile(self) -> typing.Optional["DatastreamConnectionProfileGcsProfile"]:
         '''gcs_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#gcs_profile DatastreamConnectionProfile#gcs_profile}
         '''
         result = self._values.get("gcs_profile")
         return typing.cast(typing.Optional["DatastreamConnectionProfileGcsProfile"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#id DatastreamConnectionProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1076,7 +1076,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#labels DatastreamConnectionProfile#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1087,7 +1087,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfileMysqlProfile"]:
         '''mysql_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#mysql_profile DatastreamConnectionProfile#mysql_profile}
         '''
         result = self._values.get("mysql_profile")
         return typing.cast(typing.Optional["DatastreamConnectionProfileMysqlProfile"], result)
@@ -1098,7 +1098,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfileOracleProfile"]:
         '''oracle_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#oracle_profile DatastreamConnectionProfile#oracle_profile}
         '''
         result = self._values.get("oracle_profile")
         return typing.cast(typing.Optional["DatastreamConnectionProfileOracleProfile"], result)
@@ -1109,7 +1109,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfilePostgresqlProfile"]:
         '''postgresql_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#postgresql_profile DatastreamConnectionProfile#postgresql_profile}
         '''
         result = self._values.get("postgresql_profile")
         return typing.cast(typing.Optional["DatastreamConnectionProfilePostgresqlProfile"], result)
@@ -1120,14 +1120,14 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfilePrivateConnectivity"]:
         '''private_connectivity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connectivity DatastreamConnectionProfile#private_connectivity}
         '''
         result = self._values.get("private_connectivity")
         return typing.cast(typing.Optional["DatastreamConnectionProfilePrivateConnectivity"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#project DatastreamConnectionProfile#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1137,7 +1137,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamConnectionProfileSqlServerProfile"]:
         '''sql_server_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#sql_server_profile DatastreamConnectionProfile#sql_server_profile}
         '''
         result = self._values.get("sql_server_profile")
         return typing.cast(typing.Optional["DatastreamConnectionProfileSqlServerProfile"], result)
@@ -1146,7 +1146,7 @@ class DatastreamConnectionProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatastreamConnectionProfileTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#timeouts DatastreamConnectionProfile#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatastreamConnectionProfileTimeouts"], result)
@@ -1185,11 +1185,11 @@ class DatastreamConnectionProfileForwardSshConnectivity:
         private_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hostname: Hostname for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: SSH password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param private_key: SSH private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
+        :param hostname: Hostname for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: SSH password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the SSH tunnel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param private_key: SSH private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0a3c92f73b582a3b6d54b7ccb714cfa46ea64f54ad7f1b692929d66ddd8517f)
@@ -1213,7 +1213,7 @@ class DatastreamConnectionProfileForwardSshConnectivity:
     def hostname(self) -> builtins.str:
         '''Hostname for the SSH tunnel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -1223,7 +1223,7 @@ class DatastreamConnectionProfileForwardSshConnectivity:
     def username(self) -> builtins.str:
         '''Username for the SSH tunnel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1233,7 +1233,7 @@ class DatastreamConnectionProfileForwardSshConnectivity:
     def password(self) -> typing.Optional[builtins.str]:
         '''SSH password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1242,7 +1242,7 @@ class DatastreamConnectionProfileForwardSshConnectivity:
     def port(self) -> typing.Optional[jsii.Number]:
         '''Port for the SSH tunnel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1251,7 +1251,7 @@ class DatastreamConnectionProfileForwardSshConnectivity:
     def private_key(self) -> typing.Optional[builtins.str]:
         '''SSH private key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_key DatastreamConnectionProfile#private_key}
         '''
         result = self._values.get("private_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1416,8 +1416,8 @@ class DatastreamConnectionProfileGcsProfile:
         root_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
-        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
+        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
+        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae297457f0043a945afeb469748927856d7514857eaf7dcf9497611c5e065029)
@@ -1433,7 +1433,7 @@ class DatastreamConnectionProfileGcsProfile:
     def bucket(self) -> builtins.str:
         '''The Cloud Storage bucket name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#bucket DatastreamConnectionProfile#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -1443,7 +1443,7 @@ class DatastreamConnectionProfileGcsProfile:
     def root_path(self) -> typing.Optional[builtins.str]:
         '''The root path inside the Cloud Storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#root_path DatastreamConnectionProfile#root_path}
         '''
         result = self._values.get("root_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1558,12 +1558,12 @@ class DatastreamConnectionProfileMysqlProfile:
         ssl_config: typing.Optional[typing.Union["DatastreamConnectionProfileMysqlProfileSslConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: Hostname for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
+        :param hostname: Hostname for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the MySQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
         '''
         if isinstance(ssl_config, dict):
             ssl_config = DatastreamConnectionProfileMysqlProfileSslConfig(**ssl_config)
@@ -1592,7 +1592,7 @@ class DatastreamConnectionProfileMysqlProfile:
     def hostname(self) -> builtins.str:
         '''Hostname for the MySQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -1602,7 +1602,7 @@ class DatastreamConnectionProfileMysqlProfile:
     def username(self) -> builtins.str:
         '''Username for the MySQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1612,7 +1612,7 @@ class DatastreamConnectionProfileMysqlProfile:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the MySQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1621,7 +1621,7 @@ class DatastreamConnectionProfileMysqlProfile:
     def port(self) -> typing.Optional[jsii.Number]:
         '''Port for the MySQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1630,7 +1630,7 @@ class DatastreamConnectionProfileMysqlProfile:
     def secret_manager_stored_password(self) -> typing.Optional[builtins.str]:
         '''A reference to a Secret Manager resource name storing the user's password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         result = self._values.get("secret_manager_stored_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1641,7 +1641,7 @@ class DatastreamConnectionProfileMysqlProfile:
     ) -> typing.Optional["DatastreamConnectionProfileMysqlProfileSslConfig"]:
         '''ssl_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ssl_config DatastreamConnectionProfile#ssl_config}
         '''
         result = self._values.get("ssl_config")
         return typing.cast(typing.Optional["DatastreamConnectionProfileMysqlProfileSslConfig"], result)
@@ -1687,9 +1687,9 @@ class DatastreamConnectionProfileMysqlProfileOutputReference(
         client_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ca_certificate: PEM-encoded certificate of the CA that signed the source database server's certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
-        :param client_certificate: PEM-encoded certificate that will be used by the replica to authenticate against the source database server. If this field is used then the 'clientKey' and the 'caCertificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
-        :param client_key: PEM-encoded private key associated with the Client Certificate. If this field is used then the 'client_certificate' and the 'ca_certificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
+        :param ca_certificate: PEM-encoded certificate of the CA that signed the source database server's certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
+        :param client_certificate: PEM-encoded certificate that will be used by the replica to authenticate against the source database server. If this field is used then the 'clientKey' and the 'caCertificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
+        :param client_key: PEM-encoded private key associated with the Client Certificate. If this field is used then the 'client_certificate' and the 'ca_certificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
         '''
         value = DatastreamConnectionProfileMysqlProfileSslConfig(
             ca_certificate=ca_certificate,
@@ -1850,9 +1850,9 @@ class DatastreamConnectionProfileMysqlProfileSslConfig:
         client_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ca_certificate: PEM-encoded certificate of the CA that signed the source database server's certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
-        :param client_certificate: PEM-encoded certificate that will be used by the replica to authenticate against the source database server. If this field is used then the 'clientKey' and the 'caCertificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
-        :param client_key: PEM-encoded private key associated with the Client Certificate. If this field is used then the 'client_certificate' and the 'ca_certificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
+        :param ca_certificate: PEM-encoded certificate of the CA that signed the source database server's certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
+        :param client_certificate: PEM-encoded certificate that will be used by the replica to authenticate against the source database server. If this field is used then the 'clientKey' and the 'caCertificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
+        :param client_key: PEM-encoded private key associated with the Client Certificate. If this field is used then the 'client_certificate' and the 'ca_certificate' fields are mandatory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3da7e17b258ff2f17f48bfc7eff716c26fe1c85fc96c592b524e056c808a3e4d)
@@ -1871,7 +1871,7 @@ class DatastreamConnectionProfileMysqlProfileSslConfig:
     def ca_certificate(self) -> typing.Optional[builtins.str]:
         '''PEM-encoded certificate of the CA that signed the source database server's certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#ca_certificate DatastreamConnectionProfile#ca_certificate}
         '''
         result = self._values.get("ca_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1884,7 +1884,7 @@ class DatastreamConnectionProfileMysqlProfileSslConfig:
         is used then the 'clientKey' and the 'caCertificate' fields are
         mandatory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_certificate DatastreamConnectionProfile#client_certificate}
         '''
         result = self._values.get("client_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1896,7 +1896,7 @@ class DatastreamConnectionProfileMysqlProfileSslConfig:
         If this field is used then the 'client_certificate' and the
         'ca_certificate' fields are mandatory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#client_key DatastreamConnectionProfile#client_key}
         '''
         result = self._values.get("client_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2055,13 +2055,13 @@ class DatastreamConnectionProfileOracleProfile:
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_service: Database for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
-        :param hostname: Hostname for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param connection_attributes: Connection string attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
-        :param password: Password for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database_service: Database for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
+        :param hostname: Hostname for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param connection_attributes: Connection string attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
+        :param password: Password for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the Oracle connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4ccfc87d8e0440986c365e8f5c06d2f123c4370f34cabd11f77181293c40ba7)
@@ -2090,7 +2090,7 @@ class DatastreamConnectionProfileOracleProfile:
     def database_service(self) -> builtins.str:
         '''Database for the Oracle connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database_service DatastreamConnectionProfile#database_service}
         '''
         result = self._values.get("database_service")
         assert result is not None, "Required property 'database_service' is missing"
@@ -2100,7 +2100,7 @@ class DatastreamConnectionProfileOracleProfile:
     def hostname(self) -> builtins.str:
         '''Hostname for the Oracle connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -2110,7 +2110,7 @@ class DatastreamConnectionProfileOracleProfile:
     def username(self) -> builtins.str:
         '''Username for the Oracle connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -2122,7 +2122,7 @@ class DatastreamConnectionProfileOracleProfile:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Connection string attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#connection_attributes DatastreamConnectionProfile#connection_attributes}
         '''
         result = self._values.get("connection_attributes")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2131,7 +2131,7 @@ class DatastreamConnectionProfileOracleProfile:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the Oracle connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2140,7 +2140,7 @@ class DatastreamConnectionProfileOracleProfile:
     def port(self) -> typing.Optional[jsii.Number]:
         '''Port for the Oracle connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2149,7 +2149,7 @@ class DatastreamConnectionProfileOracleProfile:
     def secret_manager_stored_password(self) -> typing.Optional[builtins.str]:
         '''A reference to a Secret Manager resource name storing the user's password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         result = self._values.get("secret_manager_stored_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2368,12 +2368,12 @@ class DatastreamConnectionProfilePostgresqlProfile:
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Database for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
-        :param hostname: Hostname for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database: Database for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        :param hostname: Hostname for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the PostgreSQL connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ccc0af5cc69240a25cf2434ed0cfe099fb38e6121cd425c37f6742e9f28ecaa)
@@ -2399,7 +2399,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def database(self) -> builtins.str:
         '''Database for the PostgreSQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -2409,7 +2409,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def hostname(self) -> builtins.str:
         '''Hostname for the PostgreSQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -2419,7 +2419,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def username(self) -> builtins.str:
         '''Username for the PostgreSQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -2429,7 +2429,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the PostgreSQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2438,7 +2438,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def port(self) -> typing.Optional[jsii.Number]:
         '''Port for the PostgreSQL connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2447,7 +2447,7 @@ class DatastreamConnectionProfilePostgresqlProfile:
     def secret_manager_stored_password(self) -> typing.Optional[builtins.str]:
         '''A reference to a Secret Manager resource name storing the user's password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         result = self._values.get("secret_manager_stored_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2624,7 +2624,7 @@ class DatastreamConnectionProfilePostgresqlProfileOutputReference(
 class DatastreamConnectionProfilePrivateConnectivity:
     def __init__(self, *, private_connection: builtins.str) -> None:
         '''
-        :param private_connection: A reference to a private connection resource. Format: 'projects/{project}/locations/{location}/privateConnections/{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
+        :param private_connection: A reference to a private connection resource. Format: 'projects/{project}/locations/{location}/privateConnections/{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2f511a5575005e053baf717c3cbb34489ea07733772538ddc1494d71bd66b33)
@@ -2637,7 +2637,7 @@ class DatastreamConnectionProfilePrivateConnectivity:
     def private_connection(self) -> builtins.str:
         '''A reference to a private connection resource. Format: 'projects/{project}/locations/{location}/privateConnections/{name}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#private_connection DatastreamConnectionProfile#private_connection}
         '''
         result = self._values.get("private_connection")
         assert result is not None, "Required property 'private_connection' is missing"
@@ -2734,12 +2734,12 @@ class DatastreamConnectionProfileSqlServerProfile:
         secret_manager_stored_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Database for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
-        :param hostname: Hostname for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
-        :param username: Username for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
-        :param password: Password for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
-        :param port: Port for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
-        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        :param database: Database for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        :param hostname: Hostname for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        :param username: Username for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        :param password: Password for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        :param port: Port for the SQL Server connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        :param secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5abbcce100d362dd307ca90f609e9cb140af03c4dc1ee984c7447d43e12ca95)
@@ -2765,7 +2765,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def database(self) -> builtins.str:
         '''Database for the SQL Server connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#database DatastreamConnectionProfile#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -2775,7 +2775,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def hostname(self) -> builtins.str:
         '''Hostname for the SQL Server connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#hostname DatastreamConnectionProfile#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -2785,7 +2785,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def username(self) -> builtins.str:
         '''Username for the SQL Server connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#username DatastreamConnectionProfile#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -2795,7 +2795,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the SQL Server connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#password DatastreamConnectionProfile#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2804,7 +2804,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def port(self) -> typing.Optional[jsii.Number]:
         '''Port for the SQL Server connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#port DatastreamConnectionProfile#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2813,7 +2813,7 @@ class DatastreamConnectionProfileSqlServerProfile:
     def secret_manager_stored_password(self) -> typing.Optional[builtins.str]:
         '''A reference to a Secret Manager resource name storing the user's password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#secret_manager_stored_password DatastreamConnectionProfile#secret_manager_stored_password}
         '''
         result = self._values.get("secret_manager_stored_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2996,9 +2996,9 @@ class DatastreamConnectionProfileTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f743875a2b79d53201c22d2bb5fab589fd25a4ad34dbcc68fa1abaedc9e4b2d0)
@@ -3015,19 +3015,19 @@ class DatastreamConnectionProfileTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#create DatastreamConnectionProfile#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#delete DatastreamConnectionProfile#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/datastream_connection_profile#update DatastreamConnectionProfile#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

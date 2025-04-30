@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymiele
-Version: 0.4.0
+Version: 0.4.1
 Summary: Python library for Miele integration with Home Assistant
 Author-email: Ake Strandberg <ake@strandberg.eu>
 License: MIT

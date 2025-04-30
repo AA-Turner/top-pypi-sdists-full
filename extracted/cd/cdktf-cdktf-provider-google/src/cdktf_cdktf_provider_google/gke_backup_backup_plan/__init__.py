@@ -1,7 +1,7 @@
 r'''
 # `google_gke_backup_backup_plan`
 
-Refer to the Terraform Registry for docs: [`google_gke_backup_backup_plan`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan).
+Refer to the Terraform Registry for docs: [`google_gke_backup_backup_plan`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GkeBackupBackupPlan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.gkeBackupBackupPlan.GkeBackupBackupPlan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan google_gke_backup_backup_plan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan google_gke_backup_backup_plan}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GkeBackupBackupPlan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan google_gke_backup_backup_plan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan google_gke_backup_backup_plan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: The source cluster from which Backups will be created via this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
-        :param location: The region of the Backup Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
-        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
-        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
-        :param backup_schedule: backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
-        :param deactivated: This flag indicates whether this BackupPlan has been deactivated. Setting this field to True locks the BackupPlan such that no further updates will be allowed (except deletes), including the deactivated field itself. It also prevents any new Backups from being created via this BackupPlan (including scheduled Backups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
-        :param description: User specified descriptive string for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
+        :param cluster: The source cluster from which Backups will be created via this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
+        :param location: The region of the Backup Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
+        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
+        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
+        :param backup_schedule: backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
+        :param deactivated: This flag indicates whether this BackupPlan has been deactivated. Setting this field to True locks the BackupPlan such that no further updates will be allowed (except deletes), including the deactivated field itself. It also prevents any new Backups from being created via this BackupPlan (including scheduled Backups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
+        :param description: User specified descriptive string for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GkeBackupBackupPlan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GkeBackupBackupPlan to import.
-        :param import_from_id: The id of the existing GkeBackupBackupPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GkeBackupBackupPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GkeBackupBackupPlan to import is found.
         '''
         if __debug__:
@@ -160,13 +160,13 @@ class GkeBackupBackupPlan(
         selected_namespaces: typing.Optional[typing.Union["GkeBackupBackupPlanBackupConfigSelectedNamespaces", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param all_namespaces: If True, include all namespaced resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
-        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
-        :param include_secrets: This flag specifies whether Kubernetes Secret resources should be included when they fall into the scope of Backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
-        :param include_volume_data: This flag specifies whether volume data should be backed up when PVCs are included in the scope of a Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
-        :param permissive_mode: This flag specifies whether Backups will not fail when Backup for GKE detects Kubernetes configuration that is non-standard or requires additional setup to restore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
-        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
-        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
+        :param all_namespaces: If True, include all namespaced resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
+        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
+        :param include_secrets: This flag specifies whether Kubernetes Secret resources should be included when they fall into the scope of Backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
+        :param include_volume_data: This flag specifies whether volume data should be backed up when PVCs are included in the scope of a Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
+        :param permissive_mode: This flag specifies whether Backups will not fail when Backup for GKE detects Kubernetes configuration that is non-standard or requires additional setup to restore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
+        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
+        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
         '''
         value = GkeBackupBackupPlanBackupConfig(
             all_namespaces=all_namespaces,
@@ -189,9 +189,9 @@ class GkeBackupBackupPlan(
         rpo_config: typing.Optional[typing.Union["GkeBackupBackupPlanBackupScheduleRpoConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cron_schedule: A standard cron string that defines a repeating schedule for creating Backups via this BackupPlan. This is mutually exclusive with the rpoConfig field since at most one schedule can be defined for a BackupPlan. If this is defined, then backupRetainDays must also be defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
-        :param paused: This flag denotes whether automatic Backup creation is paused for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
-        :param rpo_config: rpo_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
+        :param cron_schedule: A standard cron string that defines a repeating schedule for creating Backups via this BackupPlan. This is mutually exclusive with the rpoConfig field since at most one schedule can be defined for a BackupPlan. If this is defined, then backupRetainDays must also be defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
+        :param paused: This flag denotes whether automatic Backup creation is paused for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
+        :param rpo_config: rpo_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
         '''
         value = GkeBackupBackupPlanBackupSchedule(
             cron_schedule=cron_schedule, paused=paused, rpo_config=rpo_config
@@ -208,9 +208,9 @@ class GkeBackupBackupPlan(
         locked: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param backup_delete_lock_days: Minimum age for a Backup created via this BackupPlan (in days). Must be an integer value between 0-90 (inclusive). A Backup created under this BackupPlan will not be deletable until it reaches Backup's (create time + backup_delete_lock_days). Updating this field of a BackupPlan does not affect existing Backups. Backups created after a successful update will inherit this new value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
-        :param backup_retain_days: The default maximum age of a Backup created via this BackupPlan. This field MUST be an integer value >= 0 and <= 365. If specified, a Backup created under this BackupPlan will be automatically deleted after its age reaches (createTime + backupRetainDays). If not specified, Backups created under this BackupPlan will NOT be subject to automatic deletion. Updating this field does NOT affect existing Backups under it. Backups created AFTER a successful update will automatically pick up the new value. NOTE: backupRetainDays must be >= backupDeleteLockDays. If cronSchedule is defined, then this must be <= 360 * the creation interval. If rpo_config is defined, then this must be <= 360 * targetRpoMinutes/(1440minutes/day) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
-        :param locked: This flag denotes whether the retention policy of this BackupPlan is locked. If set to True, no further update is allowed on this policy, including the locked field itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
+        :param backup_delete_lock_days: Minimum age for a Backup created via this BackupPlan (in days). Must be an integer value between 0-90 (inclusive). A Backup created under this BackupPlan will not be deletable until it reaches Backup's (create time + backup_delete_lock_days). Updating this field of a BackupPlan does not affect existing Backups. Backups created after a successful update will inherit this new value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
+        :param backup_retain_days: The default maximum age of a Backup created via this BackupPlan. This field MUST be an integer value >= 0 and <= 365. If specified, a Backup created under this BackupPlan will be automatically deleted after its age reaches (createTime + backupRetainDays). If not specified, Backups created under this BackupPlan will NOT be subject to automatic deletion. Updating this field does NOT affect existing Backups under it. Backups created AFTER a successful update will automatically pick up the new value. NOTE: backupRetainDays must be >= backupDeleteLockDays. If cronSchedule is defined, then this must be <= 360 * the creation interval. If rpo_config is defined, then this must be <= 360 * targetRpoMinutes/(1440minutes/day) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
+        :param locked: This flag denotes whether the retention policy of this BackupPlan is locked. If set to True, no further update is allowed on this policy, including the locked field itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
         '''
         value = GkeBackupBackupPlanRetentionPolicy(
             backup_delete_lock_days=backup_delete_lock_days,
@@ -229,9 +229,9 @@ class GkeBackupBackupPlan(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.
         '''
         value = GkeBackupBackupPlanTimeouts(
             create=create, delete=delete, update=update
@@ -539,13 +539,13 @@ class GkeBackupBackupPlanBackupConfig:
         selected_namespaces: typing.Optional[typing.Union["GkeBackupBackupPlanBackupConfigSelectedNamespaces", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param all_namespaces: If True, include all namespaced resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
-        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
-        :param include_secrets: This flag specifies whether Kubernetes Secret resources should be included when they fall into the scope of Backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
-        :param include_volume_data: This flag specifies whether volume data should be backed up when PVCs are included in the scope of a Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
-        :param permissive_mode: This flag specifies whether Backups will not fail when Backup for GKE detects Kubernetes configuration that is non-standard or requires additional setup to restore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
-        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
-        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
+        :param all_namespaces: If True, include all namespaced resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
+        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
+        :param include_secrets: This flag specifies whether Kubernetes Secret resources should be included when they fall into the scope of Backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
+        :param include_volume_data: This flag specifies whether volume data should be backed up when PVCs are included in the scope of a Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
+        :param permissive_mode: This flag specifies whether Backups will not fail when Backup for GKE detects Kubernetes configuration that is non-standard or requires additional setup to restore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
+        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
+        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
         '''
         if isinstance(encryption_key, dict):
             encryption_key = GkeBackupBackupPlanBackupConfigEncryptionKey(**encryption_key)
@@ -584,7 +584,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If True, include all namespaced resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#all_namespaces GkeBackupBackupPlan#all_namespaces}
         '''
         result = self._values.get("all_namespaces")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -595,7 +595,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional["GkeBackupBackupPlanBackupConfigEncryptionKey"]:
         '''encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#encryption_key GkeBackupBackupPlan#encryption_key}
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupConfigEncryptionKey"], result)
@@ -606,7 +606,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''This flag specifies whether Kubernetes Secret resources should be included when they fall into the scope of Backups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_secrets GkeBackupBackupPlan#include_secrets}
         '''
         result = self._values.get("include_secrets")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -617,7 +617,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''This flag specifies whether volume data should be backed up when PVCs are included in the scope of a Backup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#include_volume_data GkeBackupBackupPlan#include_volume_data}
         '''
         result = self._values.get("include_volume_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -628,7 +628,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''This flag specifies whether Backups will not fail when Backup for GKE detects Kubernetes configuration that is non-standard or requires additional setup to restore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#permissive_mode GkeBackupBackupPlan#permissive_mode}
         '''
         result = self._values.get("permissive_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -639,7 +639,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional["GkeBackupBackupPlanBackupConfigSelectedApplications"]:
         '''selected_applications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_applications GkeBackupBackupPlan#selected_applications}
         '''
         result = self._values.get("selected_applications")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupConfigSelectedApplications"], result)
@@ -650,7 +650,7 @@ class GkeBackupBackupPlanBackupConfig:
     ) -> typing.Optional["GkeBackupBackupPlanBackupConfigSelectedNamespaces"]:
         '''selected_namespaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#selected_namespaces GkeBackupBackupPlan#selected_namespaces}
         '''
         result = self._values.get("selected_namespaces")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupConfigSelectedNamespaces"], result)
@@ -675,7 +675,7 @@ class GkeBackupBackupPlanBackupConfig:
 class GkeBackupBackupPlanBackupConfigEncryptionKey:
     def __init__(self, *, gcp_kms_encryption_key: builtins.str) -> None:
         '''
-        :param gcp_kms_encryption_key: Google Cloud KMS encryption key. Format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param gcp_kms_encryption_key: Google Cloud KMS encryption key. Format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fffbe6b92a2298b775a851d1da78f651c0005a119331b43ded0d803e35d45ee)
@@ -688,7 +688,7 @@ class GkeBackupBackupPlanBackupConfigEncryptionKey:
     def gcp_kms_encryption_key(self) -> builtins.str:
         '''Google Cloud KMS encryption key. Format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -786,7 +786,7 @@ class GkeBackupBackupPlanBackupConfigOutputReference(
     @jsii.member(jsii_name="putEncryptionKey")
     def put_encryption_key(self, *, gcp_kms_encryption_key: builtins.str) -> None:
         '''
-        :param gcp_kms_encryption_key: Google Cloud KMS encryption key. Format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param gcp_kms_encryption_key: Google Cloud KMS encryption key. Format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#gcp_kms_encryption_key GkeBackupBackupPlan#gcp_kms_encryption_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = GkeBackupBackupPlanBackupConfigEncryptionKey(
             gcp_kms_encryption_key=gcp_kms_encryption_key
@@ -801,7 +801,7 @@ class GkeBackupBackupPlanBackupConfigOutputReference(
         namespaced_names: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
+        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
         '''
         value = GkeBackupBackupPlanBackupConfigSelectedApplications(
             namespaced_names=namespaced_names
@@ -816,7 +816,7 @@ class GkeBackupBackupPlanBackupConfigOutputReference(
         namespaces: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
         '''
         value = GkeBackupBackupPlanBackupConfigSelectedNamespaces(
             namespaces=namespaces
@@ -1018,7 +1018,7 @@ class GkeBackupBackupPlanBackupConfigSelectedApplications:
         namespaced_names: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
+        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6702d6e41caf7ef4eb21ed69ff095735184afab3641c9dcc914ba7a5c0a82922)
@@ -1033,7 +1033,7 @@ class GkeBackupBackupPlanBackupConfigSelectedApplications:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames"]]:
         '''namespaced_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaced_names GkeBackupBackupPlan#namespaced_names}
         '''
         result = self._values.get("namespaced_names")
         assert result is not None, "Required property 'namespaced_names' is missing"
@@ -1059,8 +1059,8 @@ class GkeBackupBackupPlanBackupConfigSelectedApplications:
 class GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames:
     def __init__(self, *, name: builtins.str, namespace: builtins.str) -> None:
         '''
-        :param name: The name of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
-        :param namespace: The namespace of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespace GkeBackupBackupPlan#namespace}
+        :param name: The name of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
+        :param namespace: The namespace of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespace GkeBackupBackupPlan#namespace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac269452265c7a356836e4bda3d34bcb54244692ca47298c4b02ddec9b574cdf)
@@ -1075,7 +1075,7 @@ class GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames:
     def name(self) -> builtins.str:
         '''The name of a Kubernetes Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1085,7 +1085,7 @@ class GkeBackupBackupPlanBackupConfigSelectedApplicationsNamespacedNames:
     def namespace(self) -> builtins.str:
         '''The namespace of a Kubernetes Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespace GkeBackupBackupPlan#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespace GkeBackupBackupPlan#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -1347,7 +1347,7 @@ class GkeBackupBackupPlanBackupConfigSelectedApplicationsOutputReference(
 class GkeBackupBackupPlanBackupConfigSelectedNamespaces:
     def __init__(self, *, namespaces: typing.Sequence[builtins.str]) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa94c6c8178e72116bce855f2727cd93c24fab6cb0ac0171701d88fba0637878)
@@ -1360,7 +1360,7 @@ class GkeBackupBackupPlanBackupConfigSelectedNamespaces:
     def namespaces(self) -> typing.List[builtins.str]:
         '''A list of Kubernetes Namespaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#namespaces GkeBackupBackupPlan#namespaces}
         '''
         result = self._values.get("namespaces")
         assert result is not None, "Required property 'namespaces' is missing"
@@ -1451,9 +1451,9 @@ class GkeBackupBackupPlanBackupSchedule:
         rpo_config: typing.Optional[typing.Union["GkeBackupBackupPlanBackupScheduleRpoConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cron_schedule: A standard cron string that defines a repeating schedule for creating Backups via this BackupPlan. This is mutually exclusive with the rpoConfig field since at most one schedule can be defined for a BackupPlan. If this is defined, then backupRetainDays must also be defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
-        :param paused: This flag denotes whether automatic Backup creation is paused for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
-        :param rpo_config: rpo_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
+        :param cron_schedule: A standard cron string that defines a repeating schedule for creating Backups via this BackupPlan. This is mutually exclusive with the rpoConfig field since at most one schedule can be defined for a BackupPlan. If this is defined, then backupRetainDays must also be defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
+        :param paused: This flag denotes whether automatic Backup creation is paused for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
+        :param rpo_config: rpo_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
         '''
         if isinstance(rpo_config, dict):
             rpo_config = GkeBackupBackupPlanBackupScheduleRpoConfig(**rpo_config)
@@ -1478,7 +1478,7 @@ class GkeBackupBackupPlanBackupSchedule:
         schedule can be defined for a BackupPlan.
         If this is defined, then backupRetainDays must also be defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cron_schedule GkeBackupBackupPlan#cron_schedule}
         '''
         result = self._values.get("cron_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1489,7 +1489,7 @@ class GkeBackupBackupPlanBackupSchedule:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''This flag denotes whether automatic Backup creation is paused for this BackupPlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#paused GkeBackupBackupPlan#paused}
         '''
         result = self._values.get("paused")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1500,7 +1500,7 @@ class GkeBackupBackupPlanBackupSchedule:
     ) -> typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfig"]:
         '''rpo_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#rpo_config GkeBackupBackupPlan#rpo_config}
         '''
         result = self._values.get("rpo_config")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfig"], result)
@@ -1545,8 +1545,8 @@ class GkeBackupBackupPlanBackupScheduleOutputReference(
         exclusion_windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param target_rpo_minutes: Defines the target RPO for the BackupPlan in minutes, which means the target maximum data loss in time that is acceptable for this BackupPlan. This must be at least 60, i.e., 1 hour, and at most 86400, i.e., 60 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
-        :param exclusion_windows: exclusion_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
+        :param target_rpo_minutes: Defines the target RPO for the BackupPlan in minutes, which means the target maximum data loss in time that is acceptable for this BackupPlan. This must be at least 60, i.e., 1 hour, and at most 86400, i.e., 60 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
+        :param exclusion_windows: exclusion_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
         '''
         value = GkeBackupBackupPlanBackupScheduleRpoConfig(
             target_rpo_minutes=target_rpo_minutes, exclusion_windows=exclusion_windows
@@ -1649,8 +1649,8 @@ class GkeBackupBackupPlanBackupScheduleRpoConfig:
         exclusion_windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param target_rpo_minutes: Defines the target RPO for the BackupPlan in minutes, which means the target maximum data loss in time that is acceptable for this BackupPlan. This must be at least 60, i.e., 1 hour, and at most 86400, i.e., 60 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
-        :param exclusion_windows: exclusion_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
+        :param target_rpo_minutes: Defines the target RPO for the BackupPlan in minutes, which means the target maximum data loss in time that is acceptable for this BackupPlan. This must be at least 60, i.e., 1 hour, and at most 86400, i.e., 60 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
+        :param exclusion_windows: exclusion_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4461ca1216c514fc7dd4346450731f70a94b40b90e613f5d3bb05836cae680fb)
@@ -1669,7 +1669,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfig:
         This must be
         at least 60, i.e., 1 hour, and at most 86400, i.e., 60 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#target_rpo_minutes GkeBackupBackupPlan#target_rpo_minutes}
         '''
         result = self._values.get("target_rpo_minutes")
         assert result is not None, "Required property 'target_rpo_minutes' is missing"
@@ -1681,7 +1681,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows"]]]:
         '''exclusion_windows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#exclusion_windows GkeBackupBackupPlan#exclusion_windows}
         '''
         result = self._values.get("exclusion_windows")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows"]]], result)
@@ -1720,11 +1720,11 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
         single_occurrence_date: typing.Optional[typing.Union["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrenceDate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param duration: Specifies duration of the window in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Restrictions for duration based on the recurrence type to allow some time for backup to happen: - single_occurrence_date: no restriction - daily window: duration < 24 hours - weekly window: - days of week includes all seven days of a week: duration < 24 hours - all other weekly window: duration < 168 hours (i.e., 24 * 7 hours) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#duration GkeBackupBackupPlan#duration}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#start_time GkeBackupBackupPlan#start_time}
-        :param daily: The exclusion window occurs every day if set to "True". Specifying this field to "False" is an error. Only one of singleOccurrenceDate, daily and daysOfWeek may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#daily GkeBackupBackupPlan#daily}
-        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
-        :param single_occurrence_date: single_occurrence_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#single_occurrence_date GkeBackupBackupPlan#single_occurrence_date}
+        :param duration: Specifies duration of the window in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Restrictions for duration based on the recurrence type to allow some time for backup to happen: - single_occurrence_date: no restriction - daily window: duration < 24 hours - weekly window: - days of week includes all seven days of a week: duration < 24 hours - all other weekly window: duration < 168 hours (i.e., 24 * 7 hours) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#duration GkeBackupBackupPlan#duration}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#start_time GkeBackupBackupPlan#start_time}
+        :param daily: The exclusion window occurs every day if set to "True". Specifying this field to "False" is an error. Only one of singleOccurrenceDate, daily and daysOfWeek may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#daily GkeBackupBackupPlan#daily}
+        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
+        :param single_occurrence_date: single_occurrence_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#single_occurrence_date GkeBackupBackupPlan#single_occurrence_date}
         '''
         if isinstance(start_time, dict):
             start_time = GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime(**start_time)
@@ -1764,7 +1764,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
           - days of week includes all seven days of a week: duration < 24 hours
           - all other weekly window: duration < 168 hours (i.e., 24 * 7 hours)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#duration GkeBackupBackupPlan#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#duration GkeBackupBackupPlan#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -1776,7 +1776,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
     ) -> "GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#start_time GkeBackupBackupPlan#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#start_time GkeBackupBackupPlan#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -1791,7 +1791,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
         Specifying this field to "False" is an error.
         Only one of singleOccurrenceDate, daily and daysOfWeek may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#daily GkeBackupBackupPlan#daily}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#daily GkeBackupBackupPlan#daily}
         '''
         result = self._values.get("daily")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1802,7 +1802,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
     ) -> typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsDaysOfWeek"]:
         '''days_of_week block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
         '''
         result = self._values.get("days_of_week")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsDaysOfWeek"], result)
@@ -1813,7 +1813,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindows:
     ) -> typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrenceDate"]:
         '''single_occurrence_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#single_occurrence_date GkeBackupBackupPlan#single_occurrence_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#single_occurrence_date GkeBackupBackupPlan#single_occurrence_date}
         '''
         result = self._values.get("single_occurrence_date")
         return typing.cast(typing.Optional["GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrenceDate"], result)
@@ -1842,7 +1842,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsDaysOfWeek:
         days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param days_of_week: A list of days of week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
+        :param days_of_week: A list of days of week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__342bf3a6ba8a86a679ece8b9ef009359d2727796d4959f0f3036e32dc7ecb0e9)
@@ -1855,7 +1855,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsDaysOfWeek:
     def days_of_week(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of days of week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
         '''
         result = self._values.get("days_of_week")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2057,7 +2057,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsOutputReference(
         days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param days_of_week: A list of days of week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
+        :param days_of_week: A list of days of week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#days_of_week GkeBackupBackupPlan#days_of_week}
         '''
         value = GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsDaysOfWeek(
             days_of_week=days_of_week
@@ -2074,9 +2074,9 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsOutputReference(
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
-        :param month: Month of a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
-        :param year: Year of the date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
+        :param day: Day of a month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
+        :param month: Month of a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
+        :param year: Year of the date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
         '''
         value = GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrenceDate(
             day=day, month=month, year=year
@@ -2094,10 +2094,10 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
-        :param minutes: Minutes of hour of day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
-        :param seconds: Seconds of minutes of the time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
+        :param hours: Hours of day in 24 hour format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
+        :param minutes: Minutes of hour of day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
+        :param seconds: Seconds of minutes of the time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
         '''
         value = GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -2230,9 +2230,9 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrence
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
-        :param month: Month of a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
-        :param year: Year of the date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
+        :param day: Day of a month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
+        :param month: Month of a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
+        :param year: Year of the date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__411fbc6ca3d805c5cf6dda15b10eaa54e1fbb1ed0c7f589747ab5be3423606cc)
@@ -2251,7 +2251,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrence
     def day(self) -> typing.Optional[jsii.Number]:
         '''Day of a month.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#day GkeBackupBackupPlan#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2260,7 +2260,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrence
     def month(self) -> typing.Optional[jsii.Number]:
         '''Month of a year.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#month GkeBackupBackupPlan#month}
         '''
         result = self._values.get("month")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2269,7 +2269,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsSingleOccurrence
     def year(self) -> typing.Optional[jsii.Number]:
         '''Year of the date.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#year GkeBackupBackupPlan#year}
         '''
         result = self._values.get("year")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2407,10 +2407,10 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
-        :param minutes: Minutes of hour of day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
-        :param seconds: Seconds of minutes of the time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
+        :param hours: Hours of day in 24 hour format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
+        :param minutes: Minutes of hour of day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
+        :param seconds: Seconds of minutes of the time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76d8912efd38cf8f1abc7b1b68c59dea087b414dacbabecaf67f5742801b2632)
@@ -2432,7 +2432,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime:
     def hours(self) -> typing.Optional[jsii.Number]:
         '''Hours of day in 24 hour format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#hours GkeBackupBackupPlan#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2441,7 +2441,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#minutes GkeBackupBackupPlan#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2450,7 +2450,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#nanos GkeBackupBackupPlan#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2459,7 +2459,7 @@ class GkeBackupBackupPlanBackupScheduleRpoConfigExclusionWindowsStartTime:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''Seconds of minutes of the time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#seconds GkeBackupBackupPlan#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2741,18 +2741,18 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: The source cluster from which Backups will be created via this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
-        :param location: The region of the Backup Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
-        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
-        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
-        :param backup_schedule: backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
-        :param deactivated: This flag indicates whether this BackupPlan has been deactivated. Setting this field to True locks the BackupPlan such that no further updates will be allowed (except deletes), including the deactivated field itself. It also prevents any new Backups from being created via this BackupPlan (including scheduled Backups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
-        :param description: User specified descriptive string for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
+        :param cluster: The source cluster from which Backups will be created via this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
+        :param location: The region of the Backup Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
+        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
+        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
+        :param backup_schedule: backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
+        :param deactivated: This flag indicates whether this BackupPlan has been deactivated. Setting this field to True locks the BackupPlan such that no further updates will be allowed (except deletes), including the deactivated field itself. It also prevents any new Backups from being created via this BackupPlan (including scheduled Backups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
+        :param description: User specified descriptive string for this BackupPlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2891,7 +2891,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The source cluster from which Backups will be created via this BackupPlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#cluster GkeBackupBackupPlan#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -2901,7 +2901,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The region of the Backup Plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#location GkeBackupBackupPlan#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -2911,7 +2911,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The full name of the BackupPlan Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#name GkeBackupBackupPlan#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2921,7 +2921,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_config(self) -> typing.Optional[GkeBackupBackupPlanBackupConfig]:
         '''backup_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_config GkeBackupBackupPlan#backup_config}
         '''
         result = self._values.get("backup_config")
         return typing.cast(typing.Optional[GkeBackupBackupPlanBackupConfig], result)
@@ -2930,7 +2930,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_schedule(self) -> typing.Optional[GkeBackupBackupPlanBackupSchedule]:
         '''backup_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_schedule GkeBackupBackupPlan#backup_schedule}
         '''
         result = self._values.get("backup_schedule")
         return typing.cast(typing.Optional[GkeBackupBackupPlanBackupSchedule], result)
@@ -2945,7 +2945,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         (except deletes), including the deactivated field itself. It also prevents any new Backups
         from being created via this BackupPlan (including scheduled Backups).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#deactivated GkeBackupBackupPlan#deactivated}
         '''
         result = self._values.get("deactivated")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2954,14 +2954,14 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''User specified descriptive string for this BackupPlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#description GkeBackupBackupPlan#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#id GkeBackupBackupPlan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2979,14 +2979,14 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#labels GkeBackupBackupPlan#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#project GkeBackupBackupPlan#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2994,7 +2994,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_policy(self) -> typing.Optional["GkeBackupBackupPlanRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#retention_policy GkeBackupBackupPlan#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["GkeBackupBackupPlanRetentionPolicy"], result)
@@ -3003,7 +3003,7 @@ class GkeBackupBackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GkeBackupBackupPlanTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#timeouts GkeBackupBackupPlan#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GkeBackupBackupPlanTimeouts"], result)
@@ -3038,9 +3038,9 @@ class GkeBackupBackupPlanRetentionPolicy:
         locked: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param backup_delete_lock_days: Minimum age for a Backup created via this BackupPlan (in days). Must be an integer value between 0-90 (inclusive). A Backup created under this BackupPlan will not be deletable until it reaches Backup's (create time + backup_delete_lock_days). Updating this field of a BackupPlan does not affect existing Backups. Backups created after a successful update will inherit this new value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
-        :param backup_retain_days: The default maximum age of a Backup created via this BackupPlan. This field MUST be an integer value >= 0 and <= 365. If specified, a Backup created under this BackupPlan will be automatically deleted after its age reaches (createTime + backupRetainDays). If not specified, Backups created under this BackupPlan will NOT be subject to automatic deletion. Updating this field does NOT affect existing Backups under it. Backups created AFTER a successful update will automatically pick up the new value. NOTE: backupRetainDays must be >= backupDeleteLockDays. If cronSchedule is defined, then this must be <= 360 * the creation interval. If rpo_config is defined, then this must be <= 360 * targetRpoMinutes/(1440minutes/day) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
-        :param locked: This flag denotes whether the retention policy of this BackupPlan is locked. If set to True, no further update is allowed on this policy, including the locked field itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
+        :param backup_delete_lock_days: Minimum age for a Backup created via this BackupPlan (in days). Must be an integer value between 0-90 (inclusive). A Backup created under this BackupPlan will not be deletable until it reaches Backup's (create time + backup_delete_lock_days). Updating this field of a BackupPlan does not affect existing Backups. Backups created after a successful update will inherit this new value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
+        :param backup_retain_days: The default maximum age of a Backup created via this BackupPlan. This field MUST be an integer value >= 0 and <= 365. If specified, a Backup created under this BackupPlan will be automatically deleted after its age reaches (createTime + backupRetainDays). If not specified, Backups created under this BackupPlan will NOT be subject to automatic deletion. Updating this field does NOT affect existing Backups under it. Backups created AFTER a successful update will automatically pick up the new value. NOTE: backupRetainDays must be >= backupDeleteLockDays. If cronSchedule is defined, then this must be <= 360 * the creation interval. If rpo_config is defined, then this must be <= 360 * targetRpoMinutes/(1440minutes/day) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
+        :param locked: This flag denotes whether the retention policy of this BackupPlan is locked. If set to True, no further update is allowed on this policy, including the locked field itself. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e9881199f93bf223b7b84510430b1066715538a2f450d2554020254328a7afe)
@@ -3065,7 +3065,7 @@ class GkeBackupBackupPlanRetentionPolicy:
         Updating this field of a BackupPlan does not affect existing Backups.
         Backups created after a successful update will inherit this new value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_delete_lock_days GkeBackupBackupPlan#backup_delete_lock_days}
         '''
         result = self._values.get("backup_delete_lock_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3086,7 +3086,7 @@ class GkeBackupBackupPlanRetentionPolicy:
         If rpo_config is defined, then this must be
         <= 360 * targetRpoMinutes/(1440minutes/day)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#backup_retain_days GkeBackupBackupPlan#backup_retain_days}
         '''
         result = self._values.get("backup_retain_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3100,7 +3100,7 @@ class GkeBackupBackupPlanRetentionPolicy:
         If set to True, no further update is allowed on this policy, including
         the locked field itself.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#locked GkeBackupBackupPlan#locked}
         '''
         result = self._values.get("locked")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3235,9 +3235,9 @@ class GkeBackupBackupPlanTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d31cd7a17ee7470cd8881d65686abe3261ba8092241c76733529a5f2451de5a0)
@@ -3254,19 +3254,19 @@ class GkeBackupBackupPlanTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#create GkeBackupBackupPlan#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#delete GkeBackupBackupPlan#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_backup_plan#update GkeBackupBackupPlan#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

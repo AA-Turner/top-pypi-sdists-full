@@ -165,7 +165,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/change_management_station_compartment.py.html>`__ to see an example of how to use change_management_station_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/change_management_station_compartment.py.html>`__ to see an example of how to use change_management_station_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -275,7 +275,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/create_management_station.py.html>`__ to see an example of how to use create_management_station API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/create_management_station.py.html>`__ to see an example of how to use create_management_station API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -384,7 +384,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/delete_management_station.py.html>`__ to see an example of how to use delete_management_station API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/delete_management_station.py.html>`__ to see an example of how to use delete_management_station API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -487,7 +487,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/get_management_station.py.html>`__ to see an example of how to use get_management_station API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/get_management_station.py.html>`__ to see an example of how to use get_management_station API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -643,7 +643,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/list_management_stations.py.html>`__ to see an example of how to use list_management_stations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/list_management_stations.py.html>`__ to see an example of how to use list_management_stations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -835,7 +835,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/list_mirrors.py.html>`__ to see an example of how to use list_mirrors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/list_mirrors.py.html>`__ to see an example of how to use list_mirrors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -991,7 +991,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/refresh_management_station_config.py.html>`__ to see an example of how to use refresh_management_station_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/refresh_management_station_config.py.html>`__ to see an example of how to use refresh_management_station_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -1111,7 +1111,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/synchronize_mirrors.py.html>`__ to see an example of how to use synchronize_mirrors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/synchronize_mirrors.py.html>`__ to see an example of how to use synchronize_mirrors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']
@@ -1233,7 +1233,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/synchronize_single_mirrors.py.html>`__ to see an example of how to use synchronize_single_mirrors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/synchronize_single_mirrors.py.html>`__ to see an example of how to use synchronize_single_mirrors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId', 'mirrorId']
@@ -1347,7 +1347,7 @@ class ManagementStationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/update_management_station.py.html>`__ to see an example of how to use update_management_station API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/update_management_station.py.html>`__ to see an example of how to use update_management_station API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementStationId']

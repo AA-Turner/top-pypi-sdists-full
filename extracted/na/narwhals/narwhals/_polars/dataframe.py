@@ -70,6 +70,36 @@ Method: TypeAlias = "Callable[..., R]"
 Where `R` is the return type.
 """
 
+# DataFrame methods where PolarsDataFrame just defers to Polars.DataFrame directly.
+INHERITED_METHODS = frozenset(
+    [
+        "clone",
+        "drop_nulls",
+        "estimated_size",
+        "explode",
+        "filter",
+        "gather_every",
+        "head",
+        "is_unique",
+        "item",
+        "iter_rows",
+        "join_asof",
+        "rename",
+        "row",
+        "rows",
+        "sample",
+        "select",
+        "sort",
+        "tail",
+        "to_arrow",
+        "to_pandas",
+        "unique",
+        "with_columns",
+        "write_csv",
+        "write_parquet",
+    ]
+)
+
 
 class PolarsDataFrame:
     clone: Method[Self]
@@ -221,6 +251,10 @@ class PolarsDataFrame:
         return self._with_native(self.native.tail(n))
 
     def __getattr__(self, attr: str) -> Any:
+        if attr not in INHERITED_METHODS:  # pragma: no cover
+            msg = f"{self.__class__.__name__} has not attribute '{attr}'."
+            raise AttributeError(msg)
+
         def func(*args: Any, **kwargs: Any) -> Any:
             pos, kwds = extract_args_kwargs(args, kwargs)
             try:
@@ -300,7 +334,7 @@ class PolarsDataFrame:
                             self.columns[slice(columns.start, columns.stop, columns.step)]
                         )
                     elif is_compliant_series(columns):
-                        native = native[:, columns.native.to_list()]  # type: ignore[attr-defined, index]
+                        native = native[:, columns.native.to_list()]
                     else:
                         native = native[:, columns]
                 elif isinstance(columns, slice):
@@ -319,18 +353,18 @@ class PolarsDataFrame:
 
             if not is_slice_none(rows):
                 if isinstance(rows, int):
-                    native = native[[rows], :]  # pyright: ignore[reportArgumentType,reportCallIssue]
+                    native = native[[rows], :]
                 elif isinstance(rows, (slice, range)):
-                    native = native[rows, :]  # pyright: ignore[reportArgumentType,reportCallIssue]
+                    native = native[rows, :]
                 elif is_compliant_series(rows):
-                    native = native[rows.native, :]  # pyright: ignore[reportArgumentType,reportCallIssue]
+                    native = native[rows.native, :]
                 elif is_sequence_like(rows):
-                    native = native[rows, :]  # pyright: ignore[reportArgumentType,reportCallIssue]
+                    native = native[rows, :]
                 else:
                     msg = f"Unreachable code, got unexpected type: {type(rows)}"
                     raise AssertionError(msg)
 
-            return self._with_native(native)  # pyright: ignore[reportArgumentType]
+            return self._with_native(native)
 
     def simple_select(self, *column_names: str) -> Self:
         return self._with_native(self.native.select(*column_names))
@@ -562,6 +596,10 @@ class PolarsLazyFrame:
         )
 
     def __getattr__(self, attr: str) -> Any:
+        if attr not in INHERITED_METHODS:  # pragma: no cover
+            msg = f"{self.__class__.__name__} has not attribute '{attr}'."
+            raise AttributeError(msg)
+
         def func(*args: Any, **kwargs: Any) -> Any:
             pos, kwds = extract_args_kwargs(args, kwargs)
             try:

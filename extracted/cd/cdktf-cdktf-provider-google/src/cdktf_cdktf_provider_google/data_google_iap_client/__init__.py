@@ -1,7 +1,7 @@
 r'''
 # `data_google_iap_client`
 
-Refer to the Terraform Registry for docs: [`data_google_iap_client`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client).
+Refer to the Terraform Registry for docs: [`data_google_iap_client`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleIapClient(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleIapClient.DataGoogleIapClient",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client google_iap_client}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client google_iap_client}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleIapClient(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client google_iap_client} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client google_iap_client} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param brand: Identifier of the brand to which this client is attached to. The format is 'projects/{project_number}/brands/{brand_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
-        :param client_id: Output only. Unique identifier of the OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param brand: Identifier of the brand to which this client is attached to. The format is 'projects/{project_number}/brands/{brand_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
+        :param client_id: Output only. Unique identifier of the OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleIapClient(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleIapClient to import.
-        :param import_from_id: The id of the existing DataGoogleIapClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleIapClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleIapClient to import is found.
         '''
         if __debug__:
@@ -238,9 +238,9 @@ class DataGoogleIapClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param brand: Identifier of the brand to which this client is attached to. The format is 'projects/{project_number}/brands/{brand_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
-        :param client_id: Output only. Unique identifier of the OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param brand: Identifier of the brand to which this client is attached to. The format is 'projects/{project_number}/brands/{brand_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
+        :param client_id: Output only. Unique identifier of the OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -345,7 +345,7 @@ class DataGoogleIapClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def brand(self) -> builtins.str:
         '''Identifier of the brand to which this client is attached to. The format is 'projects/{project_number}/brands/{brand_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#brand DataGoogleIapClient#brand}
         '''
         result = self._values.get("brand")
         assert result is not None, "Required property 'brand' is missing"
@@ -355,7 +355,7 @@ class DataGoogleIapClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_id(self) -> builtins.str:
         '''Output only. Unique identifier of the OAuth client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#client_id DataGoogleIapClient#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -363,7 +363,7 @@ class DataGoogleIapClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/iap_client#id DataGoogleIapClient#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -7,12 +7,12 @@ use anyhow::{Context, Result};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
-use uv_auth::UrlAuthPolicies;
 use uv_cache::Cache;
 use uv_client::{FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
     Concurrency, Constraints, DependencyGroups, DependencyGroupsWithDefaults, DryRun, EditableMode,
-    ExtrasSpecification, HashCheckingMode, InstallOptions, PreviewMode,
+    ExtrasSpecification, ExtrasSpecificationWithDefaults, HashCheckingMode, InstallOptions,
+    PreviewMode,
 };
 use uv_dispatch::BuildDispatch;
 use uv_distribution_types::{
@@ -20,7 +20,7 @@ use uv_distribution_types::{
 };
 use uv_fs::Simplified;
 use uv_installer::SitePackages;
-use uv_normalize::{DefaultGroups, PackageName};
+use uv_normalize::{DefaultExtras, DefaultGroups, PackageName};
 use uv_pep508::{MarkerTree, VersionOrUrl};
 use uv_pypi_types::{ParsedArchiveUrl, ParsedGitUrl, ParsedUrl};
 use uv_python::{PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
@@ -115,9 +115,15 @@ pub(crate) async fn sync(
     };
 
     // Determine the default groups to include.
-    let defaults = match &target {
+    let default_groups = match &target {
         SyncTarget::Project(project) => default_dependency_groups(project.pyproject_toml())?,
         SyncTarget::Script(..) => DefaultGroups::default(),
+    };
+
+    // Determine the default extras to include.
+    let default_extras = match &target {
+        SyncTarget::Project(_project) => DefaultExtras::default(),
+        SyncTarget::Script(..) => DefaultExtras::default(),
     };
 
     // Discover or create the virtual environment.
@@ -425,8 +431,8 @@ pub(crate) async fn sync(
     match do_sync(
         sync_target,
         &environment,
-        &extras,
-        &dev.with_defaults(defaults),
+        &extras.with_defaults(default_extras),
+        &dev.with_defaults(default_groups),
         editable,
         install_options,
         modifications,
@@ -559,7 +565,7 @@ impl Deref for SyncEnvironment {
 pub(super) async fn do_sync(
     target: InstallTarget<'_>,
     venv: &PythonEnvironment,
-    extras: &ExtrasSpecification,
+    extras: &ExtrasSpecificationWithDefaults,
     dev: &DependencyGroupsWithDefaults,
     editable: EditableMode,
     install_options: InstallOptions,
@@ -676,8 +682,7 @@ pub(super) async fn do_sync(
         .native_tls(network_settings.native_tls)
         .connectivity(network_settings.connectivity)
         .allow_insecure_host(network_settings.allow_insecure_host.clone())
-        .url_auth_policies(UrlAuthPolicies::from(index_locations))
-        .index_urls(index_locations.index_urls())
+        .index_locations(index_locations)
         .index_strategy(index_strategy)
         .keyring(keyring_provider)
         .markers(venv.interpreter().markers())

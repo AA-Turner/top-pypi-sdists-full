@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_dns_zone`
 
-Refer to the Terraform Registry for docs: [`google_apigee_dns_zone`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone).
+Refer to the Terraform Registry for docs: [`google_apigee_dns_zone`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeDnsZone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeDnsZone.ApigeeDnsZone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone google_apigee_dns_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone google_apigee_dns_zone}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ApigeeDnsZone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone google_apigee_dns_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone google_apigee_dns_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Description for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
-        :param dns_zone_id: ID of the dns zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
-        :param domain: Doamin for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
-        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
+        :param description: Description for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
+        :param dns_zone_id: ID of the dns zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
+        :param domain: Doamin for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
+        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ApigeeDnsZone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeDnsZone to import.
-        :param import_from_id: The id of the existing ApigeeDnsZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeDnsZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeDnsZone to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class ApigeeDnsZone(
         target_project_id: builtins.str,
     ) -> None:
         '''
-        :param target_network_id: The name of the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
-        :param target_project_id: The ID of the project that contains the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
+        :param target_network_id: The name of the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
+        :param target_project_id: The ID of the project that contains the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
         '''
         value = ApigeeDnsZonePeeringConfig(
             target_network_id=target_network_id, target_project_id=target_project_id
@@ -157,8 +157,8 @@ class ApigeeDnsZone(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.
         '''
         value = ApigeeDnsZoneTimeouts(create=create, delete=delete)
 
@@ -345,13 +345,13 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Description for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
-        :param dns_zone_id: ID of the dns zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
-        :param domain: Doamin for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
-        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
+        :param description: Description for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
+        :param dns_zone_id: ID of the dns zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
+        :param domain: Doamin for the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
+        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -469,7 +469,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''Description for the zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#description ApigeeDnsZone#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -479,7 +479,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns_zone_id(self) -> builtins.str:
         '''ID of the dns zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#dns_zone_id ApigeeDnsZone#dns_zone_id}
         '''
         result = self._values.get("dns_zone_id")
         assert result is not None, "Required property 'dns_zone_id' is missing"
@@ -489,7 +489,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain(self) -> builtins.str:
         '''Doamin for the zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#domain ApigeeDnsZone#domain}
         '''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
@@ -499,7 +499,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#org_id ApigeeDnsZone#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -509,7 +509,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peering_config(self) -> "ApigeeDnsZonePeeringConfig":
         '''peering_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#peering_config ApigeeDnsZone#peering_config}
         '''
         result = self._values.get("peering_config")
         assert result is not None, "Required property 'peering_config' is missing"
@@ -517,7 +517,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#id ApigeeDnsZone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -529,7 +529,7 @@ class ApigeeDnsZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeDnsZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#timeouts ApigeeDnsZone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeDnsZoneTimeouts"], result)
@@ -562,8 +562,8 @@ class ApigeeDnsZonePeeringConfig:
         target_project_id: builtins.str,
     ) -> None:
         '''
-        :param target_network_id: The name of the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
-        :param target_project_id: The ID of the project that contains the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
+        :param target_network_id: The name of the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
+        :param target_project_id: The ID of the project that contains the producer VPC network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d93b885b15c0da2fbb0cf9ffbd9e101e0b3d08e9f901b09c4cff51570e8aa6af)
@@ -578,7 +578,7 @@ class ApigeeDnsZonePeeringConfig:
     def target_network_id(self) -> builtins.str:
         '''The name of the producer VPC network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_network_id ApigeeDnsZone#target_network_id}
         '''
         result = self._values.get("target_network_id")
         assert result is not None, "Required property 'target_network_id' is missing"
@@ -588,7 +588,7 @@ class ApigeeDnsZonePeeringConfig:
     def target_project_id(self) -> builtins.str:
         '''The ID of the project that contains the producer VPC network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#target_project_id ApigeeDnsZone#target_project_id}
         '''
         result = self._values.get("target_project_id")
         assert result is not None, "Required property 'target_project_id' is missing"
@@ -689,8 +689,8 @@ class ApigeeDnsZoneTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f90ceaf608a70799e57f7f727204c889137047821d525783fb19499347fd9a84)
@@ -704,13 +704,13 @@ class ApigeeDnsZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#create ApigeeDnsZone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_dns_zone#delete ApigeeDnsZone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

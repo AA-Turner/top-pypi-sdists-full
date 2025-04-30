@@ -166,6 +166,8 @@ __all__ = (
     "ConversationSourceTypeDef",
     "ConversationTypeDef",
     "CopyFromSourceTypeDef",
+    "CreateAnonymousWebExperienceUrlRequestTypeDef",
+    "CreateAnonymousWebExperienceUrlResponseTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
     "CreateDataAccessorRequestTypeDef",
@@ -631,6 +633,12 @@ class ConversationTypeDef(TypedDict):
     conversationId: NotRequired[str]
     title: NotRequired[str]
     startTime: NotRequired[datetime]
+
+
+class CreateAnonymousWebExperienceUrlRequestTypeDef(TypedDict):
+    applicationId: str
+    webExperienceId: str
+    sessionDurationInMinutes: NotRequired[int]
 
 
 class EncryptionConfigurationTypeDef(TypedDict):
@@ -1265,6 +1273,11 @@ class ApplicationTypeDef(TypedDict):
 
 class AssociatePermissionResponseTypeDef(TypedDict):
     statement: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAnonymousWebExperienceUrlResponseTypeDef(TypedDict):
+    anonymousUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

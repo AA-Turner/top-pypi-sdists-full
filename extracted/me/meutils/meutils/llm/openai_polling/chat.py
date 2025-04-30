@@ -40,9 +40,6 @@ class Completions(object):
             # logger.debug(request)
             if request.model.startswith(("gemini",)):
 
-                # request.reasoning_effort
-                # "low", "medium", "high"
-
                 if urls[-1].startswith("http"):
                     base64_list = await to_base64(urls, content_type="image/png")
                 else:
@@ -85,15 +82,17 @@ class Completions(object):
             data.pop("frequency_penalty", None)
             data.pop("extra_body", None)
 
-            if not hasattr(request, "reasoning_effort"):  # 默认关闭思考
-                request.reasoning_effort = "none"
+            if not request.reasoning_effort:  # 默认关闭思考
+                data['reasoning_effort'] = "none"
+
+                if "gemini-2.5-pro" in request.model:  ####### 关闭失效
+                    data['reasoning_effort'] = "low"
 
             if "thinking" in request.model:
                 data['model'] = data['model'].removesuffix("-thinking")  # 开启思考
-                # data['reasoning_effort'] = None
+                data['reasoning_effort'] = None
 
-                # data['reasoning_effort'] = "low"
-
+        logger.debug(data)
         return await self.client.chat.completions.create(**data)
 
 
@@ -162,6 +161,7 @@ if __name__ == '__main__':
 
     d = {
         "model": "gemini-2.5-pro-exp-03-25",
+        # "model": "gemini-2.5-flash-preview-04-17",
         # "model": "gemini-2.5-pro-exp-03-25-thinking",
 
         "messages": [

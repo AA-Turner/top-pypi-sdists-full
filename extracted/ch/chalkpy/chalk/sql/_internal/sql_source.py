@@ -150,6 +150,7 @@ class TableIngestMixIn(TableIngestProtocol):
 
 class SQLSourceKind(str, Enum):
     bigquery = "bigquery"
+    clickhouse = "clickhouse"
     cloudsql = "cloudsql"
     databricks = "databricks"
     athena = "athena"

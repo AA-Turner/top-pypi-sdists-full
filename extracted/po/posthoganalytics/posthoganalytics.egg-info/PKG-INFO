@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthoganalytics
-Version: 4.0.0
+Version: 4.0.1
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -13,26 +13,16 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.2
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
 Requires-Dist: requests<3.0,>=2.7
 Requires-Dist: six>=1.5
-Requires-Dist: monotonic>=1.5
+Requires-Dist: python-dateutil>=2.2
 Requires-Dist: backoff>=1.10.0
-Requires-Dist: python-dateutil>2.1
 Requires-Dist: distro>=1.5.0
 Provides-Extra: sentry
 Requires-Dist: sentry-sdk; extra == "sentry"
@@ -52,3 +42,5 @@ Dynamic: summary
 
 
 PostHog is developer-friendly, self-hosted product analytics. posthog-python is the python package.
+
+This package requires Python 3.9 or higher.

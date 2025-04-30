@@ -1,7 +1,7 @@
 r'''
 # `google_chronicle_watchlist`
 
-Refer to the Terraform Registry for docs: [`google_chronicle_watchlist`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist).
+Refer to the Terraform Registry for docs: [`google_chronicle_watchlist`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ChronicleWatchlist(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.chronicleWatchlist.ChronicleWatchlist",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist google_chronicle_watchlist}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist google_chronicle_watchlist}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ChronicleWatchlist(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist google_chronicle_watchlist} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist google_chronicle_watchlist} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Required. Display name of the watchlist. Note that it must be at least one character and less than 63 characters (https://google.aip.dev/148). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
-        :param entity_population_mechanism: entity_population_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
-        :param description: Optional. Description of the watchlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param multiplying_factor: Optional. Weight applied to the risk score for entities in this watchlist. The default is 1.0 if it is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
-        :param watchlist_id: Optional. The ID to use for the watchlist, which will become the final component of the watchlist's resource name. This value should be 4-63 characters, and valid characters are /a-z-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
-        :param watchlist_user_preferences: watchlist_user_preferences block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
+        :param display_name: Required. Display name of the watchlist. Note that it must be at least one character and less than 63 characters (https://google.aip.dev/148). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
+        :param entity_population_mechanism: entity_population_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
+        :param description: Optional. Description of the watchlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param multiplying_factor: Optional. Weight applied to the risk score for entities in this watchlist. The default is 1.0 if it is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
+        :param watchlist_id: Optional. The ID to use for the watchlist, which will become the final component of the watchlist's resource name. This value should be 4-63 characters, and valid characters are /a-z-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
+        :param watchlist_user_preferences: watchlist_user_preferences block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ChronicleWatchlist(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ChronicleWatchlist to import.
-        :param import_from_id: The id of the existing ChronicleWatchlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ChronicleWatchlist that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ChronicleWatchlist to import is found.
         '''
         if __debug__:
@@ -151,7 +151,7 @@ class ChronicleWatchlist(
         manual: typing.Optional[typing.Union["ChronicleWatchlistEntityPopulationMechanismManual", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
+        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
         '''
         value = ChronicleWatchlistEntityPopulationMechanism(manual=manual)
 
@@ -166,9 +166,9 @@ class ChronicleWatchlist(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.
         '''
         value = ChronicleWatchlistTimeouts(create=create, delete=delete, update=update)
 
@@ -181,7 +181,7 @@ class ChronicleWatchlist(
         pinned: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param pinned: Optional. Whether the watchlist is pinned on the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
+        :param pinned: Optional. Whether the watchlist is pinned on the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
         '''
         value = ChronicleWatchlistWatchlistUserPreferences(pinned=pinned)
 
@@ -480,17 +480,17 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Required. Display name of the watchlist. Note that it must be at least one character and less than 63 characters (https://google.aip.dev/148). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
-        :param entity_population_mechanism: entity_population_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
-        :param description: Optional. Description of the watchlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param multiplying_factor: Optional. Weight applied to the risk score for entities in this watchlist. The default is 1.0 if it is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
-        :param watchlist_id: Optional. The ID to use for the watchlist, which will become the final component of the watchlist's resource name. This value should be 4-63 characters, and valid characters are /a-z-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
-        :param watchlist_user_preferences: watchlist_user_preferences block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
+        :param display_name: Required. Display name of the watchlist. Note that it must be at least one character and less than 63 characters (https://google.aip.dev/148). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
+        :param entity_population_mechanism: entity_population_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
+        :param description: Optional. Description of the watchlist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param multiplying_factor: Optional. Weight applied to the risk score for entities in this watchlist. The default is 1.0 if it is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
+        :param watchlist_id: Optional. The ID to use for the watchlist, which will become the final component of the watchlist's resource name. This value should be 4-63 characters, and valid characters are /a-z-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
+        :param watchlist_user_preferences: watchlist_user_preferences block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -623,7 +623,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Required. Display name of the watchlist. Note that it must be at least one character and less than 63 characters (https://google.aip.dev/148).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#display_name ChronicleWatchlist#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -635,7 +635,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "ChronicleWatchlistEntityPopulationMechanism":
         '''entity_population_mechanism block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#entity_population_mechanism ChronicleWatchlist#entity_population_mechanism}
         '''
         result = self._values.get("entity_population_mechanism")
         assert result is not None, "Required property 'entity_population_mechanism' is missing"
@@ -645,7 +645,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The unique identifier for the Chronicle instance, which is the same as the customer ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#instance ChronicleWatchlist#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -657,7 +657,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#location ChronicleWatchlist#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -667,14 +667,14 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. Description of the watchlist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#description ChronicleWatchlist#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#id ChronicleWatchlist#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -686,14 +686,14 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multiplying_factor(self) -> typing.Optional[jsii.Number]:
         '''Optional. Weight applied to the risk score for entities in this watchlist. The default is 1.0 if it is not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#multiplying_factor ChronicleWatchlist#multiplying_factor}
         '''
         result = self._values.get("multiplying_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#project ChronicleWatchlist#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -701,7 +701,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ChronicleWatchlistTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#timeouts ChronicleWatchlist#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ChronicleWatchlistTimeouts"], result)
@@ -715,7 +715,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This value should be 4-63 characters, and valid characters
         are /a-z-/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_id ChronicleWatchlist#watchlist_id}
         '''
         result = self._values.get("watchlist_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -726,7 +726,7 @@ class ChronicleWatchlistConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ChronicleWatchlistWatchlistUserPreferences"]:
         '''watchlist_user_preferences block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#watchlist_user_preferences ChronicleWatchlist#watchlist_user_preferences}
         '''
         result = self._values.get("watchlist_user_preferences")
         return typing.cast(typing.Optional["ChronicleWatchlistWatchlistUserPreferences"], result)
@@ -901,7 +901,7 @@ class ChronicleWatchlistEntityPopulationMechanism:
         manual: typing.Optional[typing.Union["ChronicleWatchlistEntityPopulationMechanismManual", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
+        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
         '''
         if isinstance(manual, dict):
             manual = ChronicleWatchlistEntityPopulationMechanismManual(**manual)
@@ -918,7 +918,7 @@ class ChronicleWatchlistEntityPopulationMechanism:
     ) -> typing.Optional["ChronicleWatchlistEntityPopulationMechanismManual"]:
         '''manual block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#manual ChronicleWatchlist#manual}
         '''
         result = self._values.get("manual")
         return typing.cast(typing.Optional["ChronicleWatchlistEntityPopulationMechanismManual"], result)
@@ -1070,9 +1070,9 @@ class ChronicleWatchlistTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38a9509fdece471e01a302aeb1f75d47365d9188e0d4628665ea2c24cabebaba)
@@ -1089,19 +1089,19 @@ class ChronicleWatchlistTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#create ChronicleWatchlist#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#delete ChronicleWatchlist#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#update ChronicleWatchlist#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1230,7 +1230,7 @@ class ChronicleWatchlistWatchlistUserPreferences:
         pinned: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param pinned: Optional. Whether the watchlist is pinned on the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
+        :param pinned: Optional. Whether the watchlist is pinned on the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1369b13d3e93376dc9726b2bdf893dc55cc4ea4ca766c269076f901e3f4bac0)
@@ -1245,7 +1245,7 @@ class ChronicleWatchlistWatchlistUserPreferences:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Whether the watchlist is pinned on the dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_watchlist#pinned ChronicleWatchlist#pinned}
         '''
         result = self._values.get("pinned")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

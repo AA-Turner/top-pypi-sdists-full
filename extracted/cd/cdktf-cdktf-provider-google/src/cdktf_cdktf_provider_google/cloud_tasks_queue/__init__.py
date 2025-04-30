@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_tasks_queue`
 
-Refer to the Terraform Registry for docs: [`google_cloud_tasks_queue`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue).
+Refer to the Terraform Registry for docs: [`google_cloud_tasks_queue`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudTasksQueue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudTasksQueue.CloudTasksQueue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue google_cloud_tasks_queue}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue google_cloud_tasks_queue}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class CloudTasksQueue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue google_cloud_tasks_queue} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue google_cloud_tasks_queue} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the queue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
-        :param app_engine_routing_override: app_engine_routing_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
-        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The queue name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.
-        :param rate_limits: rate_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
-        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
-        :param stackdriver_logging_config: stackdriver_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
+        :param location: The location of the queue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
+        :param app_engine_routing_override: app_engine_routing_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
+        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The queue name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.
+        :param rate_limits: rate_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
+        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
+        :param stackdriver_logging_config: stackdriver_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class CloudTasksQueue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudTasksQueue to import.
-        :param import_from_id: The id of the existing CloudTasksQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudTasksQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudTasksQueue to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class CloudTasksQueue(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance: App instance. By default, the task is sent to an instance which is available when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
-        :param service: App service. By default, the task is sent to the service which is the default service when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
-        :param version: App version. By default, the task is sent to the version which is the default version when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
+        :param instance: App instance. By default, the task is sent to an instance which is available when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
+        :param service: App service. By default, the task is sent to the service which is the default service when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
+        :param version: App version. By default, the task is sent to the version which is the default version when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
         '''
         value = CloudTasksQueueAppEngineRoutingOverride(
             instance=instance, service=service, version=version
@@ -171,11 +171,11 @@ class CloudTasksQueue(
         uri_override: typing.Optional[typing.Union["CloudTasksQueueHttpTargetUriOverride", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_overrides: header_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
-        :param http_method: The HTTP method to use for the request. When specified, it overrides HttpRequest for the task. Note that if the value is set to GET the body of the task will be ignored at execution time. Possible values: ["HTTP_METHOD_UNSPECIFIED", "POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
-        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
-        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
-        :param uri_override: uri_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
+        :param header_overrides: header_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
+        :param http_method: The HTTP method to use for the request. When specified, it overrides HttpRequest for the task. Note that if the value is set to GET the body of the task will be ignored at execution time. Possible values: ["HTTP_METHOD_UNSPECIFIED", "POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
+        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
+        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
+        :param uri_override: uri_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
         '''
         value = CloudTasksQueueHttpTarget(
             header_overrides=header_overrides,
@@ -195,8 +195,8 @@ class CloudTasksQueue(
         max_dispatches_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_dispatches: The maximum number of concurrent tasks that Cloud Tasks allows to be dispatched for this queue. After this threshold has been reached, Cloud Tasks stops dispatching tasks until the number of concurrent requests decreases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
-        :param max_dispatches_per_second: The maximum rate at which tasks are dispatched from this queue. If unspecified when the queue is created, Cloud Tasks will pick the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
+        :param max_concurrent_dispatches: The maximum number of concurrent tasks that Cloud Tasks allows to be dispatched for this queue. After this threshold has been reached, Cloud Tasks stops dispatching tasks until the number of concurrent requests decreases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
+        :param max_dispatches_per_second: The maximum rate at which tasks are dispatched from this queue. If unspecified when the queue is created, Cloud Tasks will pick the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
         '''
         value = CloudTasksQueueRateLimits(
             max_concurrent_dispatches=max_concurrent_dispatches,
@@ -216,11 +216,11 @@ class CloudTasksQueue(
         min_backoff: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Number of attempts per task. Cloud Tasks will attempt the task maxAttempts times (that is, if the first attempt fails, then there will be maxAttempts - 1 retries). Must be >= -1. If unspecified when the queue is created, Cloud Tasks will pick the default. -1 indicates unlimited attempts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
-        :param max_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
-        :param max_doublings: The time between retries will double maxDoublings times. A task's retry interval starts at minBackoff, then doubles maxDoublings times, then increases linearly, and finally retries retries at intervals of maxBackoff up to maxAttempts times. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
-        :param max_retry_duration: If positive, maxRetryDuration specifies the time limit for retrying a failed task, measured from when the task was first attempted. Once maxRetryDuration time has passed and the task has been attempted maxAttempts times, no further attempts will be made and the task will be deleted. If zero, then the task age is unlimited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
-        :param min_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
+        :param max_attempts: Number of attempts per task. Cloud Tasks will attempt the task maxAttempts times (that is, if the first attempt fails, then there will be maxAttempts - 1 retries). Must be >= -1. If unspecified when the queue is created, Cloud Tasks will pick the default. -1 indicates unlimited attempts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
+        :param max_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
+        :param max_doublings: The time between retries will double maxDoublings times. A task's retry interval starts at minBackoff, then doubles maxDoublings times, then increases linearly, and finally retries retries at intervals of maxBackoff up to maxAttempts times. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
+        :param max_retry_duration: If positive, maxRetryDuration specifies the time limit for retrying a failed task, measured from when the task was first attempted. Once maxRetryDuration time has passed and the task has been attempted maxAttempts times, no further attempts will be made and the task will be deleted. If zero, then the task age is unlimited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
+        :param min_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
         '''
         value = CloudTasksQueueRetryConfig(
             max_attempts=max_attempts,
@@ -235,7 +235,7 @@ class CloudTasksQueue(
     @jsii.member(jsii_name="putStackdriverLoggingConfig")
     def put_stackdriver_logging_config(self, *, sampling_ratio: jsii.Number) -> None:
         '''
-        :param sampling_ratio: Specifies the fraction of operations to write to Stackdriver Logging. This field may contain any value between 0.0 and 1.0, inclusive. 0.0 is the default and means that no operations are logged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
+        :param sampling_ratio: Specifies the fraction of operations to write to Stackdriver Logging. This field may contain any value between 0.0 and 1.0, inclusive. 0.0 is the default and means that no operations are logged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
         '''
         value = CloudTasksQueueStackdriverLoggingConfig(sampling_ratio=sampling_ratio)
 
@@ -250,9 +250,9 @@ class CloudTasksQueue(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.
         '''
         value = CloudTasksQueueTimeouts(create=create, delete=delete, update=update)
 
@@ -460,9 +460,9 @@ class CloudTasksQueueAppEngineRoutingOverride:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance: App instance. By default, the task is sent to an instance which is available when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
-        :param service: App service. By default, the task is sent to the service which is the default service when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
-        :param version: App version. By default, the task is sent to the version which is the default version when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
+        :param instance: App instance. By default, the task is sent to an instance which is available when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
+        :param service: App service. By default, the task is sent to the service which is the default service when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
+        :param version: App version. By default, the task is sent to the version which is the default version when the task is attempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef1c48bc18dd9d5d3d3bad0ae065a1068d71e9d3ba9cccd7e5b48ecee7e3a55f)
@@ -483,7 +483,7 @@ class CloudTasksQueueAppEngineRoutingOverride:
 
         By default, the task is sent to an instance which is available when the task is attempted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#instance CloudTasksQueue#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -494,7 +494,7 @@ class CloudTasksQueueAppEngineRoutingOverride:
 
         By default, the task is sent to the service which is the default service when the task is attempted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service CloudTasksQueue#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -505,7 +505,7 @@ class CloudTasksQueueAppEngineRoutingOverride:
 
         By default, the task is sent to the version which is the default version when the task is attempted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#version CloudTasksQueue#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -681,16 +681,16 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the queue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
-        :param app_engine_routing_override: app_engine_routing_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
-        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The queue name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.
-        :param rate_limits: rate_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
-        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
-        :param stackdriver_logging_config: stackdriver_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
+        :param location: The location of the queue. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
+        :param app_engine_routing_override: app_engine_routing_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
+        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The queue name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.
+        :param rate_limits: rate_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
+        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
+        :param stackdriver_logging_config: stackdriver_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -829,7 +829,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the queue.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#location CloudTasksQueue#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -841,7 +841,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CloudTasksQueueAppEngineRoutingOverride]:
         '''app_engine_routing_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#app_engine_routing_override CloudTasksQueue#app_engine_routing_override}
         '''
         result = self._values.get("app_engine_routing_override")
         return typing.cast(typing.Optional[CloudTasksQueueAppEngineRoutingOverride], result)
@@ -850,14 +850,14 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_target(self) -> typing.Optional["CloudTasksQueueHttpTarget"]:
         '''http_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_target CloudTasksQueue#http_target}
         '''
         result = self._values.get("http_target")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTarget"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#id CloudTasksQueue#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -869,14 +869,14 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The queue name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#name CloudTasksQueue#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#project CloudTasksQueue#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -884,7 +884,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rate_limits(self) -> typing.Optional["CloudTasksQueueRateLimits"]:
         '''rate_limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#rate_limits CloudTasksQueue#rate_limits}
         '''
         result = self._values.get("rate_limits")
         return typing.cast(typing.Optional["CloudTasksQueueRateLimits"], result)
@@ -893,7 +893,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retry_config(self) -> typing.Optional["CloudTasksQueueRetryConfig"]:
         '''retry_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#retry_config CloudTasksQueue#retry_config}
         '''
         result = self._values.get("retry_config")
         return typing.cast(typing.Optional["CloudTasksQueueRetryConfig"], result)
@@ -904,7 +904,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudTasksQueueStackdriverLoggingConfig"]:
         '''stackdriver_logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#stackdriver_logging_config CloudTasksQueue#stackdriver_logging_config}
         '''
         result = self._values.get("stackdriver_logging_config")
         return typing.cast(typing.Optional["CloudTasksQueueStackdriverLoggingConfig"], result)
@@ -913,7 +913,7 @@ class CloudTasksQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudTasksQueueTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#timeouts CloudTasksQueue#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudTasksQueueTimeouts"], result)
@@ -952,11 +952,11 @@ class CloudTasksQueueHttpTarget:
         uri_override: typing.Optional[typing.Union["CloudTasksQueueHttpTargetUriOverride", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_overrides: header_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
-        :param http_method: The HTTP method to use for the request. When specified, it overrides HttpRequest for the task. Note that if the value is set to GET the body of the task will be ignored at execution time. Possible values: ["HTTP_METHOD_UNSPECIFIED", "POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
-        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
-        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
-        :param uri_override: uri_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
+        :param header_overrides: header_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
+        :param http_method: The HTTP method to use for the request. When specified, it overrides HttpRequest for the task. Note that if the value is set to GET the body of the task will be ignored at execution time. Possible values: ["HTTP_METHOD_UNSPECIFIED", "POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
+        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
+        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
+        :param uri_override: uri_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
         '''
         if isinstance(oauth_token, dict):
             oauth_token = CloudTasksQueueHttpTargetOauthToken(**oauth_token)
@@ -989,7 +989,7 @@ class CloudTasksQueueHttpTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudTasksQueueHttpTargetHeaderOverrides"]]]:
         '''header_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#header_overrides CloudTasksQueue#header_overrides}
         '''
         result = self._values.get("header_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudTasksQueueHttpTargetHeaderOverrides"]]], result)
@@ -1001,7 +1001,7 @@ class CloudTasksQueueHttpTarget:
         When specified, it overrides HttpRequest for the task.
         Note that if the value is set to GET the body of the task will be ignored at execution time. Possible values: ["HTTP_METHOD_UNSPECIFIED", "POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#http_method CloudTasksQueue#http_method}
         '''
         result = self._values.get("http_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1010,7 +1010,7 @@ class CloudTasksQueueHttpTarget:
     def oauth_token(self) -> typing.Optional["CloudTasksQueueHttpTargetOauthToken"]:
         '''oauth_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oauth_token CloudTasksQueue#oauth_token}
         '''
         result = self._values.get("oauth_token")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTargetOauthToken"], result)
@@ -1019,7 +1019,7 @@ class CloudTasksQueueHttpTarget:
     def oidc_token(self) -> typing.Optional["CloudTasksQueueHttpTargetOidcToken"]:
         '''oidc_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#oidc_token CloudTasksQueue#oidc_token}
         '''
         result = self._values.get("oidc_token")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTargetOidcToken"], result)
@@ -1028,7 +1028,7 @@ class CloudTasksQueueHttpTarget:
     def uri_override(self) -> typing.Optional["CloudTasksQueueHttpTargetUriOverride"]:
         '''uri_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override CloudTasksQueue#uri_override}
         '''
         result = self._values.get("uri_override")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTargetUriOverride"], result)
@@ -1057,7 +1057,7 @@ class CloudTasksQueueHttpTargetHeaderOverrides:
         header: typing.Union["CloudTasksQueueHttpTargetHeaderOverridesHeader", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#header CloudTasksQueue#header}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#header CloudTasksQueue#header}
         '''
         if isinstance(header, dict):
             header = CloudTasksQueueHttpTargetHeaderOverridesHeader(**header)
@@ -1072,7 +1072,7 @@ class CloudTasksQueueHttpTargetHeaderOverrides:
     def header(self) -> "CloudTasksQueueHttpTargetHeaderOverridesHeader":
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#header CloudTasksQueue#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#header CloudTasksQueue#header}
         '''
         result = self._values.get("header")
         assert result is not None, "Required property 'header' is missing"
@@ -1098,8 +1098,8 @@ class CloudTasksQueueHttpTargetHeaderOverrides:
 class CloudTasksQueueHttpTargetHeaderOverridesHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: The Key of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
-        :param value: The Value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
+        :param key: The Key of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
+        :param value: The Value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d250969d59349dc3d57d0483815f2f2c7c4ee22a3bff4a36338794105ba14a63)
@@ -1114,7 +1114,7 @@ class CloudTasksQueueHttpTargetHeaderOverridesHeader:
     def key(self) -> builtins.str:
         '''The Key of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1124,7 +1124,7 @@ class CloudTasksQueueHttpTargetHeaderOverridesHeader:
     def value(self) -> builtins.str:
         '''The Value of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1336,8 +1336,8 @@ class CloudTasksQueueHttpTargetHeaderOverridesOutputReference(
     @jsii.member(jsii_name="putHeader")
     def put_header(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: The Key of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
-        :param value: The Value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
+        :param key: The Key of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#key CloudTasksQueue#key}
+        :param value: The Value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#value CloudTasksQueue#value}
         '''
         value_ = CloudTasksQueueHttpTargetHeaderOverridesHeader(key=key, value=value)
 
@@ -1386,8 +1386,8 @@ class CloudTasksQueueHttpTargetOauthToken:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account_email: Service account email to be used for generating OAuth token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
-        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
+        :param service_account_email: Service account email to be used for generating OAuth token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__982969fe9c72e078326f006aad77b8f784fa9131c8236c955235ca106b2206a5)
@@ -1406,7 +1406,7 @@ class CloudTasksQueueHttpTargetOauthToken:
         The service account must be within the same project as the queue.
         The caller must have iam.serviceAccounts.actAs permission for the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
         '''
         result = self._values.get("service_account_email")
         assert result is not None, "Required property 'service_account_email' is missing"
@@ -1416,7 +1416,7 @@ class CloudTasksQueueHttpTargetOauthToken:
     def scope(self) -> typing.Optional[builtins.str]:
         '''OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1523,8 +1523,8 @@ class CloudTasksQueueHttpTargetOidcToken:
         audience: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account_email: Service account email to be used for generating OIDC token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
-        :param audience: Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
+        :param service_account_email: Service account email to be used for generating OIDC token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        :param audience: Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdde329033daacafb8afacf376cdaec7a008122f0ac76397a97598fc868e2236)
@@ -1543,7 +1543,7 @@ class CloudTasksQueueHttpTargetOidcToken:
         The service account must be within the same project as the queue.
         The caller must have iam.serviceAccounts.actAs permission for the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
         '''
         result = self._values.get("service_account_email")
         assert result is not None, "Required property 'service_account_email' is missing"
@@ -1553,7 +1553,7 @@ class CloudTasksQueueHttpTargetOidcToken:
     def audience(self) -> typing.Optional[builtins.str]:
         '''Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
         '''
         result = self._values.get("audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1685,8 +1685,8 @@ class CloudTasksQueueHttpTargetOutputReference(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account_email: Service account email to be used for generating OAuth token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
-        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
+        :param service_account_email: Service account email to be used for generating OAuth token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scope CloudTasksQueue#scope}
         '''
         value = CloudTasksQueueHttpTargetOauthToken(
             service_account_email=service_account_email, scope=scope
@@ -1702,8 +1702,8 @@ class CloudTasksQueueHttpTargetOutputReference(
         audience: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account_email: Service account email to be used for generating OIDC token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
-        :param audience: Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
+        :param service_account_email: Service account email to be used for generating OIDC token. The service account must be within the same project as the queue. The caller must have iam.serviceAccounts.actAs permission for the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#service_account_email CloudTasksQueue#service_account_email}
+        :param audience: Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#audience CloudTasksQueue#audience}
         '''
         value = CloudTasksQueueHttpTargetOidcToken(
             service_account_email=service_account_email, audience=audience
@@ -1723,12 +1723,12 @@ class CloudTasksQueueHttpTargetOutputReference(
         uri_override_enforce_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Host override. When specified, replaces the host part of the task URL. For example, if the task URL is "https://www.google.com", and host value is set to "example.net", the overridden URI will be changed to "https://example.net". Host value cannot be an empty string (INVALID_ARGUMENT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
-        :param path_override: path_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
-        :param port: Port override. When specified, replaces the port part of the task URI. For instance, for a URI http://www.google.com/foo and port=123, the overridden URI becomes http://www.google.com:123/foo. Note that the port value must be a positive integer. Setting the port to 0 (Zero) clears the URI port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
-        :param query_override: query_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
-        :param scheme: Scheme override. When specified, the task URI scheme is replaced by the provided value (HTTP or HTTPS). Possible values: ["HTTP", "HTTPS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
-        :param uri_override_enforce_mode: URI Override Enforce Mode. When specified, determines the Target UriOverride mode. If not specified, it defaults to ALWAYS. Possible values: ["ALWAYS", "IF_NOT_EXISTS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
+        :param host: Host override. When specified, replaces the host part of the task URL. For example, if the task URL is "https://www.google.com", and host value is set to "example.net", the overridden URI will be changed to "https://example.net". Host value cannot be an empty string (INVALID_ARGUMENT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
+        :param path_override: path_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
+        :param port: Port override. When specified, replaces the port part of the task URI. For instance, for a URI http://www.google.com/foo and port=123, the overridden URI becomes http://www.google.com:123/foo. Note that the port value must be a positive integer. Setting the port to 0 (Zero) clears the URI port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
+        :param query_override: query_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
+        :param scheme: Scheme override. When specified, the task URI scheme is replaced by the provided value (HTTP or HTTPS). Possible values: ["HTTP", "HTTPS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
+        :param uri_override_enforce_mode: URI Override Enforce Mode. When specified, determines the Target UriOverride mode. If not specified, it defaults to ALWAYS. Possible values: ["ALWAYS", "IF_NOT_EXISTS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
         '''
         value = CloudTasksQueueHttpTargetUriOverride(
             host=host,
@@ -1859,12 +1859,12 @@ class CloudTasksQueueHttpTargetUriOverride:
         uri_override_enforce_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Host override. When specified, replaces the host part of the task URL. For example, if the task URL is "https://www.google.com", and host value is set to "example.net", the overridden URI will be changed to "https://example.net". Host value cannot be an empty string (INVALID_ARGUMENT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
-        :param path_override: path_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
-        :param port: Port override. When specified, replaces the port part of the task URI. For instance, for a URI http://www.google.com/foo and port=123, the overridden URI becomes http://www.google.com:123/foo. Note that the port value must be a positive integer. Setting the port to 0 (Zero) clears the URI port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
-        :param query_override: query_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
-        :param scheme: Scheme override. When specified, the task URI scheme is replaced by the provided value (HTTP or HTTPS). Possible values: ["HTTP", "HTTPS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
-        :param uri_override_enforce_mode: URI Override Enforce Mode. When specified, determines the Target UriOverride mode. If not specified, it defaults to ALWAYS. Possible values: ["ALWAYS", "IF_NOT_EXISTS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
+        :param host: Host override. When specified, replaces the host part of the task URL. For example, if the task URL is "https://www.google.com", and host value is set to "example.net", the overridden URI will be changed to "https://example.net". Host value cannot be an empty string (INVALID_ARGUMENT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
+        :param path_override: path_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
+        :param port: Port override. When specified, replaces the port part of the task URI. For instance, for a URI http://www.google.com/foo and port=123, the overridden URI becomes http://www.google.com:123/foo. Note that the port value must be a positive integer. Setting the port to 0 (Zero) clears the URI port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
+        :param query_override: query_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
+        :param scheme: Scheme override. When specified, the task URI scheme is replaced by the provided value (HTTP or HTTPS). Possible values: ["HTTP", "HTTPS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
+        :param uri_override_enforce_mode: URI Override Enforce Mode. When specified, determines the Target UriOverride mode. If not specified, it defaults to ALWAYS. Possible values: ["ALWAYS", "IF_NOT_EXISTS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
         '''
         if isinstance(path_override, dict):
             path_override = CloudTasksQueueHttpTargetUriOverridePathOverride(**path_override)
@@ -1901,7 +1901,7 @@ class CloudTasksQueueHttpTargetUriOverride:
         is set to "example.net", the overridden URI will be changed to "https://example.net".
         Host value cannot be an empty string (INVALID_ARGUMENT).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#host CloudTasksQueue#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1912,7 +1912,7 @@ class CloudTasksQueueHttpTargetUriOverride:
     ) -> typing.Optional["CloudTasksQueueHttpTargetUriOverridePathOverride"]:
         '''path_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path_override CloudTasksQueue#path_override}
         '''
         result = self._values.get("path_override")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTargetUriOverridePathOverride"], result)
@@ -1926,7 +1926,7 @@ class CloudTasksQueueHttpTargetUriOverride:
         Note that the port value must be a positive integer.
         Setting the port to 0 (Zero) clears the URI port.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#port CloudTasksQueue#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1937,7 +1937,7 @@ class CloudTasksQueueHttpTargetUriOverride:
     ) -> typing.Optional["CloudTasksQueueHttpTargetUriOverrideQueryOverride"]:
         '''query_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_override CloudTasksQueue#query_override}
         '''
         result = self._values.get("query_override")
         return typing.cast(typing.Optional["CloudTasksQueueHttpTargetUriOverrideQueryOverride"], result)
@@ -1948,7 +1948,7 @@ class CloudTasksQueueHttpTargetUriOverride:
 
         When specified, the task URI scheme is replaced by the provided value (HTTP or HTTPS). Possible values: ["HTTP", "HTTPS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#scheme CloudTasksQueue#scheme}
         '''
         result = self._values.get("scheme")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1959,7 +1959,7 @@ class CloudTasksQueueHttpTargetUriOverride:
 
         When specified, determines the Target UriOverride mode. If not specified, it defaults to ALWAYS. Possible values: ["ALWAYS", "IF_NOT_EXISTS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#uri_override_enforce_mode CloudTasksQueue#uri_override_enforce_mode}
         '''
         result = self._values.get("uri_override_enforce_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1999,7 +1999,7 @@ class CloudTasksQueueHttpTargetUriOverrideOutputReference(
     @jsii.member(jsii_name="putPathOverride")
     def put_path_override(self, *, path: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param path: The URI path (e.g., /users/1234). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
+        :param path: The URI path (e.g., /users/1234). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
         '''
         value = CloudTasksQueueHttpTargetUriOverridePathOverride(path=path)
 
@@ -2012,7 +2012,7 @@ class CloudTasksQueueHttpTargetUriOverrideOutputReference(
         query_params: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query_params: The query parameters (e.g., qparam1=123&qparam2=456). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
+        :param query_params: The query parameters (e.g., qparam1=123&qparam2=456). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
         '''
         value = CloudTasksQueueHttpTargetUriOverrideQueryOverride(
             query_params=query_params
@@ -2164,7 +2164,7 @@ class CloudTasksQueueHttpTargetUriOverrideOutputReference(
 class CloudTasksQueueHttpTargetUriOverridePathOverride:
     def __init__(self, *, path: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param path: The URI path (e.g., /users/1234). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
+        :param path: The URI path (e.g., /users/1234). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4187627f6e13f23da1b3b196c615f573f903c26ab7d16ea3169acc5111a90515)
@@ -2177,7 +2177,7 @@ class CloudTasksQueueHttpTargetUriOverridePathOverride:
     def path(self) -> typing.Optional[builtins.str]:
         '''The URI path (e.g., /users/1234). Default is an empty string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#path CloudTasksQueue#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2261,7 +2261,7 @@ class CloudTasksQueueHttpTargetUriOverridePathOverrideOutputReference(
 class CloudTasksQueueHttpTargetUriOverrideQueryOverride:
     def __init__(self, *, query_params: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param query_params: The query parameters (e.g., qparam1=123&qparam2=456). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
+        :param query_params: The query parameters (e.g., qparam1=123&qparam2=456). Default is an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e83a3c427b64e67d11f4380da59dba7ad3c5b568e1db6748f0b68ac5003f96d)
@@ -2274,7 +2274,7 @@ class CloudTasksQueueHttpTargetUriOverrideQueryOverride:
     def query_params(self) -> typing.Optional[builtins.str]:
         '''The query parameters (e.g., qparam1=123&qparam2=456). Default is an empty string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#query_params CloudTasksQueue#query_params}
         '''
         result = self._values.get("query_params")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2366,8 +2366,8 @@ class CloudTasksQueueRateLimits:
         max_dispatches_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_dispatches: The maximum number of concurrent tasks that Cloud Tasks allows to be dispatched for this queue. After this threshold has been reached, Cloud Tasks stops dispatching tasks until the number of concurrent requests decreases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
-        :param max_dispatches_per_second: The maximum rate at which tasks are dispatched from this queue. If unspecified when the queue is created, Cloud Tasks will pick the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
+        :param max_concurrent_dispatches: The maximum number of concurrent tasks that Cloud Tasks allows to be dispatched for this queue. After this threshold has been reached, Cloud Tasks stops dispatching tasks until the number of concurrent requests decreases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
+        :param max_dispatches_per_second: The maximum rate at which tasks are dispatched from this queue. If unspecified when the queue is created, Cloud Tasks will pick the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c188f34f89da88a0f1a401dcfb01acad45dd07cac777bbee3626637963d04d72)
@@ -2387,7 +2387,7 @@ class CloudTasksQueueRateLimits:
         reached, Cloud Tasks stops dispatching tasks until the number of
         concurrent requests decreases.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_concurrent_dispatches CloudTasksQueue#max_concurrent_dispatches}
         '''
         result = self._values.get("max_concurrent_dispatches")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2398,7 +2398,7 @@ class CloudTasksQueueRateLimits:
 
         If unspecified when the queue is created, Cloud Tasks will pick the default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_dispatches_per_second CloudTasksQueue#max_dispatches_per_second}
         '''
         result = self._values.get("max_dispatches_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2517,11 +2517,11 @@ class CloudTasksQueueRetryConfig:
         min_backoff: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Number of attempts per task. Cloud Tasks will attempt the task maxAttempts times (that is, if the first attempt fails, then there will be maxAttempts - 1 retries). Must be >= -1. If unspecified when the queue is created, Cloud Tasks will pick the default. -1 indicates unlimited attempts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
-        :param max_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
-        :param max_doublings: The time between retries will double maxDoublings times. A task's retry interval starts at minBackoff, then doubles maxDoublings times, then increases linearly, and finally retries retries at intervals of maxBackoff up to maxAttempts times. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
-        :param max_retry_duration: If positive, maxRetryDuration specifies the time limit for retrying a failed task, measured from when the task was first attempted. Once maxRetryDuration time has passed and the task has been attempted maxAttempts times, no further attempts will be made and the task will be deleted. If zero, then the task age is unlimited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
-        :param min_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
+        :param max_attempts: Number of attempts per task. Cloud Tasks will attempt the task maxAttempts times (that is, if the first attempt fails, then there will be maxAttempts - 1 retries). Must be >= -1. If unspecified when the queue is created, Cloud Tasks will pick the default. -1 indicates unlimited attempts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
+        :param max_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
+        :param max_doublings: The time between retries will double maxDoublings times. A task's retry interval starts at minBackoff, then doubles maxDoublings times, then increases linearly, and finally retries retries at intervals of maxBackoff up to maxAttempts times. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
+        :param max_retry_duration: If positive, maxRetryDuration specifies the time limit for retrying a failed task, measured from when the task was first attempted. Once maxRetryDuration time has passed and the task has been attempted maxAttempts times, no further attempts will be made and the task will be deleted. If zero, then the task age is unlimited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
+        :param min_backoff: A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0f2811ac0e591ed79fd26183a9b7c287b8df661459bf427d5e205e59a753522)
@@ -2555,7 +2555,7 @@ class CloudTasksQueueRetryConfig:
 
         -1 indicates unlimited attempts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_attempts CloudTasksQueue#max_attempts}
         '''
         result = self._values.get("max_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2564,7 +2564,7 @@ class CloudTasksQueueRetryConfig:
     def max_backoff(self) -> typing.Optional[builtins.str]:
         '''A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_backoff CloudTasksQueue#max_backoff}
         '''
         result = self._values.get("max_backoff")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2577,7 +2577,7 @@ class CloudTasksQueueRetryConfig:
         then increases linearly, and finally retries retries at intervals of maxBackoff
         up to maxAttempts times.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_doublings CloudTasksQueue#max_doublings}
         '''
         result = self._values.get("max_doublings")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2592,7 +2592,7 @@ class CloudTasksQueueRetryConfig:
 
         If zero, then the task age is unlimited.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#max_retry_duration CloudTasksQueue#max_retry_duration}
         '''
         result = self._values.get("max_retry_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2601,7 +2601,7 @@ class CloudTasksQueueRetryConfig:
     def min_backoff(self) -> typing.Optional[builtins.str]:
         '''A task will be scheduled for retry between minBackoff and maxBackoff duration after it fails, if the queue's RetryConfig specifies that the task should be retried.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#min_backoff CloudTasksQueue#min_backoff}
         '''
         result = self._values.get("min_backoff")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2767,7 +2767,7 @@ class CloudTasksQueueRetryConfigOutputReference(
 class CloudTasksQueueStackdriverLoggingConfig:
     def __init__(self, *, sampling_ratio: jsii.Number) -> None:
         '''
-        :param sampling_ratio: Specifies the fraction of operations to write to Stackdriver Logging. This field may contain any value between 0.0 and 1.0, inclusive. 0.0 is the default and means that no operations are logged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
+        :param sampling_ratio: Specifies the fraction of operations to write to Stackdriver Logging. This field may contain any value between 0.0 and 1.0, inclusive. 0.0 is the default and means that no operations are logged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2f818077b4fe25b36b9ab62ed7caf6608ede7d537fbff8993809ebde31290f4)
@@ -2783,7 +2783,7 @@ class CloudTasksQueueStackdriverLoggingConfig:
         This field may contain any value between 0.0 and 1.0, inclusive. 0.0 is the
         default and means that no operations are logged.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#sampling_ratio CloudTasksQueue#sampling_ratio}
         '''
         result = self._values.get("sampling_ratio")
         assert result is not None, "Required property 'sampling_ratio' is missing"
@@ -2870,9 +2870,9 @@ class CloudTasksQueueTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bdb91fbc81ec2def08756553d5d01255a5e8a182081c7c355580e6f1a8765f3)
@@ -2889,19 +2889,19 @@ class CloudTasksQueueTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#create CloudTasksQueue#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#delete CloudTasksQueue#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_tasks_queue#update CloudTasksQueue#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -35,9 +35,9 @@ setup(
     package_dir={"axes": "axes"},
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     install_requires=[
-        "django>=3.2",
+        "django>=4.2",
         "asgiref>=3.6.0",
     ],
     extras_require={
@@ -53,6 +53,7 @@ setup(
         "Framework :: Django :: 4.2",
         "Framework :: Django :: 5.0",
         "Framework :: Django :: 5.1",
+        "Framework :: Django :: 5.2",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
         "License :: OSI Approved :: MIT License",

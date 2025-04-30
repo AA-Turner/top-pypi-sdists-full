@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_ssm.literals import AssociationComplianceSeverityType
+    from mypy_boto3_ssm.literals import AccessRequestStatusType
 
-    data: AssociationComplianceSeverityType = "CRITICAL"
+    data: AccessRequestStatusType = "Approved"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AccessRequestStatusType",
     "AssociationComplianceSeverityType",
     "AssociationExecutionFilterKeyType",
     "AssociationExecutionTargetsFilterKeyType",
@@ -179,6 +180,7 @@ __all__ = (
 )
 
 
+AccessRequestStatusType = Literal["Approved", "Expired", "Pending", "Rejected", "Revoked"]
 AssociationComplianceSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "UNSPECIFIED"]
 AssociationExecutionFilterKeyType = Literal["CreatedTime", "ExecutionId", "Status"]
 AssociationExecutionTargetsFilterKeyType = Literal["ResourceId", "ResourceType", "Status"]
@@ -232,7 +234,7 @@ AutomationExecutionStatusType = Literal[
     "TimedOut",
     "Waiting",
 ]
-AutomationSubtypeType = Literal["ChangeRequest"]
+AutomationSubtypeType = Literal["AccessRequest", "ChangeRequest"]
 AutomationTypeType = Literal["CrossAccount", "Local"]
 CalendarStateType = Literal["CLOSED", "OPEN"]
 CommandExecutedWaiterName = Literal["command_executed"]
@@ -311,6 +313,7 @@ DocumentStatusType = Literal["Active", "Creating", "Deleting", "Failed", "Updati
 DocumentTypeType = Literal[
     "ApplicationConfiguration",
     "ApplicationConfigurationSchema",
+    "AutoApprovalPolicy",
     "Automation",
     "Automation.ChangeTemplate",
     "ChangeCalendar",
@@ -318,6 +321,7 @@ DocumentTypeType = Literal[
     "Command",
     "ConformancePackTemplate",
     "DeploymentStrategy",
+    "ManualApprovalPolicy",
     "Package",
     "Policy",
     "ProblemAnalysis",
@@ -446,6 +450,15 @@ OpsItemDataTypeType = Literal["SearchableString", "String"]
 OpsItemEventFilterKeyType = Literal["OpsItemId"]
 OpsItemEventFilterOperatorType = Literal["Equal"]
 OpsItemFilterKeyType = Literal[
+    "AccessRequestByApproverArn",
+    "AccessRequestByApproverId",
+    "AccessRequestByIsReplica",
+    "AccessRequestByRequesterArn",
+    "AccessRequestByRequesterId",
+    "AccessRequestBySourceAccountId",
+    "AccessRequestBySourceOpsItemId",
+    "AccessRequestBySourceRegion",
+    "AccessRequestByTargetResourceId",
     "AccountId",
     "ActualEndTime",
     "ActualStartTime",
@@ -495,6 +508,7 @@ OpsItemStatusType = Literal[
     "PendingChangeCalendarOverride",
     "Rejected",
     "Resolved",
+    "Revoked",
     "RunbookInProgress",
     "Scheduled",
     "TimedOut",
@@ -570,7 +584,7 @@ SessionStateType = Literal["Active", "History"]
 SessionStatusType = Literal[
     "Connected", "Connecting", "Disconnected", "Failed", "Terminated", "Terminating"
 ]
-SignalTypeType = Literal["Approve", "Reject", "Resume", "StartStep", "StopStep"]
+SignalTypeType = Literal["Approve", "Reject", "Resume", "Revoke", "StartStep", "StopStep"]
 SourceTypeType = Literal["AWS::EC2::Instance", "AWS::IoT::Thing", "AWS::SSM::ManagedInstance"]
 StepExecutionFilterKeyType = Literal[
     "Action",
@@ -951,6 +965,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

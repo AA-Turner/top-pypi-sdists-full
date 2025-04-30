@@ -150,7 +150,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/create_patch.py.html>`__ to see an example of how to use create_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/create_patch.py.html>`__ to see an example of how to use create_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -248,7 +248,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/create_scheduler_definition.py.html>`__ to see an example of how to use create_scheduler_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/create_scheduler_definition.py.html>`__ to see an example of how to use create_scheduler_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -346,7 +346,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/delete_patch.py.html>`__ to see an example of how to use delete_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/delete_patch.py.html>`__ to see an example of how to use delete_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['patchId']
@@ -451,7 +451,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/delete_scheduler_definition.py.html>`__ to see an example of how to use delete_scheduler_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/delete_scheduler_definition.py.html>`__ to see an example of how to use delete_scheduler_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerDefinitionId']
@@ -556,7 +556,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/delete_scheduler_job.py.html>`__ to see an example of how to use delete_scheduler_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/delete_scheduler_job.py.html>`__ to see an example of how to use delete_scheduler_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId']
@@ -668,7 +668,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/export_compliance_report.py.html>`__ to see an example of how to use export_compliance_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/export_compliance_report.py.html>`__ to see an example of how to use export_compliance_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -770,7 +770,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/get_execution.py.html>`__ to see an example of how to use get_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/get_execution.py.html>`__ to see an example of how to use get_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId', 'jobActivityId', 'resourceId', 'executionId']
@@ -874,7 +874,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/get_job_activity.py.html>`__ to see an example of how to use get_job_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/get_job_activity.py.html>`__ to see an example of how to use get_job_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId', 'jobActivityId']
@@ -973,7 +973,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/get_patch.py.html>`__ to see an example of how to use get_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/get_patch.py.html>`__ to see an example of how to use get_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['patchId']
@@ -1071,7 +1071,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/get_scheduler_definition.py.html>`__ to see an example of how to use get_scheduler_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/get_scheduler_definition.py.html>`__ to see an example of how to use get_scheduler_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerDefinitionId']
@@ -1169,7 +1169,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/get_scheduler_job.py.html>`__ to see an example of how to use get_scheduler_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/get_scheduler_job.py.html>`__ to see an example of how to use get_scheduler_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId']
@@ -1301,7 +1301,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_compliance_records.py.html>`__ to see an example of how to use list_compliance_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_compliance_records.py.html>`__ to see an example of how to use list_compliance_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1463,7 +1463,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_executions.py.html>`__ to see an example of how to use list_executions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_executions.py.html>`__ to see an example of how to use list_executions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId', 'jobActivityId', 'resourceId']
@@ -1649,7 +1649,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_patches.py.html>`__ to see an example of how to use list_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_patches.py.html>`__ to see an example of how to use list_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1830,7 +1830,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_resources.py.html>`__ to see an example of how to use list_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_resources.py.html>`__ to see an example of how to use list_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId', 'jobActivityId']
@@ -1987,7 +1987,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_scheduled_fleets.py.html>`__ to see an example of how to use list_scheduled_fleets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_scheduled_fleets.py.html>`__ to see an example of how to use list_scheduled_fleets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerDefinitionId']
@@ -2156,7 +2156,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_scheduler_definitions.py.html>`__ to see an example of how to use list_scheduler_definitions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_scheduler_definitions.py.html>`__ to see an example of how to use list_scheduler_definitions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2338,7 +2338,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_scheduler_jobs.py.html>`__ to see an example of how to use list_scheduler_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_scheduler_jobs.py.html>`__ to see an example of how to use list_scheduler_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2510,7 +2510,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/list_steps.py.html>`__ to see an example of how to use list_steps API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/list_steps.py.html>`__ to see an example of how to use list_steps API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId', 'jobActivityId']
@@ -2662,7 +2662,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/manage_job_execution.py.html>`__ to see an example of how to use manage_job_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/manage_job_execution.py.html>`__ to see an example of how to use manage_job_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId']
@@ -2776,7 +2776,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/summarize_compliance_record_counts.py.html>`__ to see an example of how to use summarize_compliance_record_counts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/summarize_compliance_record_counts.py.html>`__ to see an example of how to use summarize_compliance_record_counts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2894,7 +2894,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/summarize_managed_entity_counts.py.html>`__ to see an example of how to use summarize_managed_entity_counts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/summarize_managed_entity_counts.py.html>`__ to see an example of how to use summarize_managed_entity_counts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3012,7 +3012,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/summarize_scheduler_job_counts.py.html>`__ to see an example of how to use summarize_scheduler_job_counts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/summarize_scheduler_job_counts.py.html>`__ to see an example of how to use summarize_scheduler_job_counts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3129,7 +3129,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/update_patch.py.html>`__ to see an example of how to use update_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/update_patch.py.html>`__ to see an example of how to use update_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['patchId']
@@ -3239,7 +3239,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/update_scheduler_definition.py.html>`__ to see an example of how to use update_scheduler_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/update_scheduler_definition.py.html>`__ to see an example of how to use update_scheduler_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerDefinitionId']
@@ -3349,7 +3349,7 @@ class FleetAppsManagementOperationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/fleetappsmanagement/update_scheduler_job.py.html>`__ to see an example of how to use update_scheduler_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/fleetappsmanagement/update_scheduler_job.py.html>`__ to see an example of how to use update_scheduler_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['schedulerJobId']

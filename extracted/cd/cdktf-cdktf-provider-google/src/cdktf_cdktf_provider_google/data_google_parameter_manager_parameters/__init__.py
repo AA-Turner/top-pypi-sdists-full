@@ -1,7 +1,7 @@
 r'''
 # `data_google_parameter_manager_parameters`
 
-Refer to the Terraform Registry for docs: [`data_google_parameter_manager_parameters`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters).
+Refer to the Terraform Registry for docs: [`data_google_parameter_manager_parameters`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleParameterManagerParameters(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleParameterManagerParameters.DataGoogleParameterManagerParameters",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters google_parameter_manager_parameters}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters google_parameter_manager_parameters}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleParameterManagerParameters(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters google_parameter_manager_parameters} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters google_parameter_manager_parameters} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: Filter string, adhering to the rules in List-operation filtering. List only parameters matching the filter. If filter is empty, all parameters are listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.
+        :param filter: Filter string, adhering to the rules in List-operation filtering. List only parameters matching the filter. If filter is empty, all parameters are listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleParameterManagerParameters(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleParameterManagerParameters to import.
-        :param import_from_id: The id of the existing DataGoogleParameterManagerParameters that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleParameterManagerParameters that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleParameterManagerParameters to import is found.
         '''
         if __debug__:
@@ -243,9 +243,9 @@ class DataGoogleParameterManagerParametersConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: Filter string, adhering to the rules in List-operation filtering. List only parameters matching the filter. If filter is empty, all parameters are listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.
+        :param filter: Filter string, adhering to the rules in List-operation filtering. List only parameters matching the filter. If filter is empty, all parameters are listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -354,14 +354,14 @@ class DataGoogleParameterManagerParametersConfig(
         List only parameters matching the filter.
         If filter is empty, all parameters are listed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#filter DataGoogleParameterManagerParameters#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#id DataGoogleParameterManagerParameters#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -371,7 +371,7 @@ class DataGoogleParameterManagerParametersConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/parameter_manager_parameters#project DataGoogleParameterManagerParameters#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mitmproxy_linux
-Version: 0.12.0
+Version: 0.12.3
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

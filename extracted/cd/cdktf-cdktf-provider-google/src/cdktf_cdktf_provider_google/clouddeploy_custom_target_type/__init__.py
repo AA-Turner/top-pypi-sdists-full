@@ -1,7 +1,7 @@
 r'''
 # `google_clouddeploy_custom_target_type`
 
-Refer to the Terraform Registry for docs: [`google_clouddeploy_custom_target_type`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type).
+Refer to the Terraform Registry for docs: [`google_clouddeploy_custom_target_type`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ClouddeployCustomTargetType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.clouddeployCustomTargetType.ClouddeployCustomTargetType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type google_clouddeploy_custom_target_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type google_clouddeploy_custom_target_type}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ClouddeployCustomTargetType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type google_clouddeploy_custom_target_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type google_clouddeploy_custom_target_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
-        :param name: Name of the 'CustomTargetType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
-        :param annotations: User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
-        :param custom_actions: custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
-        :param description: Description of the 'CustomTargetType'. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
+        :param location: The location of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
+        :param name: Name of the 'CustomTargetType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
+        :param annotations: User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
+        :param custom_actions: custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
+        :param description: Description of the 'CustomTargetType'. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ClouddeployCustomTargetType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ClouddeployCustomTargetType to import.
-        :param import_from_id: The id of the existing ClouddeployCustomTargetType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ClouddeployCustomTargetType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ClouddeployCustomTargetType to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class ClouddeployCustomTargetType(
         render_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deploy_action: The Skaffold custom action responsible for deploy operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
-        :param include_skaffold_modules: include_skaffold_modules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
-        :param render_action: The Skaffold custom action responsible for render operations. If not provided then Cloud Deploy will perform the render operations via 'skaffold render'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
+        :param deploy_action: The Skaffold custom action responsible for deploy operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
+        :param include_skaffold_modules: include_skaffold_modules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
+        :param render_action: The Skaffold custom action responsible for render operations. If not provided then Cloud Deploy will perform the render operations via 'skaffold render'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
         '''
         value = ClouddeployCustomTargetTypeCustomActions(
             deploy_action=deploy_action,
@@ -168,9 +168,9 @@ class ClouddeployCustomTargetType(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.
         '''
         value = ClouddeployCustomTargetTypeTimeouts(
             create=create, delete=delete, update=update
@@ -460,15 +460,15 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
-        :param name: Name of the 'CustomTargetType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
-        :param annotations: User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
-        :param custom_actions: custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
-        :param description: Description of the 'CustomTargetType'. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
+        :param location: The location of the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
+        :param name: Name of the 'CustomTargetType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
+        :param annotations: User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
+        :param custom_actions: custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
+        :param description: Description of the 'CustomTargetType'. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -595,7 +595,7 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#location ClouddeployCustomTargetType#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -605,7 +605,7 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the 'CustomTargetType'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#name ClouddeployCustomTargetType#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -622,7 +622,7 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#annotations ClouddeployCustomTargetType#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -633,7 +633,7 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ClouddeployCustomTargetTypeCustomActions"]:
         '''custom_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#custom_actions ClouddeployCustomTargetType#custom_actions}
         '''
         result = self._values.get("custom_actions")
         return typing.cast(typing.Optional["ClouddeployCustomTargetTypeCustomActions"], result)
@@ -642,14 +642,14 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the 'CustomTargetType'. Max length is 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#description ClouddeployCustomTargetType#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#id ClouddeployCustomTargetType#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -666,14 +666,14 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#labels ClouddeployCustomTargetType#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#project ClouddeployCustomTargetType#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -681,7 +681,7 @@ class ClouddeployCustomTargetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ClouddeployCustomTargetTypeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#timeouts ClouddeployCustomTargetType#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ClouddeployCustomTargetTypeTimeouts"], result)
@@ -716,9 +716,9 @@ class ClouddeployCustomTargetTypeCustomActions:
         render_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deploy_action: The Skaffold custom action responsible for deploy operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
-        :param include_skaffold_modules: include_skaffold_modules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
-        :param render_action: The Skaffold custom action responsible for render operations. If not provided then Cloud Deploy will perform the render operations via 'skaffold render'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
+        :param deploy_action: The Skaffold custom action responsible for deploy operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
+        :param include_skaffold_modules: include_skaffold_modules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
+        :param render_action: The Skaffold custom action responsible for render operations. If not provided then Cloud Deploy will perform the render operations via 'skaffold render'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87476d58dcc6947e0fa64926640269db1ecc5e34b04fdee5add648c52fa18c62)
@@ -737,7 +737,7 @@ class ClouddeployCustomTargetTypeCustomActions:
     def deploy_action(self) -> builtins.str:
         '''The Skaffold custom action responsible for deploy operations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#deploy_action ClouddeployCustomTargetType#deploy_action}
         '''
         result = self._values.get("deploy_action")
         assert result is not None, "Required property 'deploy_action' is missing"
@@ -749,7 +749,7 @@ class ClouddeployCustomTargetTypeCustomActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules"]]]:
         '''include_skaffold_modules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#include_skaffold_modules ClouddeployCustomTargetType#include_skaffold_modules}
         '''
         result = self._values.get("include_skaffold_modules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules"]]], result)
@@ -760,7 +760,7 @@ class ClouddeployCustomTargetTypeCustomActions:
 
         If not provided then Cloud Deploy will perform the render operations via 'skaffold render'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#render_action ClouddeployCustomTargetType#render_action}
         '''
         result = self._values.get("render_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -797,10 +797,10 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules:
         google_cloud_storage: typing.Optional[typing.Union["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudStorage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param configs: The Skaffold Config modules to use from the specified source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#configs ClouddeployCustomTargetType#configs}
-        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#git ClouddeployCustomTargetType#git}
-        :param google_cloud_build_repo: google_cloud_build_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#google_cloud_build_repo ClouddeployCustomTargetType#google_cloud_build_repo}
-        :param google_cloud_storage: google_cloud_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#google_cloud_storage ClouddeployCustomTargetType#google_cloud_storage}
+        :param configs: The Skaffold Config modules to use from the specified source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#configs ClouddeployCustomTargetType#configs}
+        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#git ClouddeployCustomTargetType#git}
+        :param google_cloud_build_repo: google_cloud_build_repo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#google_cloud_build_repo ClouddeployCustomTargetType#google_cloud_build_repo}
+        :param google_cloud_storage: google_cloud_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#google_cloud_storage ClouddeployCustomTargetType#google_cloud_storage}
         '''
         if isinstance(git, dict):
             git = ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit(**git)
@@ -828,7 +828,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules:
     def configs(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Skaffold Config modules to use from the specified source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#configs ClouddeployCustomTargetType#configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#configs ClouddeployCustomTargetType#configs}
         '''
         result = self._values.get("configs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -839,7 +839,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules:
     ) -> typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit"]:
         '''git block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#git ClouddeployCustomTargetType#git}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#git ClouddeployCustomTargetType#git}
         '''
         result = self._values.get("git")
         return typing.cast(typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit"], result)
@@ -850,7 +850,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules:
     ) -> typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudBuildRepo"]:
         '''google_cloud_build_repo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#google_cloud_build_repo ClouddeployCustomTargetType#google_cloud_build_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#google_cloud_build_repo ClouddeployCustomTargetType#google_cloud_build_repo}
         '''
         result = self._values.get("google_cloud_build_repo")
         return typing.cast(typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudBuildRepo"], result)
@@ -861,7 +861,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModules:
     ) -> typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudStorage"]:
         '''google_cloud_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#google_cloud_storage ClouddeployCustomTargetType#google_cloud_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#google_cloud_storage ClouddeployCustomTargetType#google_cloud_storage}
         '''
         result = self._values.get("google_cloud_storage")
         return typing.cast(typing.Optional["ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudStorage"], result)
@@ -892,9 +892,9 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit:
         ref: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repo: Git repository the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
-        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
-        :param ref: Git ref the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        :param repo: Git repository the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
+        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param ref: Git ref the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7c7003b27244ea168b630acaed42d42c496e72d94b4ac49ac86699883b307f3)
@@ -913,7 +913,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit:
     def repo(self) -> builtins.str:
         '''Git repository the package should be cloned from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
         '''
         result = self._values.get("repo")
         assert result is not None, "Required property 'repo' is missing"
@@ -923,7 +923,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit:
     def path(self) -> typing.Optional[builtins.str]:
         '''Relative path from the repository root to the Skaffold file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -932,7 +932,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit:
     def ref(self) -> typing.Optional[builtins.str]:
         '''Git ref the package should be cloned from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         result = self._values.get("ref")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1060,9 +1060,9 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudB
         ref: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: Cloud Build 2nd gen repository in the format of 'projects//locations//connections//repositories/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
-        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
-        :param ref: Branch or tag to use when cloning the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        :param repository: Cloud Build 2nd gen repository in the format of 'projects//locations//connections//repositories/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
+        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param ref: Branch or tag to use when cloning the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3167ae979cbc597c32dfac3b126f1d33b2f0a36cbb4fc5ddcee1b3f7b5a739da)
@@ -1081,7 +1081,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudB
     def repository(self) -> builtins.str:
         '''Cloud Build 2nd gen repository in the format of 'projects//locations//connections//repositories/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -1091,7 +1091,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudB
     def path(self) -> typing.Optional[builtins.str]:
         '''Relative path from the repository root to the Skaffold file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1100,7 +1100,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudB
     def ref(self) -> typing.Optional[builtins.str]:
         '''Branch or tag to use when cloning the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         result = self._values.get("ref")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1227,8 +1227,8 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudS
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: Cloud Storage source paths to copy recursively. For example, providing 'gs://my-bucket/dir/configs/*' will result in Skaffold copying all files within the 'dir/configs' directory in the bucket 'my-bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
-        :param path: Relative path from the source to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param source: Cloud Storage source paths to copy recursively. For example, providing 'gs://my-bucket/dir/configs/*' will result in Skaffold copying all files within the 'dir/configs' directory in the bucket 'my-bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
+        :param path: Relative path from the source to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b42d11f3407ff2a2134f22877c385efe93a68ea863ed50e2a1634977fe601ef)
@@ -1246,7 +1246,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudS
 
         For example, providing 'gs://my-bucket/dir/configs/*' will result in Skaffold copying all files within the 'dir/configs' directory in the bucket 'my-bucket'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1256,7 +1256,7 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudS
     def path(self) -> typing.Optional[builtins.str]:
         '''Relative path from the source to the Skaffold file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1477,9 +1477,9 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesOutputRefere
         ref: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repo: Git repository the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
-        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
-        :param ref: Git ref the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        :param repo: Git repository the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repo ClouddeployCustomTargetType#repo}
+        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param ref: Git ref the package should be cloned from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         value = ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGit(
             repo=repo, path=path, ref=ref
@@ -1496,9 +1496,9 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesOutputRefere
         ref: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: Cloud Build 2nd gen repository in the format of 'projects//locations//connections//repositories/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
-        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
-        :param ref: Branch or tag to use when cloning the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
+        :param repository: Cloud Build 2nd gen repository in the format of 'projects//locations//connections//repositories/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#repository ClouddeployCustomTargetType#repository}
+        :param path: Relative path from the repository root to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param ref: Branch or tag to use when cloning the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#ref ClouddeployCustomTargetType#ref}
         '''
         value = ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudBuildRepo(
             repository=repository, path=path, ref=ref
@@ -1514,8 +1514,8 @@ class ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesOutputRefere
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: Cloud Storage source paths to copy recursively. For example, providing 'gs://my-bucket/dir/configs/*' will result in Skaffold copying all files within the 'dir/configs' directory in the bucket 'my-bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
-        :param path: Relative path from the source to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
+        :param source: Cloud Storage source paths to copy recursively. For example, providing 'gs://my-bucket/dir/configs/*' will result in Skaffold copying all files within the 'dir/configs' directory in the bucket 'my-bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#source ClouddeployCustomTargetType#source}
+        :param path: Relative path from the source to the Skaffold file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#path ClouddeployCustomTargetType#path}
         '''
         value = ClouddeployCustomTargetTypeCustomActionsIncludeSkaffoldModulesGoogleCloudStorage(
             source=source, path=path
@@ -1737,9 +1737,9 @@ class ClouddeployCustomTargetTypeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27c0aba7b970159fd689d011e77d0b9388ff615942d3b4094a3fb42274cc7008)
@@ -1756,19 +1756,19 @@ class ClouddeployCustomTargetTypeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#create ClouddeployCustomTargetType#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#delete ClouddeployCustomTargetType#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_custom_target_type#update ClouddeployCustomTargetType#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

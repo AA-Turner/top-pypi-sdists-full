@@ -23,6 +23,7 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AccessRequestStatusType,
     AssociationComplianceSeverityType,
     AssociationExecutionFilterKeyType,
     AssociationExecutionTargetsFilterKeyType,
@@ -33,6 +34,7 @@ from .literals import (
     AttachmentsSourceKeyType,
     AutomationExecutionFilterKeyType,
     AutomationExecutionStatusType,
+    AutomationSubtypeType,
     AutomationTypeType,
     CalendarStateType,
     CommandFilterKeyType,
@@ -190,6 +192,7 @@ __all__ = (
     "CreatePatchBaselineRequestTypeDef",
     "CreatePatchBaselineResultTypeDef",
     "CreateResourceDataSyncRequestTypeDef",
+    "CredentialsTypeDef",
     "DeleteActivationRequestTypeDef",
     "DeleteAssociationRequestTypeDef",
     "DeleteDocumentRequestTypeDef",
@@ -327,6 +330,8 @@ __all__ = (
     "ExecutionPreviewTypeDef",
     "FailedCreateAssociationTypeDef",
     "FailureDetailsTypeDef",
+    "GetAccessTokenRequestTypeDef",
+    "GetAccessTokenResponseTypeDef",
     "GetAutomationExecutionRequestTypeDef",
     "GetAutomationExecutionResultTypeDef",
     "GetCalendarStateRequestTypeDef",
@@ -599,6 +604,8 @@ __all__ = (
     "SessionManagerOutputUrlTypeDef",
     "SessionTypeDef",
     "SeveritySummaryTypeDef",
+    "StartAccessRequestRequestTypeDef",
+    "StartAccessRequestResponseTypeDef",
     "StartAssociationsOnceRequestTypeDef",
     "StartAutomationExecutionRequestTypeDef",
     "StartAutomationExecutionResultTypeDef",
@@ -841,6 +848,12 @@ class RelatedOpsItemTypeDef(TypedDict):
 
 class MetadataValueTypeDef(TypedDict):
     Value: NotRequired[str]
+
+class CredentialsTypeDef(TypedDict):
+    AccessKeyId: str
+    SecretAccessKey: str
+    SessionToken: str
+    ExpirationTime: datetime
 
 class DeleteActivationRequestTypeDef(TypedDict):
     ActivationId: str
@@ -1200,6 +1213,9 @@ class FailureDetailsTypeDef(TypedDict):
     FailureStage: NotRequired[str]
     FailureType: NotRequired[str]
     Details: NotRequired[Dict[str, List[str]]]
+
+class GetAccessTokenRequestTypeDef(TypedDict):
+    AccessRequestId: str
 
 class GetAutomationExecutionRequestTypeDef(TypedDict):
     AutomationExecutionId: str
@@ -1918,6 +1934,10 @@ class ResumeSessionResponseTypeDef(TypedDict):
     StreamUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartAccessRequestResponseTypeDef(TypedDict):
+    AccessRequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartAutomationExecutionResultTypeDef(TypedDict):
     AutomationExecutionId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2313,6 +2333,11 @@ class UpdateOpsMetadataRequestTypeDef(TypedDict):
     OpsMetadataArn: str
     MetadataToUpdate: NotRequired[Mapping[str, MetadataValueTypeDef]]
     KeysToDelete: NotRequired[Sequence[str]]
+
+class GetAccessTokenResponseTypeDef(TypedDict):
+    Credentials: CredentialsTypeDef
+    AccessRequestStatus: AccessRequestStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeActivationsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[DescribeActivationsFilterTypeDef]]
@@ -3453,6 +3478,11 @@ class RegisterTargetWithMaintenanceWindowRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     ClientToken: NotRequired[str]
 
+class StartAccessRequestRequestTypeDef(TypedDict):
+    Reason: str
+    Targets: Sequence[TargetUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class UpdateMaintenanceWindowTargetRequestTypeDef(TypedDict):
     WindowId: str
     WindowTargetId: str
@@ -3817,7 +3847,7 @@ class AutomationExecutionMetadataTypeDef(TypedDict):
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
     TargetLocationsURL: NotRequired[str]
-    AutomationSubtype: NotRequired[Literal["ChangeRequest"]]
+    AutomationSubtype: NotRequired[AutomationSubtypeType]
     ScheduledTime: NotRequired[datetime]
     Runbooks: NotRequired[List[RunbookOutputTypeDef]]
     OpsItemId: NotRequired[str]
@@ -3853,7 +3883,7 @@ class AutomationExecutionTypeDef(TypedDict):
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
     TargetLocationsURL: NotRequired[str]
-    AutomationSubtype: NotRequired[Literal["ChangeRequest"]]
+    AutomationSubtype: NotRequired[AutomationSubtypeType]
     ScheduledTime: NotRequired[datetime]
     Runbooks: NotRequired[List[RunbookOutputTypeDef]]
     OpsItemId: NotRequired[str]

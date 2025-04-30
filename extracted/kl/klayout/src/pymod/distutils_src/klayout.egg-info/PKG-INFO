@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: klayout
-Version: 0.30.0
+Version: 0.30.1
 Summary: KLayout standalone Python package
 Home-page: https://github.com/klayout/klayout
 Author: Matthias Koefferlein

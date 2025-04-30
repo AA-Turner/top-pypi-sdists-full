@@ -1,7 +1,7 @@
 r'''
 # `data_google_site_verification_token`
 
-Refer to the Terraform Registry for docs: [`data_google_site_verification_token`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token).
+Refer to the Terraform Registry for docs: [`data_google_site_verification_token`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleSiteVerificationToken(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleSiteVerificationToken.DataGoogleSiteVerificationToken",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token google_site_verification_token}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token google_site_verification_token}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataGoogleSiteVerificationToken(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token google_site_verification_token} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token google_site_verification_token} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
-        :param type: The type of resource to be verified, either a domain or a web site. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
-        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
+        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
+        :param type: The type of resource to be verified, either a domain or a web site. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
+        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataGoogleSiteVerificationToken(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleSiteVerificationToken to import.
-        :param import_from_id: The id of the existing DataGoogleSiteVerificationToken that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleSiteVerificationToken that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleSiteVerificationToken to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class DataGoogleSiteVerificationToken(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.
         '''
         value = DataGoogleSiteVerificationTokenTimeouts(read=read)
 
@@ -285,11 +285,11 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
-        :param type: The type of resource to be verified, either a domain or a web site. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
-        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
+        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
+        :param type: The type of resource to be verified, either a domain or a web site. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
+        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -404,7 +404,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         If the type is set to SITE, the identifier is a URL. If the type is
         set to INET_DOMAIN, the identifier is a domain name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#identifier DataGoogleSiteVerificationToken#identifier}
         '''
         result = self._values.get("identifier")
         assert result is not None, "Required property 'identifier' is missing"
@@ -414,7 +414,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def type(self) -> builtins.str:
         '''The type of resource to be verified, either a domain or a web site. Possible values: ["INET_DOMAIN", "SITE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#type DataGoogleSiteVerificationToken#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -426,7 +426,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
         Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#verification_method DataGoogleSiteVerificationToken#verification_method}
         '''
         result = self._values.get("verification_method")
         assert result is not None, "Required property 'verification_method' is missing"
@@ -434,7 +434,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#id DataGoogleSiteVerificationToken#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -446,7 +446,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["DataGoogleSiteVerificationTokenTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#timeouts DataGoogleSiteVerificationToken#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataGoogleSiteVerificationTokenTimeouts"], result)
@@ -471,7 +471,7 @@ class DataGoogleSiteVerificationTokenConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 class DataGoogleSiteVerificationTokenTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb1875ea7a4fa32260827b95553cb9ebf7b61ce082d6766649cbd8cad44065eb)
@@ -482,7 +482,7 @@ class DataGoogleSiteVerificationTokenTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/site_verification_token#read DataGoogleSiteVerificationToken#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

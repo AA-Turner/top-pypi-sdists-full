@@ -163,7 +163,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/backup_key.py.html>`__ to see an example of how to use backup_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/backup_key.py.html>`__ to see an example of how to use backup_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -291,7 +291,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/cancel_key_deletion.py.html>`__ to see an example of how to use cancel_key_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/cancel_key_deletion.py.html>`__ to see an example of how to use cancel_key_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -419,7 +419,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/cancel_key_version_deletion.py.html>`__ to see an example of how to use cancel_key_version_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/cancel_key_version_deletion.py.html>`__ to see an example of how to use cancel_key_version_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId', 'keyVersionId']
@@ -551,7 +551,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/change_key_compartment.py.html>`__ to see an example of how to use change_key_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/change_key_compartment.py.html>`__ to see an example of how to use change_key_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -667,7 +667,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/create_key.py.html>`__ to see an example of how to use create_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/create_key.py.html>`__ to see an example of how to use create_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -777,7 +777,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/create_key_version.py.html>`__ to see an example of how to use create_key_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/create_key_version.py.html>`__ to see an example of how to use create_key_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -902,7 +902,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/disable_key.py.html>`__ to see an example of how to use disable_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/disable_key.py.html>`__ to see an example of how to use disable_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -1026,7 +1026,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/enable_key.py.html>`__ to see an example of how to use enable_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/enable_key.py.html>`__ to see an example of how to use enable_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -1134,7 +1134,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/get_key.py.html>`__ to see an example of how to use get_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/get_key.py.html>`__ to see an example of how to use get_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -1240,7 +1240,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/get_key_version.py.html>`__ to see an example of how to use get_key_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/get_key_version.py.html>`__ to see an example of how to use get_key_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId', 'keyVersionId']
@@ -1342,7 +1342,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/get_replication_status.py.html>`__ to see an example of how to use get_replication_status API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/get_replication_status.py.html>`__ to see an example of how to use get_replication_status API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -1438,7 +1438,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/get_wrapping_key.py.html>`__ to see an example of how to use get_wrapping_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/get_wrapping_key.py.html>`__ to see an example of how to use get_wrapping_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1537,7 +1537,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/import_key.py.html>`__ to see an example of how to use import_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/import_key.py.html>`__ to see an example of how to use import_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1644,7 +1644,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/import_key_version.py.html>`__ to see an example of how to use import_key_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/import_key_version.py.html>`__ to see an example of how to use import_key_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -1774,7 +1774,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/list_key_versions.py.html>`__ to see an example of how to use list_key_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/list_key_versions.py.html>`__ to see an example of how to use list_key_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -1948,7 +1948,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/list_keys.py.html>`__ to see an example of how to use list_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/list_keys.py.html>`__ to see an example of how to use list_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2128,7 +2128,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/restore_key_from_file.py.html>`__ to see an example of how to use restore_key_from_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/restore_key_from_file.py.html>`__ to see an example of how to use restore_key_from_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2263,7 +2263,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/restore_key_from_object_store.py.html>`__ to see an example of how to use restore_key_from_object_store API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/restore_key_from_object_store.py.html>`__ to see an example of how to use restore_key_from_object_store API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2381,7 +2381,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/schedule_key_deletion.py.html>`__ to see an example of how to use schedule_key_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/schedule_key_deletion.py.html>`__ to see an example of how to use schedule_key_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']
@@ -2513,7 +2513,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/schedule_key_version_deletion.py.html>`__ to see an example of how to use schedule_key_version_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/schedule_key_version_deletion.py.html>`__ to see an example of how to use schedule_key_version_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId', 'keyVersionId']
@@ -2636,7 +2636,7 @@ class KmsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/keymanagement/update_key.py.html>`__ to see an example of how to use update_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/keymanagement/update_key.py.html>`__ to see an example of how to use update_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['keyId']

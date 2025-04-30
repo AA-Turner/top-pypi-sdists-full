@@ -88,6 +88,10 @@ class Status(_message.Message):
         DEPLOYMENT_STATUS_STOPPED: _ClassVar[Status.DeploymentStatus]
         DEPLOYMENT_STATUS_STARTED: _ClassVar[Status.DeploymentStatus]
         DEPLOYMENT_STATUS_FAILED: _ClassVar[Status.DeploymentStatus]
+        DEPLOYMENT_STATUS_ACTIVE: _ClassVar[Status.DeploymentStatus]
+        DEPLOYMENT_STATUS_SCALING_UP: _ClassVar[Status.DeploymentStatus]
+        DEPLOYMENT_STATUS_SCALING_DOWN: _ClassVar[Status.DeploymentStatus]
+        DEPLOYMENT_STATUS_DEPLOYING: _ClassVar[Status.DeploymentStatus]
     DEPLOYMENT_STATUS_UNSPECIFIED: Status.DeploymentStatus
     DEPLOYMENT_STATUS_UNASSIGNED: Status.DeploymentStatus
     DEPLOYMENT_STATUS_ASSIGNED: Status.DeploymentStatus
@@ -95,6 +99,10 @@ class Status(_message.Message):
     DEPLOYMENT_STATUS_STOPPED: Status.DeploymentStatus
     DEPLOYMENT_STATUS_STARTED: Status.DeploymentStatus
     DEPLOYMENT_STATUS_FAILED: Status.DeploymentStatus
+    DEPLOYMENT_STATUS_ACTIVE: Status.DeploymentStatus
+    DEPLOYMENT_STATUS_SCALING_UP: Status.DeploymentStatus
+    DEPLOYMENT_STATUS_SCALING_DOWN: Status.DeploymentStatus
+    DEPLOYMENT_STATUS_DEPLOYING: Status.DeploymentStatus
     ASSIGNED_CLUSTER_FIELD_NUMBER: _ClassVar[int]
     CURRENT_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     INGRESS_FIELD_NUMBER: _ClassVar[int]
@@ -132,15 +140,17 @@ class Ingress(_message.Message):
     def __init__(self, public_url: _Optional[str] = ..., cname_url: _Optional[str] = ..., vpc_url: _Optional[str] = ...) -> None: ...
 
 class Spec(_message.Message):
-    __slots__ = ["container", "pod", "autoscaling", "ingress", "desired_state", "cluster_pool", "images", "security_context", "extended_resources", "runtime_metadata", "profile", "creator", "inputs"]
+    __slots__ = ["container", "pod", "autoscaling", "ingress", "desired_state", "cluster_pool", "images", "security_context", "extended_resources", "runtime_metadata", "profile", "creator", "inputs", "links"]
     class DesiredState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
         DESIRED_STATE_UNSPECIFIED: _ClassVar[Spec.DesiredState]
         DESIRED_STATE_STOPPED: _ClassVar[Spec.DesiredState]
         DESIRED_STATE_STARTED: _ClassVar[Spec.DesiredState]
+        DESIRED_STATE_ACTIVE: _ClassVar[Spec.DesiredState]
     DESIRED_STATE_UNSPECIFIED: Spec.DesiredState
     DESIRED_STATE_STOPPED: Spec.DesiredState
     DESIRED_STATE_STARTED: Spec.DesiredState
+    DESIRED_STATE_ACTIVE: Spec.DesiredState
     CONTAINER_FIELD_NUMBER: _ClassVar[int]
     POD_FIELD_NUMBER: _ClassVar[int]
     AUTOSCALING_FIELD_NUMBER: _ClassVar[int]
@@ -154,6 +164,7 @@ class Spec(_message.Message):
     PROFILE_FIELD_NUMBER: _ClassVar[int]
     CREATOR_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
+    LINKS_FIELD_NUMBER: _ClassVar[int]
     container: _tasks_pb2.Container
     pod: _tasks_pb2.K8sPod
     autoscaling: AutoscalingConfig
@@ -167,7 +178,18 @@ class Spec(_message.Message):
     profile: Profile
     creator: _identity_pb2.EnrichedIdentity
     inputs: InputList
-    def __init__(self, container: _Optional[_Union[_tasks_pb2.Container, _Mapping]] = ..., pod: _Optional[_Union[_tasks_pb2.K8sPod, _Mapping]] = ..., autoscaling: _Optional[_Union[AutoscalingConfig, _Mapping]] = ..., ingress: _Optional[_Union[IngressConfig, _Mapping]] = ..., desired_state: _Optional[_Union[Spec.DesiredState, str]] = ..., cluster_pool: _Optional[str] = ..., images: _Optional[_Union[ImageSpecSet, _Mapping]] = ..., security_context: _Optional[_Union[SecurityContext, _Mapping]] = ..., extended_resources: _Optional[_Union[_tasks_pb2.ExtendedResources, _Mapping]] = ..., runtime_metadata: _Optional[_Union[_runtime_version_pb2.RuntimeMetadata, _Mapping]] = ..., profile: _Optional[_Union[Profile, _Mapping]] = ..., creator: _Optional[_Union[_identity_pb2.EnrichedIdentity, _Mapping]] = ..., inputs: _Optional[_Union[InputList, _Mapping]] = ...) -> None: ...
+    links: _containers.RepeatedCompositeFieldContainer[Link]
+    def __init__(self, container: _Optional[_Union[_tasks_pb2.Container, _Mapping]] = ..., pod: _Optional[_Union[_tasks_pb2.K8sPod, _Mapping]] = ..., autoscaling: _Optional[_Union[AutoscalingConfig, _Mapping]] = ..., ingress: _Optional[_Union[IngressConfig, _Mapping]] = ..., desired_state: _Optional[_Union[Spec.DesiredState, str]] = ..., cluster_pool: _Optional[str] = ..., images: _Optional[_Union[ImageSpecSet, _Mapping]] = ..., security_context: _Optional[_Union[SecurityContext, _Mapping]] = ..., extended_resources: _Optional[_Union[_tasks_pb2.ExtendedResources, _Mapping]] = ..., runtime_metadata: _Optional[_Union[_runtime_version_pb2.RuntimeMetadata, _Mapping]] = ..., profile: _Optional[_Union[Profile, _Mapping]] = ..., creator: _Optional[_Union[_identity_pb2.EnrichedIdentity, _Mapping]] = ..., inputs: _Optional[_Union[InputList, _Mapping]] = ..., links: _Optional[_Iterable[_Union[Link, _Mapping]]] = ...) -> None: ...
+
+class Link(_message.Message):
+    __slots__ = ["path", "title", "is_relative"]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    IS_RELATIVE_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    title: str
+    is_relative: bool
+    def __init__(self, path: _Optional[str] = ..., title: _Optional[str] = ..., is_relative: bool = ...) -> None: ...
 
 class Input(_message.Message):
     __slots__ = ["name", "string_value", "artifact_query", "artifact_id", "app_id"]

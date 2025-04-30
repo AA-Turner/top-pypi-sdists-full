@@ -151,7 +151,7 @@ class MacDeviceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/mngdmac/get_mac_device.py.html>`__ to see an example of how to use get_mac_device API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mngdmac/get_mac_device.py.html>`__ to see an example of how to use get_mac_device API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['macDeviceId', 'macOrderId']
@@ -297,7 +297,7 @@ class MacDeviceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/mngdmac/list_mac_devices.py.html>`__ to see an example of how to use list_mac_devices API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mngdmac/list_mac_devices.py.html>`__ to see an example of how to use list_mac_devices API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['macOrderId']
@@ -459,7 +459,7 @@ class MacDeviceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/mngdmac/terminate_mac_device.py.html>`__ to see an example of how to use terminate_mac_device API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mngdmac/terminate_mac_device.py.html>`__ to see an example of how to use terminate_mac_device API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['macDeviceId', 'macOrderId']

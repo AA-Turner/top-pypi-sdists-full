@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-axes
-Version: 7.0.2
+Version: 7.1.0
 Summary: Keep track of failed login attempts in Django-powered sites.
 Home-page: https://github.com/jazzband/django-axes
 Author: Josh VanderLinden, Philip Neustrom, Michael Blume, Alex Clark, Camilo Nova, Aleksi Hakli
@@ -19,6 +19,7 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
@@ -34,9 +35,9 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: django>=3.2
+Requires-Dist: django>=4.2
 Requires-Dist: asgiref>=3.6.0
 Provides-Extra: ipware
 Requires-Dist: django-ipware>=3; extra == "ipware"
@@ -47,6 +48,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: project-url
@@ -142,6 +144,16 @@ See `CONTRIBUTING <CONTRIBUTING.rst>`__.
 
 Changes
 =======
+
+7.1.0 (2025-04-23)
+------------------
+
+- Provide credentials to expired credentials cleanup method.
+  [parul-aro]
+- Update support matrix for Django 5.2.
+  [mkniewallner]
+- Fix documentation.
+  [chango-goat]
 
 
 7.0.2 (2025-02-19)

@@ -154,7 +154,7 @@ class GenericArtifactsContentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/genericartifactscontent/get_generic_artifact_content.py.html>`__ to see an example of how to use get_generic_artifact_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/genericartifactscontent/get_generic_artifact_content.py.html>`__ to see an example of how to use get_generic_artifact_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['artifactId']
@@ -269,7 +269,7 @@ class GenericArtifactsContentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/genericartifactscontent/get_generic_artifact_content_by_path.py.html>`__ to see an example of how to use get_generic_artifact_content_by_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/genericartifactscontent/get_generic_artifact_content_by_path.py.html>`__ to see an example of how to use get_generic_artifact_content_by_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId', 'artifactPath', 'version']
@@ -399,7 +399,7 @@ class GenericArtifactsContentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/genericartifactscontent/put_generic_artifact_content_by_path.py.html>`__ to see an example of how to use put_generic_artifact_content_by_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/genericartifactscontent/put_generic_artifact_content_by_path.py.html>`__ to see an example of how to use put_generic_artifact_content_by_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId', 'artifactPath', 'version']

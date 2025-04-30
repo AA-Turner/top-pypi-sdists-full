@@ -405,7 +405,7 @@ if __name__ == '__main__':
 
     # arun(generate(ImageRequest(prompt="fuck you")))
     prompt = "A plump Chinese beauty wearing a wedding  dress revealing her skirt and underwear is swinging on the swing,Happy smile,cleavage,Exposed thighs,Spread your legs open,Extend your leg,panties,upskirt,Barefoot,sole"
-    prompt = "a dog"
+    prompt = "  a dog"
     request = ImageRequest(prompt=prompt, size="1328x1328")
     # request = ImageRequest(prompt=prompt, size="1024x1024")
 

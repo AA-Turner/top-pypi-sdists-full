@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "pepperize.cdk-terraform-state-backend",
-    "version": "0.1.1165",
+    "version": "0.1.1167",
     "description": "This project provides a CDK construct bootstrapping an AWS account with a S3 Bucket and a DynamoDB table as terraform state backend.",
     "license": "MIT",
     "url": "https://github.com/pepperize/cdk-terraform-state-backend.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "pepperize_cdk_terraform_state_backend._jsii": [
-            "cdk-terraform-state-backend@0.1.1165.jsii.tgz"
+            "cdk-terraform-state-backend@0.1.1167.jsii.tgz"
         ],
         "pepperize_cdk_terraform_state_backend": [
             "py.typed"

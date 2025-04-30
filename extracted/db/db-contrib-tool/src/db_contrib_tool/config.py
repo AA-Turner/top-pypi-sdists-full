@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from enum import Enum
 from typing import List, NamedTuple, Optional, Set
 
 from evergreen import Task
@@ -19,18 +18,6 @@ DEFAULT_VERSION_LABEL = "default"
 
 LTS_RELEASE_ALIAS = "last-lts"
 CONTINUOUS_RELEASE_ALIAS = "last-continuous"
-
-
-class SegmentWriteKey(Enum):
-    """Segment write key."""
-
-    DEV = "RmMosrk1bf025xLRbZUxF2osVzGLPpL3"
-    PROD = "jrHGRmtQBO8HYU1CyCfnB279SnktLgGH"
-
-
-SEGMENT_WRITE_KEY = SegmentWriteKey.PROD.value
-if os.environ.get("ENV") == "DEV":
-    SEGMENT_WRITE_KEY = SegmentWriteKey.DEV.value
 
 
 class DownloadTarget(NamedTuple):

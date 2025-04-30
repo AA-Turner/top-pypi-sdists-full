@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: union
-Version: 0.1.180
+Version: 0.1.181
 Summary: Adds Union specific functionality to Flytekit
 Author-email: unionai <info@union.ai>
 License: Source code in this repository is licensed under the Business Source
@@ -39,7 +39,7 @@ Requires-Dist: click
 Requires-Dist: rich
 Requires-Dist: rich_click
 Requires-Dist: flytekit>=v1.15.4
-Requires-Dist: flyteidl>=v1.15.1
+Requires-Dist: flyteidl>=v1.15.3
 Requires-Dist: sentry-sdk>=2.0.0
 Requires-Dist: mashumaro
 Requires-Dist: unionai-actor>=0.1.9; platform_system == "Linux" and platform_machine == "x86_64"

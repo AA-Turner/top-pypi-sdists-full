@@ -1,7 +1,7 @@
 r'''
 # `google_discovery_engine_schema`
 
-Refer to the Terraform Registry for docs: [`google_discovery_engine_schema`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema).
+Refer to the Terraform Registry for docs: [`google_discovery_engine_schema`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DiscoveryEngineSchema(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.discoveryEngineSchema.DiscoveryEngineSchema",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema google_discovery_engine_schema}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema google_discovery_engine_schema}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DiscoveryEngineSchema(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema google_discovery_engine_schema} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema google_discovery_engine_schema} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
-        :param schema_id: The unique id of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param json_schema: The JSON representation of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
+        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
+        :param schema_id: The unique id of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param json_schema: The JSON representation of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DiscoveryEngineSchema(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DiscoveryEngineSchema to import.
-        :param import_from_id: The id of the existing DiscoveryEngineSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DiscoveryEngineSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DiscoveryEngineSchema to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class DiscoveryEngineSchema(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.
         '''
         value = DiscoveryEngineSchemaTimeouts(create=create, delete=delete)
 
@@ -343,13 +343,13 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
-        :param schema_id: The unique id of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param json_schema: The JSON representation of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
+        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
+        :param schema_id: The unique id of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param json_schema: The JSON representation of the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -467,7 +467,7 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_store_id(self) -> builtins.str:
         '''The unique id of the data store.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#data_store_id DiscoveryEngineSchema#data_store_id}
         '''
         result = self._values.get("data_store_id")
         assert result is not None, "Required property 'data_store_id' is missing"
@@ -477,7 +477,7 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#location DiscoveryEngineSchema#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -487,7 +487,7 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema_id(self) -> builtins.str:
         '''The unique id of the schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#schema_id DiscoveryEngineSchema#schema_id}
         '''
         result = self._values.get("schema_id")
         assert result is not None, "Required property 'schema_id' is missing"
@@ -495,7 +495,7 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#id DiscoveryEngineSchema#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -507,14 +507,14 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def json_schema(self) -> typing.Optional[builtins.str]:
         '''The JSON representation of the schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#json_schema DiscoveryEngineSchema#json_schema}
         '''
         result = self._values.get("json_schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#project DiscoveryEngineSchema#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -522,7 +522,7 @@ class DiscoveryEngineSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DiscoveryEngineSchemaTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#timeouts DiscoveryEngineSchema#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DiscoveryEngineSchemaTimeouts"], result)
@@ -552,8 +552,8 @@ class DiscoveryEngineSchemaTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7767224fa7a89e975e2c953d81cdbbc6baa744785a76211b1b7f1675737a587)
@@ -567,13 +567,13 @@ class DiscoveryEngineSchemaTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#create DiscoveryEngineSchema#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_schema#delete DiscoveryEngineSchema#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -12,12 +12,12 @@ pattern = "default-unprefixed"
 python = "^3.9"
 
 # Base neptune package
-neptune-api = "^0.13.0"
+neptune-api = "^0.15.0"
+azure-storage-blob = "^12.7.0"
+pandas = { version = ">=1.4.0" }
 
 # Optional for default progress update handling
 tqdm = { version = ">=4.66.0" }
-pandas = { version = ">=1.4.0" }
-
 
 [tool.poetry]
 authors = ["neptune.ai <contact@neptune.ai>"]
@@ -28,7 +28,7 @@ documentation = "https://docs.neptune.ai/"
 license = "Apache License 2.0"
 name = "neptune-fetcher"
 readme = "README.md"
-version = "0.14.7"
+version = "0.15.0"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

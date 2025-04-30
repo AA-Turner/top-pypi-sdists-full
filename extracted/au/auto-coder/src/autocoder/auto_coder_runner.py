@@ -65,6 +65,7 @@ from loguru import logger as global_logger
 from autocoder.utils.project_structure import EnhancedFileAnalyzer
 from autocoder.common import SourceCodeList,SourceCode
 from autocoder.common.file_monitor import FileMonitor
+from filelock import FileLock
 
 
 ## 对外API，用于第三方集成 auto-coder 使用。
@@ -259,11 +260,24 @@ def configure_logger():
 
 configure_logger()
 
-try:
-    FileMonitor(project_root).start()
-except Exception as e:
-    global_logger.error(f"Failed to start file monitor: {e}")
-    global_logger.exception(e)
+def init_singleton_instances():
+    # 初始化文件监控系统
+    try:
+        FileMonitor(project_root).start()
+    except Exception as e:
+        global_logger.error(f"Failed to start file monitor: {e}")
+        global_logger.exception(e)
+    
+    # 初始化规则文件管理器
+    from autocoder.common.rulefiles.autocoderrules_utils import get_rules
+    get_rules(project_root=project_root)
+
+    # 初始化忽略文件管理器
+    from autocoder.common.ignorefiles.ignore_file_utils import IgnoreFileManager
+    _ = IgnoreFileManager(project_root=project_root)
+
+
+init_singleton_instances()
 
 def initialize_system(args:InitializeSystemRequest):
     from autocoder.utils.model_provider_selector import ModelProviderSelector
@@ -633,20 +647,28 @@ def get_symbol_list() -> List[SymbolItem]:
 
 
 def save_memory():
-    with open(os.path.join(base_persist_dir, "memory.json"), "w",encoding="utf-8") as f:
-        json.dump(memory, f, indent=2, ensure_ascii=False)
+    memory_path = os.path.join(base_persist_dir, "memory.json")
+    lock_path = memory_path + ".lock"
+    
+    with FileLock(lock_path, timeout=30):
+        with open(memory_path, "w", encoding="utf-8") as f:
+            json.dump(memory, f, indent=2, ensure_ascii=False)
+    
     load_memory()
 
 
 def load_memory():    
     global memory
     memory_path = os.path.join(base_persist_dir, "memory.json")
+    lock_path = memory_path + ".lock"
+    
     if os.path.exists(memory_path):
-        with open(memory_path, "r", encoding="utf-8") as f:
-            _memory = json.load(f)
-        # clear memory
-        memory.clear()
-        memory.update(_memory)    
+        with FileLock(lock_path, timeout=30):
+            with open(memory_path, "r", encoding="utf-8") as f:
+                _memory = json.load(f)
+            # clear memory
+            memory.clear()
+            memory.update(_memory)    
     return memory
 
 def get_memory():    

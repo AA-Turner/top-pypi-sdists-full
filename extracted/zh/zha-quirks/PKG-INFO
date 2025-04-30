@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zha-quirks
-Version: 0.0.136
+Version: 0.0.137
 Summary: Library implementing Zigpy quirks for ZHA in Home Assistant
 Author-email: "David F. Mulcahey" <david.mulcahey@icloud.com>
 License: Apache-2.0

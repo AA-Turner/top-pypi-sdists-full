@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-pgtrigger
-Version: 4.15.1
+Version: 4.15.2
 Summary: Postgres trigger support integrated with Django models.
 Home-page: https://github.com/AmbitionEng/django-pgtrigger
 License: BSD-3-Clause

@@ -451,6 +451,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         is_auto_snapshot: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
+        restrict_modal_access: bool = False,
         i6pn_enabled: bool = False,
         # Experimental: Clustered functions
         cluster_size: Optional[int] = None,
@@ -809,6 +810,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     checkpointing_enabled=enable_memory_snapshot,
                     object_dependencies=object_dependencies,
                     block_network=block_network,
+                    untrusted=restrict_modal_access,
                     max_inputs=max_inputs or 0,
                     cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts),
                     scheduler_placement=scheduler_placement.proto if scheduler_placement else None,
@@ -865,6 +867,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                         snapshot_debug=function_definition.snapshot_debug,
                         runtime_perf_record=function_definition.runtime_perf_record,
                         function_schema=function_schema,
+                        untrusted=function_definition.untrusted,
                     )
 
                     ranked_functions = []
@@ -966,19 +969,9 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         parent = self
 
         async def _load(param_bound_func: _Function, resolver: Resolver, existing_object_id: Optional[str]):
-            try:
-                identity = f"{parent.info.function_name} class service function"
-            except Exception:
-                # Can't always look up the function name that way, so fall back to generic message
-                identity = "class service function for a parametrized class"
             if not parent.is_hydrated:
-                if parent.app._running_app is None:
-                    reason = ", because the App it is defined on is not running"
-                else:
-                    reason = ""
-                raise ExecutionError(
-                    f"The {identity} has not been hydrated with the metadata it needs to run on Modal{reason}."
-                )
+                # While the base Object.hydrate() method appears to be idempotent, it's not always safe
+                await parent.hydrate()
 
             assert parent._client and parent._client.stub
 

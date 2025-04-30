@@ -940,6 +940,18 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         """
         ...
 
+    def adjust_volume(self, volume: float, price: float) -> float:
+        """
+        Returns the raw volume without any adjustment.
+        
+        This method is protected.
+        
+        :param volume: The volume
+        :param price: The price
+        :returns: The unmodified volume.
+        """
+        ...
+
     def on_data_consolidated(self, consolidated: QuantConnect.Data.Market.VolumeRenkoBar) -> None:
         """
         Event invocator for the DataConsolidated event. This should be invoked

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-i18n-tools
-Version: 1.8.0
+Version: 1.9.0
 Summary: edX Internationalization Tools
 Home-page: https://github.com/openedx/i18n-tools
 Author: edX
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt

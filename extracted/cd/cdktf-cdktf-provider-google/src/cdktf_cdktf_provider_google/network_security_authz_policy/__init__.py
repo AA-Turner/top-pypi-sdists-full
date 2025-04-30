@@ -1,7 +1,7 @@
 r'''
 # `google_network_security_authz_policy`
 
-Refer to the Terraform Registry for docs: [`google_network_security_authz_policy`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy).
+Refer to the Terraform Registry for docs: [`google_network_security_authz_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkSecurityAuthzPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkSecurityAuthzPolicy.NetworkSecurityAuthzPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy google_network_security_authz_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy google_network_security_authz_policy}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class NetworkSecurityAuthzPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy google_network_security_authz_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy google_network_security_authz_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: When the action is CUSTOM, customProvider must be specified. When the action is ALLOW, only requests matching the policy will be allowed. When the action is DENY, only requests matching the policy will be denied. When a request arrives, the policies are evaluated in the following order: 1. If there is a CUSTOM policy that matches the request, the CUSTOM policy is evaluated using the custom authorization providers and the request is denied if the provider rejects the request. 2. If there are any DENY policies that match the request, the request is denied. 3. If there are no ALLOW policies for the resource or if any of the ALLOW policies match the request, the request is allowed. 4. Else the request is denied by default if none of the configured AuthzPolicies with ALLOW action match the request. Possible values: ["ALLOW", "DENY", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
-        :param name: Identifier. Name of the AuthzPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
-        :param custom_provider: custom_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
-        :param http_rules: http_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
+        :param action: When the action is CUSTOM, customProvider must be specified. When the action is ALLOW, only requests matching the policy will be allowed. When the action is DENY, only requests matching the policy will be denied. When a request arrives, the policies are evaluated in the following order: 1. If there is a CUSTOM policy that matches the request, the CUSTOM policy is evaluated using the custom authorization providers and the request is denied if the provider rejects the request. 2. If there are any DENY policies that match the request, the request is denied. 3. If there are no ALLOW policies for the resource or if any of the ALLOW policies match the request, the request is allowed. 4. Else the request is denied by default if none of the configured AuthzPolicies with ALLOW action match the request. Possible values: ["ALLOW", "DENY", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
+        :param name: Identifier. Name of the AuthzPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
+        :param custom_provider: custom_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
+        :param http_rules: http_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class NetworkSecurityAuthzPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkSecurityAuthzPolicy to import.
-        :param import_from_id: The id of the existing NetworkSecurityAuthzPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkSecurityAuthzPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkSecurityAuthzPolicy to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class NetworkSecurityAuthzPolicy(
         cloud_iap: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyCustomProviderCloudIap", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authz_extension: authz_extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
-        :param cloud_iap: cloud_iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
+        :param authz_extension: authz_extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
+        :param cloud_iap: cloud_iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
         '''
         value = NetworkSecurityAuthzPolicyCustomProvider(
             authz_extension=authz_extension, cloud_iap=cloud_iap
@@ -182,8 +182,8 @@ class NetworkSecurityAuthzPolicy(
         resources: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param load_balancing_scheme: All gateways and forwarding rules referenced by this policy and extensions must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED", "INTERNAL_SELF_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
-        :param resources: A list of references to the Forwarding Rules on which this policy will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param load_balancing_scheme: All gateways and forwarding rules referenced by this policy and extensions must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED", "INTERNAL_SELF_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
+        :param resources: A list of references to the Forwarding Rules on which this policy will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         value = NetworkSecurityAuthzPolicyTarget(
             load_balancing_scheme=load_balancing_scheme, resources=resources
@@ -200,9 +200,9 @@ class NetworkSecurityAuthzPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.
         '''
         value = NetworkSecurityAuthzPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -496,17 +496,17 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: When the action is CUSTOM, customProvider must be specified. When the action is ALLOW, only requests matching the policy will be allowed. When the action is DENY, only requests matching the policy will be denied. When a request arrives, the policies are evaluated in the following order: 1. If there is a CUSTOM policy that matches the request, the CUSTOM policy is evaluated using the custom authorization providers and the request is denied if the provider rejects the request. 2. If there are any DENY policies that match the request, the request is denied. 3. If there are no ALLOW policies for the resource or if any of the ALLOW policies match the request, the request is allowed. 4. Else the request is denied by default if none of the configured AuthzPolicies with ALLOW action match the request. Possible values: ["ALLOW", "DENY", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
-        :param name: Identifier. Name of the AuthzPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
-        :param custom_provider: custom_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
-        :param http_rules: http_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
+        :param action: When the action is CUSTOM, customProvider must be specified. When the action is ALLOW, only requests matching the policy will be allowed. When the action is DENY, only requests matching the policy will be denied. When a request arrives, the policies are evaluated in the following order: 1. If there is a CUSTOM policy that matches the request, the CUSTOM policy is evaluated using the custom authorization providers and the request is denied if the provider rejects the request. 2. If there are any DENY policies that match the request, the request is denied. 3. If there are no ALLOW policies for the resource or if any of the ALLOW policies match the request, the request is allowed. 4. Else the request is denied by default if none of the configured AuthzPolicies with ALLOW action match the request. Possible values: ["ALLOW", "DENY", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
+        :param name: Identifier. Name of the AuthzPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
+        :param custom_provider: custom_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
+        :param http_rules: http_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -649,7 +649,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         3. If there are no ALLOW policies for the resource or if any of the ALLOW policies match the request, the request is allowed.
         4. Else the request is denied by default if none of the configured AuthzPolicies with ALLOW action match the request. Possible values: ["ALLOW", "DENY", "CUSTOM"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#action NetworkSecurityAuthzPolicy#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -659,7 +659,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#location NetworkSecurityAuthzPolicy#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -669,7 +669,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Identifier. Name of the AuthzPolicy resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -679,7 +679,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> "NetworkSecurityAuthzPolicyTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#target NetworkSecurityAuthzPolicy#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -691,7 +691,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NetworkSecurityAuthzPolicyCustomProvider"]:
         '''custom_provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#custom_provider NetworkSecurityAuthzPolicy#custom_provider}
         '''
         result = self._values.get("custom_provider")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyCustomProvider"], result)
@@ -700,7 +700,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#description NetworkSecurityAuthzPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -711,14 +711,14 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRules"]]]:
         '''http_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#http_rules NetworkSecurityAuthzPolicy#http_rules}
         '''
         result = self._values.get("http_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRules"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#id NetworkSecurityAuthzPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -733,14 +733,14 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#labels NetworkSecurityAuthzPolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#project NetworkSecurityAuthzPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -748,7 +748,7 @@ class NetworkSecurityAuthzPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkSecurityAuthzPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#timeouts NetworkSecurityAuthzPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyTimeouts"], result)
@@ -778,8 +778,8 @@ class NetworkSecurityAuthzPolicyCustomProvider:
         cloud_iap: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyCustomProviderCloudIap", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authz_extension: authz_extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
-        :param cloud_iap: cloud_iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
+        :param authz_extension: authz_extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
+        :param cloud_iap: cloud_iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
         '''
         if isinstance(authz_extension, dict):
             authz_extension = NetworkSecurityAuthzPolicyCustomProviderAuthzExtension(**authz_extension)
@@ -801,7 +801,7 @@ class NetworkSecurityAuthzPolicyCustomProvider:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyCustomProviderAuthzExtension"]:
         '''authz_extension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#authz_extension NetworkSecurityAuthzPolicy#authz_extension}
         '''
         result = self._values.get("authz_extension")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyCustomProviderAuthzExtension"], result)
@@ -812,7 +812,7 @@ class NetworkSecurityAuthzPolicyCustomProvider:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyCustomProviderCloudIap"]:
         '''cloud_iap block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#cloud_iap NetworkSecurityAuthzPolicy#cloud_iap}
         '''
         result = self._values.get("cloud_iap")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyCustomProviderCloudIap"], result)
@@ -837,7 +837,7 @@ class NetworkSecurityAuthzPolicyCustomProvider:
 class NetworkSecurityAuthzPolicyCustomProviderAuthzExtension:
     def __init__(self, *, resources: typing.Sequence[builtins.str]) -> None:
         '''
-        :param resources: A list of references to authorization extensions that will be invoked for requests matching this policy. Limited to 1 custom provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param resources: A list of references to authorization extensions that will be invoked for requests matching this policy. Limited to 1 custom provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7402158dc10a8e9258482876989913285ac33f7416bf18fd3c5be996f2c1a4e5)
@@ -852,7 +852,7 @@ class NetworkSecurityAuthzPolicyCustomProviderAuthzExtension:
 
         Limited to 1 custom provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
@@ -937,7 +937,7 @@ class NetworkSecurityAuthzPolicyCustomProviderCloudIap:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable Cloud IAP at the AuthzPolicy level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
+        :param enabled: Enable Cloud IAP at the AuthzPolicy level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46a3456d47b995ef7cf0237c3f34789674d58893cd4cfe9dcc69f019aabdb225)
@@ -950,7 +950,7 @@ class NetworkSecurityAuthzPolicyCustomProviderCloudIap:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Enable Cloud IAP at the AuthzPolicy level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1051,7 +1051,7 @@ class NetworkSecurityAuthzPolicyCustomProviderOutputReference(
     @jsii.member(jsii_name="putAuthzExtension")
     def put_authz_extension(self, *, resources: typing.Sequence[builtins.str]) -> None:
         '''
-        :param resources: A list of references to authorization extensions that will be invoked for requests matching this policy. Limited to 1 custom provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param resources: A list of references to authorization extensions that will be invoked for requests matching this policy. Limited to 1 custom provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         value = NetworkSecurityAuthzPolicyCustomProviderAuthzExtension(
             resources=resources
@@ -1066,7 +1066,7 @@ class NetworkSecurityAuthzPolicyCustomProviderOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable Cloud IAP at the AuthzPolicy level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
+        :param enabled: Enable Cloud IAP at the AuthzPolicy level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#enabled NetworkSecurityAuthzPolicy#enabled}
         '''
         value = NetworkSecurityAuthzPolicyCustomProviderCloudIap(enabled=enabled)
 
@@ -1140,9 +1140,9 @@ class NetworkSecurityAuthzPolicyHttpRules:
         when: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: from block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#from NetworkSecurityAuthzPolicy#from}
-        :param to: to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#to NetworkSecurityAuthzPolicy#to}
-        :param when: CEL expression that describes the conditions to be satisfied for the action. The result of the CEL expression is ANDed with the from and to. Refer to the CEL language reference for a list of available attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#when NetworkSecurityAuthzPolicy#when}
+        :param from_: from block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#from NetworkSecurityAuthzPolicy#from}
+        :param to: to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#to NetworkSecurityAuthzPolicy#to}
+        :param when: CEL expression that describes the conditions to be satisfied for the action. The result of the CEL expression is ANDed with the from and to. Refer to the CEL language reference for a list of available attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#when NetworkSecurityAuthzPolicy#when}
         '''
         if isinstance(from_, dict):
             from_ = NetworkSecurityAuthzPolicyHttpRulesFrom(**from_)
@@ -1165,7 +1165,7 @@ class NetworkSecurityAuthzPolicyHttpRules:
     def from_(self) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFrom"]:
         '''from block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#from NetworkSecurityAuthzPolicy#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#from NetworkSecurityAuthzPolicy#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFrom"], result)
@@ -1174,7 +1174,7 @@ class NetworkSecurityAuthzPolicyHttpRules:
     def to(self) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesTo"]:
         '''to block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#to NetworkSecurityAuthzPolicy#to}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#to NetworkSecurityAuthzPolicy#to}
         '''
         result = self._values.get("to")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesTo"], result)
@@ -1185,7 +1185,7 @@ class NetworkSecurityAuthzPolicyHttpRules:
 
         The result of the CEL expression is ANDed with the from and to. Refer to the CEL language reference for a list of available attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#when NetworkSecurityAuthzPolicy#when}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#when NetworkSecurityAuthzPolicy#when}
         '''
         result = self._values.get("when")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1215,8 +1215,8 @@ class NetworkSecurityAuthzPolicyHttpRulesFrom:
         sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesFromSources", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param not_sources: not_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
+        :param not_sources: not_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb93ed401a52343dfcd3e8632fcfe5c380b3b2c49b2c0122d81e8136e6aba3d5)
@@ -1234,7 +1234,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFrom:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSources"]]]:
         '''not_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
         '''
         result = self._values.get("not_sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSources"]]], result)
@@ -1245,7 +1245,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFrom:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSources"]]]:
         '''sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
         '''
         result = self._values.get("sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSources"]]], result)
@@ -1275,8 +1275,8 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSources:
         resources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8071a14b4870e8b03826de281dfc08236065de6b052387c574e64013f4218041)
@@ -1294,7 +1294,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals"]]]:
         '''principals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
         '''
         result = self._values.get("principals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals"]]], result)
@@ -1305,7 +1305,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources"]]]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources"]]], result)
@@ -1543,11 +1543,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2a3d0f0eaed2e161d23d8d6a9de0cc0ae7f33199f8ef2b8b5508e1cb3d5dffa)
@@ -1577,7 +1577,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1586,7 +1586,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1599,7 +1599,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1613,7 +1613,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1627,7 +1627,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesPrincipals:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1907,8 +1907,8 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources:
         tag_value_id_set: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_service_account: iam_service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
-        :param tag_value_id_set: tag_value_id_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
+        :param iam_service_account: iam_service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
+        :param tag_value_id_set: tag_value_id_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
         '''
         if isinstance(iam_service_account, dict):
             iam_service_account = NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccount(**iam_service_account)
@@ -1930,7 +1930,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccount"]:
         '''iam_service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
         '''
         result = self._values.get("iam_service_account")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccount"], result)
@@ -1941,7 +1941,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResources:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet"]:
         '''tag_value_id_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
         '''
         result = self._values.get("tag_value_id_set")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet"], result)
@@ -1980,11 +1980,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7969b937adf36be994fb80545ae6fb4494071bfdf7c3e59ab69c88081b9ac5b4)
@@ -2014,7 +2014,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2023,7 +2023,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2036,7 +2036,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2050,7 +2050,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2064,7 +2064,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccoun
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2359,11 +2359,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesIamServiceAccount(
             contains=contains,
@@ -2382,7 +2382,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesOutputReference(
         ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet(
             ids=ids
@@ -2456,7 +2456,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet:
         ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6eede2a0c13905a01d402780cc37a64780f57e212067db22e98962c716241046)
@@ -2472,7 +2472,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromNotSourcesResourcesTagValueIdSet:
         The match follows AND semantics which means all the ids must match.
         Limited to 5 matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         result = self._values.get("ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2657,8 +2657,8 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSources:
         resources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__202ad195ef6ed01a7e191d41a985c65dda904d59c572ed4785827c5ee6a8e291)
@@ -2676,7 +2676,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals"]]]:
         '''principals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#principals NetworkSecurityAuthzPolicy#principals}
         '''
         result = self._values.get("principals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals"]]], result)
@@ -2687,7 +2687,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources"]]]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources"]]], result)
@@ -2925,11 +2925,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a780786761e8ceaf7f21fcb9e7162eadca6970c7e4e9b379fed536796f1fdfa7)
@@ -2959,7 +2959,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2968,7 +2968,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2981,7 +2981,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2995,7 +2995,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3009,7 +3009,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesPrincipals:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3289,8 +3289,8 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources:
         tag_value_id_set: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_service_account: iam_service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
-        :param tag_value_id_set: tag_value_id_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
+        :param iam_service_account: iam_service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
+        :param tag_value_id_set: tag_value_id_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
         '''
         if isinstance(iam_service_account, dict):
             iam_service_account = NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount(**iam_service_account)
@@ -3312,7 +3312,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount"]:
         '''iam_service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#iam_service_account NetworkSecurityAuthzPolicy#iam_service_account}
         '''
         result = self._values.get("iam_service_account")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount"], result)
@@ -3323,7 +3323,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResources:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet"]:
         '''tag_value_id_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#tag_value_id_set NetworkSecurityAuthzPolicy#tag_value_id_set}
         '''
         result = self._values.get("tag_value_id_set")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet"], result)
@@ -3362,11 +3362,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__180a0d51fadca1f7abe2bb927ee2bbfe81c3d2a1abb55dd82867265bf93bfa17)
@@ -3396,7 +3396,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3405,7 +3405,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3418,7 +3418,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3432,7 +3432,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3446,7 +3446,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3741,11 +3741,11 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesIamServiceAccount(
             contains=contains,
@@ -3764,7 +3764,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesOutputReference(
         ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet(
             ids=ids
@@ -3838,7 +3838,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet:
         ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        :param ids: A list of resource tag value permanent IDs to match against the resource manager tags value associated with the source VM of a request. The match follows AND semantics which means all the ids must match. Limited to 5 matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e721368ea7ab364a176631e742b938d58d2288608c751f2833d5aaa58f692ca7)
@@ -3854,7 +3854,7 @@ class NetworkSecurityAuthzPolicyHttpRulesFromSourcesResourcesTagValueIdSet:
         The match follows AND semantics which means all the ids must match.
         Limited to 5 matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ids NetworkSecurityAuthzPolicy#ids}
         '''
         result = self._values.get("ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4057,8 +4057,8 @@ class NetworkSecurityAuthzPolicyHttpRulesOutputReference(
         sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NetworkSecurityAuthzPolicyHttpRulesFromSources, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param not_sources: not_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
+        :param not_sources: not_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_sources NetworkSecurityAuthzPolicy#not_sources}
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#sources NetworkSecurityAuthzPolicy#sources}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesFrom(
             not_sources=not_sources, sources=sources
@@ -4074,8 +4074,8 @@ class NetworkSecurityAuthzPolicyHttpRulesOutputReference(
         operations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToOperations", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param not_operations: not_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
+        :param not_operations: not_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesTo(
             not_operations=not_operations, operations=operations
@@ -4163,8 +4163,8 @@ class NetworkSecurityAuthzPolicyHttpRulesTo:
         operations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToOperations", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param not_operations: not_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
+        :param not_operations: not_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fabfdd6312e5ee01cc9c9b9895e4ae8dc280327d3f1a8700fcb5e481e468861)
@@ -4182,7 +4182,7 @@ class NetworkSecurityAuthzPolicyHttpRulesTo:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperations"]]]:
         '''not_operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#not_operations NetworkSecurityAuthzPolicy#not_operations}
         '''
         result = self._values.get("not_operations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperations"]]], result)
@@ -4193,7 +4193,7 @@ class NetworkSecurityAuthzPolicyHttpRulesTo:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperations"]]]:
         '''operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#operations NetworkSecurityAuthzPolicy#operations}
         '''
         result = self._values.get("operations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperations"]]], result)
@@ -4230,10 +4230,10 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperations:
         paths: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header_set: header_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
-        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
-        :param methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
-        :param paths: paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
+        :param header_set: header_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
+        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
+        :param methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
+        :param paths: paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
         '''
         if isinstance(header_set, dict):
             header_set = NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet(**header_set)
@@ -4259,7 +4259,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperations:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet"]:
         '''header_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
         '''
         result = self._values.get("header_set")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet"], result)
@@ -4270,7 +4270,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts"]]]:
         '''hosts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
         '''
         result = self._values.get("hosts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts"]]], result)
@@ -4281,7 +4281,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperations:
 
         Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
         '''
         result = self._values.get("methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4292,7 +4292,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths"]]]:
         '''paths block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
         '''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths"]]], result)
@@ -4321,7 +4321,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet:
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ed882854635e84c42cf02d8dc9d009e0d7b26f1c85cb1bd0b703db551f29e8f)
@@ -4336,7 +4336,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders"]]], result)
@@ -4366,8 +4366,8 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders:
         value: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Specifies the name of the header in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
-        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
+        :param name: Specifies the name of the header in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
         '''
         if isinstance(value, dict):
             value = NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue(**value)
@@ -4385,7 +4385,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders:
     def name(self) -> typing.Optional[builtins.str]:
         '''Specifies the name of the header in the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4396,7 +4396,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue"]:
         '''value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue"], result)
@@ -4543,11 +4543,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersOutputRe
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue(
             contains=contains,
@@ -4638,11 +4638,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c58b4d2ed02448a4eecf870fc4efcd9287e94b96d87536450c9bcd80671b18ed)
@@ -4672,7 +4672,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4681,7 +4681,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4694,7 +4694,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4708,7 +4708,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4722,7 +4722,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeadersValue:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4978,11 +4978,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d276d66bdc04152040c9d6fe00f3e935deeecd411a27ce30a760aa1d92f2871d)
@@ -5012,7 +5012,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5021,7 +5021,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5034,7 +5034,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5048,7 +5048,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5062,7 +5062,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHosts:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5452,7 +5452,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsOutputReference(
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSetHeaders, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesToNotOperationsHeaderSet(
             headers=headers
@@ -5597,11 +5597,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e7713aab54afb2a1f0c85daf0baed4bbf3f205ce2324bfd9da6223c13da41ab)
@@ -5631,7 +5631,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5640,7 +5640,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5653,7 +5653,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5667,7 +5667,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5681,7 +5681,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToNotOperationsPaths:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5965,10 +5965,10 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperations:
         paths: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header_set: header_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
-        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
-        :param methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
-        :param paths: paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
+        :param header_set: header_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
+        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
+        :param methods: A list of HTTP methods to match against. Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
+        :param paths: paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
         '''
         if isinstance(header_set, dict):
             header_set = NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet(**header_set)
@@ -5994,7 +5994,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperations:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet"]:
         '''header_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#header_set NetworkSecurityAuthzPolicy#header_set}
         '''
         result = self._values.get("header_set")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet"], result)
@@ -6005,7 +6005,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts"]]]:
         '''hosts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#hosts NetworkSecurityAuthzPolicy#hosts}
         '''
         result = self._values.get("hosts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts"]]], result)
@@ -6016,7 +6016,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperations:
 
         Each entry must be a valid HTTP method name (GET, PUT, POST, HEAD, PATCH, DELETE, OPTIONS). It only allows exact match and is always case sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#methods NetworkSecurityAuthzPolicy#methods}
         '''
         result = self._values.get("methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6027,7 +6027,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths"]]]:
         '''paths block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#paths NetworkSecurityAuthzPolicy#paths}
         '''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths"]]], result)
@@ -6056,7 +6056,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet:
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f12ebbf6994306b11e92c9beefbf729208d3a72607fde890af13733cc036b179)
@@ -6071,7 +6071,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders"]]], result)
@@ -6101,8 +6101,8 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders:
         value: typing.Optional[typing.Union["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Specifies the name of the header in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
-        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
+        :param name: Specifies the name of the header in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
         '''
         if isinstance(value, dict):
             value = NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue(**value)
@@ -6120,7 +6120,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders:
     def name(self) -> typing.Optional[builtins.str]:
         '''Specifies the name of the header in the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#name NetworkSecurityAuthzPolicy#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6131,7 +6131,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders:
     ) -> typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue"]:
         '''value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#value NetworkSecurityAuthzPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional["NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue"], result)
@@ -6278,11 +6278,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersOutputRefer
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue(
             contains=contains,
@@ -6373,11 +6373,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f897056c7bea96911aac350a27541cd73ad29b339a258b8891273aefbc071d74)
@@ -6407,7 +6407,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6416,7 +6416,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6429,7 +6429,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6443,7 +6443,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6457,7 +6457,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeadersValue:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6713,11 +6713,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80c74885b77a253a507146dafff7336a15e658b896d0111035591adf4af8f098)
@@ -6747,7 +6747,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6756,7 +6756,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6769,7 +6769,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6783,7 +6783,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6797,7 +6797,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsHosts:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7187,7 +7187,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsOutputReference(
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSetHeaders, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#headers NetworkSecurityAuthzPolicy#headers}
         '''
         value = NetworkSecurityAuthzPolicyHttpRulesToOperationsHeaderSet(
             headers=headers
@@ -7332,11 +7332,11 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
-        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
-        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
-        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
-        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        :param contains: The input string must have the substring specified here. Note: empty contains match is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc.def Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        :param exact: The input string must match exactly the string specified here. Examples: * abc only matches the value abc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        :param ignore_case: If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. For example, the matcher data will match both input string Data and data if set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        :param prefix: The input string must have the prefix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value abc.xyz Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        :param suffix: The input string must have the suffix specified here. Note: empty prefix is not allowed, please use regex instead. Examples: - abc matches the value xyz.abc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a1958bc9a641b3e06eafbefd2aa26e9a9f679ea1e3cb77630530f02168cc52a)
@@ -7366,7 +7366,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
 
         - abc matches the value xyz.abc.def
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#contains NetworkSecurityAuthzPolicy#contains}
         '''
         result = self._values.get("contains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7375,7 +7375,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
     def exact(self) -> typing.Optional[builtins.str]:
         '''The input string must match exactly the string specified here. Examples: * abc only matches the value abc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#exact NetworkSecurityAuthzPolicy#exact}
         '''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7388,7 +7388,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
 
         For example, the matcher data will match both input string Data and data if set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#ignore_case NetworkSecurityAuthzPolicy#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7402,7 +7402,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
 
         - abc matches the value abc.xyz
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#prefix NetworkSecurityAuthzPolicy#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7416,7 +7416,7 @@ class NetworkSecurityAuthzPolicyHttpRulesToOperationsPaths:
 
         - abc matches the value xyz.abc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#suffix NetworkSecurityAuthzPolicy#suffix}
         '''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7790,8 +7790,8 @@ class NetworkSecurityAuthzPolicyTarget:
         resources: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param load_balancing_scheme: All gateways and forwarding rules referenced by this policy and extensions must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED", "INTERNAL_SELF_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
-        :param resources: A list of references to the Forwarding Rules on which this policy will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        :param load_balancing_scheme: All gateways and forwarding rules referenced by this policy and extensions must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED", "INTERNAL_SELF_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
+        :param resources: A list of references to the Forwarding Rules on which this policy will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37da43a58c6a13dc766c0f76ad69a830655fcfa0969db3d17f505927ffc926d4)
@@ -7809,7 +7809,7 @@ class NetworkSecurityAuthzPolicyTarget:
 
         For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED", "INTERNAL_SELF_MANAGED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#load_balancing_scheme NetworkSecurityAuthzPolicy#load_balancing_scheme}
         '''
         result = self._values.get("load_balancing_scheme")
         assert result is not None, "Required property 'load_balancing_scheme' is missing"
@@ -7819,7 +7819,7 @@ class NetworkSecurityAuthzPolicyTarget:
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of references to the Forwarding Rules on which this policy will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#resources NetworkSecurityAuthzPolicy#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7924,9 +7924,9 @@ class NetworkSecurityAuthzPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7600bbb9655f177ed60d3b4dafac2e5f301305be27b8793eb8298e8138e1d2c3)
@@ -7943,19 +7943,19 @@ class NetworkSecurityAuthzPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#create NetworkSecurityAuthzPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#delete NetworkSecurityAuthzPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_authz_policy#update NetworkSecurityAuthzPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

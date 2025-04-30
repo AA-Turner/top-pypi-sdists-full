@@ -163,7 +163,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/activate_bds_metastore_configuration.py.html>`__ to see an example of how to use activate_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/activate_bds_metastore_configuration.py.html>`__ to see an example of how to use activate_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'metastoreConfigId']
@@ -285,7 +285,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/activate_iam_user_sync_configuration.py.html>`__ to see an example of how to use activate_iam_user_sync_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/activate_iam_user_sync_configuration.py.html>`__ to see an example of how to use activate_iam_user_sync_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -407,7 +407,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/activate_upst_configuration.py.html>`__ to see an example of how to use activate_upst_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/activate_upst_configuration.py.html>`__ to see an example of how to use activate_upst_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -526,7 +526,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_auto_scaling_configuration.py.html>`__ to see an example of how to use add_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_auto_scaling_configuration.py.html>`__ to see an example of how to use add_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -644,7 +644,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_block_storage.py.html>`__ to see an example of how to use add_block_storage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_block_storage.py.html>`__ to see an example of how to use add_block_storage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -762,7 +762,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_cloud_sql.py.html>`__ to see an example of how to use add_cloud_sql API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_cloud_sql.py.html>`__ to see an example of how to use add_cloud_sql API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -880,7 +880,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_kafka.py.html>`__ to see an example of how to use add_kafka API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_kafka.py.html>`__ to see an example of how to use add_kafka API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -998,7 +998,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_master_nodes.py.html>`__ to see an example of how to use add_master_nodes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_master_nodes.py.html>`__ to see an example of how to use add_master_nodes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1116,7 +1116,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_utility_nodes.py.html>`__ to see an example of how to use add_utility_nodes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_utility_nodes.py.html>`__ to see an example of how to use add_utility_nodes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1234,7 +1234,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/add_worker_nodes.py.html>`__ to see an example of how to use add_worker_nodes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/add_worker_nodes.py.html>`__ to see an example of how to use add_worker_nodes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1352,7 +1352,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/backup_node.py.html>`__ to see an example of how to use backup_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/backup_node.py.html>`__ to see an example of how to use backup_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1470,7 +1470,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/certificate_service_info.py.html>`__ to see an example of how to use certificate_service_info API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/certificate_service_info.py.html>`__ to see an example of how to use certificate_service_info API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1590,7 +1590,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/change_bds_instance_compartment.py.html>`__ to see an example of how to use change_bds_instance_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/change_bds_instance_compartment.py.html>`__ to see an example of how to use change_bds_instance_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1708,7 +1708,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/change_shape.py.html>`__ to see an example of how to use change_shape API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/change_shape.py.html>`__ to see an example of how to use change_shape API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1819,7 +1819,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_bds_api_key.py.html>`__ to see an example of how to use create_bds_api_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_bds_api_key.py.html>`__ to see an example of how to use create_bds_api_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -1925,7 +1925,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_bds_instance.py.html>`__ to see an example of how to use create_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_bds_instance.py.html>`__ to see an example of how to use create_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2022,7 +2022,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_bds_metastore_configuration.py.html>`__ to see an example of how to use create_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_bds_metastore_configuration.py.html>`__ to see an example of how to use create_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -2131,7 +2131,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_identity_configuration.py.html>`__ to see an example of how to use create_identity_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_identity_configuration.py.html>`__ to see an example of how to use create_identity_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -2240,7 +2240,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_node_backup_configuration.py.html>`__ to see an example of how to use create_node_backup_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_node_backup_configuration.py.html>`__ to see an example of how to use create_node_backup_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -2349,7 +2349,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_node_replace_configuration.py.html>`__ to see an example of how to use create_node_replace_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_node_replace_configuration.py.html>`__ to see an example of how to use create_node_replace_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -2458,7 +2458,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/create_resource_principal_configuration.py.html>`__ to see an example of how to use create_resource_principal_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/create_resource_principal_configuration.py.html>`__ to see an example of how to use create_resource_principal_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -2577,7 +2577,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/deactivate_iam_user_sync_configuration.py.html>`__ to see an example of how to use deactivate_iam_user_sync_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/deactivate_iam_user_sync_configuration.py.html>`__ to see an example of how to use deactivate_iam_user_sync_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -2699,7 +2699,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/deactivate_upst_configuration.py.html>`__ to see an example of how to use deactivate_upst_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/deactivate_upst_configuration.py.html>`__ to see an example of how to use deactivate_upst_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -2811,7 +2811,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_bds_api_key.py.html>`__ to see an example of how to use delete_bds_api_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_bds_api_key.py.html>`__ to see an example of how to use delete_bds_api_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'apiKeyId']
@@ -2915,7 +2915,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_bds_instance.py.html>`__ to see an example of how to use delete_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_bds_instance.py.html>`__ to see an example of how to use delete_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -3021,7 +3021,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_bds_metastore_configuration.py.html>`__ to see an example of how to use delete_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_bds_metastore_configuration.py.html>`__ to see an example of how to use delete_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'metastoreConfigId']
@@ -3128,7 +3128,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_identity_configuration.py.html>`__ to see an example of how to use delete_identity_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_identity_configuration.py.html>`__ to see an example of how to use delete_identity_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -3235,7 +3235,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_node_backup.py.html>`__ to see an example of how to use delete_node_backup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_node_backup.py.html>`__ to see an example of how to use delete_node_backup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeBackupId']
@@ -3342,7 +3342,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/delete_node_backup_configuration.py.html>`__ to see an example of how to use delete_node_backup_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/delete_node_backup_configuration.py.html>`__ to see an example of how to use delete_node_backup_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeBackupConfigurationId']
@@ -3456,7 +3456,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/disable_certificate.py.html>`__ to see an example of how to use disable_certificate API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/disable_certificate.py.html>`__ to see an example of how to use disable_certificate API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -3574,7 +3574,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/enable_certificate.py.html>`__ to see an example of how to use enable_certificate API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/enable_certificate.py.html>`__ to see an example of how to use enable_certificate API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -3692,7 +3692,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/execute_bootstrap_script.py.html>`__ to see an example of how to use execute_bootstrap_script API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/execute_bootstrap_script.py.html>`__ to see an example of how to use execute_bootstrap_script API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -3813,7 +3813,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/force_refresh_resource_principal.py.html>`__ to see an example of how to use force_refresh_resource_principal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/force_refresh_resource_principal.py.html>`__ to see an example of how to use force_refresh_resource_principal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'resourcePrincipalConfigurationId']
@@ -3918,7 +3918,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_auto_scaling_configuration.py.html>`__ to see an example of how to use get_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_auto_scaling_configuration.py.html>`__ to see an example of how to use get_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'autoScalingConfigurationId']
@@ -4018,7 +4018,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_bds_api_key.py.html>`__ to see an example of how to use get_bds_api_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_bds_api_key.py.html>`__ to see an example of how to use get_bds_api_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'apiKeyId']
@@ -4115,7 +4115,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_bds_instance.py.html>`__ to see an example of how to use get_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_bds_instance.py.html>`__ to see an example of how to use get_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -4214,7 +4214,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_bds_metastore_configuration.py.html>`__ to see an example of how to use get_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_bds_metastore_configuration.py.html>`__ to see an example of how to use get_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'metastoreConfigId']
@@ -4330,7 +4330,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_identity_configuration.py.html>`__ to see an example of how to use get_identity_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_identity_configuration.py.html>`__ to see an example of how to use get_identity_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -4458,7 +4458,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_node_backup.py.html>`__ to see an example of how to use get_node_backup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_node_backup.py.html>`__ to see an example of how to use get_node_backup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeBackupId']
@@ -4558,7 +4558,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_node_backup_configuration.py.html>`__ to see an example of how to use get_node_backup_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_node_backup_configuration.py.html>`__ to see an example of how to use get_node_backup_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeBackupConfigurationId']
@@ -4658,7 +4658,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_node_replace_configuration.py.html>`__ to see an example of how to use get_node_replace_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_node_replace_configuration.py.html>`__ to see an example of how to use get_node_replace_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeReplaceConfigurationId']
@@ -4772,7 +4772,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_os_patch_details.py.html>`__ to see an example of how to use get_os_patch_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_os_patch_details.py.html>`__ to see an example of how to use get_os_patch_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'osPatchVersion']
@@ -4883,7 +4883,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_resource_principal_configuration.py.html>`__ to see an example of how to use get_resource_principal_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_resource_principal_configuration.py.html>`__ to see an example of how to use get_resource_principal_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'resourcePrincipalConfigurationId']
@@ -4980,7 +4980,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -5093,7 +5093,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/install_os_patch.py.html>`__ to see an example of how to use install_os_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/install_os_patch.py.html>`__ to see an example of how to use install_os_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -5211,7 +5211,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/install_patch.py.html>`__ to see an example of how to use install_patch API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/install_patch.py.html>`__ to see an example of how to use install_patch API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -5339,7 +5339,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_auto_scaling_configurations.py.html>`__ to see an example of how to use list_auto_scaling_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_auto_scaling_configurations.py.html>`__ to see an example of how to use list_auto_scaling_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'compartmentId']
@@ -5502,7 +5502,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_bds_api_keys.py.html>`__ to see an example of how to use list_bds_api_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_bds_api_keys.py.html>`__ to see an example of how to use list_bds_api_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -5652,7 +5652,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_bds_cluster_versions.py.html>`__ to see an example of how to use list_bds_cluster_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_bds_cluster_versions.py.html>`__ to see an example of how to use list_bds_cluster_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -5788,7 +5788,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_bds_instances.py.html>`__ to see an example of how to use list_bds_instances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_bds_instances.py.html>`__ to see an example of how to use list_bds_instances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5947,7 +5947,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_bds_metastore_configurations.py.html>`__ to see an example of how to use list_bds_metastore_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_bds_metastore_configurations.py.html>`__ to see an example of how to use list_bds_metastore_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -6122,7 +6122,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_identity_configurations.py.html>`__ to see an example of how to use list_identity_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_identity_configurations.py.html>`__ to see an example of how to use list_identity_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'compartmentId']
@@ -6282,7 +6282,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_node_backup_configurations.py.html>`__ to see an example of how to use list_node_backup_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_node_backup_configurations.py.html>`__ to see an example of how to use list_node_backup_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -6444,7 +6444,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_node_backups.py.html>`__ to see an example of how to use list_node_backups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_node_backups.py.html>`__ to see an example of how to use list_node_backups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -6605,7 +6605,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_node_replace_configurations.py.html>`__ to see an example of how to use list_node_replace_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_node_replace_configurations.py.html>`__ to see an example of how to use list_node_replace_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -6770,7 +6770,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_os_patches.py.html>`__ to see an example of how to use list_os_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_os_patches.py.html>`__ to see an example of how to use list_os_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -6928,7 +6928,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_patch_histories.py.html>`__ to see an example of how to use list_patch_histories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_patch_histories.py.html>`__ to see an example of how to use list_patch_histories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -7078,7 +7078,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_patches.py.html>`__ to see an example of how to use list_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_patches.py.html>`__ to see an example of how to use list_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -7208,7 +7208,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_resource_principal_configurations.py.html>`__ to see an example of how to use list_resource_principal_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_resource_principal_configurations.py.html>`__ to see an example of how to use list_resource_principal_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -7359,7 +7359,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -7499,7 +7499,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -7642,7 +7642,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -7777,7 +7777,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/refresh_confidential_application.py.html>`__ to see an example of how to use refresh_confidential_application API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/refresh_confidential_application.py.html>`__ to see an example of how to use refresh_confidential_application API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -7899,7 +7899,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/refresh_upst_token_exchange_keytab.py.html>`__ to see an example of how to use refresh_upst_token_exchange_keytab API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/refresh_upst_token_exchange_keytab.py.html>`__ to see an example of how to use refresh_upst_token_exchange_keytab API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -8021,7 +8021,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_auto_scaling_configuration.py.html>`__ to see an example of how to use remove_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_auto_scaling_configuration.py.html>`__ to see an example of how to use remove_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'autoScalingConfigurationId']
@@ -8140,7 +8140,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_cloud_sql.py.html>`__ to see an example of how to use remove_cloud_sql API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_cloud_sql.py.html>`__ to see an example of how to use remove_cloud_sql API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -8258,7 +8258,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_kafka.py.html>`__ to see an example of how to use remove_kafka API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_kafka.py.html>`__ to see an example of how to use remove_kafka API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -8369,7 +8369,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_node.py.html>`__ to see an example of how to use remove_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_node.py.html>`__ to see an example of how to use remove_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -8487,7 +8487,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_node_replace_configuration.py.html>`__ to see an example of how to use remove_node_replace_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_node_replace_configuration.py.html>`__ to see an example of how to use remove_node_replace_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeReplaceConfigurationId']
@@ -8602,7 +8602,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/remove_resource_principal_configuration.py.html>`__ to see an example of how to use remove_resource_principal_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/remove_resource_principal_configuration.py.html>`__ to see an example of how to use remove_resource_principal_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'resourcePrincipalConfigurationId']
@@ -8718,7 +8718,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/renew_certificate.py.html>`__ to see an example of how to use renew_certificate API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/renew_certificate.py.html>`__ to see an example of how to use renew_certificate API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -8836,7 +8836,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/replace_node.py.html>`__ to see an example of how to use replace_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/replace_node.py.html>`__ to see an example of how to use replace_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -8954,7 +8954,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/restart_node.py.html>`__ to see an example of how to use restart_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/restart_node.py.html>`__ to see an example of how to use restart_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -9065,7 +9065,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/start_bds_instance.py.html>`__ to see an example of how to use start_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/start_bds_instance.py.html>`__ to see an example of how to use start_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -9173,7 +9173,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/stop_bds_instance.py.html>`__ to see an example of how to use stop_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/stop_bds_instance.py.html>`__ to see an example of how to use stop_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -9284,7 +9284,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/test_bds_metastore_configuration.py.html>`__ to see an example of how to use test_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/test_bds_metastore_configuration.py.html>`__ to see an example of how to use test_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'metastoreConfigId']
@@ -9389,7 +9389,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/test_bds_object_storage_connection.py.html>`__ to see an example of how to use test_bds_object_storage_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/test_bds_object_storage_connection.py.html>`__ to see an example of how to use test_bds_object_storage_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'apiKeyId']
@@ -9506,7 +9506,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_auto_scaling_configuration.py.html>`__ to see an example of how to use update_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_auto_scaling_configuration.py.html>`__ to see an example of how to use update_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'autoScalingConfigurationId']
@@ -9618,7 +9618,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_bds_instance.py.html>`__ to see an example of how to use update_bds_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_bds_instance.py.html>`__ to see an example of how to use update_bds_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId']
@@ -9729,7 +9729,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_bds_metastore_configuration.py.html>`__ to see an example of how to use update_bds_metastore_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_bds_metastore_configuration.py.html>`__ to see an example of how to use update_bds_metastore_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'metastoreConfigId']
@@ -9848,7 +9848,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_identity_configuration.py.html>`__ to see an example of how to use update_identity_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_identity_configuration.py.html>`__ to see an example of how to use update_identity_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'identityConfigurationId']
@@ -9970,7 +9970,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_node_backup_configuration.py.html>`__ to see an example of how to use update_node_backup_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_node_backup_configuration.py.html>`__ to see an example of how to use update_node_backup_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeBackupConfigurationId']
@@ -10092,7 +10092,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_node_replace_configuration.py.html>`__ to see an example of how to use update_node_replace_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_node_replace_configuration.py.html>`__ to see an example of how to use update_node_replace_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'nodeReplaceConfigurationId']
@@ -10214,7 +10214,7 @@ class BdsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/bds/update_resource_principal_configuration.py.html>`__ to see an example of how to use update_resource_principal_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/bds/update_resource_principal_configuration.py.html>`__ to see an example of how to use update_resource_principal_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['bdsInstanceId', 'resourcePrincipalConfigurationId']

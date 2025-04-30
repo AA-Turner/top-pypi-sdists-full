@@ -213,7 +213,7 @@ class ReportingManagedInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/get_managed_instance_analytic_content.py.html>`__ to see an example of how to use get_managed_instance_analytic_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/get_managed_instance_analytic_content.py.html>`__ to see an example of how to use get_managed_instance_analytic_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -416,7 +416,7 @@ class ReportingManagedInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/get_managed_instance_content.py.html>`__ to see an example of how to use get_managed_instance_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/get_managed_instance_content.py.html>`__ to see an example of how to use get_managed_instance_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'vulnerabilityType']
@@ -634,7 +634,7 @@ class ReportingManagedInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/osmanagementhub/summarize_managed_instance_analytics.py.html>`__ to see an example of how to use summarize_managed_instance_analytics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagementhub/summarize_managed_instance_analytics.py.html>`__ to see an example of how to use summarize_managed_instance_analytics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricNames']

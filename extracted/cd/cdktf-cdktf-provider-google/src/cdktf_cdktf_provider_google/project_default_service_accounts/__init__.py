@@ -1,7 +1,7 @@
 r'''
 # `google_project_default_service_accounts`
 
-Refer to the Terraform Registry for docs: [`google_project_default_service_accounts`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts).
+Refer to the Terraform Registry for docs: [`google_project_default_service_accounts`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ProjectDefaultServiceAccounts(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.projectDefaultServiceAccounts.ProjectDefaultServiceAccounts",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts google_project_default_service_accounts}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts google_project_default_service_accounts}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ProjectDefaultServiceAccounts(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts google_project_default_service_accounts} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts google_project_default_service_accounts} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: The action to be performed in the default service accounts. Valid values are: DEPRIVILEGE, DELETE, DISABLE. Note that DEPRIVILEGE action will ignore the REVERT configuration in the restore_policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
-        :param project: The project ID where service accounts are created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param restore_policy: The action to be performed in the default service accounts on the resource destroy. Valid values are NONE, REVERT and REVERT_AND_IGNORE_FAILURE. It is applied for any action but in the DEPRIVILEGE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
+        :param action: The action to be performed in the default service accounts. Valid values are: DEPRIVILEGE, DELETE, DISABLE. Note that DEPRIVILEGE action will ignore the REVERT configuration in the restore_policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
+        :param project: The project ID where service accounts are created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param restore_policy: The action to be performed in the default service accounts on the resource destroy. Valid values are NONE, REVERT and REVERT_AND_IGNORE_FAILURE. It is applied for any action but in the DEPRIVILEGE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ProjectDefaultServiceAccounts(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ProjectDefaultServiceAccounts to import.
-        :param import_from_id: The id of the existing ProjectDefaultServiceAccounts that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ProjectDefaultServiceAccounts that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ProjectDefaultServiceAccounts to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class ProjectDefaultServiceAccounts(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.
         '''
         value = ProjectDefaultServiceAccountsTimeouts(
             create=create, delete=delete, read=read
@@ -299,11 +299,11 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: The action to be performed in the default service accounts. Valid values are: DEPRIVILEGE, DELETE, DISABLE. Note that DEPRIVILEGE action will ignore the REVERT configuration in the restore_policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
-        :param project: The project ID where service accounts are created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param restore_policy: The action to be performed in the default service accounts on the resource destroy. Valid values are NONE, REVERT and REVERT_AND_IGNORE_FAILURE. It is applied for any action but in the DEPRIVILEGE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
+        :param action: The action to be performed in the default service accounts. Valid values are: DEPRIVILEGE, DELETE, DISABLE. Note that DEPRIVILEGE action will ignore the REVERT configuration in the restore_policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
+        :param project: The project ID where service accounts are created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param restore_policy: The action to be performed in the default service accounts on the resource destroy. Valid values are NONE, REVERT and REVERT_AND_IGNORE_FAILURE. It is applied for any action but in the DEPRIVILEGE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -419,7 +419,7 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
         Valid values are: DEPRIVILEGE, DELETE, DISABLE.
         Note that DEPRIVILEGE action will ignore the REVERT configuration in the restore_policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#action ProjectDefaultServiceAccounts#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -429,7 +429,7 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def project(self) -> builtins.str:
         '''The project ID where service accounts are created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#project ProjectDefaultServiceAccounts#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -437,7 +437,7 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#id ProjectDefaultServiceAccounts#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -451,7 +451,7 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         Valid values are NONE, REVERT and REVERT_AND_IGNORE_FAILURE. It is applied for any action but in the DEPRIVILEGE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#restore_policy ProjectDefaultServiceAccounts#restore_policy}
         '''
         result = self._values.get("restore_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -460,7 +460,7 @@ class ProjectDefaultServiceAccountsConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["ProjectDefaultServiceAccountsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#timeouts ProjectDefaultServiceAccounts#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ProjectDefaultServiceAccountsTimeouts"], result)
@@ -491,9 +491,9 @@ class ProjectDefaultServiceAccountsTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48a1f6b4fc0b63e51e5a801723d35f5a908af6877f393904e2472753d124bd38)
@@ -510,19 +510,19 @@ class ProjectDefaultServiceAccountsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#create ProjectDefaultServiceAccounts#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#delete ProjectDefaultServiceAccounts#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_default_service_accounts#read ProjectDefaultServiceAccounts#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

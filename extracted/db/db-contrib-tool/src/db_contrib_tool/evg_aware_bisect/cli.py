@@ -14,7 +14,7 @@ from db_contrib_tool.usage_analytics import CommandWithUsageTracking
 from db_contrib_tool.utils.evergreen_conn import EVERGREEN_CONFIG_LOCATIONS
 
 DEFAULT_PYTHON_INSTALLATION = "python3"
-TOOLCHAIN_PYTHON3 = "/opt/mongodbtoolchain/v3/bin/python3"
+TOOLCHAIN_PYTHON3 = "/opt/mongodbtoolchain/v5/bin/python3"
 
 
 @click.command(cls=CommandWithUsageTracking)

@@ -253,7 +253,7 @@ ProtectConfigurationRuleSetNumberOverrideFilterNameType = Literal[
     "expires-before",
     "iso-country-code",
 ]
-ProtectStatusType = Literal["ALLOW", "BLOCK"]
+ProtectStatusType = Literal["ALLOW", "BLOCK", "FILTER", "MONITOR"]
 RegistrationAssociationBehaviorType = Literal[
     "ASSOCIATE_AFTER_COMPLETE", "ASSOCIATE_BEFORE_SUBMIT", "ASSOCIATE_ON_APPROVAL"
 ]
@@ -732,6 +732,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

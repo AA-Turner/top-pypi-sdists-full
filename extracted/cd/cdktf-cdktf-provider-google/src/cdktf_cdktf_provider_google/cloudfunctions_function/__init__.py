@@ -1,7 +1,7 @@
 r'''
 # `google_cloudfunctions_function`
 
-Refer to the Terraform Registry for docs: [`google_cloudfunctions_function`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function).
+Refer to the Terraform Registry for docs: [`google_cloudfunctions_function`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudfunctionsFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudfunctionsFunction.CloudfunctionsFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function google_cloudfunctions_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function google_cloudfunctions_function}.'''
 
     def __init__(
         self,
@@ -92,43 +92,43 @@ class CloudfunctionsFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function google_cloudfunctions_function} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function google_cloudfunctions_function} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
-        :param runtime: The runtime in which the function is going to run. Eg. "nodejs20", "python37", "go111". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
-        :param available_memory_mb: Memory (in MB), available to the function. Default value is 256. Possible values include 128, 256, 512, 1024, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
-        :param build_environment_variables: A set of key/value environment variable pairs available during build time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
-        :param build_service_account: The fully-qualified name of the service account to be used for the build step of deploying this function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
-        :param build_worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
-        :param description: Description of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
-        :param docker_registry: Docker Registry to use for storing the function's Docker images. Allowed values are ARTIFACT_REGISTRY (default) and CONTAINER_REGISTRY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
-        :param docker_repository: User managed repository created in Artifact Registry optionally with a customer managed encryption key. If specified, deployments will use Artifact Registry for storing images built with Cloud Build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
-        :param entry_point: Name of the function that will be executed when the Google Cloud Function is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
-        :param environment_variables: A set of key/value environment variable pairs to assign to the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
-        :param event_trigger: event_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
-        :param https_trigger_security_level: The security level for the function. Defaults to SECURE_OPTIONAL. Valid only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
-        :param https_trigger_url: URL which triggers function execution. Returned only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress_settings: String value that controls what traffic can reach the function. Allowed values are ALLOW_ALL and ALLOW_INTERNAL_ONLY. Changes to this field will recreate the cloud function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
-        :param kms_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
-        :param labels: A set of key/value label pairs to assign to the function. Label keys must follow the requirements at https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
-        :param max_instances: The limit on the maximum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
-        :param min_instances: The limit on the minimum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
-        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
-        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
-        :param secret_environment_variables: secret_environment_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
-        :param secret_volumes: secret_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
-        :param service_account_email: If provided, the self-provided service account to run the function with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
-        :param source_archive_bucket: The GCS bucket containing the zip archive which contains the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
-        :param source_archive_object: The source archive object (file) in archive bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
-        :param source_repository: source_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
-        :param timeout: Timeout (in seconds) for the function. Default value is 60 seconds. Cannot be more than 540 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
-        :param trigger_http: Boolean variable. Any HTTP request (of a supported type) to the endpoint will trigger function execution. Supported HTTP request types are: POST, PUT, GET, DELETE, and OPTIONS. Endpoint is returned as https_trigger_url. Cannot be used with trigger_bucket and trigger_topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
-        :param vpc_connector: The VPC Network Connector that this cloud function can connect to. It can be either the fully-qualified URI, or the short name of the network connector resource. The format of this field is projects/* /locations/* /connectors/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param vpc_connector_egress_settings: The egress settings for the connector, controlling what traffic is diverted through it. Allowed values are ALL_TRAFFIC and PRIVATE_RANGES_ONLY. Defaults to PRIVATE_RANGES_ONLY. If unset, this field preserves the previously set value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
+        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
+        :param runtime: The runtime in which the function is going to run. Eg. "nodejs20", "python37", "go111". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
+        :param available_memory_mb: Memory (in MB), available to the function. Default value is 256. Possible values include 128, 256, 512, 1024, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
+        :param build_environment_variables: A set of key/value environment variable pairs available during build time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
+        :param build_service_account: The fully-qualified name of the service account to be used for the build step of deploying this function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
+        :param build_worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
+        :param description: Description of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
+        :param docker_registry: Docker Registry to use for storing the function's Docker images. Allowed values are ARTIFACT_REGISTRY (default) and CONTAINER_REGISTRY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
+        :param docker_repository: User managed repository created in Artifact Registry optionally with a customer managed encryption key. If specified, deployments will use Artifact Registry for storing images built with Cloud Build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
+        :param entry_point: Name of the function that will be executed when the Google Cloud Function is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
+        :param environment_variables: A set of key/value environment variable pairs to assign to the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
+        :param event_trigger: event_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
+        :param https_trigger_security_level: The security level for the function. Defaults to SECURE_OPTIONAL. Valid only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
+        :param https_trigger_url: URL which triggers function execution. Returned only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress_settings: String value that controls what traffic can reach the function. Allowed values are ALLOW_ALL and ALLOW_INTERNAL_ONLY. Changes to this field will recreate the cloud function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
+        :param kms_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
+        :param labels: A set of key/value label pairs to assign to the function. Label keys must follow the requirements at https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
+        :param max_instances: The limit on the maximum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
+        :param min_instances: The limit on the minimum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
+        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
+        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
+        :param secret_environment_variables: secret_environment_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
+        :param secret_volumes: secret_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
+        :param service_account_email: If provided, the self-provided service account to run the function with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
+        :param source_archive_bucket: The GCS bucket containing the zip archive which contains the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
+        :param source_archive_object: The source archive object (file) in archive bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
+        :param source_repository: source_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
+        :param timeout: Timeout (in seconds) for the function. Default value is 60 seconds. Cannot be more than 540 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
+        :param trigger_http: Boolean variable. Any HTTP request (of a supported type) to the endpoint will trigger function execution. Supported HTTP request types are: POST, PUT, GET, DELETE, and OPTIONS. Endpoint is returned as https_trigger_url. Cannot be used with trigger_bucket and trigger_topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
+        :param vpc_connector: The VPC Network Connector that this cloud function can connect to. It can be either the fully-qualified URI, or the short name of the network connector resource. The format of this field is projects/* /locations/* /connectors/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param vpc_connector_egress_settings: The egress settings for the connector, controlling what traffic is diverted through it. Allowed values are ALL_TRAFFIC and PRIVATE_RANGES_ONLY. Defaults to PRIVATE_RANGES_ONLY. If unset, this field preserves the previously set value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -199,7 +199,7 @@ class CloudfunctionsFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudfunctionsFunction to import.
-        :param import_from_id: The id of the existing CloudfunctionsFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudfunctionsFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudfunctionsFunction to import is found.
         '''
         if __debug__:
@@ -219,9 +219,9 @@ class CloudfunctionsFunction(
         failure_policy: typing.Optional[typing.Union["CloudfunctionsFunctionEventTriggerFailurePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param event_type: The type of event to observe. For example: "google.storage.object.finalize". See the documentation on calling Cloud Functions for a full reference of accepted triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
-        :param resource: The name or partial URI of the resource from which to observe events. For example, "myBucket" or "projects/my-project/topics/my-topic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
-        :param failure_policy: failure_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
+        :param event_type: The type of event to observe. For example: "google.storage.object.finalize". See the documentation on calling Cloud Functions for a full reference of accepted triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
+        :param resource: The name or partial URI of the resource from which to observe events. For example, "myBucket" or "projects/my-project/topics/my-topic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
+        :param failure_policy: failure_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
         '''
         value = CloudfunctionsFunctionEventTrigger(
             event_type=event_type, resource=resource, failure_policy=failure_policy
@@ -258,7 +258,7 @@ class CloudfunctionsFunction(
     @jsii.member(jsii_name="putSourceRepository")
     def put_source_repository(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL pointing to the hosted repository where the function is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
+        :param url: The URL pointing to the hosted repository where the function is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
         '''
         value = CloudfunctionsFunctionSourceRepository(url=url)
 
@@ -274,10 +274,10 @@ class CloudfunctionsFunction(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.
         '''
         value = CloudfunctionsFunctionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1099,39 +1099,39 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
-        :param runtime: The runtime in which the function is going to run. Eg. "nodejs20", "python37", "go111". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
-        :param available_memory_mb: Memory (in MB), available to the function. Default value is 256. Possible values include 128, 256, 512, 1024, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
-        :param build_environment_variables: A set of key/value environment variable pairs available during build time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
-        :param build_service_account: The fully-qualified name of the service account to be used for the build step of deploying this function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
-        :param build_worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
-        :param description: Description of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
-        :param docker_registry: Docker Registry to use for storing the function's Docker images. Allowed values are ARTIFACT_REGISTRY (default) and CONTAINER_REGISTRY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
-        :param docker_repository: User managed repository created in Artifact Registry optionally with a customer managed encryption key. If specified, deployments will use Artifact Registry for storing images built with Cloud Build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
-        :param entry_point: Name of the function that will be executed when the Google Cloud Function is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
-        :param environment_variables: A set of key/value environment variable pairs to assign to the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
-        :param event_trigger: event_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
-        :param https_trigger_security_level: The security level for the function. Defaults to SECURE_OPTIONAL. Valid only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
-        :param https_trigger_url: URL which triggers function execution. Returned only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress_settings: String value that controls what traffic can reach the function. Allowed values are ALLOW_ALL and ALLOW_INTERNAL_ONLY. Changes to this field will recreate the cloud function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
-        :param kms_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
-        :param labels: A set of key/value label pairs to assign to the function. Label keys must follow the requirements at https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
-        :param max_instances: The limit on the maximum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
-        :param min_instances: The limit on the minimum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
-        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
-        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
-        :param secret_environment_variables: secret_environment_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
-        :param secret_volumes: secret_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
-        :param service_account_email: If provided, the self-provided service account to run the function with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
-        :param source_archive_bucket: The GCS bucket containing the zip archive which contains the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
-        :param source_archive_object: The source archive object (file) in archive bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
-        :param source_repository: source_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
-        :param timeout: Timeout (in seconds) for the function. Default value is 60 seconds. Cannot be more than 540 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
-        :param trigger_http: Boolean variable. Any HTTP request (of a supported type) to the endpoint will trigger function execution. Supported HTTP request types are: POST, PUT, GET, DELETE, and OPTIONS. Endpoint is returned as https_trigger_url. Cannot be used with trigger_bucket and trigger_topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
-        :param vpc_connector: The VPC Network Connector that this cloud function can connect to. It can be either the fully-qualified URI, or the short name of the network connector resource. The format of this field is projects/* /locations/* /connectors/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param vpc_connector_egress_settings: The egress settings for the connector, controlling what traffic is diverted through it. Allowed values are ALL_TRAFFIC and PRIVATE_RANGES_ONLY. Defaults to PRIVATE_RANGES_ONLY. If unset, this field preserves the previously set value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
+        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
+        :param runtime: The runtime in which the function is going to run. Eg. "nodejs20", "python37", "go111". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
+        :param available_memory_mb: Memory (in MB), available to the function. Default value is 256. Possible values include 128, 256, 512, 1024, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
+        :param build_environment_variables: A set of key/value environment variable pairs available during build time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
+        :param build_service_account: The fully-qualified name of the service account to be used for the build step of deploying this function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
+        :param build_worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
+        :param description: Description of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
+        :param docker_registry: Docker Registry to use for storing the function's Docker images. Allowed values are ARTIFACT_REGISTRY (default) and CONTAINER_REGISTRY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
+        :param docker_repository: User managed repository created in Artifact Registry optionally with a customer managed encryption key. If specified, deployments will use Artifact Registry for storing images built with Cloud Build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
+        :param entry_point: Name of the function that will be executed when the Google Cloud Function is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
+        :param environment_variables: A set of key/value environment variable pairs to assign to the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
+        :param event_trigger: event_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
+        :param https_trigger_security_level: The security level for the function. Defaults to SECURE_OPTIONAL. Valid only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
+        :param https_trigger_url: URL which triggers function execution. Returned only if trigger_http is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress_settings: String value that controls what traffic can reach the function. Allowed values are ALLOW_ALL and ALLOW_INTERNAL_ONLY. Changes to this field will recreate the cloud function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
+        :param kms_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
+        :param labels: A set of key/value label pairs to assign to the function. Label keys must follow the requirements at https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
+        :param max_instances: The limit on the maximum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
+        :param min_instances: The limit on the minimum number of function instances that may coexist at a given time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
+        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
+        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
+        :param secret_environment_variables: secret_environment_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
+        :param secret_volumes: secret_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
+        :param service_account_email: If provided, the self-provided service account to run the function with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
+        :param source_archive_bucket: The GCS bucket containing the zip archive which contains the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
+        :param source_archive_object: The source archive object (file) in archive bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
+        :param source_repository: source_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
+        :param timeout: Timeout (in seconds) for the function. Default value is 60 seconds. Cannot be more than 540 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
+        :param trigger_http: Boolean variable. Any HTTP request (of a supported type) to the endpoint will trigger function execution. Supported HTTP request types are: POST, PUT, GET, DELETE, and OPTIONS. Endpoint is returned as https_trigger_url. Cannot be used with trigger_bucket and trigger_topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
+        :param vpc_connector: The VPC Network Connector that this cloud function can connect to. It can be either the fully-qualified URI, or the short name of the network connector resource. The format of this field is projects/* /locations/* /connectors/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param vpc_connector_egress_settings: The egress settings for the connector, controlling what traffic is diverted through it. Allowed values are ALL_TRAFFIC and PRIVATE_RANGES_ONLY. Defaults to PRIVATE_RANGES_ONLY. If unset, this field preserves the previously set value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1332,7 +1332,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A user-defined name of the function. Function names must be unique globally.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#name CloudfunctionsFunction#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1342,7 +1342,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime(self) -> builtins.str:
         '''The runtime in which the function is going to run. Eg. "nodejs20", "python37", "go111".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#runtime CloudfunctionsFunction#runtime}
         '''
         result = self._values.get("runtime")
         assert result is not None, "Required property 'runtime' is missing"
@@ -1352,7 +1352,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def available_memory_mb(self) -> typing.Optional[jsii.Number]:
         '''Memory (in MB), available to the function. Default value is 256. Possible values include 128, 256, 512, 1024, etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#available_memory_mb CloudfunctionsFunction#available_memory_mb}
         '''
         result = self._values.get("available_memory_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1363,7 +1363,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key/value environment variable pairs available during build time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_environment_variables CloudfunctionsFunction#build_environment_variables}
         '''
         result = self._values.get("build_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1372,7 +1372,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_service_account(self) -> typing.Optional[builtins.str]:
         '''The fully-qualified name of the service account to be used for the build step of deploying this function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_service_account CloudfunctionsFunction#build_service_account}
         '''
         result = self._values.get("build_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1381,7 +1381,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_worker_pool(self) -> typing.Optional[builtins.str]:
         '''Name of the Cloud Build Custom Worker Pool that should be used to build the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#build_worker_pool CloudfunctionsFunction#build_worker_pool}
         '''
         result = self._values.get("build_worker_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1390,7 +1390,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#description CloudfunctionsFunction#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1399,7 +1399,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def docker_registry(self) -> typing.Optional[builtins.str]:
         '''Docker Registry to use for storing the function's Docker images. Allowed values are ARTIFACT_REGISTRY (default) and CONTAINER_REGISTRY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_registry CloudfunctionsFunction#docker_registry}
         '''
         result = self._values.get("docker_registry")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1410,7 +1410,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If specified, deployments will use Artifact Registry for storing images built with Cloud Build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#docker_repository CloudfunctionsFunction#docker_repository}
         '''
         result = self._values.get("docker_repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1419,7 +1419,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_point(self) -> typing.Optional[builtins.str]:
         '''Name of the function that will be executed when the Google Cloud Function is triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#entry_point CloudfunctionsFunction#entry_point}
         '''
         result = self._values.get("entry_point")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1430,7 +1430,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key/value environment variable pairs to assign to the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#environment_variables CloudfunctionsFunction#environment_variables}
         '''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1439,7 +1439,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event_trigger(self) -> typing.Optional["CloudfunctionsFunctionEventTrigger"]:
         '''event_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_trigger CloudfunctionsFunction#event_trigger}
         '''
         result = self._values.get("event_trigger")
         return typing.cast(typing.Optional["CloudfunctionsFunctionEventTrigger"], result)
@@ -1448,7 +1448,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_trigger_security_level(self) -> typing.Optional[builtins.str]:
         '''The security level for the function. Defaults to SECURE_OPTIONAL. Valid only if trigger_http is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_security_level CloudfunctionsFunction#https_trigger_security_level}
         '''
         result = self._values.get("https_trigger_security_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1457,14 +1457,14 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_trigger_url(self) -> typing.Optional[builtins.str]:
         '''URL which triggers function execution. Returned only if trigger_http is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#https_trigger_url CloudfunctionsFunction#https_trigger_url}
         '''
         result = self._values.get("https_trigger_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#id CloudfunctionsFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1478,7 +1478,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Allowed values are ALLOW_ALL and ALLOW_INTERNAL_ONLY. Changes to this field will recreate the cloud function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#ingress_settings CloudfunctionsFunction#ingress_settings}
         '''
         result = self._values.get("ingress_settings")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1487,7 +1487,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#kms_key_name CloudfunctionsFunction#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1499,7 +1499,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#labels CloudfunctionsFunction#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1508,7 +1508,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_instances(self) -> typing.Optional[jsii.Number]:
         '''The limit on the maximum number of function instances that may coexist at a given time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#max_instances CloudfunctionsFunction#max_instances}
         '''
         result = self._values.get("max_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1517,7 +1517,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_instances(self) -> typing.Optional[jsii.Number]:
         '''The limit on the minimum number of function instances that may coexist at a given time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#min_instances CloudfunctionsFunction#min_instances}
         '''
         result = self._values.get("min_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1526,7 +1526,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''Project of the function. If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project CloudfunctionsFunction#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1535,7 +1535,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region of function. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#region CloudfunctionsFunction#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1546,7 +1546,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretEnvironmentVariables"]]]:
         '''secret_environment_variables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_environment_variables CloudfunctionsFunction#secret_environment_variables}
         '''
         result = self._values.get("secret_environment_variables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretEnvironmentVariables"]]], result)
@@ -1557,7 +1557,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretVolumes"]]]:
         '''secret_volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret_volumes CloudfunctionsFunction#secret_volumes}
         '''
         result = self._values.get("secret_volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretVolumes"]]], result)
@@ -1566,7 +1566,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account_email(self) -> typing.Optional[builtins.str]:
         '''If provided, the self-provided service account to run the function with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#service_account_email CloudfunctionsFunction#service_account_email}
         '''
         result = self._values.get("service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1575,7 +1575,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_archive_bucket(self) -> typing.Optional[builtins.str]:
         '''The GCS bucket containing the zip archive which contains the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_bucket CloudfunctionsFunction#source_archive_bucket}
         '''
         result = self._values.get("source_archive_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1584,7 +1584,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_archive_object(self) -> typing.Optional[builtins.str]:
         '''The source archive object (file) in archive bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_archive_object CloudfunctionsFunction#source_archive_object}
         '''
         result = self._values.get("source_archive_object")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1595,7 +1595,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudfunctionsFunctionSourceRepository"]:
         '''source_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#source_repository CloudfunctionsFunction#source_repository}
         '''
         result = self._values.get("source_repository")
         return typing.cast(typing.Optional["CloudfunctionsFunctionSourceRepository"], result)
@@ -1604,7 +1604,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Timeout (in seconds) for the function. Default value is 60 seconds. Cannot be more than 540 seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeout CloudfunctionsFunction#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1613,7 +1613,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudfunctionsFunctionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#timeouts CloudfunctionsFunction#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudfunctionsFunctionTimeouts"], result)
@@ -1626,7 +1626,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Any HTTP request (of a supported type) to the endpoint will trigger function execution. Supported HTTP request types are: POST, PUT, GET, DELETE, and OPTIONS. Endpoint is returned as https_trigger_url. Cannot be used with trigger_bucket and trigger_topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#trigger_http CloudfunctionsFunction#trigger_http}
         '''
         result = self._values.get("trigger_http")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1637,7 +1637,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It can be either the fully-qualified URI, or the short name of the network connector resource. The format of this field is projects/* /locations/* /connectors/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector CloudfunctionsFunction#vpc_connector}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1650,7 +1650,7 @@ class CloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Allowed values are ALL_TRAFFIC and PRIVATE_RANGES_ONLY. Defaults to PRIVATE_RANGES_ONLY. If unset, this field preserves the previously set value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#vpc_connector_egress_settings CloudfunctionsFunction#vpc_connector_egress_settings}
         '''
         result = self._values.get("vpc_connector_egress_settings")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1685,9 +1685,9 @@ class CloudfunctionsFunctionEventTrigger:
         failure_policy: typing.Optional[typing.Union["CloudfunctionsFunctionEventTriggerFailurePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param event_type: The type of event to observe. For example: "google.storage.object.finalize". See the documentation on calling Cloud Functions for a full reference of accepted triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
-        :param resource: The name or partial URI of the resource from which to observe events. For example, "myBucket" or "projects/my-project/topics/my-topic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
-        :param failure_policy: failure_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
+        :param event_type: The type of event to observe. For example: "google.storage.object.finalize". See the documentation on calling Cloud Functions for a full reference of accepted triggers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
+        :param resource: The name or partial URI of the resource from which to observe events. For example, "myBucket" or "projects/my-project/topics/my-topic". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
+        :param failure_policy: failure_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
         '''
         if isinstance(failure_policy, dict):
             failure_policy = CloudfunctionsFunctionEventTriggerFailurePolicy(**failure_policy)
@@ -1709,7 +1709,7 @@ class CloudfunctionsFunctionEventTrigger:
 
         For example: "google.storage.object.finalize". See the documentation on calling Cloud Functions for a full reference of accepted triggers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#event_type CloudfunctionsFunction#event_type}
         '''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
@@ -1719,7 +1719,7 @@ class CloudfunctionsFunctionEventTrigger:
     def resource(self) -> builtins.str:
         '''The name or partial URI of the resource from which to observe events. For example, "myBucket" or "projects/my-project/topics/my-topic".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#resource CloudfunctionsFunction#resource}
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
@@ -1731,7 +1731,7 @@ class CloudfunctionsFunctionEventTrigger:
     ) -> typing.Optional["CloudfunctionsFunctionEventTriggerFailurePolicy"]:
         '''failure_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#failure_policy CloudfunctionsFunction#failure_policy}
         '''
         result = self._values.get("failure_policy")
         return typing.cast(typing.Optional["CloudfunctionsFunctionEventTriggerFailurePolicy"], result)
@@ -1760,7 +1760,7 @@ class CloudfunctionsFunctionEventTriggerFailurePolicy:
         retry: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param retry: Whether the function should be retried on failure. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
+        :param retry: Whether the function should be retried on failure. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fc53281b70c6b1b58dd0992578781822573f0d8b3cf8ad54f9f1593ec5cf2e2)
@@ -1773,7 +1773,7 @@ class CloudfunctionsFunctionEventTriggerFailurePolicy:
     def retry(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the function should be retried on failure. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
         '''
         result = self._values.get("retry")
         assert result is not None, "Required property 'retry' is missing"
@@ -1878,7 +1878,7 @@ class CloudfunctionsFunctionEventTriggerOutputReference(
         retry: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param retry: Whether the function should be retried on failure. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
+        :param retry: Whether the function should be retried on failure. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#retry CloudfunctionsFunction#retry}
         '''
         value = CloudfunctionsFunctionEventTriggerFailurePolicy(retry=retry)
 
@@ -1972,10 +1972,10 @@ class CloudfunctionsFunctionSecretEnvironmentVariables:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Name of the environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#key CloudfunctionsFunction#key}
-        :param secret: ID of the secret in secret manager (not the full resource name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
-        :param version: Version of the secret (version number or the string "latest"). It is recommended to use a numeric version for secret environment variables as any updates to the secret value is not reflected until new clones start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
-        :param project_id: Project identifier (due to a known limitation, only project number is supported by this field) of the project that contains the secret. If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
+        :param key: Name of the environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#key CloudfunctionsFunction#key}
+        :param secret: ID of the secret in secret manager (not the full resource name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
+        :param version: Version of the secret (version number or the string "latest"). It is recommended to use a numeric version for secret environment variables as any updates to the secret value is not reflected until new clones start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
+        :param project_id: Project identifier (due to a known limitation, only project number is supported by this field) of the project that contains the secret. If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9024a3c826765c2139e345f39afec1ef0ce1030fc331086f8b931eb3692ce878)
@@ -1995,7 +1995,7 @@ class CloudfunctionsFunctionSecretEnvironmentVariables:
     def key(self) -> builtins.str:
         '''Name of the environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#key CloudfunctionsFunction#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#key CloudfunctionsFunction#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -2005,7 +2005,7 @@ class CloudfunctionsFunctionSecretEnvironmentVariables:
     def secret(self) -> builtins.str:
         '''ID of the secret in secret manager (not the full resource name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
@@ -2017,7 +2017,7 @@ class CloudfunctionsFunctionSecretEnvironmentVariables:
 
         It is recommended to use a numeric version for secret environment variables as any updates to the secret value is not reflected until new clones start.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -2029,7 +2029,7 @@ class CloudfunctionsFunctionSecretEnvironmentVariables:
 
         If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2275,10 +2275,10 @@ class CloudfunctionsFunctionSecretVolumes:
         versions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudfunctionsFunctionSecretVolumesVersions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param mount_path: The path within the container to mount the secret volume. For example, setting the mount_path as "/etc/secrets" would mount the secret value files under the "/etc/secrets" directory. This directory will also be completely shadowed and unavailable to mount any other secrets. Recommended mount paths: "/etc/secrets" Restricted mount paths: "/cloudsql", "/dev/log", "/pod", "/proc", "/var/log". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#mount_path CloudfunctionsFunction#mount_path}
-        :param secret: ID of the secret in secret manager (not the full resource name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
-        :param project_id: Project identifier (due to a known limitation, only project number is supported by this field) of the project that contains the secret. If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
-        :param versions: versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#versions CloudfunctionsFunction#versions}
+        :param mount_path: The path within the container to mount the secret volume. For example, setting the mount_path as "/etc/secrets" would mount the secret value files under the "/etc/secrets" directory. This directory will also be completely shadowed and unavailable to mount any other secrets. Recommended mount paths: "/etc/secrets" Restricted mount paths: "/cloudsql", "/dev/log", "/pod", "/proc", "/var/log". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#mount_path CloudfunctionsFunction#mount_path}
+        :param secret: ID of the secret in secret manager (not the full resource name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
+        :param project_id: Project identifier (due to a known limitation, only project number is supported by this field) of the project that contains the secret. If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
+        :param versions: versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#versions CloudfunctionsFunction#versions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d63b74911a0dbce89a1e72aa64e4ae5d3ca6cc732c766c19ae25a41b92e23bd)
@@ -2301,7 +2301,7 @@ class CloudfunctionsFunctionSecretVolumes:
 
         For example, setting the mount_path as "/etc/secrets" would mount the secret value files under the "/etc/secrets" directory. This directory will also be completely shadowed and unavailable to mount any other secrets. Recommended mount paths: "/etc/secrets" Restricted mount paths: "/cloudsql", "/dev/log", "/pod", "/proc", "/var/log".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#mount_path CloudfunctionsFunction#mount_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#mount_path CloudfunctionsFunction#mount_path}
         '''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
@@ -2311,7 +2311,7 @@ class CloudfunctionsFunctionSecretVolumes:
     def secret(self) -> builtins.str:
         '''ID of the secret in secret manager (not the full resource name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#secret CloudfunctionsFunction#secret}
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
@@ -2323,7 +2323,7 @@ class CloudfunctionsFunctionSecretVolumes:
 
         If not set, it will be populated with the function's project, assuming that the secret exists in the same project as of the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#project_id CloudfunctionsFunction#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2334,7 +2334,7 @@ class CloudfunctionsFunctionSecretVolumes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretVolumesVersions"]]]:
         '''versions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#versions CloudfunctionsFunction#versions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#versions CloudfunctionsFunction#versions}
         '''
         result = self._values.get("versions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfunctionsFunctionSecretVolumesVersions"]]], result)
@@ -2580,8 +2580,8 @@ class CloudfunctionsFunctionSecretVolumesOutputReference(
 class CloudfunctionsFunctionSecretVolumesVersions:
     def __init__(self, *, path: builtins.str, version: builtins.str) -> None:
         '''
-        :param path: Relative path of the file under the mount path where the secret value for this version will be fetched and made available. For example, setting the mount_path as "/etc/secrets" and path as "/secret_foo" would mount the secret value file at "/etc/secrets/secret_foo". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#path CloudfunctionsFunction#path}
-        :param version: Version of the secret (version number or the string "latest"). It is preferable to use "latest" version with secret volumes as secret value changes are reflected immediately. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
+        :param path: Relative path of the file under the mount path where the secret value for this version will be fetched and made available. For example, setting the mount_path as "/etc/secrets" and path as "/secret_foo" would mount the secret value file at "/etc/secrets/secret_foo". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#path CloudfunctionsFunction#path}
+        :param version: Version of the secret (version number or the string "latest"). It is preferable to use "latest" version with secret volumes as secret value changes are reflected immediately. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d35a363e5a3523554380de5ea724000c346b603cfedc447c1c73750cc83b6c6)
@@ -2598,7 +2598,7 @@ class CloudfunctionsFunctionSecretVolumesVersions:
 
         For example, setting the mount_path as "/etc/secrets" and path as "/secret_foo" would mount the secret value file at "/etc/secrets/secret_foo".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#path CloudfunctionsFunction#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#path CloudfunctionsFunction#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -2610,7 +2610,7 @@ class CloudfunctionsFunctionSecretVolumesVersions:
 
         It is preferable to use "latest" version with secret volumes as secret value changes are reflected immediately.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#version CloudfunctionsFunction#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -2807,7 +2807,7 @@ class CloudfunctionsFunctionSecretVolumesVersionsOutputReference(
 class CloudfunctionsFunctionSourceRepository:
     def __init__(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL pointing to the hosted repository where the function is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
+        :param url: The URL pointing to the hosted repository where the function is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f2dc3ed79edd40c7fa7a6a0daf34461a8c5e74bc03120d27e3db7416722d7b5)
@@ -2820,7 +2820,7 @@ class CloudfunctionsFunctionSourceRepository:
     def url(self) -> builtins.str:
         '''The URL pointing to the hosted repository where the function is defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#url CloudfunctionsFunction#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -2916,10 +2916,10 @@ class CloudfunctionsFunctionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2c800dfff1a7d1324be878d22f86ec49f7edf929f8357cedb68d9242033801b)
@@ -2939,25 +2939,25 @@ class CloudfunctionsFunctionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#create CloudfunctionsFunction#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#delete CloudfunctionsFunction#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#read CloudfunctionsFunction#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudfunctions_function#update CloudfunctionsFunction#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

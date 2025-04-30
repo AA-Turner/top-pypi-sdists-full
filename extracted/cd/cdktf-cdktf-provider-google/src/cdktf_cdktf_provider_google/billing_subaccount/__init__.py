@@ -1,7 +1,7 @@
 r'''
 # `google_billing_subaccount`
 
-Refer to the Terraform Registry for docs: [`google_billing_subaccount`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount).
+Refer to the Terraform Registry for docs: [`google_billing_subaccount`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BillingSubaccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.billingSubaccount.BillingSubaccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount google_billing_subaccount}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount google_billing_subaccount}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class BillingSubaccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount google_billing_subaccount} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount google_billing_subaccount} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.
-        :param master_billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.
-        :param deletion_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#id BillingSubaccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.
+        :param master_billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.
+        :param deletion_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#id BillingSubaccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class BillingSubaccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BillingSubaccount to import.
-        :param import_from_id: The id of the existing BillingSubaccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BillingSubaccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BillingSubaccount to import is found.
         '''
         if __debug__:
@@ -269,10 +269,10 @@ class BillingSubaccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.
-        :param master_billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.
-        :param deletion_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#id BillingSubaccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.
+        :param master_billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.
+        :param deletion_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#id BillingSubaccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,27 +378,27 @@ class BillingSubaccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#display_name BillingSubaccount#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def master_billing_account(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#master_billing_account BillingSubaccount#master_billing_account}.'''
         result = self._values.get("master_billing_account")
         assert result is not None, "Required property 'master_billing_account' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def deletion_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#deletion_policy BillingSubaccount#deletion_policy}.'''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_subaccount#id BillingSubaccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_subaccount#id BillingSubaccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

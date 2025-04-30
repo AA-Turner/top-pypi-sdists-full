@@ -78,9 +78,13 @@ async def create_or_update_channel(api_key, base_url: Optional[str] = "https://a
     else:
         api_keys = [[api_key]]
 
+    models = "gemini-1.0-pro-vision-latest,gemini-pro-vision,gemini-1.5-pro-latest,gemini-1.5-pro-001,gemini-1.5-pro-002,gemini-1.5-pro,gemini-1.5-flash-latest,gemini-1.5-flash-001,gemini-1.5-flash-001-tuning,gemini-1.5-flash,gemini-1.5-flash-002,gemini-1.5-flash-8b,gemini-1.5-flash-8b-001,gemini-1.5-flash-8b-latest,gemini-1.5-flash-8b-exp-0827,gemini-1.5-flash-8b-exp-0924,gemini-2.5-pro-exp-03-25,gemini-2.5-pro-preview-03-25,gemini-2.5-flash-preview-04-17,gemini-2.0-flash-exp,gemini-2.0-flash,gemini-2.0-flash-001,gemini-2.0-flash-exp-image-generation,gemini-2.0-flash-lite-001,gemini-2.0-flash-lite,gemini-2.0-flash-lite-preview-02-05,gemini-2.0-flash-lite-preview,gemini-2.0-pro-exp,gemini-2.0-pro-exp-02-05,gemini-2.0-flash-thinking-exp-01-21,gemini-2.0-flash-thinking-exp,gemini-2.0-flash-thinking-exp-1219,learnlm-1.5-pro-experimental,learnlm-2.0-flash-experimental,gemma-3-1b-it,gemma-3-4b-it,gemma-3-12b-it,gemma-3-27b-it,gemini-2.0-flash-live-001"
+    nothinking_models = 'gemini-2.5-pro-exp-03-25-nothinking,gemini-2.5-pro-preview-03-25-nothinking,gemini-2.5-flash-preview-04-17-nothinking,gemini-2.0-flash-thinking-exp-01-21-nothinking,gemini-2.0-flash-thinking-exp-nothinking,gemini-2.0-flash-thinking-exp-1219-nothinking'
+    models = f"{models},{nothinking_models}"
+
     payload = {
         # "id": 7493,
-        "type": 8,
+        "type": 24,# gemini
         # "key": "AIzaSyCXWV19FRM4XX0KHmpR9lYUz9i1wxQTYUg",
         "openai_organization": "",
         "test_model": "",
@@ -90,11 +94,11 @@ async def create_or_update_channel(api_key, base_url: Optional[str] = "https://a
         # "created_time": 1745554162,
         # "test_time": 1745554168,
         # "response_time": 575,
-        "base_url": "https://g.chatfire.cn/v1beta/openai/chat/completions",
+        # "base_url": "https://g.chatfire.cn/v1beta/openai/chat/completions",
         # "other": "",
         # "balance": 0,
         # "balance_updated_time": 0,
-        "models": "gemini-1.0-pro-vision-latest,gemini-pro-vision,gemini-1.5-pro-latest,gemini-1.5-pro-001,gemini-1.5-pro-002,gemini-1.5-pro,gemini-1.5-flash-latest,gemini-1.5-flash-001,gemini-1.5-flash-001-tuning,gemini-1.5-flash,gemini-1.5-flash-002,gemini-1.5-flash-8b,gemini-1.5-flash-8b-001,gemini-1.5-flash-8b-latest,gemini-1.5-flash-8b-exp-0827,gemini-1.5-flash-8b-exp-0924,gemini-2.5-pro-exp-03-25,gemini-2.5-pro-preview-03-25,gemini-2.5-flash-preview-04-17,gemini-2.0-flash-exp,gemini-2.0-flash,gemini-2.0-flash-001,gemini-2.0-flash-exp-image-generation,gemini-2.0-flash-lite-001,gemini-2.0-flash-lite,gemini-2.0-flash-lite-preview-02-05,gemini-2.0-flash-lite-preview,gemini-2.0-pro-exp,gemini-2.0-pro-exp-02-05,gemini-2.0-flash-thinking-exp-01-21,gemini-2.0-flash-thinking-exp,gemini-2.0-flash-thinking-exp-1219,learnlm-1.5-pro-experimental,learnlm-2.0-flash-experimental,gemma-3-1b-it,gemma-3-4b-it,gemma-3-12b-it,gemma-3-27b-it,gemini-2.0-flash-live-001",
+        "models": models,
         # "used_quota": 0,
         "model_mapping": """{"gemini-2.5-pro-preview-03-25": "gemini-2.5-pro-exp-03-25"}""",
         # "status_code_mapping": "",
@@ -105,7 +109,7 @@ async def create_or_update_channel(api_key, base_url: Optional[str] = "https://a
         "tag": "gemini",
         # "setting": None,
         # "param_override": "\n {\n \"seed\": null,\n \"frequency_penalty\": null,\n \"presence_penalty\": null,\n \"max_tokens\": null\n }\n ",
-        "group": "default,gemini,gemini-pro",
+        "group": "default",
         "groups": [
             "default"
         ]
@@ -138,10 +142,19 @@ async def delete_channel(id, base_url: Optional[str] = "https://api.ffire.cc"):
 if __name__ == '__main__':
     from meutils.config_utils.lark_utils import get_series
 
+    # models = "gemini-1.0-pro-vision-latest,gemini-pro-vision,gemini-1.5-pro-latest,gemini-1.5-pro-001,gemini-1.5-pro-002,gemini-1.5-pro,gemini-1.5-flash-latest,gemini-1.5-flash-001,gemini-1.5-flash-001-tuning,gemini-1.5-flash,gemini-1.5-flash-002,gemini-1.5-flash-8b,gemini-1.5-flash-8b-001,gemini-1.5-flash-8b-latest,gemini-1.5-flash-8b-exp-0827,gemini-1.5-flash-8b-exp-0924,gemini-2.5-pro-exp-03-25,gemini-2.5-pro-preview-03-25,gemini-2.5-flash-preview-04-17,gemini-2.0-flash-exp,gemini-2.0-flash,gemini-2.0-flash-001,gemini-2.0-flash-exp-image-generation,gemini-2.0-flash-lite-001,gemini-2.0-flash-lite,gemini-2.0-flash-lite-preview-02-05,gemini-2.0-flash-lite-preview,gemini-2.0-pro-exp,gemini-2.0-pro-exp-02-05,gemini-2.0-flash-thinking-exp-01-21,gemini-2.0-flash-thinking-exp,gemini-2.0-flash-thinking-exp-1219,learnlm-1.5-pro-experimental,learnlm-2.0-flash-experimental,gemma-3-1b-it,gemma-3-4b-it,gemma-3-12b-it,gemma-3-27b-it,gemini-2.0-flash-live-001"
+    # nothinking_models = [f"{model}-nothinking" for model in models.split(',') if
+    #                      (model.startswith('gemini-2.5') or "thinking" in model)] | xjoin(',')
+    #
+    # nothinking_models = 'gemini-2.5-pro-exp-03-25-nothinking,gemini-2.5-pro-preview-03-25-nothinking,gemini-2.5-flash-preview-04-17-nothinking,gemini-2.0-flash-thinking-exp-01-21-nothinking,gemini-2.0-flash-thinking-exp-nothinking,gemini-2.0-flash-thinking-exp-1219-nothinking'
+
+    # gemini
     FEISHU_URL = "https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=kfKGzt"
-
+    #
+    # base_url = "https://api.ffire.cc"
+    base_url = "https://usa.chatfire.cn"
+    #
     tokens = arun(get_series(FEISHU_URL))
-    # arun(create_or_update_channel(tokens[:1]))
-    arun(create_or_update_channel(tokens))
-
-    # arun(delete_channel(range(10000, 20000)))
+    arun(create_or_update_channel(tokens, base_url))
+    # arun(create_or_update_channel(tokens))
+    # # arun(delete_channel(range(10000, 20000)))

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pep8-naming
-Version: 0.14.1
+Version: 0.15.0
 Summary: Check PEP-8 naming conventions, plugin for flake8
 Home-page: https://github.com/PyCQA/pep8-naming
 Author: Florent Xicluna
@@ -18,17 +18,28 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: flake8>=5.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 PEP 8 Naming Conventions
 ========================
@@ -86,6 +97,9 @@ These error codes are emitted:
 +---------+-----------------------------------------------------------------+
 | _`N807` | function name should not start and end with '__'                |
 +---------+-----------------------------------------------------------------+
+| _`N808` | type variable names should use CapWords convention and an       |
+|         | optional '_co' or '_contra' suffix (`type variable names`_)     |
++---------+-----------------------------------------------------------------+
 | _`N811` | constant imported as non constant (`constants`_)                |
 +---------+-----------------------------------------------------------------+
 | _`N812` | lowercase imported as non-lowercase                             |
@@ -112,6 +126,7 @@ These error codes are emitted:
 .. _function names: https://www.python.org/dev/peps/pep-0008/#function-and-variable-names
 .. _function arguments: https://www.python.org/dev/peps/pep-0008/#function-and-method-arguments
 .. _method names: https://www.python.org/dev/peps/pep-0008/#method-names-and-instance-variables
+.. _type variable names: https://peps.python.org/pep-0008/#type-variable-names
 
 Options
 -------

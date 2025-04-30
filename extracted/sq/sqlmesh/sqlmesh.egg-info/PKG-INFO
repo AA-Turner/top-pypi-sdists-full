@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.178.1
+Version: 0.178.2
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -248,7 +248,7 @@ Requires-Dist: bigframes>=1.32.0; extra == "bigframes"
 Provides-Extra: clickhouse
 Requires-Dist: clickhouse-connect; extra == "clickhouse"
 Provides-Extra: databricks
-Requires-Dist: databricks-sql-connector; extra == "databricks"
+Requires-Dist: databricks-sql-connector[pyarrow]; extra == "databricks"
 Provides-Extra: dev
 Requires-Dist: agate==1.7.1; extra == "dev"
 Requires-Dist: beautifulsoup4; extra == "dev"

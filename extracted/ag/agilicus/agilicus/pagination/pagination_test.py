@@ -91,3 +91,21 @@ def test_get_many_entries_invokes_callback_with_page():
     assert [10, 8, 6, 4, 3, 2, 1, 0] == result
 
     assert [[10, 8, 6], [4, 3, 2], [1, 0]] == calls
+
+
+def test_get_many_entries_invokes_callback_args_but_not_page():
+    api = fakeAPI("items", "page_at_id")
+    api.add_page([10, 8, 6], 6)
+    api.add_page([4, 3, 2], 2)
+    api.add_page([1, 0], 0)
+
+    calls = []
+
+    def callback(other=None, arg=None):
+        calls.append(None)
+
+    result = get_many_entries(
+        api.do_list, api.item_key, page_size=3, page_callback=callback
+    )
+    assert [10, 8, 6, 4, 3, 2, 1, 0] == result
+    assert len(calls) == 3

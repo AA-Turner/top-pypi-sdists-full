@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: leafmap
-Version: 0.43.6
+Version: 0.43.8
 Summary: A Python package for geospatial analysis and interactive mapping in a Jupyter environment.
 Author-email: Qiusheng Wu <giswqs@gmail.com>
 License: MIT license

@@ -1,7 +1,7 @@
 r'''
 # `google_notebooks_instance`
 
-Refer to the Terraform Registry for docs: [`google_notebooks_instance`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance).
+Refer to the Terraform Registry for docs: [`google_notebooks_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotebooksInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.notebooksInstance.NotebooksInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance google_notebooks_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance google_notebooks_instance}.'''
 
     def __init__(
         self,
@@ -94,45 +94,45 @@ class NotebooksInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance google_notebooks_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance google_notebooks_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
-        :param machine_type: A reference to a machine type which defines VM kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
-        :param name: The name specified for the Notebook instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
-        :param boot_disk_size_gb: The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). The minimum recommended value is 100 GB. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
-        :param boot_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
-        :param create_time: Instance creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
-        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
-        :param data_disk_size_gb: The size of the data disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). You can choose the size of the data disk based on how big your notebooks and data are. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
-        :param data_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
-        :param desired_state: Desired state of the Notebook Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
-        :param disk_encryption: Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["DISK_ENCRYPTION_UNSPECIFIED", "GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#id NotebooksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param install_gpu_driver: Whether the end user authorizes Google Cloud to install GPU driver on this instance. If this field is empty or set to false, the GPU driver won't be installed. Only applicable to instances with GPUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
-        :param instance_owners: The list of owners of this instance after creation. Format: alias@example.com. Currently supports one owner only. If not specified, all of the service account users of your VM instance's service account can use the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
-        :param kms_key: The KMS key used to encrypt the disks, only applicable if diskEncryption is CMEK. Format: projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
-        :param labels: Labels to apply to this instance. These can be later modified by the setLabels method. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
-        :param metadata: Custom metadata to apply to this instance. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
-        :param network: The name of the VPC that this instance is in. Format: projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
-        :param nic_type: The type of vNIC driver. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
-        :param no_proxy_access: The notebook instance will not register with the proxy.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
-        :param no_public_ip: No public IP will be assigned to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
-        :param no_remove_data_disk: If true, the data disk will not be auto deleted when deleting the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
-        :param service_account: The service account on this instance, giving access to other Google Cloud services. You can use any service account within the same project, but you must have the service account user permission to use the instance. If not specified, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
-        :param service_account_scopes: Optional. The URIs of service account scopes to be included in Compute Engine instances. If not specified, the following scopes are defined: - https://www.googleapis.com/auth/cloud-platform - https://www.googleapis.com/auth/userinfo.email Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
-        :param subnet: The name of the subnet that this instance is in. Format: projects/{project_id}/regions/{region}/subnetworks/{subnetwork_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
-        :param tags: The Compute Engine tags to add to instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
-        :param update_time: Instance update time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
+        :param machine_type: A reference to a machine type which defines VM kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
+        :param name: The name specified for the Notebook instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
+        :param boot_disk_size_gb: The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). The minimum recommended value is 100 GB. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
+        :param boot_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
+        :param create_time: Instance creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
+        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
+        :param data_disk_size_gb: The size of the data disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). You can choose the size of the data disk based on how big your notebooks and data are. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
+        :param data_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
+        :param desired_state: Desired state of the Notebook Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
+        :param disk_encryption: Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["DISK_ENCRYPTION_UNSPECIFIED", "GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#id NotebooksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param install_gpu_driver: Whether the end user authorizes Google Cloud to install GPU driver on this instance. If this field is empty or set to false, the GPU driver won't be installed. Only applicable to instances with GPUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
+        :param instance_owners: The list of owners of this instance after creation. Format: alias@example.com. Currently supports one owner only. If not specified, all of the service account users of your VM instance's service account can use the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
+        :param kms_key: The KMS key used to encrypt the disks, only applicable if diskEncryption is CMEK. Format: projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
+        :param labels: Labels to apply to this instance. These can be later modified by the setLabels method. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
+        :param metadata: Custom metadata to apply to this instance. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
+        :param network: The name of the VPC that this instance is in. Format: projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
+        :param nic_type: The type of vNIC driver. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
+        :param no_proxy_access: The notebook instance will not register with the proxy.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
+        :param no_public_ip: No public IP will be assigned to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
+        :param no_remove_data_disk: If true, the data disk will not be auto deleted when deleting the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
+        :param service_account: The service account on this instance, giving access to other Google Cloud services. You can use any service account within the same project, but you must have the service account user permission to use the instance. If not specified, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
+        :param service_account_scopes: Optional. The URIs of service account scopes to be included in Compute Engine instances. If not specified, the following scopes are defined: - https://www.googleapis.com/auth/cloud-platform - https://www.googleapis.com/auth/userinfo.email Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
+        :param subnet: The name of the subnet that this instance is in. Format: projects/{project_id}/regions/{region}/subnetworks/{subnetwork_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
+        :param tags: The Compute Engine tags to add to instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
+        :param update_time: Instance update time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -205,7 +205,7 @@ class NotebooksInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotebooksInstance to import.
-        :param import_from_id: The id of the existing NotebooksInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotebooksInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotebooksInstance to import is found.
         '''
         if __debug__:
@@ -224,8 +224,8 @@ class NotebooksInstance(
         type: builtins.str,
     ) -> None:
         '''
-        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
-        :param type: Type of this accelerator. Possible values: ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "NVIDIA_TESLA_A100", "TPU_V2", "TPU_V3"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
+        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
+        :param type: Type of this accelerator. Possible values: ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "NVIDIA_TESLA_A100", "TPU_V2", "TPU_V3"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
         '''
         value = NotebooksInstanceAcceleratorConfig(core_count=core_count, type=type)
 
@@ -239,8 +239,8 @@ class NotebooksInstance(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
         '''
         value = NotebooksInstanceContainerImage(repository=repository, tag=tag)
 
@@ -255,9 +255,9 @@ class NotebooksInstance(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: The type of Compute Reservation. Possible values: ["NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
-        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
-        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
+        :param consume_reservation_type: The type of Compute Reservation. Possible values: ["NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
+        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
+        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
         '''
         value = NotebooksInstanceReservationAffinity(
             consume_reservation_type=consume_reservation_type, key=key, values=values
@@ -274,9 +274,9 @@ class NotebooksInstance(
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
-        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
+        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
         '''
         value = NotebooksInstanceShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -295,9 +295,9 @@ class NotebooksInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.
         '''
         value = NotebooksInstanceTimeouts(create=create, delete=delete, update=update)
 
@@ -312,9 +312,9 @@ class NotebooksInstance(
         image_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
-        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
-        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
+        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
+        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
         '''
         value = NotebooksInstanceVmImage(
             project=project, image_family=image_family, image_name=image_name
@@ -1091,8 +1091,8 @@ class NotebooksInstance(
 class NotebooksInstanceAcceleratorConfig:
     def __init__(self, *, core_count: jsii.Number, type: builtins.str) -> None:
         '''
-        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
-        :param type: Type of this accelerator. Possible values: ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "NVIDIA_TESLA_A100", "TPU_V2", "TPU_V3"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
+        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
+        :param type: Type of this accelerator. Possible values: ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "NVIDIA_TESLA_A100", "TPU_V2", "TPU_V3"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7872f67ecccb32d44738ebbaa201e3198e98bc0089148b12d16b53c1a932a136)
@@ -1107,7 +1107,7 @@ class NotebooksInstanceAcceleratorConfig:
     def core_count(self) -> jsii.Number:
         '''Count of cores of this accelerator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#core_count NotebooksInstance#core_count}
         '''
         result = self._values.get("core_count")
         assert result is not None, "Required property 'core_count' is missing"
@@ -1117,7 +1117,7 @@ class NotebooksInstanceAcceleratorConfig:
     def type(self) -> builtins.str:
         '''Type of this accelerator. Possible values: ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "NVIDIA_TESLA_A100", "TPU_V2", "TPU_V3"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#type NotebooksInstance#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1308,41 +1308,41 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
-        :param machine_type: A reference to a machine type which defines VM kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
-        :param name: The name specified for the Notebook instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
-        :param boot_disk_size_gb: The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). The minimum recommended value is 100 GB. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
-        :param boot_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
-        :param create_time: Instance creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
-        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
-        :param data_disk_size_gb: The size of the data disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). You can choose the size of the data disk based on how big your notebooks and data are. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
-        :param data_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
-        :param desired_state: Desired state of the Notebook Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
-        :param disk_encryption: Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["DISK_ENCRYPTION_UNSPECIFIED", "GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#id NotebooksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param install_gpu_driver: Whether the end user authorizes Google Cloud to install GPU driver on this instance. If this field is empty or set to false, the GPU driver won't be installed. Only applicable to instances with GPUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
-        :param instance_owners: The list of owners of this instance after creation. Format: alias@example.com. Currently supports one owner only. If not specified, all of the service account users of your VM instance's service account can use the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
-        :param kms_key: The KMS key used to encrypt the disks, only applicable if diskEncryption is CMEK. Format: projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
-        :param labels: Labels to apply to this instance. These can be later modified by the setLabels method. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
-        :param metadata: Custom metadata to apply to this instance. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
-        :param network: The name of the VPC that this instance is in. Format: projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
-        :param nic_type: The type of vNIC driver. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
-        :param no_proxy_access: The notebook instance will not register with the proxy.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
-        :param no_public_ip: No public IP will be assigned to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
-        :param no_remove_data_disk: If true, the data disk will not be auto deleted when deleting the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
-        :param service_account: The service account on this instance, giving access to other Google Cloud services. You can use any service account within the same project, but you must have the service account user permission to use the instance. If not specified, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
-        :param service_account_scopes: Optional. The URIs of service account scopes to be included in Compute Engine instances. If not specified, the following scopes are defined: - https://www.googleapis.com/auth/cloud-platform - https://www.googleapis.com/auth/userinfo.email Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
-        :param subnet: The name of the subnet that this instance is in. Format: projects/{project_id}/regions/{region}/subnetworks/{subnetwork_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
-        :param tags: The Compute Engine tags to add to instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
-        :param update_time: Instance update time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
+        :param machine_type: A reference to a machine type which defines VM kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
+        :param name: The name specified for the Notebook instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
+        :param boot_disk_size_gb: The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). The minimum recommended value is 100 GB. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
+        :param boot_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
+        :param create_time: Instance creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
+        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
+        :param data_disk_size_gb: The size of the data disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). You can choose the size of the data disk based on how big your notebooks and data are. If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
+        :param data_disk_type: Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
+        :param desired_state: Desired state of the Notebook Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
+        :param disk_encryption: Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["DISK_ENCRYPTION_UNSPECIFIED", "GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#id NotebooksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param install_gpu_driver: Whether the end user authorizes Google Cloud to install GPU driver on this instance. If this field is empty or set to false, the GPU driver won't be installed. Only applicable to instances with GPUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
+        :param instance_owners: The list of owners of this instance after creation. Format: alias@example.com. Currently supports one owner only. If not specified, all of the service account users of your VM instance's service account can use the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
+        :param kms_key: The KMS key used to encrypt the disks, only applicable if diskEncryption is CMEK. Format: projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
+        :param labels: Labels to apply to this instance. These can be later modified by the setLabels method. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
+        :param metadata: Custom metadata to apply to this instance. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
+        :param network: The name of the VPC that this instance is in. Format: projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
+        :param nic_type: The type of vNIC driver. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
+        :param no_proxy_access: The notebook instance will not register with the proxy.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
+        :param no_public_ip: No public IP will be assigned to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
+        :param no_remove_data_disk: If true, the data disk will not be auto deleted when deleting the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
+        :param service_account: The service account on this instance, giving access to other Google Cloud services. You can use any service account within the same project, but you must have the service account user permission to use the instance. If not specified, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
+        :param service_account_scopes: Optional. The URIs of service account scopes to be included in Compute Engine instances. If not specified, the following scopes are defined: - https://www.googleapis.com/auth/cloud-platform - https://www.googleapis.com/auth/userinfo.email Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
+        :param subnet: The name of the subnet that this instance is in. Format: projects/{project_id}/regions/{region}/subnetworks/{subnetwork_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
+        :param tags: The Compute Engine tags to add to instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
+        :param update_time: Instance update time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1554,7 +1554,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''A reference to the zone where the machine resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#location NotebooksInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1564,7 +1564,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def machine_type(self) -> builtins.str:
         '''A reference to a machine type which defines VM kind.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#machine_type NotebooksInstance#machine_type}
         '''
         result = self._values.get("machine_type")
         assert result is not None, "Required property 'machine_type' is missing"
@@ -1574,7 +1574,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name specified for the Notebook instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#name NotebooksInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1584,7 +1584,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def accelerator_config(self) -> typing.Optional[NotebooksInstanceAcceleratorConfig]:
         '''accelerator_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#accelerator_config NotebooksInstance#accelerator_config}
         '''
         result = self._values.get("accelerator_config")
         return typing.cast(typing.Optional[NotebooksInstanceAcceleratorConfig], result)
@@ -1596,7 +1596,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The minimum recommended value is 100 GB.
         If not specified, this defaults to 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_size_gb NotebooksInstance#boot_disk_size_gb}
         '''
         result = self._values.get("boot_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1605,7 +1605,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def boot_disk_type(self) -> typing.Optional[builtins.str]:
         '''Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#boot_disk_type NotebooksInstance#boot_disk_type}
         '''
         result = self._values.get("boot_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1614,7 +1614,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def container_image(self) -> typing.Optional["NotebooksInstanceContainerImage"]:
         '''container_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#container_image NotebooksInstance#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional["NotebooksInstanceContainerImage"], result)
@@ -1623,7 +1623,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_time(self) -> typing.Optional[builtins.str]:
         '''Instance creation time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create_time NotebooksInstance#create_time}
         '''
         result = self._values.get("create_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1634,7 +1634,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not specified, we'll automatically choose from official GPU drivers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#custom_gpu_driver_path NotebooksInstance#custom_gpu_driver_path}
         '''
         result = self._values.get("custom_gpu_driver_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1646,7 +1646,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         You can choose the size of the data disk based on how big your notebooks and data are.
         If not specified, this defaults to 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_size_gb NotebooksInstance#data_disk_size_gb}
         '''
         result = self._values.get("data_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1655,7 +1655,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_disk_type(self) -> typing.Optional[builtins.str]:
         '''Possible disk types for notebook instances. Possible values: ["DISK_TYPE_UNSPECIFIED", "PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#data_disk_type NotebooksInstance#data_disk_type}
         '''
         result = self._values.get("data_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1666,7 +1666,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#desired_state NotebooksInstance#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1675,14 +1675,14 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disk_encryption(self) -> typing.Optional[builtins.str]:
         '''Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["DISK_ENCRYPTION_UNSPECIFIED", "GMEK", "CMEK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#disk_encryption NotebooksInstance#disk_encryption}
         '''
         result = self._values.get("disk_encryption")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#id NotebooksInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#id NotebooksInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1699,7 +1699,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If this field is empty or set to false, the GPU driver
         won't be installed. Only applicable to instances with GPUs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#install_gpu_driver NotebooksInstance#install_gpu_driver}
         '''
         result = self._values.get("install_gpu_driver")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1713,7 +1713,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If not specified, all of the service account users of
         your VM instance's service account can use the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#instance_owners NotebooksInstance#instance_owners}
         '''
         result = self._values.get("instance_owners")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1722,7 +1722,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''The KMS key used to encrypt the disks, only applicable if diskEncryption is CMEK. Format: projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#kms_key NotebooksInstance#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1737,7 +1737,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#labels NotebooksInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1748,7 +1748,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#metadata NotebooksInstance#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1757,7 +1757,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional[builtins.str]:
         '''The name of the VPC that this instance is in. Format: projects/{project_id}/global/networks/{network_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#network NotebooksInstance#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1766,7 +1766,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nic_type(self) -> typing.Optional[builtins.str]:
         '''The type of vNIC driver. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#nic_type NotebooksInstance#nic_type}
         '''
         result = self._values.get("nic_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1777,7 +1777,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The notebook instance will not register with the proxy..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_proxy_access NotebooksInstance#no_proxy_access}
         '''
         result = self._values.get("no_proxy_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1788,7 +1788,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''No public IP will be assigned to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_public_ip NotebooksInstance#no_public_ip}
         '''
         result = self._values.get("no_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1799,7 +1799,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the data disk will not be auto deleted when deleting the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#no_remove_data_disk NotebooksInstance#no_remove_data_disk}
         '''
         result = self._values.get("no_remove_data_disk")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1811,14 +1811,14 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The path must be a URL
         or Cloud Storage path (gs://path-to-file/file-name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#post_startup_script NotebooksInstance#post_startup_script}
         '''
         result = self._values.get("post_startup_script")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1828,7 +1828,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NotebooksInstanceReservationAffinity"]:
         '''reservation_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#reservation_affinity NotebooksInstance#reservation_affinity}
         '''
         result = self._values.get("reservation_affinity")
         return typing.cast(typing.Optional["NotebooksInstanceReservationAffinity"], result)
@@ -1842,7 +1842,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         permission to use the instance. If not specified,
         the Compute Engine default service account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account NotebooksInstance#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1857,7 +1857,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - https://www.googleapis.com/auth/cloud-platform
         - https://www.googleapis.com/auth/userinfo.email
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#service_account_scopes NotebooksInstance#service_account_scopes}
         '''
         result = self._values.get("service_account_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1868,7 +1868,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NotebooksInstanceShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#shielded_instance_config NotebooksInstance#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["NotebooksInstanceShieldedInstanceConfig"], result)
@@ -1877,7 +1877,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subnet(self) -> typing.Optional[builtins.str]:
         '''The name of the subnet that this instance is in. Format: projects/{project_id}/regions/{region}/subnetworks/{subnetwork_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#subnet NotebooksInstance#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1886,7 +1886,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Compute Engine tags to add to instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tags NotebooksInstance#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1895,7 +1895,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NotebooksInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#timeouts NotebooksInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NotebooksInstanceTimeouts"], result)
@@ -1904,7 +1904,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def update_time(self) -> typing.Optional[builtins.str]:
         '''Instance update time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update_time NotebooksInstance#update_time}
         '''
         result = self._values.get("update_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1913,7 +1913,7 @@ class NotebooksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vm_image(self) -> typing.Optional["NotebooksInstanceVmImage"]:
         '''vm_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#vm_image NotebooksInstance#vm_image}
         '''
         result = self._values.get("vm_image")
         return typing.cast(typing.Optional["NotebooksInstanceVmImage"], result)
@@ -1943,8 +1943,8 @@ class NotebooksInstanceContainerImage:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8bbd506d98625c0a5ac6d2db4e1e05d54f4e2e50bb3942c9b1e40ab78fc84d72)
@@ -1960,7 +1960,7 @@ class NotebooksInstanceContainerImage:
     def repository(self) -> builtins.str:
         '''The path to the container image repository. For example: gcr.io/{project_id}/{imageName}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#repository NotebooksInstance#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -1970,7 +1970,7 @@ class NotebooksInstanceContainerImage:
     def tag(self) -> typing.Optional[builtins.str]:
         '''The tag of the container image. If not specified, this defaults to the latest tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#tag NotebooksInstance#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2079,9 +2079,9 @@ class NotebooksInstanceReservationAffinity:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: The type of Compute Reservation. Possible values: ["NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
-        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
-        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
+        :param consume_reservation_type: The type of Compute Reservation. Possible values: ["NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
+        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
+        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b02ad466da57492f1b9195991bfb6338a91174179fbc42e24c83fa9e64b240f7)
@@ -2100,7 +2100,7 @@ class NotebooksInstanceReservationAffinity:
     def consume_reservation_type(self) -> builtins.str:
         '''The type of Compute Reservation. Possible values: ["NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#consume_reservation_type NotebooksInstance#consume_reservation_type}
         '''
         result = self._values.get("consume_reservation_type")
         assert result is not None, "Required property 'consume_reservation_type' is missing"
@@ -2110,7 +2110,7 @@ class NotebooksInstanceReservationAffinity:
     def key(self) -> typing.Optional[builtins.str]:
         '''Corresponds to the label key of reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#key NotebooksInstance#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2119,7 +2119,7 @@ class NotebooksInstanceReservationAffinity:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Corresponds to the label values of reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#values NotebooksInstance#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2249,9 +2249,9 @@ class NotebooksInstanceShieldedInstanceConfig:
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
-        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
+        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d040454a3429f621ca665842415402ce2871814c07474a403d9f02a275be3ca2)
@@ -2277,7 +2277,7 @@ class NotebooksInstanceShieldedInstanceConfig:
         This baseline is initially derived from the implicitly trusted boot image when the instance is created.
         Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_integrity_monitoring NotebooksInstance#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2293,7 +2293,7 @@ class NotebooksInstanceShieldedInstanceConfig:
         if signature verification fails.
         Disabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_secure_boot NotebooksInstance#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2304,7 +2304,7 @@ class NotebooksInstanceShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has the vTPM enabled. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#enable_vtpm NotebooksInstance#enable_vtpm}
         '''
         result = self._values.get("enable_vtpm")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2455,9 +2455,9 @@ class NotebooksInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2326dc0d93f118955c3f2a3c82bfa7a4ad1c833053a4e1a345fe762bf48e2e7)
@@ -2474,19 +2474,19 @@ class NotebooksInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#create NotebooksInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#delete NotebooksInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#update NotebooksInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2621,9 +2621,9 @@ class NotebooksInstanceVmImage:
         image_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
-        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
-        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
+        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
+        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eba5275d4b28d0e99aa185ec13ea1a6657cdd23ee0dc4678eac357c6178e56b5)
@@ -2642,7 +2642,7 @@ class NotebooksInstanceVmImage:
     def project(self) -> builtins.str:
         '''The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#project NotebooksInstance#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -2652,7 +2652,7 @@ class NotebooksInstanceVmImage:
     def image_family(self) -> typing.Optional[builtins.str]:
         '''Use this VM image family to find the image; the newest image in this family will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_family NotebooksInstance#image_family}
         '''
         result = self._values.get("image_family")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2661,7 +2661,7 @@ class NotebooksInstanceVmImage:
     def image_name(self) -> typing.Optional[builtins.str]:
         '''Use VM image name to find the image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/notebooks_instance#image_name NotebooksInstance#image_name}
         '''
         result = self._values.get("image_name")
         return typing.cast(typing.Optional[builtins.str], result)

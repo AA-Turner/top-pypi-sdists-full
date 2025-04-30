@@ -1,7 +1,7 @@
 r'''
 # `data_google_active_folder`
 
-Refer to the Terraform Registry for docs: [`data_google_active_folder`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder).
+Refer to the Terraform Registry for docs: [`data_google_active_folder`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleActiveFolder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleActiveFolder.DataGoogleActiveFolder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder google_active_folder}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder google_active_folder}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleActiveFolder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder google_active_folder} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder google_active_folder} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.
-        :param api_method: Provides the REST method through which to find the folder. LIST is recommended as it is strongly consistent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.
+        :param api_method: Provides the REST method through which to find the folder. LIST is recommended as it is strongly consistent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleActiveFolder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleActiveFolder to import.
-        :param import_from_id: The id of the existing DataGoogleActiveFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleActiveFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleActiveFolder to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class DataGoogleActiveFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.
-        :param api_method: Provides the REST method through which to find the folder. LIST is recommended as it is strongly consistent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.
+        :param api_method: Provides the REST method through which to find the folder. LIST is recommended as it is strongly consistent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -368,14 +368,14 @@ class DataGoogleActiveFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#display_name DataGoogleActiveFolder#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parent(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#parent DataGoogleActiveFolder#parent}.'''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
         return typing.cast(builtins.str, result)
@@ -384,14 +384,14 @@ class DataGoogleActiveFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_method(self) -> typing.Optional[builtins.str]:
         '''Provides the REST method through which to find the folder. LIST is recommended as it is strongly consistent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#api_method DataGoogleActiveFolder#api_method}
         '''
         result = self._values.get("api_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/active_folder#id DataGoogleActiveFolder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

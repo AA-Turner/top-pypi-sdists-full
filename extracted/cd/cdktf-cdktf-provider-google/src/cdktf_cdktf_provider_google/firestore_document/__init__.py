@@ -1,7 +1,7 @@
 r'''
 # `google_firestore_document`
 
-Refer to the Terraform Registry for docs: [`google_firestore_document`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document).
+Refer to the Terraform Registry for docs: [`google_firestore_document`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirestoreDocument(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firestoreDocument.FirestoreDocument",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document google_firestore_document}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document google_firestore_document}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class FirestoreDocument(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document google_firestore_document} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document google_firestore_document} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
-        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
-        :param fields: The document's `fields <https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents>`_ formated as a json string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#database FirestoreDocument#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#id FirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#project FirestoreDocument#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
+        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
+        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
+        :param fields: The document's `fields <https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents>`_ formated as a json string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#database FirestoreDocument#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#id FirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#project FirestoreDocument#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class FirestoreDocument(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirestoreDocument to import.
-        :param import_from_id: The id of the existing FirestoreDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirestoreDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirestoreDocument to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class FirestoreDocument(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#create FirestoreDocument#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#update FirestoreDocument#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#create FirestoreDocument#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#update FirestoreDocument#update}.
         '''
         value = FirestoreDocumentTimeouts(create=create, delete=delete, update=update)
 
@@ -360,13 +360,13 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
-        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
-        :param fields: The document's `fields <https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents>`_ formated as a json string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#database FirestoreDocument#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#id FirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#project FirestoreDocument#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
+        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
+        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
+        :param fields: The document's `fields <https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents>`_ formated as a json string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#database FirestoreDocument#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#id FirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#project FirestoreDocument#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -484,7 +484,7 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def collection(self) -> builtins.str:
         '''The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#collection FirestoreDocument#collection}
         '''
         result = self._values.get("collection")
         assert result is not None, "Required property 'collection' is missing"
@@ -494,7 +494,7 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def document_id(self) -> builtins.str:
         '''The client-assigned document ID to use for this document during creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#document_id FirestoreDocument#document_id}
         '''
         result = self._values.get("document_id")
         assert result is not None, "Required property 'document_id' is missing"
@@ -504,7 +504,7 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fields(self) -> builtins.str:
         '''The document's `fields <https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents>`_ formated as a json string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#fields FirestoreDocument#fields}
         '''
         result = self._values.get("fields")
         assert result is not None, "Required property 'fields' is missing"
@@ -514,14 +514,14 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> typing.Optional[builtins.str]:
         '''The Firestore database id. Defaults to '"(default)"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#database FirestoreDocument#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#database FirestoreDocument#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#id FirestoreDocument#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#id FirestoreDocument#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -531,7 +531,7 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#project FirestoreDocument#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#project FirestoreDocument#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -539,7 +539,7 @@ class FirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirestoreDocumentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#timeouts FirestoreDocument#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirestoreDocumentTimeouts"], result)
@@ -570,9 +570,9 @@ class FirestoreDocumentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#create FirestoreDocument#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#update FirestoreDocument#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#create FirestoreDocument#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#update FirestoreDocument#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eeb577fb2dac8c15c12fc59eee445301d588d16f87d63593bbe559a861f56e80)
@@ -589,19 +589,19 @@ class FirestoreDocumentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#create FirestoreDocument#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#create FirestoreDocument#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#delete FirestoreDocument#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firestore_document#update FirestoreDocument#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firestore_document#update FirestoreDocument#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

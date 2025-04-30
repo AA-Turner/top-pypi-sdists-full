@@ -78,17 +78,34 @@ fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> anyh
                     .context("Invalid hex string")?;
                 UnknownValue::LengthDelimited(value)
             } else if t.tag == *tags::FIXED32 {
-                let value = match t.value {
-                    Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                    _ => bail!("Fixed32 data is not a u32"),
+                let Value::Number(n) = t.value else {
+                    bail!("!fixed32 is not a number");
                 };
-                UnknownValue::Fixed32(value as u32)
+                let value = n
+                    .as_u64()
+                    .map(|n| n as u32)
+                    .or_else(|| n.as_i64().map(|s| s as u32))
+                    .or_else(|| n.as_f64().map(|f| (f as f32).to_bits()))
+                    .context("Failed to convert !fixed32 value to a valid number")?;
+                UnknownValue::Fixed32(value)
             } else if t.tag == *tags::FIXED64 {
-                let value = match t.value {
-                    Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                    _ => bail!("Fixed64 data is not a u64"),
+                let Value::Number(n) = t.value else {
+                    bail!("!fixed64 is not a number");
                 };
+                let value = n
+                    .as_u64()
+                    .or_else(|| n.as_i64().map(|s| s as u64))
+                    .or_else(|| n.as_f64().map(|f| f.to_bits()))
+                    .context("Failed to convert !fixed64 value to a valid number")?;
                 UnknownValue::Fixed64(value)
+            } else if t.tag == *tags::ZIGZAG {
+                let Value::Number(n) = t.value else {
+                    bail!("!sint is not a number");
+                };
+                let Some(n) = n.as_i64() else {
+                    bail!("!sint is not an integer");
+                };
+                UnknownValue::Varint(encode_zigzag64(n))
             } else {
                 log::info!("Unexpected YAML tag {}, discarding.", t.tag);
                 return add_field(message, field_num, t.value);
@@ -152,5 +169,25 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
         UnknownValue::int64(n)
     } else {
         UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
+    }
+}
+
+// Zigzag-encode a 64-bit integer
+fn encode_zigzag64(n: i64) -> u64 {
+    ((n << 1) ^ (n >> 63)) as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_zigzag64() {
+        assert_eq!(encode_zigzag64(0), 0);
+        assert_eq!(encode_zigzag64(-1), 1);
+        assert_eq!(encode_zigzag64(1), 2);
+        assert_eq!(encode_zigzag64(-2), 3);
+        assert_eq!(encode_zigzag64(0x7fffffff), 0xfffffffe);
+        assert_eq!(encode_zigzag64(-0x80000000), 0xffffffff);
     }
 }

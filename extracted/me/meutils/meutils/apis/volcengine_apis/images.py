@@ -35,9 +35,11 @@ async def generate(request: ImageRequest, token: Optional[str] = None):
         visual_service.set_ak(ak)
         visual_service.set_sk(sk)
 
-    # request
+    # request byteedit_v2.0 high_aes_general_v30l_zt2i
     payload = {
         "req_key": "high_aes_general_v30l_zt2i",
+        # "req_key": "jimeng_high_aes_general_v21_L",
+
         "prompt": request.prompt,
         "seed": request.seed,
         "width": 1328,
@@ -72,7 +74,7 @@ async def generate(request: ImageRequest, token: Optional[str] = None):
         urls = await to_url(response['data'].get('binary_data_base64', []), filename='.png')
         data = [{"url": url} for url in urls]
     else:
-        data = [{"url": url} for url in response['data'].get('image_urls', [])]
+        data = [{"url": url.replace(r'\u0026', '&')} for url in response['data'].get('image_urls', [])]
 
     response['data'].pop("binary_data_base64", None)
     response = ImagesResponse(
@@ -89,10 +91,10 @@ if __name__ == '__main__':
     3D魔童哪吒 c4d 搬砖 很开心， 很快乐， 精神抖擞， 背景是数不清的敖丙虚化 视觉冲击力强 大师构图 色彩鲜艳丰富 吸引人 背景用黄金色艺术字写着“搬砖挣钱” 冷暖色对比
     """
 
-    # prompt = """
-    # https://oss.ffire.cc/files/kling_watermark.png
-    # 让这个女人带上眼镜 衣服换个颜色
-    # """
+    prompt = """
+    https://oss.ffire.cc/files/kling_watermark.png
+    让这个女人带上眼镜 衣服换个颜色
+    """
 
     request = ImageRequest(
         model="high_aes_general_v30l_zt2i",

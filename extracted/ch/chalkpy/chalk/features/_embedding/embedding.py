@@ -9,6 +9,7 @@ from chalk._lsp.error_builder import get_resolver_error_builder
 from chalk.features._embedding.cohere import CohereProvider
 from chalk.features._embedding.embedding_provider import EmbeddingProvider
 from chalk.features._embedding.openai import OpenAIProvider
+from chalk.features._embedding.sentence_transformer import SentenceTransformerProvider
 from chalk.features._embedding.vertexai import VertexAIProvider
 from chalk.features.dataframe import DataFrame
 from chalk.features.feature_field import Feature
@@ -27,6 +28,8 @@ def _get_provider(provider: str, model: str, dimensions: int | None = None) -> E
         return CohereProvider(model, dimensions)
     elif provider == "vertexai":
         return VertexAIProvider(model, dimensions)
+    elif provider == "sentence-transformers":
+        return SentenceTransformerProvider(model, dimensions)
     raise ValueError(
         f"Unsupported embedding provider: {provider}. The supported providers are ['openai', 'cohere', 'vertexai']."
     )

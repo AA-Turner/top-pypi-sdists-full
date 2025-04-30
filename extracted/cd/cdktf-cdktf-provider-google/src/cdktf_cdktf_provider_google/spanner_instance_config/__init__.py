@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_instance_config`
 
-Refer to the Terraform Registry for docs: [`google_spanner_instance_config`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config).
+Refer to the Terraform Registry for docs: [`google_spanner_instance_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpannerInstanceConfigA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.spannerInstanceConfig.SpannerInstanceConfigA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config google_spanner_instance_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config google_spanner_instance_config}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SpannerInstanceConfigA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config google_spanner_instance_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config google_spanner_instance_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The name of this instance configuration as it appears in UIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
-        :param replicas: replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
-        :param base_config: Base configuration name, e.g. nam3, based on which this configuration is created. Only set for user managed configurations. baseConfig must refer to a configuration of type GOOGLE_MANAGED in the same project as this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
-        :param name: A unique identifier for the instance configuration. Values are of the form projects//instanceConfigs/[a-z][-a-z0-9]*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
+        :param display_name: The name of this instance configuration as it appears in UIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
+        :param replicas: replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
+        :param base_config: Base configuration name, e.g. nam3, based on which this configuration is created. Only set for user managed configurations. baseConfig must refer to a configuration of type GOOGLE_MANAGED in the same project as this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
+        :param name: A unique identifier for the instance configuration. Values are of the form projects//instanceConfigs/[a-z][-a-z0-9]*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SpannerInstanceConfigA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpannerInstanceConfigA to import.
-        :param import_from_id: The id of the existing SpannerInstanceConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpannerInstanceConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpannerInstanceConfigA to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class SpannerInstanceConfigA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.
         '''
         value = SpannerInstanceConfigTimeouts(
             create=create, delete=delete, update=update
@@ -397,14 +397,14 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The name of this instance configuration as it appears in UIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
-        :param replicas: replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
-        :param base_config: Base configuration name, e.g. nam3, based on which this configuration is created. Only set for user managed configurations. baseConfig must refer to a configuration of type GOOGLE_MANAGED in the same project as this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
-        :param name: A unique identifier for the instance configuration. Values are of the form projects//instanceConfigs/[a-z][-a-z0-9]*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
+        :param display_name: The name of this instance configuration as it appears in UIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
+        :param replicas: replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
+        :param base_config: Base configuration name, e.g. nam3, based on which this configuration is created. Only set for user managed configurations. baseConfig must refer to a configuration of type GOOGLE_MANAGED in the same project as this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
+        :param name: A unique identifier for the instance configuration. Values are of the form projects//instanceConfigs/[a-z][-a-z0-9]*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -526,7 +526,7 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The name of this instance configuration as it appears in UIs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#display_name SpannerInstanceConfigA#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -538,7 +538,7 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpannerInstanceConfigReplicas"]]:
         '''replicas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#replicas SpannerInstanceConfigA#replicas}
         '''
         result = self._values.get("replicas")
         assert result is not None, "Required property 'replicas' is missing"
@@ -548,14 +548,14 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def base_config(self) -> typing.Optional[builtins.str]:
         '''Base configuration name, e.g. nam3, based on which this configuration is created. Only set for user managed configurations. baseConfig must refer to a configuration of type GOOGLE_MANAGED in the same project as this configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#base_config SpannerInstanceConfigA#base_config}
         '''
         result = self._values.get("base_config")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#id SpannerInstanceConfigA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -570,7 +570,7 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#labels SpannerInstanceConfigA#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -579,14 +579,14 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''A unique identifier for the instance configuration. Values are of the form projects//instanceConfigs/[a-z][-a-z0-9]*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#name SpannerInstanceConfigA#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#project SpannerInstanceConfigA#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -594,7 +594,7 @@ class SpannerInstanceConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpannerInstanceConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#timeouts SpannerInstanceConfigA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpannerInstanceConfigTimeouts"], result)
@@ -629,9 +629,9 @@ class SpannerInstanceConfigReplicas:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_leader_location: If true, this location is designated as the default leader location where leader replicas are placed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#default_leader_location SpannerInstanceConfigA#default_leader_location}
-        :param location: The location of the serving resources, e.g. "us-central1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#location SpannerInstanceConfigA#location}
-        :param type: Indicates the type of replica. See the `replica types documentation <https://cloud.google.com/spanner/docs/replication#replica_types>`_ for more details. Possible values: ["READ_WRITE", "READ_ONLY", "WITNESS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#type SpannerInstanceConfigA#type}
+        :param default_leader_location: If true, this location is designated as the default leader location where leader replicas are placed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#default_leader_location SpannerInstanceConfigA#default_leader_location}
+        :param location: The location of the serving resources, e.g. "us-central1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#location SpannerInstanceConfigA#location}
+        :param type: Indicates the type of replica. See the `replica types documentation <https://cloud.google.com/spanner/docs/replication#replica_types>`_ for more details. Possible values: ["READ_WRITE", "READ_ONLY", "WITNESS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#type SpannerInstanceConfigA#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1e0358c9731570214a3e546de158d7cd8dbb246ca1498b9bf4fe0b64014e238)
@@ -652,7 +652,7 @@ class SpannerInstanceConfigReplicas:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, this location is designated as the default leader location where leader replicas are placed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#default_leader_location SpannerInstanceConfigA#default_leader_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#default_leader_location SpannerInstanceConfigA#default_leader_location}
         '''
         result = self._values.get("default_leader_location")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -661,7 +661,7 @@ class SpannerInstanceConfigReplicas:
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the serving resources, e.g. "us-central1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#location SpannerInstanceConfigA#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#location SpannerInstanceConfigA#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -670,7 +670,7 @@ class SpannerInstanceConfigReplicas:
     def type(self) -> typing.Optional[builtins.str]:
         '''Indicates the type of replica.  See the `replica types documentation <https://cloud.google.com/spanner/docs/replication#replica_types>`_ for more details. Possible values: ["READ_WRITE", "READ_ONLY", "WITNESS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#type SpannerInstanceConfigA#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#type SpannerInstanceConfigA#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -905,9 +905,9 @@ class SpannerInstanceConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0dac18d3519bedf7e93d529ee220ecba2958ffd2244b192c41d829f2ec437e9)
@@ -924,19 +924,19 @@ class SpannerInstanceConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#create SpannerInstanceConfigA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#delete SpannerInstanceConfigA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_config#update SpannerInstanceConfigA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

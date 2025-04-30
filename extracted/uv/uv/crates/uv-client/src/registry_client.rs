@@ -7,23 +7,22 @@ use std::time::Duration;
 
 use async_http_range_reader::AsyncHttpRangeReader;
 use futures::{FutureExt, StreamExt, TryStreamExt};
-use http::HeaderMap;
+use http::{HeaderMap, StatusCode};
 use itertools::Either;
-use reqwest::{Proxy, Response, StatusCode};
-use reqwest_middleware::ClientWithMiddleware;
+use reqwest::{Proxy, Response};
 use rustc_hash::FxHashMap;
 use tokio::sync::{Mutex, Semaphore};
-use tracing::{info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, info_span, instrument, trace, warn, Instrument};
 use url::Url;
 
-use uv_auth::UrlAuthPolicies;
+use uv_auth::Indexes;
 use uv_cache::{Cache, CacheBucket, CacheEntry, WheelCache};
 use uv_configuration::KeyringProviderType;
 use uv_configuration::{IndexStrategy, TrustedHost};
 use uv_distribution_filename::{DistFilename, SourceDistFilename, WheelFilename};
 use uv_distribution_types::{
-    BuiltDist, File, FileLocation, IndexCapabilities, IndexFormat, IndexMetadataRef, IndexUrl,
-    IndexUrls, Name,
+    BuiltDist, File, FileLocation, IndexCapabilities, IndexFormat, IndexLocations,
+    IndexMetadataRef, IndexStatusCodeDecision, IndexStatusCodeStrategy, IndexUrl, IndexUrls, Name,
 };
 use uv_metadata::{read_metadata_async_seek, read_metadata_async_stream};
 use uv_normalize::PackageName;
@@ -34,7 +33,7 @@ use uv_pypi_types::{ResolutionMetadata, SimpleJson};
 use uv_small_str::SmallString;
 use uv_torch::TorchStrategy;
 
-use crate::base_client::{BaseClientBuilder, ExtraMiddleware};
+use crate::base_client::{BaseClientBuilder, ExtraMiddleware, RedirectPolicy};
 use crate::cached_client::CacheControl;
 use crate::flat_index::FlatIndexEntry;
 use crate::html::SimpleHtml;
@@ -42,7 +41,7 @@ use crate::remote_metadata::wheel_metadata_from_remote_zip;
 use crate::rkyvutil::OwnedArchive;
 use crate::{
     BaseClient, CachedClient, CachedClientError, Error, ErrorKind, FlatIndexClient,
-    FlatIndexEntries,
+    FlatIndexEntries, RedirectClientWithMiddleware,
 };
 
 /// A builder for an [`RegistryClient`].
@@ -69,8 +68,11 @@ impl RegistryClientBuilder<'_> {
 
 impl<'a> RegistryClientBuilder<'a> {
     #[must_use]
-    pub fn index_urls(mut self, index_urls: IndexUrls) -> Self {
-        self.index_urls = index_urls;
+    pub fn index_locations(mut self, index_locations: &IndexLocations) -> Self {
+        self.index_urls = index_locations.index_urls();
+        self.base_client_builder = self
+            .base_client_builder
+            .indexes(Indexes::from(index_locations));
         self
     }
 
@@ -119,14 +121,6 @@ impl<'a> RegistryClientBuilder<'a> {
     }
 
     #[must_use]
-    pub fn url_auth_policies(mut self, url_auth_policies: UrlAuthPolicies) -> Self {
-        self.base_client_builder = self
-            .base_client_builder
-            .url_auth_policies(url_auth_policies);
-        self
-    }
-
-    #[must_use]
     pub fn cache(mut self, cache: Cache) -> Self {
         self.cache = cache;
         self
@@ -158,7 +152,9 @@ impl<'a> RegistryClientBuilder<'a> {
 
     pub fn build(self) -> RegistryClient {
         // Build a base client
-        let builder = self.base_client_builder;
+        let builder = self
+            .base_client_builder
+            .redirect(RedirectPolicy::RetriggerMiddleware);
 
         let client = builder.build();
 
@@ -255,7 +251,7 @@ impl RegistryClient {
     }
 
     /// Return the [`BaseClient`] used by this client.
-    pub fn uncached_client(&self, url: &Url) -> &ClientWithMiddleware {
+    pub fn uncached_client(&self, url: &Url) -> &RedirectClientWithMiddleware {
         self.client.uncached().for_host(url)
     }
 
@@ -336,12 +332,29 @@ impl RegistryClient {
                     let _permit = download_concurrency.acquire().await;
                     match index.format {
                         IndexFormat::Simple => {
-                            if let Some(metadata) = self
-                                .simple_single_index(package_name, index.url, capabilities)
+                            let status_code_strategy =
+                                self.index_urls.status_code_strategy_for(index.url);
+                            match self
+                                .simple_single_index(
+                                    package_name,
+                                    index.url,
+                                    capabilities,
+                                    &status_code_strategy,
+                                )
                                 .await?
                             {
-                                results.push((index.url, MetadataFormat::Simple(metadata)));
-                                break;
+                                SimpleMetadataSearchOutcome::Found(metadata) => {
+                                    results.push((index.url, MetadataFormat::Simple(metadata)));
+                                    break;
+                                }
+                                // Package not found, so we will continue on to the next index (if there is one)
+                                SimpleMetadataSearchOutcome::NotFound => {}
+                                // The search failed because of an HTTP status code that we don't ignore for
+                                // this index. We end our search here.
+                                SimpleMetadataSearchOutcome::StatusCodeFailure(status_code) => {
+                                    debug!("Indexes search failed because of status code failure: {status_code}");
+                                    break;
+                                }
                             }
                         }
                         IndexFormat::Flat => {
@@ -362,9 +375,21 @@ impl RegistryClient {
                         let _permit = download_concurrency.acquire().await;
                         match index.format {
                             IndexFormat::Simple => {
-                                let metadata = self
-                                    .simple_single_index(package_name, index.url, capabilities)
-                                    .await?;
+                                // For unsafe matches, ignore authentication failures.
+                                let status_code_strategy =
+                                    IndexStatusCodeStrategy::ignore_authentication_error_codes();
+                                let metadata = match self
+                                    .simple_single_index(
+                                        package_name,
+                                        index.url,
+                                        capabilities,
+                                        &status_code_strategy,
+                                    )
+                                    .await?
+                                {
+                                    SimpleMetadataSearchOutcome::Found(metadata) => Some(metadata),
+                                    _ => None,
+                                };
                                 Ok((index.url, metadata.map(MetadataFormat::Simple)))
                             }
                             IndexFormat::Flat => {
@@ -443,14 +468,13 @@ impl RegistryClient {
     ///
     /// The index can either be a PEP 503-compatible remote repository, or a local directory laid
     /// out in the same format.
-    ///
-    /// Returns `Ok(None)` if the package is not found in the index.
     async fn simple_single_index(
         &self,
         package_name: &PackageName,
         index: &IndexUrl,
         capabilities: &IndexCapabilities,
-    ) -> Result<Option<OwnedArchive<SimpleMetadata>>, Error> {
+        status_code_strategy: &IndexStatusCodeStrategy,
+    ) -> Result<SimpleMetadataSearchOutcome, Error> {
         // Format the URL for PyPI.
         let mut url = index.url().clone();
         url.path_segments_mut()
@@ -492,27 +516,31 @@ impl RegistryClient {
         };
 
         match result {
-            Ok(metadata) => Ok(Some(metadata)),
+            Ok(metadata) => Ok(SimpleMetadataSearchOutcome::Found(metadata)),
             Err(err) => match err.into_kind() {
                 // The package could not be found in the remote index.
-                ErrorKind::WrappedReqwestError(url, err) => match err.status() {
-                    Some(StatusCode::NOT_FOUND) => Ok(None),
-                    Some(StatusCode::UNAUTHORIZED) => {
-                        capabilities.set_unauthorized(index.clone());
-                        Ok(None)
+                ErrorKind::WrappedReqwestError(url, err) => {
+                    let Some(status_code) = err.status() else {
+                        return Err(ErrorKind::WrappedReqwestError(url, err).into());
+                    };
+                    let decision =
+                        status_code_strategy.handle_status_code(status_code, index, capabilities);
+                    if let IndexStatusCodeDecision::Fail(status_code) = decision {
+                        if !matches!(
+                            status_code,
+                            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+                        ) {
+                            return Err(ErrorKind::WrappedReqwestError(url, err).into());
+                        }
                     }
-                    Some(StatusCode::FORBIDDEN) => {
-                        capabilities.set_forbidden(index.clone());
-                        Ok(None)
-                    }
-                    _ => Err(ErrorKind::WrappedReqwestError(url, err).into()),
-                },
+                    Ok(SimpleMetadataSearchOutcome::from(decision))
+                }
 
                 // The package is unavailable due to a lack of connectivity.
-                ErrorKind::Offline(_) => Ok(None),
+                ErrorKind::Offline(_) => Ok(SimpleMetadataSearchOutcome::NotFound),
 
                 // The package could not be found in the local index.
-                ErrorKind::FileNotFound(_) => Ok(None),
+                ErrorKind::FileNotFound(_) => Ok(SimpleMetadataSearchOutcome::NotFound),
 
                 err => Err(err.into()),
             },
@@ -965,6 +993,26 @@ impl RegistryClient {
     }
 }
 
+#[derive(Debug)]
+pub(crate) enum SimpleMetadataSearchOutcome {
+    /// Simple metadata was found
+    Found(OwnedArchive<SimpleMetadata>),
+    /// Simple metadata was not found
+    NotFound,
+    /// A status code failure was encountered when searching for
+    /// simple metadata and our strategy did not ignore it
+    StatusCodeFailure(StatusCode),
+}
+
+impl From<IndexStatusCodeDecision> for SimpleMetadataSearchOutcome {
+    fn from(item: IndexStatusCodeDecision) -> Self {
+        match item {
+            IndexStatusCodeDecision::Ignore => Self::NotFound,
+            IndexStatusCodeDecision::Fail(status_code) => Self::StatusCodeFailure(status_code),
+        }
+    }
+}
+
 /// A map from [`IndexUrl`] to [`FlatIndexEntry`] entries found at the given URL, indexed by
 /// [`PackageName`].
 #[derive(Default, Debug, Clone)]
@@ -1174,6 +1222,215 @@ mod tests {
     use uv_pypi_types::{JoinRelativeError, SimpleJson};
 
     use crate::{html::SimpleHtml, SimpleMetadata, SimpleMetadatum};
+
+    use uv_cache::Cache;
+    use wiremock::matchers::{basic_auth, method, path_regex};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use crate::RegistryClientBuilder;
+
+    type Error = Box<dyn std::error::Error>;
+
+    async fn start_test_server(username: &'static str, password: &'static str) -> MockServer {
+        let server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(basic_auth(username, password))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(&server)
+            .await;
+
+        server
+    }
+
+    #[tokio::test]
+    async fn test_redirect_to_server_with_credentials() -> Result<(), Error> {
+        let username = "user";
+        let password = "password";
+
+        let auth_server = start_test_server(username, password).await;
+        let auth_base_url = Url::parse(&auth_server.uri())?;
+
+        let redirect_server = MockServer::start().await;
+
+        // Configure the redirect server to respond with a 302 to the auth server
+        Mock::given(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(302).insert_header("Location", format!("{}", &auth_base_url)),
+            )
+            .mount(&redirect_server)
+            .await;
+
+        let redirect_server_url = Url::parse(&redirect_server.uri())?;
+
+        let cache = Cache::temp()?;
+        let registry_client = RegistryClientBuilder::new(cache).build();
+        let client = registry_client.cached_client().uncached();
+
+        assert_eq!(
+            client
+                .for_host(&redirect_server_url)
+                .get(redirect_server.uri())
+                .send()
+                .await?
+                .status(),
+            401,
+            "Requests should fail if credentials are missing"
+        );
+
+        let mut url = redirect_server_url.clone();
+        let _ = url.set_username(username);
+        let _ = url.set_password(Some(password));
+
+        assert_eq!(
+            client
+                .for_host(&redirect_server_url)
+                .get(format!("{url}"))
+                .send()
+                .await?
+                .status(),
+            200,
+            "Requests should succeed if credentials are present"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_redirect_root_relative_url() -> Result<(), Error> {
+        let username = "user";
+        let password = "password";
+
+        let redirect_server = MockServer::start().await;
+
+        // Configure the redirect server to respond with a 307 with a relative URL.
+        Mock::given(method("GET"))
+            .and(path_regex("/foo/"))
+            .respond_with(
+                ResponseTemplate::new(307).insert_header("Location", "/bar/baz/".to_string()),
+            )
+            .mount(&redirect_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path_regex("/bar/baz/"))
+            .and(basic_auth(username, password))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&redirect_server)
+            .await;
+
+        let redirect_server_url = Url::parse(&redirect_server.uri())?.join("foo/")?;
+
+        let cache = Cache::temp()?;
+        let registry_client = RegistryClientBuilder::new(cache).build();
+        let client = registry_client.cached_client().uncached();
+
+        let mut url = redirect_server_url.clone();
+        let _ = url.set_username(username);
+        let _ = url.set_password(Some(password));
+
+        assert_eq!(
+            client
+                .for_host(&url)
+                .get(format!("{url}"))
+                .send()
+                .await?
+                .status(),
+            200,
+            "Requests should succeed for relative URL"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_redirect_relative_url() -> Result<(), Error> {
+        let username = "user";
+        let password = "password";
+
+        let redirect_server = MockServer::start().await;
+
+        // Configure the redirect server to respond with a 307 with a relative URL.
+        Mock::given(method("GET"))
+            .and(path_regex("/foo/bar/baz/"))
+            .and(basic_auth(username, password))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&redirect_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path_regex("/foo/"))
+            .respond_with(
+                ResponseTemplate::new(307).insert_header("Location", "bar/baz/".to_string()),
+            )
+            .mount(&redirect_server)
+            .await;
+
+        let cache = Cache::temp()?;
+        let registry_client = RegistryClientBuilder::new(cache).build();
+        let client = registry_client.cached_client().uncached();
+
+        let redirect_server_url = Url::parse(&redirect_server.uri())?.join("foo/")?;
+        let mut url = redirect_server_url.clone();
+        let _ = url.set_username(username);
+        let _ = url.set_password(Some(password));
+
+        assert_eq!(
+            client
+                .for_host(&url)
+                .get(format!("{url}"))
+                .send()
+                .await?
+                .status(),
+            200,
+            "Requests should succeed for relative URL"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_redirect_preserve_fragment() -> Result<(), Error> {
+        let redirect_server = MockServer::start().await;
+
+        // Configure the redirect server to respond with a 307 with a relative URL.
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(307).insert_header("Location", "/foo".to_string()))
+            .mount(&redirect_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path_regex("/foo"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&redirect_server)
+            .await;
+
+        let cache = Cache::temp()?;
+        let registry_client = RegistryClientBuilder::new(cache).build();
+        let client = registry_client.cached_client().uncached();
+
+        let mut url = Url::parse(&redirect_server.uri())?;
+        url.set_fragment(Some("fragment"));
+
+        assert_eq!(
+            client
+                .for_host(&url)
+                .get(format!("{}", url.clone()))
+                .send()
+                .await?
+                .url()
+                .to_string(),
+            format!("{}/foo#fragment", redirect_server.uri()),
+            "Requests should preserve fragment"
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn ignore_failing_files() {

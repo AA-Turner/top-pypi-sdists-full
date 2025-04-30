@@ -10,7 +10,6 @@ from rich.panel import Panel
 from pydantic import SkipValidation
 from byzerllm.utils.types import SingleOutputMeta
 
-# Removed ResultManager, stream_out, git_utils, AutoCommandTools, count_tokens, global_cancel, ActionYmlFileManager, get_event_manager, EventContentCreator, get_run_context, AgenticFilterStreamOutType
 from autocoder.common import AutoCoderArgs, git_utils, SourceCodeList, SourceCode
 from autocoder.common.global_cancel import global_cancel
 from autocoder.common import detect_env
@@ -692,6 +691,15 @@ class AgenticEdit:
         3. Remember, you have extensive capabilities with access to a wide range of tools that can be used in powerful and clever ways as necessary to accomplish each goal. Before calling a tool, do some analysis within <thinking></thinking> tags. First, analyze the file structure provided in environment_details to gain context and insights for proceeding effectively. Then, think about which of the provided tools is the most relevant tool to accomplish the user's task. Next, go through each of the required parameters of the relevant tool and determine if the user has directly provided or given enough information to infer a value. When deciding if the parameter can be inferred, carefully consider all the context to see if it supports a specific value. If all of the required parameters are present or can be reasonably inferred, close the thinking tag and proceed with the tool use. BUT, if one of the values for a required parameter is missing, DO NOT invoke the tool (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters using the ask_followup_question tool. DO NOT ask for more information on optional parameters if it is not provided.
         4. Once you've completed the user's task, you must use the attempt_completion tool to present the result of the task to the user. You may also provide a CLI command to showcase the result of your task; this can be particularly useful for web development tasks, where you can run e.g. \`open index.html\` to show the website you've built.
         5. The user may provide feedback, which you can use to make improvements and try again. But DO NOT continue in pointless back and forth conversations, i.e. don't end your responses with questions or offers for further assistance.                    
+        
+        {% if file_paths_str %}
+        ====
+        The following are files that the user is currently focusing on. 
+        Make sure you always start your analysis by using the read_file tool to get the content of the files.
+        <files>
+        {{file_paths_str}}
+        </files>
+        {% endif %}
         """
         import os
         extra_docs = get_rules()
@@ -702,6 +710,8 @@ class AgenticEdit:
             shell_type = "cmd"
         elif shells.is_running_in_powershell():
             shell_type = "powershell"
+
+        file_paths_str = "\n".join([file_source.module_name for file_source in self.files.sources])
         return {
             "conversation_history": self.conversation_history,
             "env_info": env_info,
@@ -716,6 +726,7 @@ class AgenticEdit:
             "mcp_server_info": self.mcp_server_info,
             "enable_active_context_in_generate": self.args.enable_active_context_in_generate,
             "extra_docs": extra_docs,
+            "file_paths_str": file_paths_str,
         }
 
     # Removed _execute_command_result and execute_auto_command methods
@@ -773,27 +784,15 @@ class AgenticEdit:
         conversations = [
             {"role": "system", "content": system_prompt},
         ] 
-        
-        logger.info("Adding initial files context to conversation")
-        conversations.append({
-            "role":"user","content":f'''
-The following are context files that the user is currently focusing on. These files are presented with their complete paths and up-to-date content, providing essential context to help you better understand the user's needs. If you need more detailed information about specific files or directories not shown here, you can use tools like read_file, search_files, or list_files to explore the codebase further.
-<files>
-{self.files.to_str()}
-</files>'''
-        })
-
-        conversations.append({
-            "role":"assistant","content":"Ok"
-        })
-        
-        logger.info("Adding conversation history")        
+                                
         conversations.append({
             "role": "user", "content": request.user_input
         })        
         
         logger.info(
             f"Initial conversation history size: {len(conversations)}")
+        
+        logger.info(f"Conversation history: {json.dumps(conversations, indent=2,ensure_ascii=False)}")
 
         iteration_count = 0
         tool_executed = False
@@ -960,12 +959,17 @@ The following are context files that the user is currently focusing on. These fi
                     elif last_message["role"] == "assistant":
                         logger.info("Appending to existing assistant message")
                         last_message["content"] += assistant_buffer
-                # If the loop ends without AttemptCompletion, it means the LLM finished talking
-                # without signaling completion. We might just stop or yield a final message.
-                # Let's assume it stops here.
-                logger.info("No tool executed and LLM finished. Breaking out of main loop.")
-                break
-
+                
+                # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
+                logger.info("Adding system reminder to use tools or attempt completion")
+                conversations.append({
+                    "role": "user",
+                    "content": "NOTE: You must use an appropriate tool (such as read_file, write_to_file, execute_command, etc.) or explicitly complete the task (using attempt_completion). Do not provide text responses without taking concrete actions. Please select a suitable tool to continue based on the user's task."
+                })
+                # 继续循环，让 LLM 再思考，而不是 break
+                logger.info("Continuing the LLM interaction loop without breaking")
+                continue
+            
         logger.info(f"AgenticEdit analyze loop finished after {iteration_count} iterations.")
 
     def stream_and_parse_llm_response(
@@ -1264,6 +1268,9 @@ The following are context files that the user is currently focusing on. These fi
                     output_cost = (
                         last_meta.generated_tokens_count * output_price) / 1000000
 
+                    # 添加日志记录
+                    logger.info(f"Token Usage Details: Model={model_name}, Input Tokens={last_meta.input_tokens_count}, Output Tokens={last_meta.generated_tokens_count}, Input Cost=${input_cost:.6f}, Output Cost=${output_cost:.6f}")
+
                     get_event_manager(self.args.event_file).write_result(
                         EventContentCreator.create_result(content=EventContentCreator.ResultTokenStatContent(
                             model_name=model_name,
@@ -1446,6 +1453,9 @@ The following are context files that the user is currently focusing on. These fi
                     # Convert to millions
                     output_cost = (
                         last_meta.generated_tokens_count * output_price) / 1000000
+
+                    # 添加日志记录
+                    logger.info(f"Token Usage: Model={model_name}, Input Tokens={last_meta.input_tokens_count}, Output Tokens={last_meta.generated_tokens_count}, Input Cost=${input_cost:.6f}, Output Cost=${output_cost:.6f}")
 
                     self.printer.print_in_terminal(
                             "code_generation_complete",

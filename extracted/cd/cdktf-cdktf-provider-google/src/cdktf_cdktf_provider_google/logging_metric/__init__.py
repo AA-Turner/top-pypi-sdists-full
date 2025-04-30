@@ -1,7 +1,7 @@
 r'''
 # `google_logging_metric`
 
-Refer to the Terraform Registry for docs: [`google_logging_metric`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric).
+Refer to the Terraform Registry for docs: [`google_logging_metric`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LoggingMetric(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.loggingMetric.LoggingMetric",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric google_logging_metric}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric google_logging_metric}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class LoggingMetric(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric google_logging_metric} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric google_logging_metric} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#filter LoggingMetric#filter}
-        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#name LoggingMetric#name}
-        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
-        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
-        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#description LoggingMetric#description}
-        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#id LoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
-        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#project LoggingMetric#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
-        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
+        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#filter LoggingMetric#filter}
+        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#name LoggingMetric#name}
+        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
+        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
+        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#description LoggingMetric#description}
+        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#id LoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
+        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#project LoggingMetric#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
+        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class LoggingMetric(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LoggingMetric to import.
-        :param import_from_id: The id of the existing LoggingMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LoggingMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LoggingMetric to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class LoggingMetric(
         linear_buckets: typing.Optional[typing.Union["LoggingMetricBucketOptionsLinearBuckets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
-        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
-        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
+        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
+        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
+        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
         '''
         value = LoggingMetricBucketOptions(
             explicit_buckets=explicit_buckets,
@@ -179,11 +179,11 @@ class LoggingMetric(
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
-        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
-        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#labels LoggingMetric#labels}
-        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#unit LoggingMetric#unit}
+        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
+        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
+        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#labels LoggingMetric#labels}
+        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#unit LoggingMetric#unit}
         '''
         value = LoggingMetricMetricDescriptor(
             metric_kind=metric_kind,
@@ -204,9 +204,9 @@ class LoggingMetric(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#create LoggingMetric#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#delete LoggingMetric#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#update LoggingMetric#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#create LoggingMetric#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#delete LoggingMetric#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#update LoggingMetric#update}.
         '''
         value = LoggingMetricTimeouts(create=create, delete=delete, update=update)
 
@@ -481,9 +481,9 @@ class LoggingMetricBucketOptions:
         linear_buckets: typing.Optional[typing.Union["LoggingMetricBucketOptionsLinearBuckets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
-        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
-        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
+        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
+        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
+        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
         '''
         if isinstance(explicit_buckets, dict):
             explicit_buckets = LoggingMetricBucketOptionsExplicitBuckets(**explicit_buckets)
@@ -510,7 +510,7 @@ class LoggingMetricBucketOptions:
     ) -> typing.Optional["LoggingMetricBucketOptionsExplicitBuckets"]:
         '''explicit_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#explicit_buckets LoggingMetric#explicit_buckets}
         '''
         result = self._values.get("explicit_buckets")
         return typing.cast(typing.Optional["LoggingMetricBucketOptionsExplicitBuckets"], result)
@@ -521,7 +521,7 @@ class LoggingMetricBucketOptions:
     ) -> typing.Optional["LoggingMetricBucketOptionsExponentialBuckets"]:
         '''exponential_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#exponential_buckets LoggingMetric#exponential_buckets}
         '''
         result = self._values.get("exponential_buckets")
         return typing.cast(typing.Optional["LoggingMetricBucketOptionsExponentialBuckets"], result)
@@ -532,7 +532,7 @@ class LoggingMetricBucketOptions:
     ) -> typing.Optional["LoggingMetricBucketOptionsLinearBuckets"]:
         '''linear_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#linear_buckets LoggingMetric#linear_buckets}
         '''
         result = self._values.get("linear_buckets")
         return typing.cast(typing.Optional["LoggingMetricBucketOptionsLinearBuckets"], result)
@@ -557,7 +557,7 @@ class LoggingMetricBucketOptions:
 class LoggingMetricBucketOptionsExplicitBuckets:
     def __init__(self, *, bounds: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
+        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82c89d9902918288103066aba5b6af26573431c0dd3e37c02f11044c8ac935ea)
@@ -570,7 +570,7 @@ class LoggingMetricBucketOptionsExplicitBuckets:
     def bounds(self) -> typing.List[jsii.Number]:
         '''The values must be monotonically increasing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
         '''
         result = self._values.get("bounds")
         assert result is not None, "Required property 'bounds' is missing"
@@ -661,9 +661,9 @@ class LoggingMetricBucketOptionsExponentialBuckets:
         scale: jsii.Number,
     ) -> None:
         '''
-        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
-        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#scale LoggingMetric#scale}
+        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#scale LoggingMetric#scale}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0099bca4383ea9e958177620d106a68c9cfd55885caf7cb4849be5ffd3b6f6db)
@@ -680,7 +680,7 @@ class LoggingMetricBucketOptionsExponentialBuckets:
     def growth_factor(self) -> jsii.Number:
         '''Must be greater than 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
         '''
         result = self._values.get("growth_factor")
         assert result is not None, "Required property 'growth_factor' is missing"
@@ -690,7 +690,7 @@ class LoggingMetricBucketOptionsExponentialBuckets:
     def num_finite_buckets(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
         '''
         result = self._values.get("num_finite_buckets")
         assert result is not None, "Required property 'num_finite_buckets' is missing"
@@ -700,7 +700,7 @@ class LoggingMetricBucketOptionsExponentialBuckets:
     def scale(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#scale LoggingMetric#scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#scale LoggingMetric#scale}
         '''
         result = self._values.get("scale")
         assert result is not None, "Required property 'scale' is missing"
@@ -825,9 +825,9 @@ class LoggingMetricBucketOptionsLinearBuckets:
         width: jsii.Number,
     ) -> None:
         '''
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
-        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#offset LoggingMetric#offset}
-        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#width LoggingMetric#width}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#offset LoggingMetric#offset}
+        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#width LoggingMetric#width}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f312145c745b854a4671e66ec7f0919b32bb83c201c5522d7719b0b7cf1365b5)
@@ -844,7 +844,7 @@ class LoggingMetricBucketOptionsLinearBuckets:
     def num_finite_buckets(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
         '''
         result = self._values.get("num_finite_buckets")
         assert result is not None, "Required property 'num_finite_buckets' is missing"
@@ -854,7 +854,7 @@ class LoggingMetricBucketOptionsLinearBuckets:
     def offset(self) -> jsii.Number:
         '''Lower bound of the first bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#offset LoggingMetric#offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#offset LoggingMetric#offset}
         '''
         result = self._values.get("offset")
         assert result is not None, "Required property 'offset' is missing"
@@ -864,7 +864,7 @@ class LoggingMetricBucketOptionsLinearBuckets:
     def width(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#width LoggingMetric#width}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#width LoggingMetric#width}
         '''
         result = self._values.get("width")
         assert result is not None, "Required property 'width' is missing"
@@ -994,7 +994,7 @@ class LoggingMetricBucketOptionsOutputReference(
     @jsii.member(jsii_name="putExplicitBuckets")
     def put_explicit_buckets(self, *, bounds: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
+        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bounds LoggingMetric#bounds}
         '''
         value = LoggingMetricBucketOptionsExplicitBuckets(bounds=bounds)
 
@@ -1009,9 +1009,9 @@ class LoggingMetricBucketOptionsOutputReference(
         scale: jsii.Number,
     ) -> None:
         '''
-        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
-        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#scale LoggingMetric#scale}
+        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#growth_factor LoggingMetric#growth_factor}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#scale LoggingMetric#scale}
         '''
         value = LoggingMetricBucketOptionsExponentialBuckets(
             growth_factor=growth_factor,
@@ -1030,9 +1030,9 @@ class LoggingMetricBucketOptionsOutputReference(
         width: jsii.Number,
     ) -> None:
         '''
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
-        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#offset LoggingMetric#offset}
-        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#width LoggingMetric#width}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#num_finite_buckets LoggingMetric#num_finite_buckets}
+        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#offset LoggingMetric#offset}
+        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#width LoggingMetric#width}
         '''
         value = LoggingMetricBucketOptionsLinearBuckets(
             num_finite_buckets=num_finite_buckets, offset=offset, width=width
@@ -1165,18 +1165,18 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#filter LoggingMetric#filter}
-        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#name LoggingMetric#name}
-        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
-        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
-        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#description LoggingMetric#description}
-        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#id LoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
-        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#project LoggingMetric#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
-        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
+        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#filter LoggingMetric#filter}
+        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#name LoggingMetric#name}
+        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
+        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
+        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#description LoggingMetric#description}
+        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#id LoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
+        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#project LoggingMetric#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
+        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1314,7 +1314,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#filter LoggingMetric#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#filter LoggingMetric#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -1330,7 +1330,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         character (/) denotes a hierarchy of name pieces, and it cannot be the first character
         of the name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#name LoggingMetric#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#name LoggingMetric#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1343,7 +1343,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Only Log Buckets in projects
         are supported. The bucket has to be in the same project as the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_name LoggingMetric#bucket_name}
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1352,7 +1352,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket_options(self) -> typing.Optional[LoggingMetricBucketOptions]:
         '''bucket_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#bucket_options LoggingMetric#bucket_options}
         '''
         result = self._values.get("bucket_options")
         return typing.cast(typing.Optional[LoggingMetricBucketOptions], result)
@@ -1361,7 +1361,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#description LoggingMetric#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#description LoggingMetric#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1372,14 +1372,14 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to True, then this metric is disabled and it does not generate any points.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#disabled LoggingMetric#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#id LoggingMetric#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#id LoggingMetric#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1397,7 +1397,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         have an associated extractor expression in this map. The syntax of the extractor expression is
         the same as for the valueExtractor field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#label_extractors LoggingMetric#label_extractors}
         '''
         result = self._values.get("label_extractors")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1406,14 +1406,14 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric_descriptor(self) -> typing.Optional["LoggingMetricMetricDescriptor"]:
         '''metric_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_descriptor LoggingMetric#metric_descriptor}
         '''
         result = self._values.get("metric_descriptor")
         return typing.cast(typing.Optional["LoggingMetricMetricDescriptor"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#project LoggingMetric#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#project LoggingMetric#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1421,7 +1421,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LoggingMetricTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#timeouts LoggingMetric#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LoggingMetricTimeouts"], result)
@@ -1437,7 +1437,7 @@ class LoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         log entry field. The value of the field is converted to a string before applying the regex. It is an
         error to specify a regex that does not include exactly one capture group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_extractor LoggingMetric#value_extractor}
         '''
         result = self._values.get("value_extractor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1476,11 +1476,11 @@ class LoggingMetricMetricDescriptor:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
-        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
-        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#labels LoggingMetric#labels}
-        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#unit LoggingMetric#unit}
+        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
+        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
+        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#labels LoggingMetric#labels}
+        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#unit LoggingMetric#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59a1661b616a5a922f86ea4ebafb09ccae20db1b27ae091a22ad387463999761)
@@ -1507,7 +1507,7 @@ class LoggingMetricMetricDescriptor:
         Some combinations of metricKind and valueType might not be supported.
         For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#metric_kind LoggingMetric#metric_kind}
         '''
         result = self._values.get("metric_kind")
         assert result is not None, "Required property 'metric_kind' is missing"
@@ -1520,7 +1520,7 @@ class LoggingMetricMetricDescriptor:
         Some combinations of metricKind and valueType might not be supported.
         For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
         '''
         result = self._values.get("value_type")
         assert result is not None, "Required property 'value_type' is missing"
@@ -1534,7 +1534,7 @@ class LoggingMetricMetricDescriptor:
         without an ending period, for example "Request count". This field is optional but it is
         recommended to be set for any metrics associated with user-visible concepts, such as Quota.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#display_name LoggingMetric#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1545,7 +1545,7 @@ class LoggingMetricMetricDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LoggingMetricMetricDescriptorLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#labels LoggingMetric#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#labels LoggingMetric#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LoggingMetricMetricDescriptorLabels"]]], result)
@@ -1558,7 +1558,7 @@ class LoggingMetricMetricDescriptor:
         'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of
         `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#unit LoggingMetric#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#unit LoggingMetric#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1593,9 +1593,9 @@ class LoggingMetricMetricDescriptorLabels:
         value_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: The label key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#key LoggingMetric#key}
-        :param description: A human-readable description for the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#description LoggingMetric#description}
-        :param value_type: The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
+        :param key: The label key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#key LoggingMetric#key}
+        :param description: A human-readable description for the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#description LoggingMetric#description}
+        :param value_type: The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04809fc8d569fa88e4a60ca0d1d2c82b8d23f910c29a3969ed44671a11e121bd)
@@ -1614,7 +1614,7 @@ class LoggingMetricMetricDescriptorLabels:
     def key(self) -> builtins.str:
         '''The label key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#key LoggingMetric#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#key LoggingMetric#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1624,7 +1624,7 @@ class LoggingMetricMetricDescriptorLabels:
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description for the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#description LoggingMetric#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#description LoggingMetric#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1633,7 +1633,7 @@ class LoggingMetricMetricDescriptorLabels:
     def value_type(self) -> typing.Optional[builtins.str]:
         '''The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#value_type LoggingMetric#value_type}
         '''
         result = self._values.get("value_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2001,9 +2001,9 @@ class LoggingMetricTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#create LoggingMetric#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#delete LoggingMetric#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#update LoggingMetric#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#create LoggingMetric#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#delete LoggingMetric#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#update LoggingMetric#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99647e048a05e2c981557d02572c74fadfbb4106c7ffd8b3ca269ec8c4e34c1e)
@@ -2020,19 +2020,19 @@ class LoggingMetricTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#create LoggingMetric#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#create LoggingMetric#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#delete LoggingMetric#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#delete LoggingMetric#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/logging_metric#update LoggingMetric#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_metric#update LoggingMetric#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

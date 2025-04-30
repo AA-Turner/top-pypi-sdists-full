@@ -489,6 +489,15 @@ MODEL_RATIO = {
     "qwen2.5-72b-instruct": 2,
     "qwen2.5-math-72b-instruct": 2,
     "qwen2.5-coder-32b-instruct": 0.5,
+    # https://bailian.console.aliyun.com/?tab=doc#/api/?type=model&url=https%3A%2F%2Fhelp.aliyun.com%2Fdocument_detail%2F2840914.html%239f8890ce29g5u
+    "qwen3-0.6b": 0.1,
+    "qwen3-1.7b": 0.15,
+    "qwen3-4b": 0.2,
+    "qwen3-8b": 0.25,
+    "qwen3-14b": 0.5,
+    "qwen3-32b": 1,
+    "qwen3-30b-a3b": 0.75,
+    "qwen3-235b-a22b": 2,
 
     "qwq-32b": 1,
     "qwq-plus": 0.8,
@@ -703,6 +712,8 @@ MODEL_RATIO = {
     "claude-3-7-sonnet-thinking": 1.5,
     "claude-3-7-sonnet-20250219-thinking": 1.5,
     "claude-3-7-sonnet-latest": 1.5,
+    "claude-3-7-sonnet-latest-thinking": 1.5,
+
     "claude-3-7-sonnet-20250219": 1.5,
 
     "deepclaude": 1.5,
@@ -964,6 +975,7 @@ COMPLETION_RATIO = {
     "claude-3-7-sonnet-think": 5,
     "claude-3-7-sonnet-latest": 5,
     "claude-3-7-sonnet-20250219": 5,
+    "claude-3-7-sonnet-latest-thinking": 5,
 
     "llama-3.1-70b-instruct": 2,
     "meta-llama/Meta-Llama-3.1-70B-Instruct": 2,
@@ -1070,6 +1082,16 @@ COMPLETION_RATIO = {
     "qwen2.5-32b-instruct": 4,
     "qwen2.5-72b-instruct": 4,
     "qwen2.5-math-72b-instruct": 4,
+
+    "qwen3-0.6b": 4,
+    "qwen3-1.7b": 4,
+    "qwen3-4b": 4,
+
+    "qwen3-8b": 4,
+    "qwen3-14b": 4,
+    "qwen3-32b": 4,
+    "qwen3-30b-a3b": 4,
+    "qwen3-235b-a22b": 3,
 
     "deepseek-vl2": 4,
     "deepseek-ai/deepseek-vl2": 4,
@@ -1375,3 +1397,4 @@ if __name__ == '__main__':
 
     print(bjson({k: v * 6 for k, v in MODEL_RATIO.items() if k.startswith('claude')}))
     print([k for k in MODEL_RATIO if k.startswith('gpt-4.1')] | xjoin(","))
+    print([k for k in MODEL_RATIO if k.startswith('qwen3')] | xjoin(","))

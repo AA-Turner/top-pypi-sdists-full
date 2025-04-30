@@ -1,7 +1,7 @@
 r'''
 # `google_cloudbuild_trigger`
 
-Refer to the Terraform Registry for docs: [`google_cloudbuild_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger).
+Refer to the Terraform Registry for docs: [`google_cloudbuild_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudbuildTrigger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudbuildTrigger.CloudbuildTrigger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger google_cloudbuild_trigger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger google_cloudbuild_trigger}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class CloudbuildTrigger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger google_cloudbuild_trigger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger google_cloudbuild_trigger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param approval_config: approval_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
-        :param bitbucket_server_trigger_config: bitbucket_server_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
-        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
-        :param description: Human-readable description of the trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
-        :param disabled: Whether the trigger is disabled or not. If true, the trigger will never result in a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
-        :param filename: Path, from the source root, to a file whose contents is used for the template. Either a filename or build template must be provided. Set this only when using trigger_template or github. When using Pub/Sub, Webhook or Manual set the file name using git_file_source instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
-        :param filter: A Common Expression Language string. Used only with Pub/Sub and Webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
-        :param git_file_source: git_file_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
-        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignored_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If ignoredFiles and changed files are both empty, then they are not used to determine whether or not to trigger a build. If ignoredFiles is not empty, then we ignore any files that match any of the ignored_file globs. If the change has no files that are outside of the ignoredFiles globs, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
-        :param include_build_logs: Build logs will be sent back to GitHub as part of the checkrun result. Values can be INCLUDE_BUILD_LOGS_UNSPECIFIED or INCLUDE_BUILD_LOGS_WITH_STATUS Possible values: ["INCLUDE_BUILD_LOGS_UNSPECIFIED", "INCLUDE_BUILD_LOGS_WITH_STATUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
-        :param included_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is empty, then as far as this filter is concerned, we should trigger the build. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is not empty, then we make sure that at least one of those files matches a includedFiles glob. If not, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
-        :param location: The `Cloud Build location <https://cloud.google.com/build/docs/locations>`_ for the trigger. If not specified, "global" is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
-        :param name: Name of the trigger. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.
-        :param pubsub_config: pubsub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
-        :param repository_event_config: repository_event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
-        :param service_account: The service account used for all user-controlled operations including triggers.patch, triggers.run, builds.create, and builds.cancel. If no service account is set, then the standard Cloud Build service account ([PROJECT_NUM]@system.gserviceaccount.com) will be used instead. Format: projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT_ID_OR_EMAIL} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
-        :param source_to_build: source_to_build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
-        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tags: Tags for annotation of a BuildTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
-        :param trigger_template: trigger_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
-        :param webhook_config: webhook_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
+        :param approval_config: approval_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
+        :param bitbucket_server_trigger_config: bitbucket_server_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
+        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
+        :param description: Human-readable description of the trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
+        :param disabled: Whether the trigger is disabled or not. If true, the trigger will never result in a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
+        :param filename: Path, from the source root, to a file whose contents is used for the template. Either a filename or build template must be provided. Set this only when using trigger_template or github. When using Pub/Sub, Webhook or Manual set the file name using git_file_source instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
+        :param filter: A Common Expression Language string. Used only with Pub/Sub and Webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
+        :param git_file_source: git_file_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
+        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignored_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If ignoredFiles and changed files are both empty, then they are not used to determine whether or not to trigger a build. If ignoredFiles is not empty, then we ignore any files that match any of the ignored_file globs. If the change has no files that are outside of the ignoredFiles globs, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
+        :param include_build_logs: Build logs will be sent back to GitHub as part of the checkrun result. Values can be INCLUDE_BUILD_LOGS_UNSPECIFIED or INCLUDE_BUILD_LOGS_WITH_STATUS Possible values: ["INCLUDE_BUILD_LOGS_UNSPECIFIED", "INCLUDE_BUILD_LOGS_WITH_STATUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
+        :param included_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is empty, then as far as this filter is concerned, we should trigger the build. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is not empty, then we make sure that at least one of those files matches a includedFiles glob. If not, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
+        :param location: The `Cloud Build location <https://cloud.google.com/build/docs/locations>`_ for the trigger. If not specified, "global" is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        :param name: Name of the trigger. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.
+        :param pubsub_config: pubsub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
+        :param repository_event_config: repository_event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
+        :param service_account: The service account used for all user-controlled operations including triggers.patch, triggers.run, builds.create, and builds.cancel. If no service account is set, then the standard Cloud Build service account ([PROJECT_NUM]@system.gserviceaccount.com) will be used instead. Format: projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT_ID_OR_EMAIL} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
+        :param source_to_build: source_to_build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
+        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tags: Tags for annotation of a BuildTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
+        :param trigger_template: trigger_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
+        :param webhook_config: webhook_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class CloudbuildTrigger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudbuildTrigger to import.
-        :param import_from_id: The id of the existing CloudbuildTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudbuildTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudbuildTrigger to import is found.
         '''
         if __debug__:
@@ -193,7 +193,7 @@ class CloudbuildTrigger(
         approval_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_required: Whether or not approval is needed. If this is set on a build, it will become pending when run, and will need to be explicitly approved to start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
+        :param approval_required: Whether or not approval is needed. If this is set on a build, it will become pending when run, and will need to be explicitly approved to start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
         '''
         value = CloudbuildTriggerApprovalConfig(approval_required=approval_required)
 
@@ -210,11 +210,11 @@ class CloudbuildTrigger(
         push: typing.Optional[typing.Union["CloudbuildTriggerBitbucketServerTriggerConfigPush", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bitbucket_server_config_resource: The Bitbucket server config resource that this trigger config maps to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
-        :param project_key: Key of the project that the repo is in. For example: The key for https://mybitbucket.server/projects/TEST/repos/test-repo is "TEST". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
-        :param repo_slug: Slug of the repository. A repository slug is a URL-friendly version of a repository name, automatically generated by Bitbucket for use in the URL. For example, if the repository name is 'test repo', in the URL it would become 'test-repo' as in https://mybitbucket.server/projects/TEST/repos/test-repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param bitbucket_server_config_resource: The Bitbucket server config resource that this trigger config maps to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
+        :param project_key: Key of the project that the repo is in. For example: The key for https://mybitbucket.server/projects/TEST/repos/test-repo is "TEST". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
+        :param repo_slug: Slug of the repository. A repository slug is a URL-friendly version of a repository name, automatically generated by Bitbucket for use in the URL. For example, if the repository name is 'test repo', in the URL it would become 'test-repo' as in https://mybitbucket.server/projects/TEST/repos/test-repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         value = CloudbuildTriggerBitbucketServerTriggerConfig(
             bitbucket_server_config_resource=bitbucket_server_config_resource,
@@ -244,18 +244,18 @@ class CloudbuildTrigger(
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
-        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
-        :param available_secrets: available_secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
-        :param images: A list of images to be pushed upon the successful completion of all build steps. The images are pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build status is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
-        :param logs_bucket: Google Cloud Storage bucket where logs should be written. Logs file names will be of the format ${logsBucket}/log-${build_id}.txt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
-        :param queue_ttl: TTL in queue for this build. If provided and the build is enqueued longer than this value, the build will expire and the build status will be EXPIRED. The TTL starts ticking from createTime. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
-        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tags: Tags for annotation of a Build. These are not docker tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
-        :param timeout: Amount of time that this build should be allowed to run, to second granularity. If this amount of time elapses, work on the build will cease and the build status will be TIMEOUT. This timeout must be equal to or greater than the sum of the timeouts for build steps within the build. The expected format is the number of seconds followed by s. Default time is ten minutes (600s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
+        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
+        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
+        :param available_secrets: available_secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
+        :param images: A list of images to be pushed upon the successful completion of all build steps. The images are pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build status is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        :param logs_bucket: Google Cloud Storage bucket where logs should be written. Logs file names will be of the format ${logsBucket}/log-${build_id}.txt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
+        :param queue_ttl: TTL in queue for this build. If provided and the build is enqueued longer than this value, the build will expire and the build status will be EXPIRED. The TTL starts ticking from createTime. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
+        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tags: Tags for annotation of a Build. These are not docker tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        :param timeout: Amount of time that this build should be allowed to run, to second granularity. If this amount of time elapses, work on the build will cease and the build status will be TIMEOUT. This timeout must be equal to or greater than the sum of the timeouts for build steps within the build. The expected format is the number of seconds followed by s. Default time is ten minutes (600s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
         '''
         value = CloudbuildTriggerBuild(
             step=step,
@@ -287,13 +287,13 @@ class CloudbuildTrigger(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The path of the file, with the repo root as the root of the path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
-        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
-        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
-        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
-        :param repository: The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository. If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
-        :param revision: The branch, tag, arbitrary ref, or SHA version of the repo to use when resolving the filename (optional). This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions If unspecified, the revision from which the trigger invocation originated is assumed to be the revision from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
-        :param uri: The URI of the repo (optional). If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        :param path: The path of the file, with the repo root as the root of the path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        :param repository: The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository. If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param revision: The branch, tag, arbitrary ref, or SHA version of the repo to use when resolving the filename (optional). This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions If unspecified, the revision from which the trigger invocation originated is assumed to be the revision from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
+        :param uri: The URI of the repo (optional). If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         value = CloudbuildTriggerGitFileSource(
             path=path,
@@ -318,11 +318,11 @@ class CloudbuildTrigger(
         push: typing.Optional[typing.Union["CloudbuildTriggerGithubPush", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enterprise_config_resource_name: The resource name of the github enterprise config that should be applied to this installation. For example: "projects/{$projectId}/locations/{$locationId}/githubEnterpriseConfigs/{$configId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
-        :param name: Name of the repository. For example: The name for https://github.com/googlecloudplatform/cloud-builders is "cloud-builders". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param owner: Owner of the repository. For example: The owner for https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param enterprise_config_resource_name: The resource name of the github enterprise config that should be applied to this installation. For example: "projects/{$projectId}/locations/{$locationId}/githubEnterpriseConfigs/{$configId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
+        :param name: Name of the repository. For example: The name for https://github.com/googlecloudplatform/cloud-builders is "cloud-builders". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param owner: Owner of the repository. For example: The owner for https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         value = CloudbuildTriggerGithub(
             enterprise_config_resource_name=enterprise_config_resource_name,
@@ -342,8 +342,8 @@ class CloudbuildTrigger(
         service_account_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topic: The name of the topic from which this subscription is receiving messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
-        :param service_account_email: Service account that will make the push request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
+        :param topic: The name of the topic from which this subscription is receiving messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
+        :param service_account_email: Service account that will make the push request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
         '''
         value = CloudbuildTriggerPubsubConfig(
             topic=topic, service_account_email=service_account_email
@@ -360,9 +360,9 @@ class CloudbuildTrigger(
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
-        :param repository: The resource name of the Repo API resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param repository: The resource name of the Repo API resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         value = CloudbuildTriggerRepositoryEventConfig(
             pull_request=pull_request, push=push, repository=repository
@@ -382,12 +382,12 @@ class CloudbuildTrigger(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ref: The branch or tag to use. Must start with "refs/" (required). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
-        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
-        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
-        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
-        :param repository: The qualified resource name of the Repo API repository. Either uri or repository can be specified and is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
-        :param uri: The URI of the repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        :param ref: The branch or tag to use. Must start with "refs/" (required). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
+        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        :param repository: The qualified resource name of the Repo API repository. Either uri or repository can be specified and is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param uri: The URI of the repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         value = CloudbuildTriggerSourceToBuild(
             ref=ref,
@@ -409,9 +409,9 @@ class CloudbuildTrigger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.
         '''
         value = CloudbuildTriggerTimeouts(create=create, delete=delete, update=update)
 
@@ -430,13 +430,13 @@ class CloudbuildTrigger(
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch_name: Name of the branch to build. Exactly one a of branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
-        :param commit_sha: Explicit commit SHA to build. Exactly one of a branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
-        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
-        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
-        :param repo_name: Name of the Cloud Source Repository. If omitted, the name "default" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
-        :param tag_name: Name of the tag to build. Exactly one of a branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        :param branch_name: Name of the branch to build. Exactly one a of branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        :param commit_sha: Explicit commit SHA to build. Exactly one of a branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        :param repo_name: Name of the Cloud Source Repository. If omitted, the name "default" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        :param tag_name: Name of the tag to build. Exactly one of a branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         value = CloudbuildTriggerTriggerTemplate(
             branch_name=branch_name,
@@ -453,7 +453,7 @@ class CloudbuildTrigger(
     @jsii.member(jsii_name="putWebhookConfig")
     def put_webhook_config(self, *, secret: builtins.str) -> None:
         '''
-        :param secret: Resource name for the secret required as a URL parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        :param secret: Resource name for the secret required as a URL parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
         '''
         value = CloudbuildTriggerWebhookConfig(secret=secret)
 
@@ -968,7 +968,7 @@ class CloudbuildTriggerApprovalConfig:
         approval_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_required: Whether or not approval is needed. If this is set on a build, it will become pending when run, and will need to be explicitly approved to start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
+        :param approval_required: Whether or not approval is needed. If this is set on a build, it will become pending when run, and will need to be explicitly approved to start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3de77cdb1e8fc27cf964d9a3d6dfa80906445748fa9580baa5fdcc1eae621db)
@@ -986,7 +986,7 @@ class CloudbuildTriggerApprovalConfig:
         If this is set on a build, it will become pending when run,
         and will need to be explicitly approved to start.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_required CloudbuildTrigger#approval_required}
         '''
         result = self._values.get("approval_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1089,11 +1089,11 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
         push: typing.Optional[typing.Union["CloudbuildTriggerBitbucketServerTriggerConfigPush", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bitbucket_server_config_resource: The Bitbucket server config resource that this trigger config maps to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
-        :param project_key: Key of the project that the repo is in. For example: The key for https://mybitbucket.server/projects/TEST/repos/test-repo is "TEST". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
-        :param repo_slug: Slug of the repository. A repository slug is a URL-friendly version of a repository name, automatically generated by Bitbucket for use in the URL. For example, if the repository name is 'test repo', in the URL it would become 'test-repo' as in https://mybitbucket.server/projects/TEST/repos/test-repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param bitbucket_server_config_resource: The Bitbucket server config resource that this trigger config maps to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
+        :param project_key: Key of the project that the repo is in. For example: The key for https://mybitbucket.server/projects/TEST/repos/test-repo is "TEST". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
+        :param repo_slug: Slug of the repository. A repository slug is a URL-friendly version of a repository name, automatically generated by Bitbucket for use in the URL. For example, if the repository name is 'test repo', in the URL it would become 'test-repo' as in https://mybitbucket.server/projects/TEST/repos/test-repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         if isinstance(pull_request, dict):
             pull_request = CloudbuildTriggerBitbucketServerTriggerConfigPullRequest(**pull_request)
@@ -1120,7 +1120,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
     def bitbucket_server_config_resource(self) -> builtins.str:
         '''The Bitbucket server config resource that this trigger config maps to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config_resource CloudbuildTrigger#bitbucket_server_config_resource}
         '''
         result = self._values.get("bitbucket_server_config_resource")
         assert result is not None, "Required property 'bitbucket_server_config_resource' is missing"
@@ -1130,7 +1130,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
     def project_key(self) -> builtins.str:
         '''Key of the project that the repo is in. For example: The key for https://mybitbucket.server/projects/TEST/repos/test-repo is "TEST".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_key CloudbuildTrigger#project_key}
         '''
         result = self._values.get("project_key")
         assert result is not None, "Required property 'project_key' is missing"
@@ -1143,7 +1143,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
         A repository slug is a URL-friendly version of a repository name, automatically generated by Bitbucket for use in the URL.
         For example, if the repository name is 'test repo', in the URL it would become 'test-repo' as in https://mybitbucket.server/projects/TEST/repos/test-repo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_slug CloudbuildTrigger#repo_slug}
         '''
         result = self._values.get("repo_slug")
         assert result is not None, "Required property 'repo_slug' is missing"
@@ -1155,7 +1155,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
     ) -> typing.Optional["CloudbuildTriggerBitbucketServerTriggerConfigPullRequest"]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional["CloudbuildTriggerBitbucketServerTriggerConfigPullRequest"], result)
@@ -1166,7 +1166,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfig:
     ) -> typing.Optional["CloudbuildTriggerBitbucketServerTriggerConfigPush"]:
         '''push block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         result = self._values.get("push")
         return typing.cast(typing.Optional["CloudbuildTriggerBitbucketServerTriggerConfigPush"], result)
@@ -1212,9 +1212,9 @@ class CloudbuildTriggerBitbucketServerTriggerConfigOutputReference(
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment /gcbrun. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment /gcbrun. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         value = CloudbuildTriggerBitbucketServerTriggerConfigPullRequest(
             branch=branch, comment_control=comment_control, invert_regex=invert_regex
@@ -1231,9 +1231,9 @@ class CloudbuildTriggerBitbucketServerTriggerConfigOutputReference(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the gitRef regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the gitRef regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         value = CloudbuildTriggerBitbucketServerTriggerConfigPush(
             branch=branch, invert_regex=invert_regex, tag=tag
@@ -1364,9 +1364,9 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPullRequest:
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment /gcbrun. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment /gcbrun. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cfbe5c47fca65fb28975f6bacef041b0be64b3f8424e75be554ad0e9685fa07)
@@ -1387,7 +1387,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPullRequest:
 
         The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -1397,7 +1397,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPullRequest:
     def comment_control(self) -> typing.Optional[builtins.str]:
         '''Configure builds to run whether a repository owner or collaborator need to comment /gcbrun. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
         '''
         result = self._values.get("comment_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1408,7 +1408,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, branches that do NOT match the git_ref will trigger a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1541,9 +1541,9 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPush:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the gitRef regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the gitRef regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee112fd6a2a3e4713b80dc25f9798c6dd325ee616cb4d57fb797a7838a235193)
@@ -1562,7 +1562,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPush:
     def branch(self) -> typing.Optional[builtins.str]:
         '''Regex of branches to match.  Specify only one of branch or tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1573,7 +1573,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPush:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, only trigger a build if the revision regex does NOT match the gitRef regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1582,7 +1582,7 @@ class CloudbuildTriggerBitbucketServerTriggerConfigPush:
     def tag(self) -> typing.Optional[builtins.str]:
         '''Regex of tags to match.  Specify only one of branch or tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1741,18 +1741,18 @@ class CloudbuildTriggerBuild:
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
-        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
-        :param available_secrets: available_secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
-        :param images: A list of images to be pushed upon the successful completion of all build steps. The images are pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build status is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
-        :param logs_bucket: Google Cloud Storage bucket where logs should be written. Logs file names will be of the format ${logsBucket}/log-${build_id}.txt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
-        :param queue_ttl: TTL in queue for this build. If provided and the build is enqueued longer than this value, the build will expire and the build status will be EXPIRED. The TTL starts ticking from createTime. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
-        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tags: Tags for annotation of a Build. These are not docker tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
-        :param timeout: Amount of time that this build should be allowed to run, to second granularity. If this amount of time elapses, work on the build will cease and the build status will be TIMEOUT. This timeout must be equal to or greater than the sum of the timeouts for build steps within the build. The expected format is the number of seconds followed by s. Default time is ten minutes (600s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
+        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
+        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
+        :param available_secrets: available_secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
+        :param images: A list of images to be pushed upon the successful completion of all build steps. The images are pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build status is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        :param logs_bucket: Google Cloud Storage bucket where logs should be written. Logs file names will be of the format ${logsBucket}/log-${build_id}.txt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
+        :param queue_ttl: TTL in queue for this build. If provided and the build is enqueued longer than this value, the build will expire and the build status will be EXPIRED. The TTL starts ticking from createTime. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
+        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tags: Tags for annotation of a Build. These are not docker tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        :param timeout: Amount of time that this build should be allowed to run, to second granularity. If this amount of time elapses, work on the build will cease and the build status will be TIMEOUT. This timeout must be equal to or greater than the sum of the timeouts for build steps within the build. The expected format is the number of seconds followed by s. Default time is ten minutes (600s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
         '''
         if isinstance(artifacts, dict):
             artifacts = CloudbuildTriggerBuildArtifacts(**artifacts)
@@ -1808,7 +1808,7 @@ class CloudbuildTriggerBuild:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildStep"]]:
         '''step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#step CloudbuildTrigger#step}
         '''
         result = self._values.get("step")
         assert result is not None, "Required property 'step' is missing"
@@ -1818,7 +1818,7 @@ class CloudbuildTriggerBuild:
     def artifacts(self) -> typing.Optional["CloudbuildTriggerBuildArtifacts"]:
         '''artifacts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#artifacts CloudbuildTrigger#artifacts}
         '''
         result = self._values.get("artifacts")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildArtifacts"], result)
@@ -1829,7 +1829,7 @@ class CloudbuildTriggerBuild:
     ) -> typing.Optional["CloudbuildTriggerBuildAvailableSecrets"]:
         '''available_secrets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#available_secrets CloudbuildTrigger#available_secrets}
         '''
         result = self._values.get("available_secrets")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildAvailableSecrets"], result)
@@ -1842,7 +1842,7 @@ class CloudbuildTriggerBuild:
         The digests of the pushed images will be stored in the Build resource's results field.
         If any of the images fail to be pushed, the build status is marked FAILURE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
         '''
         result = self._values.get("images")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1851,7 +1851,7 @@ class CloudbuildTriggerBuild:
     def logs_bucket(self) -> typing.Optional[builtins.str]:
         '''Google Cloud Storage bucket where logs should be written. Logs file names will be of the format ${logsBucket}/log-${build_id}.txt.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logs_bucket CloudbuildTrigger#logs_bucket}
         '''
         result = self._values.get("logs_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1860,7 +1860,7 @@ class CloudbuildTriggerBuild:
     def options(self) -> typing.Optional["CloudbuildTriggerBuildOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#options CloudbuildTrigger#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildOptions"], result)
@@ -1874,7 +1874,7 @@ class CloudbuildTriggerBuild:
         The TTL starts ticking from createTime.
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#queue_ttl CloudbuildTrigger#queue_ttl}
         '''
         result = self._values.get("queue_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1885,7 +1885,7 @@ class CloudbuildTriggerBuild:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildSecret"]]]:
         '''secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildSecret"]]], result)
@@ -1894,7 +1894,7 @@ class CloudbuildTriggerBuild:
     def source(self) -> typing.Optional["CloudbuildTriggerBuildSource"]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source CloudbuildTrigger#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildSource"], result)
@@ -1905,7 +1905,7 @@ class CloudbuildTriggerBuild:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Substitutions data for Build resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
         '''
         result = self._values.get("substitutions")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1914,7 +1914,7 @@ class CloudbuildTriggerBuild:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags for annotation of a Build. These are not docker tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1928,7 +1928,7 @@ class CloudbuildTriggerBuild:
         The expected format is the number of seconds followed by s.
         Default time is ten minutes (600s).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1967,11 +1967,11 @@ class CloudbuildTriggerBuildArtifacts:
         python_packages: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudbuildTriggerBuildArtifactsPythonPackages", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param images: A list of images to be pushed upon the successful completion of all build steps. The images will be pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
-        :param maven_artifacts: maven_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
-        :param npm_packages: npm_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
-        :param python_packages: python_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
+        :param images: A list of images to be pushed upon the successful completion of all build steps. The images will be pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        :param maven_artifacts: maven_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
+        :param npm_packages: npm_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
+        :param python_packages: python_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
         '''
         if isinstance(objects, dict):
             objects = CloudbuildTriggerBuildArtifactsObjects(**objects)
@@ -2004,7 +2004,7 @@ class CloudbuildTriggerBuildArtifacts:
 
         If any of the images fail to be pushed, the build is marked FAILURE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
         '''
         result = self._values.get("images")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2015,7 +2015,7 @@ class CloudbuildTriggerBuildArtifacts:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsMavenArtifacts"]]]:
         '''maven_artifacts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
         '''
         result = self._values.get("maven_artifacts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsMavenArtifacts"]]], result)
@@ -2026,7 +2026,7 @@ class CloudbuildTriggerBuildArtifacts:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsNpmPackages"]]]:
         '''npm_packages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
         '''
         result = self._values.get("npm_packages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsNpmPackages"]]], result)
@@ -2035,7 +2035,7 @@ class CloudbuildTriggerBuildArtifacts:
     def objects(self) -> typing.Optional["CloudbuildTriggerBuildArtifactsObjects"]:
         '''objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
         '''
         result = self._values.get("objects")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildArtifactsObjects"], result)
@@ -2046,7 +2046,7 @@ class CloudbuildTriggerBuildArtifacts:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsPythonPackages"]]]:
         '''python_packages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
         '''
         result = self._values.get("python_packages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildArtifactsPythonPackages"]]], result)
@@ -2085,11 +2085,11 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: Maven artifactId value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#artifact_id CloudbuildTrigger#artifact_id}
-        :param group_id: Maven groupId value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#group_id CloudbuildTrigger#group_id}
-        :param path: Path to an artifact in the build's workspace to be uploaded to Artifact Registry. This can be either an absolute path, e.g. /workspace/my-app/target/my-app-1.0.SNAPSHOT.jar or a relative path from /workspace, e.g. my-app/target/my-app-1.0.SNAPSHOT.jar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
-        :param repository: Artifact Registry repository, in the form "https://$REGION-maven.pkg.dev/$PROJECT/$REPOSITORY". Artifact in the workspace specified by path will be uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
-        :param version: Maven version value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#version CloudbuildTrigger#version}
+        :param artifact_id: Maven artifactId value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#artifact_id CloudbuildTrigger#artifact_id}
+        :param group_id: Maven groupId value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#group_id CloudbuildTrigger#group_id}
+        :param path: Path to an artifact in the build's workspace to be uploaded to Artifact Registry. This can be either an absolute path, e.g. /workspace/my-app/target/my-app-1.0.SNAPSHOT.jar or a relative path from /workspace, e.g. my-app/target/my-app-1.0.SNAPSHOT.jar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        :param repository: Artifact Registry repository, in the form "https://$REGION-maven.pkg.dev/$PROJECT/$REPOSITORY". Artifact in the workspace specified by path will be uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param version: Maven version value used when uploading the artifact to Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#version CloudbuildTrigger#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81b03984ffdae9a1f8a9ad00af72ec547db607818e298946682eff53835285b0)
@@ -2114,7 +2114,7 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
     def artifact_id(self) -> typing.Optional[builtins.str]:
         '''Maven artifactId value used when uploading the artifact to Artifact Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#artifact_id CloudbuildTrigger#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#artifact_id CloudbuildTrigger#artifact_id}
         '''
         result = self._values.get("artifact_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2123,7 +2123,7 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
     def group_id(self) -> typing.Optional[builtins.str]:
         '''Maven groupId value used when uploading the artifact to Artifact Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#group_id CloudbuildTrigger#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#group_id CloudbuildTrigger#group_id}
         '''
         result = self._values.get("group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2134,7 +2134,7 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
 
         This can be either an absolute path, e.g. /workspace/my-app/target/my-app-1.0.SNAPSHOT.jar or a relative path from /workspace, e.g. my-app/target/my-app-1.0.SNAPSHOT.jar.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2145,7 +2145,7 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
 
         Artifact in the workspace specified by path will be uploaded to Artifact Registry with this location as a prefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2154,7 +2154,7 @@ class CloudbuildTriggerBuildArtifactsMavenArtifacts:
     def version(self) -> typing.Optional[builtins.str]:
         '''Maven version value used when uploading the artifact to Artifact Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#version CloudbuildTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#version CloudbuildTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2426,8 +2426,8 @@ class CloudbuildTriggerBuildArtifactsNpmPackages:
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param package_path: Path to the package.json. e.g. workspace/path/to/package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#package_path CloudbuildTrigger#package_path}
-        :param repository: Artifact Registry repository, in the form "https://$REGION-npm.pkg.dev/$PROJECT/$REPOSITORY". Npm package in the workspace specified by path will be zipped and uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param package_path: Path to the package.json. e.g. workspace/path/to/package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#package_path CloudbuildTrigger#package_path}
+        :param repository: Artifact Registry repository, in the form "https://$REGION-npm.pkg.dev/$PROJECT/$REPOSITORY". Npm package in the workspace specified by path will be zipped and uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__385a85f99baec2d5b42381550f6c1dec820a36489f1cbb4950f3486689241a4c)
@@ -2443,7 +2443,7 @@ class CloudbuildTriggerBuildArtifactsNpmPackages:
     def package_path(self) -> typing.Optional[builtins.str]:
         '''Path to the package.json. e.g. workspace/path/to/package.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#package_path CloudbuildTrigger#package_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#package_path CloudbuildTrigger#package_path}
         '''
         result = self._values.get("package_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2454,7 +2454,7 @@ class CloudbuildTriggerBuildArtifactsNpmPackages:
 
         Npm package in the workspace specified by path will be zipped and uploaded to Artifact Registry with this location as a prefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2663,8 +2663,8 @@ class CloudbuildTriggerBuildArtifactsObjects:
         paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param location: Cloud Storage bucket and optional object path, in the form "gs://bucket/path/to/somewhere/". Files in the workspace matching any path pattern will be uploaded to Cloud Storage with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
-        :param paths: Path globs used to match files in the build's workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
+        :param location: Cloud Storage bucket and optional object path, in the form "gs://bucket/path/to/somewhere/". Files in the workspace matching any path pattern will be uploaded to Cloud Storage with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        :param paths: Path globs used to match files in the build's workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b3a1f281add22166e681f678ce2c9e8ddebaaffb2e6578b95e891f989aae955)
@@ -2683,7 +2683,7 @@ class CloudbuildTriggerBuildArtifactsObjects:
         Files in the workspace matching any path pattern will be uploaded to Cloud Storage with
         this location as a prefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2692,7 +2692,7 @@ class CloudbuildTriggerBuildArtifactsObjects:
     def paths(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Path globs used to match files in the build's workspace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
         '''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2997,8 +2997,8 @@ class CloudbuildTriggerBuildArtifactsOutputReference(
         paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param location: Cloud Storage bucket and optional object path, in the form "gs://bucket/path/to/somewhere/". Files in the workspace matching any path pattern will be uploaded to Cloud Storage with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
-        :param paths: Path globs used to match files in the build's workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
+        :param location: Cloud Storage bucket and optional object path, in the form "gs://bucket/path/to/somewhere/". Files in the workspace matching any path pattern will be uploaded to Cloud Storage with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        :param paths: Path globs used to match files in the build's workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
         '''
         value = CloudbuildTriggerBuildArtifactsObjects(location=location, paths=paths)
 
@@ -3129,8 +3129,8 @@ class CloudbuildTriggerBuildArtifactsPythonPackages:
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param paths: Path globs used to match files in the build's workspace. For Python/ Twine, this is usually dist/*, and sometimes additionally an .asc file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
-        :param repository: Artifact Registry repository, in the form "https://$REGION-python.pkg.dev/$PROJECT/$REPOSITORY". Files in the workspace matching any path pattern will be uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param paths: Path globs used to match files in the build's workspace. For Python/ Twine, this is usually dist/*, and sometimes additionally an .asc file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
+        :param repository: Artifact Registry repository, in the form "https://$REGION-python.pkg.dev/$PROJECT/$REPOSITORY". Files in the workspace matching any path pattern will be uploaded to Artifact Registry with this location as a prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24fcb46752b42388b13f587af96cfe72f38621e926402658caaa4ac17c95a389)
@@ -3148,7 +3148,7 @@ class CloudbuildTriggerBuildArtifactsPythonPackages:
 
         For Python/ Twine, this is usually dist/*, and sometimes additionally an .asc file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#paths CloudbuildTrigger#paths}
         '''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3159,7 +3159,7 @@ class CloudbuildTriggerBuildArtifactsPythonPackages:
 
         Files in the workspace matching any path pattern will be uploaded to Artifact Registry with this location as a prefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3367,7 +3367,7 @@ class CloudbuildTriggerBuildAvailableSecrets:
         secret_manager: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudbuildTriggerBuildAvailableSecretsSecretManager", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param secret_manager: secret_manager block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
+        :param secret_manager: secret_manager block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97f888a277e9a41970509da9d63fa38b59ff6b88acedce818455c07585eee5d6)
@@ -3382,7 +3382,7 @@ class CloudbuildTriggerBuildAvailableSecrets:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildAvailableSecretsSecretManager"]]:
         '''secret_manager block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
         '''
         result = self._values.get("secret_manager")
         assert result is not None, "Required property 'secret_manager' is missing"
@@ -3471,8 +3471,8 @@ class CloudbuildTriggerBuildAvailableSecretsOutputReference(
 class CloudbuildTriggerBuildAvailableSecretsSecretManager:
     def __init__(self, *, env: builtins.str, version_name: builtins.str) -> None:
         '''
-        :param env: Environment variable name to associate with the secret. Secret environment variables must be unique across all of a build's secrets, and must be used by at least one build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
-        :param version_name: Resource name of the SecretVersion. In format: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#version_name CloudbuildTrigger#version_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param env: Environment variable name to associate with the secret. Secret environment variables must be unique across all of a build's secrets, and must be used by at least one build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        :param version_name: Resource name of the SecretVersion. In format: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#version_name CloudbuildTrigger#version_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b0c00b71658784f02706e15ad876b6ffd36de0f9d0583def13b3549a150df34)
@@ -3491,7 +3491,7 @@ class CloudbuildTriggerBuildAvailableSecretsSecretManager:
         variables must be unique across all of a build's secrets, and must be used
         by at least one build step.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
         '''
         result = self._values.get("env")
         assert result is not None, "Required property 'env' is missing"
@@ -3501,7 +3501,7 @@ class CloudbuildTriggerBuildAvailableSecretsSecretManager:
     def version_name(self) -> builtins.str:
         '''Resource name of the SecretVersion. In format: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#version_name CloudbuildTrigger#version_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#version_name CloudbuildTrigger#version_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -3728,18 +3728,18 @@ class CloudbuildTriggerBuildOptions:
         worker_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: Requested disk size for the VM that runs the build. Note that this is NOT "disk free"; some of the space will be used by the operating system and build utilities. Also note that this is the minimum disk size that will be allocated for the build -- the build may run with a larger disk than requested. At present, the maximum disk size is 1000GB; builds that request more than the maximum are rejected with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
-        :param dynamic_substitutions: Option to specify whether or not to apply bash style string operations to the substitutions. NOTE this is always enabled for triggered builds and cannot be overridden in the build configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
-        :param env: A list of global environment variable definitions that will exist for all build steps in this build. If a variable is defined in both globally and in a build step, the variable will use the build step value. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
-        :param logging: Option to specify the logging mode, which determines if and where build logs are stored. Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "CLOUD_LOGGING_ONLY", "NONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
-        :param log_streaming_option: Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
-        :param machine_type: Compute Engine machine type on which to run the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
-        :param requested_verify_option: Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
-        :param secret_env: A list of global environment variables, which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's Secret. These variables will be available to all build steps in this build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
-        :param source_provenance_hash: Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
-        :param substitution_option: Option to specify behavior when there is an error in the substitution checks. NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden in the build configuration file. Possible values: ["MUST_MATCH", "ALLOW_LOOSE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
-        :param worker_pool: Option to specify a WorkerPool for the build. Format projects/{project}/workerPools/{workerPool}. This field is experimental. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
+        :param disk_size_gb: Requested disk size for the VM that runs the build. Note that this is NOT "disk free"; some of the space will be used by the operating system and build utilities. Also note that this is the minimum disk size that will be allocated for the build -- the build may run with a larger disk than requested. At present, the maximum disk size is 1000GB; builds that request more than the maximum are rejected with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
+        :param dynamic_substitutions: Option to specify whether or not to apply bash style string operations to the substitutions. NOTE this is always enabled for triggered builds and cannot be overridden in the build configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
+        :param env: A list of global environment variable definitions that will exist for all build steps in this build. If a variable is defined in both globally and in a build step, the variable will use the build step value. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        :param logging: Option to specify the logging mode, which determines if and where build logs are stored. Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "CLOUD_LOGGING_ONLY", "NONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
+        :param log_streaming_option: Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
+        :param machine_type: Compute Engine machine type on which to run the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
+        :param requested_verify_option: Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
+        :param secret_env: A list of global environment variables, which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's Secret. These variables will be available to all build steps in this build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        :param source_provenance_hash: Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
+        :param substitution_option: Option to specify behavior when there is an error in the substitution checks. NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden in the build configuration file. Possible values: ["MUST_MATCH", "ALLOW_LOOSE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
+        :param worker_pool: Option to specify a WorkerPool for the build. Format projects/{project}/workerPools/{workerPool}. This field is experimental. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9999d74eba2b15df3130a30ba5107516e720a91c2ec69a23b55ae348bd823ab7)
@@ -3791,7 +3791,7 @@ class CloudbuildTriggerBuildOptions:
         the build may run with a larger disk than requested. At present, the maximum disk size
         is 1000GB; builds that request more than the maximum are rejected with an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3804,7 +3804,7 @@ class CloudbuildTriggerBuildOptions:
 
         NOTE this is always enabled for triggered builds and cannot be overridden in the build configuration file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
         '''
         result = self._values.get("dynamic_substitutions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3818,7 +3818,7 @@ class CloudbuildTriggerBuildOptions:
 
         The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3829,7 +3829,7 @@ class CloudbuildTriggerBuildOptions:
 
         Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "CLOUD_LOGGING_ONLY", "NONE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3838,7 +3838,7 @@ class CloudbuildTriggerBuildOptions:
     def log_streaming_option(self) -> typing.Optional[builtins.str]:
         '''Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
         '''
         result = self._values.get("log_streaming_option")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3847,7 +3847,7 @@ class CloudbuildTriggerBuildOptions:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''Compute Engine machine type on which to run the build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3856,7 +3856,7 @@ class CloudbuildTriggerBuildOptions:
     def requested_verify_option(self) -> typing.Optional[builtins.str]:
         '''Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
         '''
         result = self._values.get("requested_verify_option")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3868,7 +3868,7 @@ class CloudbuildTriggerBuildOptions:
         These values must be specified in the build's Secret. These variables
         will be available to all build steps in this build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
         '''
         result = self._values.get("secret_env")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3877,7 +3877,7 @@ class CloudbuildTriggerBuildOptions:
     def source_provenance_hash(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
         '''
         result = self._values.get("source_provenance_hash")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3889,7 +3889,7 @@ class CloudbuildTriggerBuildOptions:
         NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden
         in the build configuration file. Possible values: ["MUST_MATCH", "ALLOW_LOOSE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
         '''
         result = self._values.get("substitution_option")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3900,7 +3900,7 @@ class CloudbuildTriggerBuildOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildOptionsVolumes"]]]:
         '''volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
         '''
         result = self._values.get("volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildOptionsVolumes"]]], result)
@@ -3911,7 +3911,7 @@ class CloudbuildTriggerBuildOptions:
 
         This field is experimental.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
         '''
         result = self._values.get("worker_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4246,8 +4246,8 @@ class CloudbuildTriggerBuildOptionsVolumes:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the volume to mount. Volume names must be unique per build step and must be valid names for Docker volumes. Each named volume must be used by at least two build steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param path: Path at which to mount the volume. Paths must be absolute and cannot conflict with other volume paths on the same build step or with certain reserved volume paths. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        :param name: Name of the volume to mount. Volume names must be unique per build step and must be valid names for Docker volumes. Each named volume must be used by at least two build steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param path: Path at which to mount the volume. Paths must be absolute and cannot conflict with other volume paths on the same build step or with certain reserved volume paths. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ccfcca6a9d9ed0dcc9bb39ecfc08badf143293ee989fd0bd947c37d9122e2fe)
@@ -4266,7 +4266,7 @@ class CloudbuildTriggerBuildOptionsVolumes:
         Volume names must be unique per build step and must be valid names for Docker volumes.
         Each named volume must be used by at least two build steps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4278,7 +4278,7 @@ class CloudbuildTriggerBuildOptionsVolumes:
         Paths must be absolute and cannot conflict with other volume paths on the same
         build step or with certain reserved volume paths.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4505,11 +4505,11 @@ class CloudbuildTriggerBuildOutputReference(
         python_packages: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CloudbuildTriggerBuildArtifactsPythonPackages, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param images: A list of images to be pushed upon the successful completion of all build steps. The images will be pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
-        :param maven_artifacts: maven_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
-        :param npm_packages: npm_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
-        :param python_packages: python_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
+        :param images: A list of images to be pushed upon the successful completion of all build steps. The images will be pushed using the builder service account's credentials. The digests of the pushed images will be stored in the Build resource's results field. If any of the images fail to be pushed, the build is marked FAILURE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#images CloudbuildTrigger#images}
+        :param maven_artifacts: maven_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#maven_artifacts CloudbuildTrigger#maven_artifacts}
+        :param npm_packages: npm_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#npm_packages CloudbuildTrigger#npm_packages}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#objects CloudbuildTrigger#objects}
+        :param python_packages: python_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#python_packages CloudbuildTrigger#python_packages}
         '''
         value = CloudbuildTriggerBuildArtifacts(
             images=images,
@@ -4528,7 +4528,7 @@ class CloudbuildTriggerBuildOutputReference(
         secret_manager: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CloudbuildTriggerBuildAvailableSecretsSecretManager, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param secret_manager: secret_manager block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
+        :param secret_manager: secret_manager block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_manager CloudbuildTrigger#secret_manager}
         '''
         value = CloudbuildTriggerBuildAvailableSecrets(secret_manager=secret_manager)
 
@@ -4552,18 +4552,18 @@ class CloudbuildTriggerBuildOutputReference(
         worker_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: Requested disk size for the VM that runs the build. Note that this is NOT "disk free"; some of the space will be used by the operating system and build utilities. Also note that this is the minimum disk size that will be allocated for the build -- the build may run with a larger disk than requested. At present, the maximum disk size is 1000GB; builds that request more than the maximum are rejected with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
-        :param dynamic_substitutions: Option to specify whether or not to apply bash style string operations to the substitutions. NOTE this is always enabled for triggered builds and cannot be overridden in the build configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
-        :param env: A list of global environment variable definitions that will exist for all build steps in this build. If a variable is defined in both globally and in a build step, the variable will use the build step value. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
-        :param logging: Option to specify the logging mode, which determines if and where build logs are stored. Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "CLOUD_LOGGING_ONLY", "NONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
-        :param log_streaming_option: Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
-        :param machine_type: Compute Engine machine type on which to run the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
-        :param requested_verify_option: Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
-        :param secret_env: A list of global environment variables, which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's Secret. These variables will be available to all build steps in this build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
-        :param source_provenance_hash: Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
-        :param substitution_option: Option to specify behavior when there is an error in the substitution checks. NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden in the build configuration file. Possible values: ["MUST_MATCH", "ALLOW_LOOSE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
-        :param worker_pool: Option to specify a WorkerPool for the build. Format projects/{project}/workerPools/{workerPool}. This field is experimental. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
+        :param disk_size_gb: Requested disk size for the VM that runs the build. Note that this is NOT "disk free"; some of the space will be used by the operating system and build utilities. Also note that this is the minimum disk size that will be allocated for the build -- the build may run with a larger disk than requested. At present, the maximum disk size is 1000GB; builds that request more than the maximum are rejected with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disk_size_gb CloudbuildTrigger#disk_size_gb}
+        :param dynamic_substitutions: Option to specify whether or not to apply bash style string operations to the substitutions. NOTE this is always enabled for triggered builds and cannot be overridden in the build configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dynamic_substitutions CloudbuildTrigger#dynamic_substitutions}
+        :param env: A list of global environment variable definitions that will exist for all build steps in this build. If a variable is defined in both globally and in a build step, the variable will use the build step value. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        :param logging: Option to specify the logging mode, which determines if and where build logs are stored. Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "CLOUD_LOGGING_ONLY", "NONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#logging CloudbuildTrigger#logging}
+        :param log_streaming_option: Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#log_streaming_option CloudbuildTrigger#log_streaming_option}
+        :param machine_type: Compute Engine machine type on which to run the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#machine_type CloudbuildTrigger#machine_type}
+        :param requested_verify_option: Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#requested_verify_option CloudbuildTrigger#requested_verify_option}
+        :param secret_env: A list of global environment variables, which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's Secret. These variables will be available to all build steps in this build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        :param source_provenance_hash: Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_provenance_hash CloudbuildTrigger#source_provenance_hash}
+        :param substitution_option: Option to specify behavior when there is an error in the substitution checks. NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden in the build configuration file. Possible values: ["MUST_MATCH", "ALLOW_LOOSE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitution_option CloudbuildTrigger#substitution_option}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
+        :param worker_pool: Option to specify a WorkerPool for the build. Format projects/{project}/workerPools/{workerPool}. This field is experimental. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#worker_pool CloudbuildTrigger#worker_pool}
         '''
         value = CloudbuildTriggerBuildOptions(
             disk_size_gb=disk_size_gb,
@@ -4603,8 +4603,8 @@ class CloudbuildTriggerBuildOutputReference(
         storage_source: typing.Optional[typing.Union["CloudbuildTriggerBuildSourceStorageSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repo_source: repo_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
-        :param storage_source: storage_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
+        :param repo_source: repo_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
+        :param storage_source: storage_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
         '''
         value = CloudbuildTriggerBuildSource(
             repo_source=repo_source, storage_source=storage_source
@@ -4867,8 +4867,8 @@ class CloudbuildTriggerBuildSecret:
         secret_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param kms_key_name: Cloud KMS key name to use to decrypt these envs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#kms_key_name CloudbuildTrigger#kms_key_name}
-        :param secret_env: Map of environment variable name to its encrypted value. Secret environment variables must be unique across all of a build's secrets, and must be used by at least one build step. Values can be at most 64 KB in size. There can be at most 100 secret values across all of a build's secrets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        :param kms_key_name: Cloud KMS key name to use to decrypt these envs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#kms_key_name CloudbuildTrigger#kms_key_name}
+        :param secret_env: Map of environment variable name to its encrypted value. Secret environment variables must be unique across all of a build's secrets, and must be used by at least one build step. Values can be at most 64 KB in size. There can be at most 100 secret values across all of a build's secrets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c72c8280adc0efeb3372003f683fb944ae6042602cd360d01eeaf9aa6ddd910d)
@@ -4884,7 +4884,7 @@ class CloudbuildTriggerBuildSecret:
     def kms_key_name(self) -> builtins.str:
         '''Cloud KMS key name to use to decrypt these envs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#kms_key_name CloudbuildTrigger#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#kms_key_name CloudbuildTrigger#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -4898,7 +4898,7 @@ class CloudbuildTriggerBuildSecret:
         and must be used by at least one build step. Values can be at most 64 KB in size.
         There can be at most 100 secret values across all of a build's secrets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
         '''
         result = self._values.get("secret_env")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5102,8 +5102,8 @@ class CloudbuildTriggerBuildSource:
         storage_source: typing.Optional[typing.Union["CloudbuildTriggerBuildSourceStorageSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repo_source: repo_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
-        :param storage_source: storage_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
+        :param repo_source: repo_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
+        :param storage_source: storage_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
         '''
         if isinstance(repo_source, dict):
             repo_source = CloudbuildTriggerBuildSourceRepoSource(**repo_source)
@@ -5123,7 +5123,7 @@ class CloudbuildTriggerBuildSource:
     def repo_source(self) -> typing.Optional["CloudbuildTriggerBuildSourceRepoSource"]:
         '''repo_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_source CloudbuildTrigger#repo_source}
         '''
         result = self._values.get("repo_source")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildSourceRepoSource"], result)
@@ -5134,7 +5134,7 @@ class CloudbuildTriggerBuildSource:
     ) -> typing.Optional["CloudbuildTriggerBuildSourceStorageSource"]:
         '''storage_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#storage_source CloudbuildTrigger#storage_source}
         '''
         result = self._values.get("storage_source")
         return typing.cast(typing.Optional["CloudbuildTriggerBuildSourceStorageSource"], result)
@@ -5185,14 +5185,14 @@ class CloudbuildTriggerBuildSourceOutputReference(
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repo_name: Name of the Cloud Source Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
-        :param branch_name: Regex matching branches to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
-        :param commit_sha: Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
-        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
-        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
-        :param substitutions: Substitutions to use in a triggered build. Should only be used with triggers.run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tag_name: Regex matching tags to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        :param repo_name: Name of the Cloud Source Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        :param branch_name: Regex matching branches to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        :param commit_sha: Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        :param substitutions: Substitutions to use in a triggered build. Should only be used with triggers.run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tag_name: Regex matching tags to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         value = CloudbuildTriggerBuildSourceRepoSource(
             repo_name=repo_name,
@@ -5216,9 +5216,9 @@ class CloudbuildTriggerBuildSourceOutputReference(
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Google Cloud Storage bucket containing the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
-        :param object: Google Cloud Storage object containing the source. This object must be a gzipped archive file (.tar.gz) containing source to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
-        :param generation: Google Cloud Storage generation for the object. If the generation is omitted, the latest generation will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
+        :param bucket: Google Cloud Storage bucket containing the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
+        :param object: Google Cloud Storage object containing the source. This object must be a gzipped archive file (.tar.gz) containing source to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
+        :param generation: Google Cloud Storage generation for the object. If the generation is omitted, the latest generation will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
         '''
         value = CloudbuildTriggerBuildSourceStorageSource(
             bucket=bucket, object=object, generation=generation
@@ -5304,14 +5304,14 @@ class CloudbuildTriggerBuildSourceRepoSource:
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repo_name: Name of the Cloud Source Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
-        :param branch_name: Regex matching branches to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
-        :param commit_sha: Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
-        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
-        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
-        :param substitutions: Substitutions to use in a triggered build. Should only be used with triggers.run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tag_name: Regex matching tags to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        :param repo_name: Name of the Cloud Source Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        :param branch_name: Regex matching branches to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        :param commit_sha: Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        :param substitutions: Substitutions to use in a triggered build. Should only be used with triggers.run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tag_name: Regex matching tags to build. Exactly one a of branch name, tag, or commit SHA must be provided. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86e2e61a32d6f192cbee7746278848ace9fe64506b9ff98b9f5477ff3bf508b1)
@@ -5345,7 +5345,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
     def repo_name(self) -> builtins.str:
         '''Name of the Cloud Source Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
         '''
         result = self._values.get("repo_name")
         assert result is not None, "Required property 'repo_name' is missing"
@@ -5359,7 +5359,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
         The syntax of the regular expressions accepted is the syntax accepted by RE2 and
         described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
         '''
         result = self._values.get("branch_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5368,7 +5368,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
     def commit_sha(self) -> typing.Optional[builtins.str]:
         '''Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
         '''
         result = self._values.get("commit_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5380,7 +5380,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
         This must be a relative path. If a step's dir is specified and is an absolute path,
         this value is ignored for that step's execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
         '''
         result = self._values.get("dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5391,7 +5391,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only trigger a build if the revision regex does NOT match the revision regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5400,7 +5400,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5411,7 +5411,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Substitutions to use in a triggered build. Should only be used with triggers.run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
         '''
         result = self._values.get("substitutions")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5424,7 +5424,7 @@ class CloudbuildTriggerBuildSourceRepoSource:
         The syntax of the regular expressions accepted is the syntax accepted by RE2 and
         described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         result = self._values.get("tag_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5662,9 +5662,9 @@ class CloudbuildTriggerBuildSourceStorageSource:
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Google Cloud Storage bucket containing the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
-        :param object: Google Cloud Storage object containing the source. This object must be a gzipped archive file (.tar.gz) containing source to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
-        :param generation: Google Cloud Storage generation for the object. If the generation is omitted, the latest generation will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
+        :param bucket: Google Cloud Storage bucket containing the source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
+        :param object: Google Cloud Storage object containing the source. This object must be a gzipped archive file (.tar.gz) containing source to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
+        :param generation: Google Cloud Storage generation for the object. If the generation is omitted, the latest generation will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb75dd2f826ec9b61f2dcc51fb10acd4e38d608712f6af6e62daf5de230cac7b)
@@ -5682,7 +5682,7 @@ class CloudbuildTriggerBuildSourceStorageSource:
     def bucket(self) -> builtins.str:
         '''Google Cloud Storage bucket containing the source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bucket CloudbuildTrigger#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -5692,7 +5692,7 @@ class CloudbuildTriggerBuildSourceStorageSource:
     def object(self) -> builtins.str:
         '''Google Cloud Storage object containing the source. This object must be a gzipped archive file (.tar.gz) containing source to build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#object CloudbuildTrigger#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -5702,7 +5702,7 @@ class CloudbuildTriggerBuildSourceStorageSource:
     def generation(self) -> typing.Optional[builtins.str]:
         '''Google Cloud Storage generation for the object. If the generation is omitted, the latest generation will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#generation CloudbuildTrigger#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5852,20 +5852,20 @@ class CloudbuildTriggerBuildStep:
         wait_for: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: The name of the container image that will run this particular build step. If the image is available in the host's Docker daemon's cache, it will be run directly. If not, the host will attempt to pull the image first, using the builder service account's credentials if necessary. The Docker daemon's cache will already have the latest versions of all of the officially supported build steps (see https://github.com/GoogleCloudPlatform/cloud-builders for images and examples). The Docker daemon will also have cached many of the layers for some popular images, like "ubuntu", "debian", but they will be refreshed at the time you attempt to use them. If you built an image in a previous build step, it will be stored in the host's Docker daemon's cache and is available to use as the name for a later build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param allow_exit_codes: Allow this build step to fail without failing the entire build if and only if the exit code is one of the specified codes. If 'allowFailure' is also specified, this field will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#allow_exit_codes CloudbuildTrigger#allow_exit_codes}
-        :param allow_failure: Allow this build step to fail without failing the entire build. If false, the entire build will fail if this step fails. Otherwise, the build will succeed, but this step will still have a failure status. Error information will be reported in the 'failureDetail' field. 'allowExitCodes' takes precedence over this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#allow_failure CloudbuildTrigger#allow_failure}
-        :param args: A list of arguments that will be presented to the step when it is started. If the image used to run the step's container has an entrypoint, the args are used as arguments to that entrypoint. If the image does not define an entrypoint, the first element in args is used as the entrypoint, and the remainder will be used as arguments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#args CloudbuildTrigger#args}
-        :param dir: Working directory to use when running this step's container. If this value is a relative path, it is relative to the build's working directory. If this value is absolute, it may be outside the build's working directory, in which case the contents of the path may not be persisted across build step executions, unless a 'volume' for that path is specified. If the build specifies a 'RepoSource' with 'dir' and a step with a 'dir', which specifies an absolute path, the 'RepoSource' 'dir' is ignored for the step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
-        :param entrypoint: Entrypoint to be used instead of the build step image's default entrypoint. If unset, the image's default entrypoint is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#entrypoint CloudbuildTrigger#entrypoint}
-        :param env: A list of environment variable definitions to be used when running a step. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
-        :param id: Unique identifier for this build step, used in 'wait_for' to reference this build step as a dependency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param script: A shell script to be executed in the step. When script is provided, the user cannot specify the entrypoint or args. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#script CloudbuildTrigger#script}
-        :param secret_env: A list of environment variables which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's 'Secret'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
-        :param timeout: Time limit for executing this build step. If not defined, the step has no time limit and will be allowed to continue to run until either it completes or the build itself times out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
-        :param timing: Output only. Stores timing information for executing this build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timing CloudbuildTrigger#timing}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
-        :param wait_for: The ID(s) of the step(s) that this build step depends on. This build step will not start until all the build steps in 'wait_for' have completed successfully. If 'wait_for' is empty, this build step will start when all previous build steps in the 'Build.Steps' list have completed successfully. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#wait_for CloudbuildTrigger#wait_for}
+        :param name: The name of the container image that will run this particular build step. If the image is available in the host's Docker daemon's cache, it will be run directly. If not, the host will attempt to pull the image first, using the builder service account's credentials if necessary. The Docker daemon's cache will already have the latest versions of all of the officially supported build steps (see https://github.com/GoogleCloudPlatform/cloud-builders for images and examples). The Docker daemon will also have cached many of the layers for some popular images, like "ubuntu", "debian", but they will be refreshed at the time you attempt to use them. If you built an image in a previous build step, it will be stored in the host's Docker daemon's cache and is available to use as the name for a later build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param allow_exit_codes: Allow this build step to fail without failing the entire build if and only if the exit code is one of the specified codes. If 'allowFailure' is also specified, this field will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#allow_exit_codes CloudbuildTrigger#allow_exit_codes}
+        :param allow_failure: Allow this build step to fail without failing the entire build. If false, the entire build will fail if this step fails. Otherwise, the build will succeed, but this step will still have a failure status. Error information will be reported in the 'failureDetail' field. 'allowExitCodes' takes precedence over this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#allow_failure CloudbuildTrigger#allow_failure}
+        :param args: A list of arguments that will be presented to the step when it is started. If the image used to run the step's container has an entrypoint, the args are used as arguments to that entrypoint. If the image does not define an entrypoint, the first element in args is used as the entrypoint, and the remainder will be used as arguments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#args CloudbuildTrigger#args}
+        :param dir: Working directory to use when running this step's container. If this value is a relative path, it is relative to the build's working directory. If this value is absolute, it may be outside the build's working directory, in which case the contents of the path may not be persisted across build step executions, unless a 'volume' for that path is specified. If the build specifies a 'RepoSource' with 'dir' and a step with a 'dir', which specifies an absolute path, the 'RepoSource' 'dir' is ignored for the step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        :param entrypoint: Entrypoint to be used instead of the build step image's default entrypoint. If unset, the image's default entrypoint is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#entrypoint CloudbuildTrigger#entrypoint}
+        :param env: A list of environment variable definitions to be used when running a step. The elements are of the form "KEY=VALUE" for the environment variable "KEY" being given the value "VALUE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        :param id: Unique identifier for this build step, used in 'wait_for' to reference this build step as a dependency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param script: A shell script to be executed in the step. When script is provided, the user cannot specify the entrypoint or args. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#script CloudbuildTrigger#script}
+        :param secret_env: A list of environment variables which are encrypted using a Cloud Key Management Service crypto key. These values must be specified in the build's 'Secret'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        :param timeout: Time limit for executing this build step. If not defined, the step has no time limit and will be allowed to continue to run until either it completes or the build itself times out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
+        :param timing: Output only. Stores timing information for executing this build step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timing CloudbuildTrigger#timing}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
+        :param wait_for: The ID(s) of the step(s) that this build step depends on. This build step will not start until all the build steps in 'wait_for' have completed successfully. If 'wait_for' is empty, this build step will start when all previous build steps in the 'Build.Steps' list have completed successfully. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#wait_for CloudbuildTrigger#wait_for}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1328f48eddeae1f91dab097d9431aa798faa37dfb88523d0f82866e3674941ec)
@@ -5932,7 +5932,7 @@ class CloudbuildTriggerBuildStep:
         host's Docker daemon's cache and is available to use as the name for a
         later build step.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5944,7 +5944,7 @@ class CloudbuildTriggerBuildStep:
 
         If 'allowFailure' is also specified, this field will take precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#allow_exit_codes CloudbuildTrigger#allow_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#allow_exit_codes CloudbuildTrigger#allow_exit_codes}
         '''
         result = self._values.get("allow_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -5961,7 +5961,7 @@ class CloudbuildTriggerBuildStep:
 
         'allowExitCodes' takes precedence over this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#allow_failure CloudbuildTrigger#allow_failure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#allow_failure CloudbuildTrigger#allow_failure}
         '''
         result = self._values.get("allow_failure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5975,7 +5975,7 @@ class CloudbuildTriggerBuildStep:
         entrypoint, the first element in args is used as the entrypoint, and the
         remainder will be used as arguments.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#args CloudbuildTrigger#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#args CloudbuildTrigger#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5994,7 +5994,7 @@ class CloudbuildTriggerBuildStep:
         which specifies an absolute path, the 'RepoSource' 'dir' is ignored
         for the step's execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
         '''
         result = self._values.get("dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6003,7 +6003,7 @@ class CloudbuildTriggerBuildStep:
     def entrypoint(self) -> typing.Optional[builtins.str]:
         '''Entrypoint to be used instead of the build step image's default entrypoint. If unset, the image's default entrypoint is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#entrypoint CloudbuildTrigger#entrypoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#entrypoint CloudbuildTrigger#entrypoint}
         '''
         result = self._values.get("entrypoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6015,7 +6015,7 @@ class CloudbuildTriggerBuildStep:
         The elements are of the form "KEY=VALUE" for the environment variable
         "KEY" being given the value "VALUE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#env CloudbuildTrigger#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6024,7 +6024,7 @@ class CloudbuildTriggerBuildStep:
     def id(self) -> typing.Optional[builtins.str]:
         '''Unique identifier for this build step, used in 'wait_for' to reference this build step as a dependency.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -6038,7 +6038,7 @@ class CloudbuildTriggerBuildStep:
 
         When script is provided, the user cannot specify the entrypoint or args.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#script CloudbuildTrigger#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#script CloudbuildTrigger#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6050,7 +6050,7 @@ class CloudbuildTriggerBuildStep:
         These values must be specified in
         the build's 'Secret'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret_env CloudbuildTrigger#secret_env}
         '''
         result = self._values.get("secret_env")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6064,7 +6064,7 @@ class CloudbuildTriggerBuildStep:
         time limit and will be allowed to continue to run until either it
         completes or the build itself times out.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeout CloudbuildTrigger#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6073,7 +6073,7 @@ class CloudbuildTriggerBuildStep:
     def timing(self) -> typing.Optional[builtins.str]:
         '''Output only. Stores timing information for executing this build step.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timing CloudbuildTrigger#timing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timing CloudbuildTrigger#timing}
         '''
         result = self._values.get("timing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6084,7 +6084,7 @@ class CloudbuildTriggerBuildStep:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildStepVolumes"]]]:
         '''volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#volumes CloudbuildTrigger#volumes}
         '''
         result = self._values.get("volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudbuildTriggerBuildStepVolumes"]]], result)
@@ -6098,7 +6098,7 @@ class CloudbuildTriggerBuildStep:
         will start when all previous build steps in the 'Build.Steps' list
         have completed successfully.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#wait_for CloudbuildTrigger#wait_for}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#wait_for CloudbuildTrigger#wait_for}
         '''
         result = self._values.get("wait_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6560,8 +6560,8 @@ class CloudbuildTriggerBuildStepOutputReference(
 class CloudbuildTriggerBuildStepVolumes:
     def __init__(self, *, name: builtins.str, path: builtins.str) -> None:
         '''
-        :param name: Name of the volume to mount. Volume names must be unique per build step and must be valid names for Docker volumes. Each named volume must be used by at least two build steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param path: Path at which to mount the volume. Paths must be absolute and cannot conflict with other volume paths on the same build step or with certain reserved volume paths. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        :param name: Name of the volume to mount. Volume names must be unique per build step and must be valid names for Docker volumes. Each named volume must be used by at least two build steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param path: Path at which to mount the volume. Paths must be absolute and cannot conflict with other volume paths on the same build step or with certain reserved volume paths. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3cd059d89c13a70e004df203e4cb67585102aba2cae961b9c2c0bac87d04096)
@@ -6579,7 +6579,7 @@ class CloudbuildTriggerBuildStepVolumes:
         Volume names must be unique per build step and must be valid names for
         Docker volumes. Each named volume must be used by at least two build steps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6592,7 +6592,7 @@ class CloudbuildTriggerBuildStepVolumes:
         Paths must be absolute and cannot conflict with other volume paths on
         the same build step or with certain reserved volume paths.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -6864,31 +6864,31 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param approval_config: approval_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
-        :param bitbucket_server_trigger_config: bitbucket_server_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
-        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
-        :param description: Human-readable description of the trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
-        :param disabled: Whether the trigger is disabled or not. If true, the trigger will never result in a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
-        :param filename: Path, from the source root, to a file whose contents is used for the template. Either a filename or build template must be provided. Set this only when using trigger_template or github. When using Pub/Sub, Webhook or Manual set the file name using git_file_source instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
-        :param filter: A Common Expression Language string. Used only with Pub/Sub and Webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
-        :param git_file_source: git_file_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
-        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignored_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If ignoredFiles and changed files are both empty, then they are not used to determine whether or not to trigger a build. If ignoredFiles is not empty, then we ignore any files that match any of the ignored_file globs. If the change has no files that are outside of the ignoredFiles globs, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
-        :param include_build_logs: Build logs will be sent back to GitHub as part of the checkrun result. Values can be INCLUDE_BUILD_LOGS_UNSPECIFIED or INCLUDE_BUILD_LOGS_WITH_STATUS Possible values: ["INCLUDE_BUILD_LOGS_UNSPECIFIED", "INCLUDE_BUILD_LOGS_WITH_STATUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
-        :param included_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is empty, then as far as this filter is concerned, we should trigger the build. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is not empty, then we make sure that at least one of those files matches a includedFiles glob. If not, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
-        :param location: The `Cloud Build location <https://cloud.google.com/build/docs/locations>`_ for the trigger. If not specified, "global" is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
-        :param name: Name of the trigger. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.
-        :param pubsub_config: pubsub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
-        :param repository_event_config: repository_event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
-        :param service_account: The service account used for all user-controlled operations including triggers.patch, triggers.run, builds.create, and builds.cancel. If no service account is set, then the standard Cloud Build service account ([PROJECT_NUM]@system.gserviceaccount.com) will be used instead. Format: projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT_ID_OR_EMAIL} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
-        :param source_to_build: source_to_build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
-        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
-        :param tags: Tags for annotation of a BuildTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
-        :param trigger_template: trigger_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
-        :param webhook_config: webhook_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
+        :param approval_config: approval_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
+        :param bitbucket_server_trigger_config: bitbucket_server_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
+        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
+        :param description: Human-readable description of the trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
+        :param disabled: Whether the trigger is disabled or not. If true, the trigger will never result in a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
+        :param filename: Path, from the source root, to a file whose contents is used for the template. Either a filename or build template must be provided. Set this only when using trigger_template or github. When using Pub/Sub, Webhook or Manual set the file name using git_file_source instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
+        :param filter: A Common Expression Language string. Used only with Pub/Sub and Webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
+        :param git_file_source: git_file_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
+        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignored_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If ignoredFiles and changed files are both empty, then they are not used to determine whether or not to trigger a build. If ignoredFiles is not empty, then we ignore any files that match any of the ignored_file globs. If the change has no files that are outside of the ignoredFiles globs, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
+        :param include_build_logs: Build logs will be sent back to GitHub as part of the checkrun result. Values can be INCLUDE_BUILD_LOGS_UNSPECIFIED or INCLUDE_BUILD_LOGS_WITH_STATUS Possible values: ["INCLUDE_BUILD_LOGS_UNSPECIFIED", "INCLUDE_BUILD_LOGS_WITH_STATUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
+        :param included_files: ignoredFiles and includedFiles are file glob matches using https://golang.org/pkg/path/filepath/#Match extended with support for '**'. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is empty, then as far as this filter is concerned, we should trigger the build. If any of the files altered in the commit pass the ignoredFiles filter and includedFiles is not empty, then we make sure that at least one of those files matches a includedFiles glob. If not, then we do not trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
+        :param location: The `Cloud Build location <https://cloud.google.com/build/docs/locations>`_ for the trigger. If not specified, "global" is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        :param name: Name of the trigger. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.
+        :param pubsub_config: pubsub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
+        :param repository_event_config: repository_event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
+        :param service_account: The service account used for all user-controlled operations including triggers.patch, triggers.run, builds.create, and builds.cancel. If no service account is set, then the standard Cloud Build service account ([PROJECT_NUM]@system.gserviceaccount.com) will be used instead. Format: projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT_ID_OR_EMAIL} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
+        :param source_to_build: source_to_build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
+        :param substitutions: Substitutions data for Build resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        :param tags: Tags for annotation of a BuildTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
+        :param trigger_template: trigger_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
+        :param webhook_config: webhook_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -7082,7 +7082,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def approval_config(self) -> typing.Optional[CloudbuildTriggerApprovalConfig]:
         '''approval_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#approval_config CloudbuildTrigger#approval_config}
         '''
         result = self._values.get("approval_config")
         return typing.cast(typing.Optional[CloudbuildTriggerApprovalConfig], result)
@@ -7093,7 +7093,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CloudbuildTriggerBitbucketServerTriggerConfig]:
         '''bitbucket_server_trigger_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_trigger_config CloudbuildTrigger#bitbucket_server_trigger_config}
         '''
         result = self._values.get("bitbucket_server_trigger_config")
         return typing.cast(typing.Optional[CloudbuildTriggerBitbucketServerTriggerConfig], result)
@@ -7102,7 +7102,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_attribute(self) -> typing.Optional[CloudbuildTriggerBuild]:
         '''build block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#build CloudbuildTrigger#build}
         '''
         result = self._values.get("build_attribute")
         return typing.cast(typing.Optional[CloudbuildTriggerBuild], result)
@@ -7111,7 +7111,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Human-readable description of the trigger.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#description CloudbuildTrigger#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7122,7 +7122,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the trigger is disabled or not. If true, the trigger will never result in a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#disabled CloudbuildTrigger#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7134,7 +7134,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Either a filename or build template must be provided. Set this only when using trigger_template or github.
         When using Pub/Sub, Webhook or Manual set the file name using git_file_source instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filename CloudbuildTrigger#filename}
         '''
         result = self._values.get("filename")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7143,7 +7143,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional[builtins.str]:
         '''A Common Expression Language string. Used only with Pub/Sub and Webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#filter CloudbuildTrigger#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7152,7 +7152,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def git_file_source(self) -> typing.Optional["CloudbuildTriggerGitFileSource"]:
         '''git_file_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#git_file_source CloudbuildTrigger#git_file_source}
         '''
         result = self._values.get("git_file_source")
         return typing.cast(typing.Optional["CloudbuildTriggerGitFileSource"], result)
@@ -7161,14 +7161,14 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def github(self) -> typing.Optional["CloudbuildTriggerGithub"]:
         '''github block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github CloudbuildTrigger#github}
         '''
         result = self._values.get("github")
         return typing.cast(typing.Optional["CloudbuildTriggerGithub"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#id CloudbuildTrigger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -7187,7 +7187,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         of the ignored_file globs. If the change has no files that are outside
         of the ignoredFiles globs, then we do not trigger a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ignored_files CloudbuildTrigger#ignored_files}
         '''
         result = self._values.get("ignored_files")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7199,7 +7199,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Values can be INCLUDE_BUILD_LOGS_UNSPECIFIED or
         INCLUDE_BUILD_LOGS_WITH_STATUS Possible values: ["INCLUDE_BUILD_LOGS_UNSPECIFIED", "INCLUDE_BUILD_LOGS_WITH_STATUS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#include_build_logs CloudbuildTrigger#include_build_logs}
         '''
         result = self._values.get("include_build_logs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7217,7 +7217,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         those files matches a includedFiles glob. If not, then we do not trigger
         a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#included_files CloudbuildTrigger#included_files}
         '''
         result = self._values.get("included_files")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7226,7 +7226,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The `Cloud Build location <https://cloud.google.com/build/docs/locations>`_ for the trigger. If not specified, "global" is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#location CloudbuildTrigger#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7235,14 +7235,14 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the trigger. Must be unique within the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project CloudbuildTrigger#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7250,7 +7250,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pubsub_config(self) -> typing.Optional["CloudbuildTriggerPubsubConfig"]:
         '''pubsub_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pubsub_config CloudbuildTrigger#pubsub_config}
         '''
         result = self._values.get("pubsub_config")
         return typing.cast(typing.Optional["CloudbuildTriggerPubsubConfig"], result)
@@ -7261,7 +7261,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudbuildTriggerRepositoryEventConfig"]:
         '''repository_event_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository_event_config CloudbuildTrigger#repository_event_config}
         '''
         result = self._values.get("repository_event_config")
         return typing.cast(typing.Optional["CloudbuildTriggerRepositoryEventConfig"], result)
@@ -7275,7 +7275,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Format: projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT_ID_OR_EMAIL}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account CloudbuildTrigger#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7284,7 +7284,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_to_build(self) -> typing.Optional["CloudbuildTriggerSourceToBuild"]:
         '''source_to_build block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#source_to_build CloudbuildTrigger#source_to_build}
         '''
         result = self._values.get("source_to_build")
         return typing.cast(typing.Optional["CloudbuildTriggerSourceToBuild"], result)
@@ -7295,7 +7295,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Substitutions data for Build resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#substitutions CloudbuildTrigger#substitutions}
         '''
         result = self._values.get("substitutions")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -7304,7 +7304,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags for annotation of a BuildTrigger.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tags CloudbuildTrigger#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7313,7 +7313,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudbuildTriggerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#timeouts CloudbuildTrigger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudbuildTriggerTimeouts"], result)
@@ -7322,7 +7322,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trigger_template(self) -> typing.Optional["CloudbuildTriggerTriggerTemplate"]:
         '''trigger_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#trigger_template CloudbuildTrigger#trigger_template}
         '''
         result = self._values.get("trigger_template")
         return typing.cast(typing.Optional["CloudbuildTriggerTriggerTemplate"], result)
@@ -7331,7 +7331,7 @@ class CloudbuildTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def webhook_config(self) -> typing.Optional["CloudbuildTriggerWebhookConfig"]:
         '''webhook_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#webhook_config CloudbuildTrigger#webhook_config}
         '''
         result = self._values.get("webhook_config")
         return typing.cast(typing.Optional["CloudbuildTriggerWebhookConfig"], result)
@@ -7374,13 +7374,13 @@ class CloudbuildTriggerGitFileSource:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The path of the file, with the repo root as the root of the path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
-        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
-        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
-        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
-        :param repository: The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository. If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
-        :param revision: The branch, tag, arbitrary ref, or SHA version of the repo to use when resolving the filename (optional). This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions If unspecified, the revision from which the trigger invocation originated is assumed to be the revision from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
-        :param uri: The URI of the repo (optional). If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        :param path: The path of the file, with the repo root as the root of the path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        :param repository: The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository. If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param revision: The branch, tag, arbitrary ref, or SHA version of the repo to use when resolving the filename (optional). This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions If unspecified, the revision from which the trigger invocation originated is assumed to be the revision from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
+        :param uri: The URI of the repo (optional). If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6e5f0aa8c545ec0d6329c7a393cb10ab92853a360e02cbbb65dc1dbcf77a51d)
@@ -7410,7 +7410,7 @@ class CloudbuildTriggerGitFileSource:
     def path(self) -> builtins.str:
         '''The path of the file, with the repo root as the root of the path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#path CloudbuildTrigger#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -7420,7 +7420,7 @@ class CloudbuildTriggerGitFileSource:
     def repo_type(self) -> builtins.str:
         '''The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
         '''
         result = self._values.get("repo_type")
         assert result is not None, "Required property 'repo_type' is missing"
@@ -7430,7 +7430,7 @@ class CloudbuildTriggerGitFileSource:
     def bitbucket_server_config(self) -> typing.Optional[builtins.str]:
         '''The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
         '''
         result = self._values.get("bitbucket_server_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7439,7 +7439,7 @@ class CloudbuildTriggerGitFileSource:
     def github_enterprise_config(self) -> typing.Optional[builtins.str]:
         '''The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
         '''
         result = self._values.get("github_enterprise_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7451,7 +7451,7 @@ class CloudbuildTriggerGitFileSource:
         The fully qualified resource name of the Repo API repository.
         If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7463,7 +7463,7 @@ class CloudbuildTriggerGitFileSource:
         This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions
         If unspecified, the revision from which the trigger invocation originated is assumed to be the revision from which to read the specified path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#revision CloudbuildTrigger#revision}
         '''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7475,7 +7475,7 @@ class CloudbuildTriggerGitFileSource:
         If unspecified, the repo from which the trigger
         invocation originated is assumed to be the repo from which to read the specified path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7689,11 +7689,11 @@ class CloudbuildTriggerGithub:
         push: typing.Optional[typing.Union["CloudbuildTriggerGithubPush", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enterprise_config_resource_name: The resource name of the github enterprise config that should be applied to this installation. For example: "projects/{$projectId}/locations/{$locationId}/githubEnterpriseConfigs/{$configId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
-        :param name: Name of the repository. For example: The name for https://github.com/googlecloudplatform/cloud-builders is "cloud-builders". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
-        :param owner: Owner of the repository. For example: The owner for https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param enterprise_config_resource_name: The resource name of the github enterprise config that should be applied to this installation. For example: "projects/{$projectId}/locations/{$locationId}/githubEnterpriseConfigs/{$configId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
+        :param name: Name of the repository. For example: The name for https://github.com/googlecloudplatform/cloud-builders is "cloud-builders". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        :param owner: Owner of the repository. For example: The owner for https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         if isinstance(pull_request, dict):
             pull_request = CloudbuildTriggerGithubPullRequest(**pull_request)
@@ -7722,7 +7722,7 @@ class CloudbuildTriggerGithub:
     def enterprise_config_resource_name(self) -> typing.Optional[builtins.str]:
         '''The resource name of the github enterprise config that should be applied to this installation. For example: "projects/{$projectId}/locations/{$locationId}/githubEnterpriseConfigs/{$configId}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#enterprise_config_resource_name CloudbuildTrigger#enterprise_config_resource_name}
         '''
         result = self._values.get("enterprise_config_resource_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7731,7 +7731,7 @@ class CloudbuildTriggerGithub:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the repository. For example: The name for https://github.com/googlecloudplatform/cloud-builders is "cloud-builders".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#name CloudbuildTrigger#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7740,7 +7740,7 @@ class CloudbuildTriggerGithub:
     def owner(self) -> typing.Optional[builtins.str]:
         '''Owner of the repository. For example: The owner for https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#owner CloudbuildTrigger#owner}
         '''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7749,7 +7749,7 @@ class CloudbuildTriggerGithub:
     def pull_request(self) -> typing.Optional["CloudbuildTriggerGithubPullRequest"]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional["CloudbuildTriggerGithubPullRequest"], result)
@@ -7758,7 +7758,7 @@ class CloudbuildTriggerGithub:
     def push(self) -> typing.Optional["CloudbuildTriggerGithubPush"]:
         '''push block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         result = self._values.get("push")
         return typing.cast(typing.Optional["CloudbuildTriggerGithubPush"], result)
@@ -7804,9 +7804,9 @@ class CloudbuildTriggerGithubOutputReference(
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         value = CloudbuildTriggerGithubPullRequest(
             branch=branch, comment_control=comment_control, invert_regex=invert_regex
@@ -7823,9 +7823,9 @@ class CloudbuildTriggerGithubOutputReference(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         value = CloudbuildTriggerGithubPush(
             branch=branch, invert_regex=invert_regex, tag=tag
@@ -7957,9 +7957,9 @@ class CloudbuildTriggerGithubPullRequest:
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcc2c0c9505a30d34cf709f2bc50527c638ee08db2ed095c592cd40ad6bdc20e)
@@ -7978,7 +7978,7 @@ class CloudbuildTriggerGithubPullRequest:
     def branch(self) -> builtins.str:
         '''Regex of branches to match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -7988,7 +7988,7 @@ class CloudbuildTriggerGithubPullRequest:
     def comment_control(self) -> typing.Optional[builtins.str]:
         '''Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
         '''
         result = self._values.get("comment_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7999,7 +7999,7 @@ class CloudbuildTriggerGithubPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, branches that do NOT match the git_ref will trigger a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8130,9 +8130,9 @@ class CloudbuildTriggerGithubPush:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: When true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. Specify only one of branch or tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96098449450845ea95987866995251203d0fca81809e40a30df15e6cc66bac98)
@@ -8151,7 +8151,7 @@ class CloudbuildTriggerGithubPush:
     def branch(self) -> typing.Optional[builtins.str]:
         '''Regex of branches to match.  Specify only one of branch or tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8162,7 +8162,7 @@ class CloudbuildTriggerGithubPush:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, only trigger a build if the revision regex does NOT match the git_ref regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8171,7 +8171,7 @@ class CloudbuildTriggerGithubPush:
     def tag(self) -> typing.Optional[builtins.str]:
         '''Regex of tags to match.  Specify only one of branch or tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8305,8 +8305,8 @@ class CloudbuildTriggerPubsubConfig:
         service_account_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topic: The name of the topic from which this subscription is receiving messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
-        :param service_account_email: Service account that will make the push request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
+        :param topic: The name of the topic from which this subscription is receiving messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
+        :param service_account_email: Service account that will make the push request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a1c5e24ecc9498d94fed62e0f918b7cad29fcfad5837af61a313ac7c6327e77)
@@ -8322,7 +8322,7 @@ class CloudbuildTriggerPubsubConfig:
     def topic(self) -> builtins.str:
         '''The name of the topic from which this subscription is receiving messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#topic CloudbuildTrigger#topic}
         '''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
@@ -8332,7 +8332,7 @@ class CloudbuildTriggerPubsubConfig:
     def service_account_email(self) -> typing.Optional[builtins.str]:
         '''Service account that will make the push request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#service_account_email CloudbuildTrigger#service_account_email}
         '''
         result = self._values.get("service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8451,9 +8451,9 @@ class CloudbuildTriggerRepositoryEventConfig:
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
-        :param repository: The resource name of the Repo API resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        :param repository: The resource name of the Repo API resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         if isinstance(pull_request, dict):
             pull_request = CloudbuildTriggerRepositoryEventConfigPullRequest(**pull_request)
@@ -8478,7 +8478,7 @@ class CloudbuildTriggerRepositoryEventConfig:
     ) -> typing.Optional["CloudbuildTriggerRepositoryEventConfigPullRequest"]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#pull_request CloudbuildTrigger#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional["CloudbuildTriggerRepositoryEventConfigPullRequest"], result)
@@ -8487,7 +8487,7 @@ class CloudbuildTriggerRepositoryEventConfig:
     def push(self) -> typing.Optional["CloudbuildTriggerRepositoryEventConfigPush"]:
         '''push block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#push CloudbuildTrigger#push}
         '''
         result = self._values.get("push")
         return typing.cast(typing.Optional["CloudbuildTriggerRepositoryEventConfigPush"], result)
@@ -8496,7 +8496,7 @@ class CloudbuildTriggerRepositoryEventConfig:
     def repository(self) -> typing.Optional[builtins.str]:
         '''The resource name of the Repo API resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8542,9 +8542,9 @@ class CloudbuildTriggerRepositoryEventConfigOutputReference(
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment '/gcbrun'. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment '/gcbrun'. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         value = CloudbuildTriggerRepositoryEventConfigPullRequest(
             branch=branch, comment_control=comment_control, invert_regex=invert_regex
@@ -8561,9 +8561,9 @@ class CloudbuildTriggerRepositoryEventConfigOutputReference(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: If true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: If true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         value = CloudbuildTriggerRepositoryEventConfigPush(
             branch=branch, invert_regex=invert_regex, tag=tag
@@ -8660,9 +8660,9 @@ class CloudbuildTriggerRepositoryEventConfigPullRequest:
         invert_regex: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment '/gcbrun'. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
-        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param comment_control: Configure builds to run whether a repository owner or collaborator need to comment '/gcbrun'. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        :param invert_regex: If true, branches that do NOT match the git_ref will trigger a build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__268c1fb3b08bd992bfe98951cbbd9a9e214a9ca8f8e5074093423f70c50b74a6)
@@ -8684,7 +8684,7 @@ class CloudbuildTriggerRepositoryEventConfigPullRequest:
         The syntax of the regular expressions accepted is the syntax accepted by
         RE2 and described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8693,7 +8693,7 @@ class CloudbuildTriggerRepositoryEventConfigPullRequest:
     def comment_control(self) -> typing.Optional[builtins.str]:
         '''Configure builds to run whether a repository owner or collaborator need to comment '/gcbrun'. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#comment_control CloudbuildTrigger#comment_control}
         '''
         result = self._values.get("comment_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8704,7 +8704,7 @@ class CloudbuildTriggerRepositoryEventConfigPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, branches that do NOT match the git_ref will trigger a build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8841,9 +8841,9 @@ class CloudbuildTriggerRepositoryEventConfigPush:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
-        :param invert_regex: If true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param tag: Regex of tags to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        :param branch: Regex of branches to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        :param invert_regex: If true, only trigger a build if the revision regex does NOT match the git_ref regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param tag: Regex of tags to match. The syntax of the regular expressions accepted is the syntax accepted by RE2 and described at https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1ddefb982b7d126a096a40a662cd9c1511613113cabb5573bc18339e5544f63)
@@ -8865,7 +8865,7 @@ class CloudbuildTriggerRepositoryEventConfigPush:
         The syntax of the regular expressions accepted is the syntax accepted by
         RE2 and described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch CloudbuildTrigger#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8876,7 +8876,7 @@ class CloudbuildTriggerRepositoryEventConfigPush:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, only trigger a build if the revision regex does NOT match the git_ref regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8888,7 +8888,7 @@ class CloudbuildTriggerRepositoryEventConfigPush:
         The syntax of the regular expressions accepted is the syntax accepted by
         RE2 and described at https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag CloudbuildTrigger#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9035,12 +9035,12 @@ class CloudbuildTriggerSourceToBuild:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ref: The branch or tag to use. Must start with "refs/" (required). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
-        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
-        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
-        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
-        :param repository: The qualified resource name of the Repo API repository. Either uri or repository can be specified and is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
-        :param uri: The URI of the repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        :param ref: The branch or tag to use. Must start with "refs/" (required). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
+        :param repo_type: The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        :param bitbucket_server_config: The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        :param github_enterprise_config: The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        :param repository: The qualified resource name of the Repo API repository. Either uri or repository can be specified and is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        :param uri: The URI of the repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36af2a45ef400e63c5065c0871332fcb9964f910ddda837dc8a6379947b9bce4)
@@ -9067,7 +9067,7 @@ class CloudbuildTriggerSourceToBuild:
     def ref(self) -> builtins.str:
         '''The branch or tag to use. Must start with "refs/" (required).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#ref CloudbuildTrigger#ref}
         '''
         result = self._values.get("ref")
         assert result is not None, "Required property 'ref' is missing"
@@ -9077,7 +9077,7 @@ class CloudbuildTriggerSourceToBuild:
     def repo_type(self) -> builtins.str:
         '''The type of the repo, since it may not be explicit from the repo field (e.g from a URL). Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_type CloudbuildTrigger#repo_type}
         '''
         result = self._values.get("repo_type")
         assert result is not None, "Required property 'repo_type' is missing"
@@ -9087,7 +9087,7 @@ class CloudbuildTriggerSourceToBuild:
     def bitbucket_server_config(self) -> typing.Optional[builtins.str]:
         '''The full resource name of the bitbucket server config. Format: projects/{project}/locations/{location}/bitbucketServerConfigs/{id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#bitbucket_server_config CloudbuildTrigger#bitbucket_server_config}
         '''
         result = self._values.get("bitbucket_server_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9096,7 +9096,7 @@ class CloudbuildTriggerSourceToBuild:
     def github_enterprise_config(self) -> typing.Optional[builtins.str]:
         '''The full resource name of the github enterprise config. Format: projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. projects/{project}/githubEnterpriseConfigs/{id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#github_enterprise_config CloudbuildTrigger#github_enterprise_config}
         '''
         result = self._values.get("github_enterprise_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9105,7 +9105,7 @@ class CloudbuildTriggerSourceToBuild:
     def repository(self) -> typing.Optional[builtins.str]:
         '''The qualified resource name of the Repo API repository. Either uri or repository can be specified and is required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repository CloudbuildTrigger#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9114,7 +9114,7 @@ class CloudbuildTriggerSourceToBuild:
     def uri(self) -> typing.Optional[builtins.str]:
         '''The URI of the repo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#uri CloudbuildTrigger#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9299,9 +9299,9 @@ class CloudbuildTriggerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7289dee5f472ab494107798a893a17426c47b390cc3bb4d9428a5574e3fa2283)
@@ -9318,19 +9318,19 @@ class CloudbuildTriggerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#create CloudbuildTrigger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#delete CloudbuildTrigger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#update CloudbuildTrigger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9473,13 +9473,13 @@ class CloudbuildTriggerTriggerTemplate:
         tag_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch_name: Name of the branch to build. Exactly one a of branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
-        :param commit_sha: Explicit commit SHA to build. Exactly one of a branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
-        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
-        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
-        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
-        :param repo_name: Name of the Cloud Source Repository. If omitted, the name "default" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
-        :param tag_name: Name of the tag to build. Exactly one of a branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        :param branch_name: Name of the branch to build. Exactly one a of branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        :param commit_sha: Explicit commit SHA to build. Exactly one of a branch name, tag, or commit SHA must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        :param dir: Directory, relative to the source root, in which to run the build. This must be a relative path. If a step's dir is specified and is an absolute path, this value is ignored for that step's execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        :param invert_regex: Only trigger a build if the revision regex does NOT match the revision regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        :param project_id: ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        :param repo_name: Name of the Cloud Source Repository. If omitted, the name "default" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        :param tag_name: Name of the tag to build. Exactly one of a branch name, tag, or commit SHA must be provided. This field is a regular expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26001b4c6c39c9e1cce3157704b9d1f20a15992a96362144be044153304475f8)
@@ -9513,7 +9513,7 @@ class CloudbuildTriggerTriggerTemplate:
         Exactly one a of branch name, tag, or commit SHA must be provided.
         This field is a regular expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#branch_name CloudbuildTrigger#branch_name}
         '''
         result = self._values.get("branch_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9522,7 +9522,7 @@ class CloudbuildTriggerTriggerTemplate:
     def commit_sha(self) -> typing.Optional[builtins.str]:
         '''Explicit commit SHA to build. Exactly one of a branch name, tag, or commit SHA must be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#commit_sha CloudbuildTrigger#commit_sha}
         '''
         result = self._values.get("commit_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9535,7 +9535,7 @@ class CloudbuildTriggerTriggerTemplate:
         is an absolute path, this value is ignored for that step's
         execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#dir CloudbuildTrigger#dir}
         '''
         result = self._values.get("dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9546,7 +9546,7 @@ class CloudbuildTriggerTriggerTemplate:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only trigger a build if the revision regex does NOT match the revision regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#invert_regex CloudbuildTrigger#invert_regex}
         '''
         result = self._values.get("invert_regex")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9555,7 +9555,7 @@ class CloudbuildTriggerTriggerTemplate:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''ID of the project that owns the Cloud Source Repository. If omitted, the project ID requesting the build is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#project_id CloudbuildTrigger#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9564,7 +9564,7 @@ class CloudbuildTriggerTriggerTemplate:
     def repo_name(self) -> typing.Optional[builtins.str]:
         '''Name of the Cloud Source Repository. If omitted, the name "default" is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#repo_name CloudbuildTrigger#repo_name}
         '''
         result = self._values.get("repo_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9576,7 +9576,7 @@ class CloudbuildTriggerTriggerTemplate:
         Exactly one of a branch name, tag, or commit SHA must be provided.
         This field is a regular expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#tag_name CloudbuildTrigger#tag_name}
         '''
         result = self._values.get("tag_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9789,7 +9789,7 @@ class CloudbuildTriggerTriggerTemplateOutputReference(
 class CloudbuildTriggerWebhookConfig:
     def __init__(self, *, secret: builtins.str) -> None:
         '''
-        :param secret: Resource name for the secret required as a URL parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        :param secret: Resource name for the secret required as a URL parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bafc34c9259c5564428314cf9aefc3fdc03c0033b0206ac6acaa64937d08045)
@@ -9802,7 +9802,7 @@ class CloudbuildTriggerWebhookConfig:
     def secret(self) -> builtins.str:
         '''Resource name for the secret required as a URL parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloudbuild_trigger#secret CloudbuildTrigger#secret}
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"

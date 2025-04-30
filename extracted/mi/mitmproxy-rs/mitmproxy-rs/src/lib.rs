@@ -2,11 +2,11 @@ extern crate core;
 
 use std::sync::{LazyLock, Mutex};
 
-use crate::contentview::{Contentview, InteractiveContentview};
+use crate::contentviews::{Contentview, InteractiveContentview};
 use mitmproxy_contentviews::{Prettify, Reencode};
 use pyo3::{exceptions::PyException, prelude::*};
 
-mod contentview;
+mod contentviews;
 mod dns_resolver;
 mod process_info;
 mod server;
@@ -88,10 +88,12 @@ mod mitmproxy_rs {
     mod contentviews {
         use super::*;
         #[pymodule_export]
-        use crate::contentview::Contentview;
+        use crate::contentviews::Contentview;
         #[pymodule_export]
-        use crate::contentview::InteractiveContentview;
-        use mitmproxy_contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
+        use crate::contentviews::InteractiveContentview;
+        use mitmproxy_contentviews::{
+            HexDump, HexStream, MsgPack, Protobuf, TestInspectMetadata, GRPC,
+        };
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -100,6 +102,7 @@ mod mitmproxy_rs {
             m.add_interactive_contentview(&MsgPack)?;
             m.add_interactive_contentview(&Protobuf)?;
             m.add_interactive_contentview(&GRPC)?;
+            m.add_contentview(&TestInspectMetadata)?;
             Ok(())
         }
     }

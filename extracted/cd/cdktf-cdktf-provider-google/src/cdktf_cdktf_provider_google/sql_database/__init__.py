@@ -1,7 +1,7 @@
 r'''
 # `google_sql_database`
 
-Refer to the Terraform Registry for docs: [`google_sql_database`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database).
+Refer to the Terraform Registry for docs: [`google_sql_database`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SqlDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.sqlDatabase.SqlDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database google_sql_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database google_sql_database}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SqlDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database google_sql_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database google_sql_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The name of the Cloud SQL instance. This does not include the project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#instance SqlDatabase#instance}
-        :param name: The name of the database in the Cloud SQL instance. This does not include the project ID or instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#name SqlDatabase#name}
-        :param charset: The charset value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Character Set Support <https://www.postgresql.org/docs/9.6/static/multibyte.html>`_ for more details and supported values. Postgres databases only support a value of 'UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#charset SqlDatabase#charset}
-        :param collation: The collation value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Collation Support <https://www.postgresql.org/docs/9.6/static/collation.html>`_ for more details and supported values. Postgres databases only support a value of 'en_US.UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#collation SqlDatabase#collation}
-        :param deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be deleted from the API if there are users other than cloudsqlsuperuser with access. Possible values are: "ABANDON", "DELETE". Defaults to "DELETE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#id SqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#project SqlDatabase#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
+        :param instance: The name of the Cloud SQL instance. This does not include the project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#instance SqlDatabase#instance}
+        :param name: The name of the database in the Cloud SQL instance. This does not include the project ID or instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#name SqlDatabase#name}
+        :param charset: The charset value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Character Set Support <https://www.postgresql.org/docs/9.6/static/multibyte.html>`_ for more details and supported values. Postgres databases only support a value of 'UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#charset SqlDatabase#charset}
+        :param collation: The collation value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Collation Support <https://www.postgresql.org/docs/9.6/static/collation.html>`_ for more details and supported values. Postgres databases only support a value of 'en_US.UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#collation SqlDatabase#collation}
+        :param deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be deleted from the API if there are users other than cloudsqlsuperuser with access. Possible values are: "ABANDON", "DELETE". Defaults to "DELETE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#id SqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#project SqlDatabase#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SqlDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SqlDatabase to import.
-        :param import_from_id: The id of the existing SqlDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SqlDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SqlDatabase to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class SqlDatabase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#create SqlDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#delete SqlDatabase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#update SqlDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#create SqlDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#delete SqlDatabase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#update SqlDatabase#update}.
         '''
         value = SqlDatabaseTimeouts(create=create, delete=delete, update=update)
 
@@ -375,14 +375,14 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The name of the Cloud SQL instance. This does not include the project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#instance SqlDatabase#instance}
-        :param name: The name of the database in the Cloud SQL instance. This does not include the project ID or instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#name SqlDatabase#name}
-        :param charset: The charset value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Character Set Support <https://www.postgresql.org/docs/9.6/static/multibyte.html>`_ for more details and supported values. Postgres databases only support a value of 'UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#charset SqlDatabase#charset}
-        :param collation: The collation value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Collation Support <https://www.postgresql.org/docs/9.6/static/collation.html>`_ for more details and supported values. Postgres databases only support a value of 'en_US.UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#collation SqlDatabase#collation}
-        :param deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be deleted from the API if there are users other than cloudsqlsuperuser with access. Possible values are: "ABANDON", "DELETE". Defaults to "DELETE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#id SqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#project SqlDatabase#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
+        :param instance: The name of the Cloud SQL instance. This does not include the project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#instance SqlDatabase#instance}
+        :param name: The name of the database in the Cloud SQL instance. This does not include the project ID or instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#name SqlDatabase#name}
+        :param charset: The charset value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Character Set Support <https://www.postgresql.org/docs/9.6/static/multibyte.html>`_ for more details and supported values. Postgres databases only support a value of 'UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#charset SqlDatabase#charset}
+        :param collation: The collation value. See MySQL's `Supported Character Sets and Collations <https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html>`_ and Postgres' `Collation Support <https://www.postgresql.org/docs/9.6/static/collation.html>`_ for more details and supported values. Postgres databases only support a value of 'en_US.UTF8' at creation time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#collation SqlDatabase#collation}
+        :param deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be deleted from the API if there are users other than cloudsqlsuperuser with access. Possible values are: "ABANDON", "DELETE". Defaults to "DELETE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#id SqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#project SqlDatabase#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -504,7 +504,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The name of the Cloud SQL instance. This does not include the project ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#instance SqlDatabase#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#instance SqlDatabase#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -514,7 +514,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the database in the Cloud SQL instance. This does not include the project ID or instance name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#name SqlDatabase#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#name SqlDatabase#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -530,7 +530,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for more details and supported values. Postgres databases only support
         a value of 'UTF8' at creation time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#charset SqlDatabase#charset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#charset SqlDatabase#charset}
         '''
         result = self._values.get("charset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -545,7 +545,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for more details and supported values. Postgres databases only support
         a value of 'en_US.UTF8' at creation time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#collation SqlDatabase#collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#collation SqlDatabase#collation}
         '''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -559,14 +559,14 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
         values are: "ABANDON", "DELETE". Defaults to "DELETE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#deletion_policy SqlDatabase#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#id SqlDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#id SqlDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -576,7 +576,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#project SqlDatabase#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#project SqlDatabase#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -584,7 +584,7 @@ class SqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SqlDatabaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#timeouts SqlDatabase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SqlDatabaseTimeouts"], result)
@@ -615,9 +615,9 @@ class SqlDatabaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#create SqlDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#delete SqlDatabase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#update SqlDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#create SqlDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#delete SqlDatabase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#update SqlDatabase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9fc7c3c3adb629345ba5923502a117921d80300595ba3f4c94298ea23382dc06)
@@ -634,19 +634,19 @@ class SqlDatabaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#create SqlDatabase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#create SqlDatabase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#delete SqlDatabase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#delete SqlDatabase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database#update SqlDatabase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database#update SqlDatabase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

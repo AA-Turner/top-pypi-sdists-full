@@ -43,7 +43,6 @@ EXTERNAL_LOGGERS = [
     "evergreen",
     "github",
     "inject",
-    "segment",
     "urllib3",
 ]
 

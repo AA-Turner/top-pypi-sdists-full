@@ -51,13 +51,13 @@ tests = [
     "pytest-cov>=4.1.0",
     "pytest-mock",
     "pytest-benchmark>=4",
-    "pytest-servers==0.5.9",
+    "pytest-servers==0.5.10",
 ]
 dev = [
     "dvc-data[all]",
     "dvc-data[tests]",
     "blake3>=0.3.1",
-    "mypy==1.14.1",
+    "mypy==1.15.0",
     "types-tqdm",
 ]
 

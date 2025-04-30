@@ -2305,6 +2305,15 @@ class TradeStationOrderProperties(QuantConnect.Orders.OrderProperties):
     def all_or_none(self, value: bool) -> None:
         ...
 
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
+
 
 class GroupOrderCacheManager(System.Object):
     """Provides a thread-safe service for caching and managing original orders when they are part of a group."""

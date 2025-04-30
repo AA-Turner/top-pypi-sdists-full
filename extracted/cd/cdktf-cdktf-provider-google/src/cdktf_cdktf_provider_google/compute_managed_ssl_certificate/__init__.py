@@ -1,7 +1,7 @@
 r'''
 # `google_compute_managed_ssl_certificate`
 
-Refer to the Terraform Registry for docs: [`google_compute_managed_ssl_certificate`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate).
+Refer to the Terraform Registry for docs: [`google_compute_managed_ssl_certificate`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeManagedSslCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeManagedSslCertificate.ComputeManagedSslCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate google_compute_managed_ssl_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate google_compute_managed_ssl_certificate}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ComputeManagedSslCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate google_compute_managed_ssl_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate google_compute_managed_ssl_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param managed: managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. These are in the same namespace as the managed SSL certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
-        :param type: Enum field whose value is always 'MANAGED' - used to signal to the API which type this is. Default value: "MANAGED" Possible values: ["MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param managed: managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. These are in the same namespace as the managed SSL certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
+        :param type: Enum field whose value is always 'MANAGED' - used to signal to the API which type this is. Default value: "MANAGED" Possible values: ["MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ComputeManagedSslCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeManagedSslCertificate to import.
-        :param import_from_id: The id of the existing ComputeManagedSslCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeManagedSslCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeManagedSslCertificate to import is found.
         '''
         if __debug__:
@@ -135,7 +135,7 @@ class ComputeManagedSslCertificate(
     @jsii.member(jsii_name="putManaged")
     def put_managed(self, *, domains: typing.Sequence[builtins.str]) -> None:
         '''
-        :param domains: Domains for which a managed SSL certificate will be valid. Currently, there can be up to 100 domains in this list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
+        :param domains: Domains for which a managed SSL certificate will be valid. Currently, there can be up to 100 domains in this list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
         '''
         value = ComputeManagedSslCertificateManaged(domains=domains)
 
@@ -149,8 +149,8 @@ class ComputeManagedSslCertificate(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.
         '''
         value = ComputeManagedSslCertificateTimeouts(create=create, delete=delete)
 
@@ -377,13 +377,13 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param managed: managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. These are in the same namespace as the managed SSL certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
-        :param type: Enum field whose value is always 'MANAGED' - used to signal to the API which type this is. Default value: "MANAGED" Possible values: ["MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param managed: managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. These are in the same namespace as the managed SSL certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
+        :param type: Enum field whose value is always 'MANAGED' - used to signal to the API which type this is. Default value: "MANAGED" Possible values: ["MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -505,14 +505,14 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#description ComputeManagedSslCertificate#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#id ComputeManagedSslCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -524,7 +524,7 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def managed(self) -> typing.Optional["ComputeManagedSslCertificateManaged"]:
         '''managed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#managed ComputeManagedSslCertificate#managed}
         '''
         result = self._values.get("managed")
         return typing.cast(typing.Optional["ComputeManagedSslCertificateManaged"], result)
@@ -543,14 +543,14 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         These are in the same namespace as the managed SSL certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#name ComputeManagedSslCertificate#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#project ComputeManagedSslCertificate#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -558,7 +558,7 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["ComputeManagedSslCertificateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#timeouts ComputeManagedSslCertificate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeManagedSslCertificateTimeouts"], result)
@@ -569,7 +569,7 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         Default value: "MANAGED" Possible values: ["MANAGED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#type ComputeManagedSslCertificate#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -594,7 +594,7 @@ class ComputeManagedSslCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 class ComputeManagedSslCertificateManaged:
     def __init__(self, *, domains: typing.Sequence[builtins.str]) -> None:
         '''
-        :param domains: Domains for which a managed SSL certificate will be valid. Currently, there can be up to 100 domains in this list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
+        :param domains: Domains for which a managed SSL certificate will be valid. Currently, there can be up to 100 domains in this list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a26b4d8e299ba5678fb4e8972f5a194b154ee452698f40751ded33abe328446)
@@ -610,7 +610,7 @@ class ComputeManagedSslCertificateManaged:
         Currently,
         there can be up to 100 domains in this list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#domains ComputeManagedSslCertificate#domains}
         '''
         result = self._values.get("domains")
         assert result is not None, "Required property 'domains' is missing"
@@ -694,8 +694,8 @@ class ComputeManagedSslCertificateTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b86844b38e7779c838178646a6c7a2d143cc993b253d21887e01b79c0b2ebec8)
@@ -709,13 +709,13 @@ class ComputeManagedSslCertificateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#create ComputeManagedSslCertificate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_managed_ssl_certificate#delete ComputeManagedSslCertificate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_iam_workforce_pool`
 
-Refer to the Terraform Registry for docs: [`google_iam_workforce_pool`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool).
+Refer to the Terraform Registry for docs: [`google_iam_workforce_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamWorkforcePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamWorkforcePool.IamWorkforcePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool google_iam_workforce_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool google_iam_workforce_pool}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class IamWorkforcePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool google_iam_workforce_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool google_iam_workforce_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
-        :param parent: Immutable. The resource name of the parent. Format: 'organizations/{org-id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
-        :param workforce_pool_id: The name of the pool. The ID must be a globally unique string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
-        :param access_restrictions: access_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
-        :param description: A user-specified description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
-        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
-        :param display_name: A user-specified display name of the pool in Google Cloud Console. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param session_duration: Duration that the Google Cloud access tokens, console sign-in sessions, and 'gcloud' sign-in sessions from this pool are valid. Must be greater than 15 minutes (900s) and less than 12 hours (43200s). If 'sessionDuration' is not configured, minted credentials have a default duration of one hour (3600s). A duration in seconds with up to nine fractional digits, ending with ''s''. Example: "'3.5s'". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
+        :param parent: Immutable. The resource name of the parent. Format: 'organizations/{org-id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
+        :param workforce_pool_id: The name of the pool. The ID must be a globally unique string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
+        :param access_restrictions: access_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
+        :param description: A user-specified description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
+        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
+        :param display_name: A user-specified display name of the pool in Google Cloud Console. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param session_duration: Duration that the Google Cloud access tokens, console sign-in sessions, and 'gcloud' sign-in sessions from this pool are valid. Must be greater than 15 minutes (900s) and less than 12 hours (43200s). If 'sessionDuration' is not configured, minted credentials have a default duration of one hour (3600s). A duration in seconds with up to nine fractional digits, ending with ''s''. Example: "'3.5s'". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class IamWorkforcePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamWorkforcePool to import.
-        :param import_from_id: The id of the existing IamWorkforcePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamWorkforcePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamWorkforcePool to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class IamWorkforcePool(
         disable_programmatic_signin: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_services: allowed_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
-        :param disable_programmatic_signin: Disable programmatic sign-in by disabling token issue via the Security Token API endpoint. See `Security Token Service API <https://cloud.google.com/iam/docs/reference/sts/rest>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
+        :param allowed_services: allowed_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
+        :param disable_programmatic_signin: Disable programmatic sign-in by disabling token issue via the Security Token API endpoint. See `Security Token Service API <https://cloud.google.com/iam/docs/reference/sts/rest>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
         '''
         value = IamWorkforcePoolAccessRestrictions(
             allowed_services=allowed_services,
@@ -168,9 +168,9 @@ class IamWorkforcePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.
         '''
         value = IamWorkforcePoolTimeouts(create=create, delete=delete, update=update)
 
@@ -411,8 +411,8 @@ class IamWorkforcePoolAccessRestrictions:
         disable_programmatic_signin: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_services: allowed_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
-        :param disable_programmatic_signin: Disable programmatic sign-in by disabling token issue via the Security Token API endpoint. See `Security Token Service API <https://cloud.google.com/iam/docs/reference/sts/rest>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
+        :param allowed_services: allowed_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
+        :param disable_programmatic_signin: Disable programmatic sign-in by disabling token issue via the Security Token API endpoint. See `Security Token Service API <https://cloud.google.com/iam/docs/reference/sts/rest>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f0bdbc44f26edef5eca7ec229bb948ae21b5b779a3302552ff3c917445ed24f)
@@ -430,7 +430,7 @@ class IamWorkforcePoolAccessRestrictions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IamWorkforcePoolAccessRestrictionsAllowedServices"]]]:
         '''allowed_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#allowed_services IamWorkforcePool#allowed_services}
         '''
         result = self._values.get("allowed_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IamWorkforcePoolAccessRestrictionsAllowedServices"]]], result)
@@ -441,7 +441,7 @@ class IamWorkforcePoolAccessRestrictions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disable programmatic sign-in by disabling token issue via the Security Token API endpoint. See `Security Token Service API <https://cloud.google.com/iam/docs/reference/sts/rest>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disable_programmatic_signin IamWorkforcePool#disable_programmatic_signin}
         '''
         result = self._values.get("disable_programmatic_signin")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -466,7 +466,7 @@ class IamWorkforcePoolAccessRestrictions:
 class IamWorkforcePoolAccessRestrictionsAllowedServices:
     def __init__(self, *, domain: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param domain: Domain name of the service. Example: console.cloud.google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#domain IamWorkforcePool#domain}
+        :param domain: Domain name of the service. Example: console.cloud.google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#domain IamWorkforcePool#domain}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6187dd8064f2a9bc1508c93a922613341365cdede9b111f76f19d9dba7c0e828)
@@ -479,7 +479,7 @@ class IamWorkforcePoolAccessRestrictionsAllowedServices:
     def domain(self) -> typing.Optional[builtins.str]:
         '''Domain name of the service. Example: console.cloud.google.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#domain IamWorkforcePool#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#domain IamWorkforcePool#domain}
         '''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -800,16 +800,16 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
-        :param parent: Immutable. The resource name of the parent. Format: 'organizations/{org-id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
-        :param workforce_pool_id: The name of the pool. The ID must be a globally unique string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
-        :param access_restrictions: access_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
-        :param description: A user-specified description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
-        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
-        :param display_name: A user-specified display name of the pool in Google Cloud Console. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param session_duration: Duration that the Google Cloud access tokens, console sign-in sessions, and 'gcloud' sign-in sessions from this pool are valid. Must be greater than 15 minutes (900s) and less than 12 hours (43200s). If 'sessionDuration' is not configured, minted credentials have a default duration of one hour (3600s). A duration in seconds with up to nine fractional digits, ending with ''s''. Example: "'3.5s'". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
+        :param parent: Immutable. The resource name of the parent. Format: 'organizations/{org-id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
+        :param workforce_pool_id: The name of the pool. The ID must be a globally unique string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
+        :param access_restrictions: access_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
+        :param description: A user-specified description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
+        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
+        :param display_name: A user-specified display name of the pool in Google Cloud Console. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param session_duration: Duration that the Google Cloud access tokens, console sign-in sessions, and 'gcloud' sign-in sessions from this pool are valid. Must be greater than 15 minutes (900s) and less than 12 hours (43200s). If 'sessionDuration' is not configured, minted credentials have a default duration of one hour (3600s). A duration in seconds with up to nine fractional digits, ending with ''s''. Example: "'3.5s'". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -938,7 +938,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#location IamWorkforcePool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -948,7 +948,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''Immutable. The resource name of the parent. Format: 'organizations/{org-id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#parent IamWorkforcePool#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -962,7 +962,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen.
         The prefix 'gcp-' is reserved for use by Google, and may not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#workforce_pool_id IamWorkforcePool#workforce_pool_id}
         '''
         result = self._values.get("workforce_pool_id")
         assert result is not None, "Required property 'workforce_pool_id' is missing"
@@ -974,7 +974,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[IamWorkforcePoolAccessRestrictions]:
         '''access_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#access_restrictions IamWorkforcePool#access_restrictions}
         '''
         result = self._values.get("access_restrictions")
         return typing.cast(typing.Optional[IamWorkforcePoolAccessRestrictions], result)
@@ -983,7 +983,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A user-specified description of the pool. Cannot exceed 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#description IamWorkforcePool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -997,7 +997,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         You cannot use a disabled pool to exchange tokens,
         or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#disabled IamWorkforcePool#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1006,14 +1006,14 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A user-specified display name of the pool in Google Cloud Console. Cannot exceed 32 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#display_name IamWorkforcePool#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#id IamWorkforcePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1029,7 +1029,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If 'sessionDuration' is not configured, minted credentials have a default duration of one hour (3600s).
         A duration in seconds with up to nine fractional digits, ending with ''s''. Example: "'3.5s'".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#session_duration IamWorkforcePool#session_duration}
         '''
         result = self._values.get("session_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1038,7 +1038,7 @@ class IamWorkforcePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamWorkforcePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#timeouts IamWorkforcePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamWorkforcePoolTimeouts"], result)
@@ -1069,9 +1069,9 @@ class IamWorkforcePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9848e819a8babc52031f56eb71b2a3c1863d0df44bf81fb9945fe0b40984b13)
@@ -1088,19 +1088,19 @@ class IamWorkforcePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#create IamWorkforcePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#delete IamWorkforcePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_workforce_pool#update IamWorkforcePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

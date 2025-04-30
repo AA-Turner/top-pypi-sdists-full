@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ada-url
-Version: 1.22.0
+Version: 1.23.0
 Summary: URL parser and manipulator based on the WHAT WG URL standard
 Author-email: Bo Bayles <bo@bbayles.com>
 License: Apache 2.0

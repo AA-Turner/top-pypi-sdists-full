@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elasticsearch8
-Version: 8.18.0
+Version: 8.18.1
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch8-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch8-py
@@ -10,7 +10,9 @@ Author-email: Elastic Client Library Maintainers <client-libs@elastic.co>
 Maintainer-email: Elastic Client Library Maintainers <client-libs@elastic.co>
 License-Expression: Apache-2.0
 License-File: LICENSE
+License-File: LICENSE.txt
 License-File: NOTICE
+License-File: NOTICE.txt
 Keywords: REST,client,elastic,elasticsearch8,index,kibana,mapping,search
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

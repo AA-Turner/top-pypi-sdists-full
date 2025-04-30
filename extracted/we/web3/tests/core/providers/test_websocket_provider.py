@@ -510,3 +510,59 @@ async def test_websocket_provider_raises_errors_from_cache_not_tied_to_a_request
         with pytest.raises(Web3RPCError, match="Request shutdown"):
             await asyncio.sleep(0.1)
             await async_w3.eth.block_number
+
+
+@pytest.mark.asyncio
+async def test_req_info_cache_size_can_be_set_and_warns_when_full(caplog):
+    with patch(
+        "web3.providers.persistent.websocket.connect",
+        new=lambda *_1, **_2: _mocked_ws_conn(),
+    ):
+        async_w3 = await AsyncWeb3(
+            WebSocketProvider("ws://mocked", request_information_cache_size=1)
+        )
+        async_w3.provider._request_processor.cache_request_information(
+            RPCEndpoint("eth_getBlockByNumber"),
+            ["latest"],
+            tuple(),
+            tuple(),
+        )
+
+        assert len(async_w3.provider._request_processor._request_information_cache) == 1
+        assert (
+            "Request information cache is full. This may result in unexpected "
+            "behavior. Consider increasing the ``request_information_cache_size`` "
+            "on the provider."
+        ) in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_raise_stray_errors_from_cache_handles_list_response_without_error():
+    provider = WebSocketProvider("ws://mocked")
+    _mock_ws(provider)
+
+    bad_response = [
+        {"id": None, "jsonrpc": "2.0", "error": {"code": 21, "message": "oops"}}
+    ]
+    provider._request_processor._request_response_cache._data["bad_key"] = bad_response
+
+    # assert no errors raised
+    provider._raise_stray_errors_from_cache()
+
+
+@pytest.mark.asyncio
+async def test_websocket_provider_is_batching_when_make_batch_request():
+    def assert_is_batching_and_return_response(*_args, **_kwargs) -> bytes:
+        assert provider._is_batching
+        return b'{"jsonrpc":"2.0","id":1,"result":["0x1"]}'
+
+    provider = WebSocketProvider("ws://mocked")
+    _mock_ws(provider)
+    provider._get_response_for_request_id = AsyncMock()
+    provider._get_response_for_request_id.side_effect = (
+        assert_is_batching_and_return_response
+    )
+
+    assert not provider._is_batching
+    await provider.make_batch_request([("eth_blockNumber", [])])
+    assert not provider._is_batching

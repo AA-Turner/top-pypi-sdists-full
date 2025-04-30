@@ -40,6 +40,7 @@ from union.internal.app.app_definition_pb2 import (
     Spec,
 )
 from union.internal.app.app_definition_pb2 import Concurrency as ConcurrencyIDL
+from union.internal.app.app_definition_pb2 import Link as LinkIDL
 from union.internal.app.app_definition_pb2 import RequestRate as RequestRateIDL
 from union.internal.app.app_definition_pb2 import ScalingMetric as ScalingMetricIDL
 from union.ucimage._image_builder import get_image_name, is_union_image
@@ -324,6 +325,13 @@ class AppConfigProtocol(Protocol):
 
 
 @dataclass
+class Link:
+    path: str
+    title: str
+    is_relative: bool = False
+
+
+@dataclass
 class App:
     """
     App specification.
@@ -354,6 +362,7 @@ class App:
           you can set `args` directly.
     :param dependencies: List of apps that this app depends on.
     :param subdomain: Custom subdomain for your app.
+    :param links: Links to external URLs or relative paths.
     """
 
     @dataclass
@@ -385,6 +394,7 @@ class App:
     dependencies: List["App"] = field(default_factory=list)
     config: Optional[AppConfigProtocol] = None
     subdomain: Optional[str] = None
+    links: Optional[List[Link]] = None
 
     _include_resolved: Optional[List[ResolvedInclude]] = field(default=None, init=False)
     _port: Optional[Port] = field(default=None, init=False)
@@ -734,6 +744,9 @@ class App:
                     type=self.type,
                     short_description=self.description,
                 ),
+                links=[LinkIDL(path=link.path, title=link.title, is_relative=link.is_relative) for link in self.links]
+                if self.links
+                else None,
                 **spec_kwargs,
             ),
         )

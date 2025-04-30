@@ -1,7 +1,7 @@
 r'''
 # `google_project_iam_member_remove`
 
-Refer to the Terraform Registry for docs: [`google_project_iam_member_remove`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove).
+Refer to the Terraform Registry for docs: [`google_project_iam_member_remove`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ProjectIamMemberRemove(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.projectIamMemberRemove.ProjectIamMemberRemove",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove google_project_iam_member_remove}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove google_project_iam_member_remove}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ProjectIamMemberRemove(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove google_project_iam_member_remove} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove google_project_iam_member_remove} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param member: The IAM principal that should not have the target role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
-        :param project: The project id of the target project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
-        :param role: The target role that should be removed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: The IAM principal that should not have the target role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
+        :param project: The project id of the target project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
+        :param role: The target role that should be removed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ProjectIamMemberRemove(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ProjectIamMemberRemove to import.
-        :param import_from_id: The id of the existing ProjectIamMemberRemove that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ProjectIamMemberRemove that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ProjectIamMemberRemove to import is found.
         '''
         if __debug__:
@@ -250,10 +250,10 @@ class ProjectIamMemberRemoveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param member: The IAM principal that should not have the target role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
-        :param project: The project id of the target project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
-        :param role: The target role that should be removed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: The IAM principal that should not have the target role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
+        :param project: The project id of the target project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
+        :param role: The target role that should be removed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -360,7 +360,7 @@ class ProjectIamMemberRemoveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def member(self) -> builtins.str:
         '''The IAM principal that should not have the target role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#member ProjectIamMemberRemove#member}
         '''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
@@ -370,7 +370,7 @@ class ProjectIamMemberRemoveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> builtins.str:
         '''The project id of the target project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#project ProjectIamMemberRemove#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -380,7 +380,7 @@ class ProjectIamMemberRemoveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role(self) -> builtins.str:
         '''The target role that should be removed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#role ProjectIamMemberRemove#role}
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -388,7 +388,7 @@ class ProjectIamMemberRemoveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_iam_member_remove#id ProjectIamMemberRemove#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

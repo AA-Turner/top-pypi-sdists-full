@@ -4172,8 +4172,11 @@ async def gerenciador_nf_header(
         pyautogui.press("tab")
         await worker_sleep(2)
 
-        console.print("Cicando em Pesquisar...\n")
-        btn_pesquisar.click()
+        console.print("Clicando em Pesquisar...\n")
+        i = 0
+        while i <= 1:
+            btn_pesquisar.click()
+            i = i + 1
         await worker_sleep(5)
 
         i = 0

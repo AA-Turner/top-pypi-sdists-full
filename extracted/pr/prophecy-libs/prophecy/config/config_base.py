@@ -214,9 +214,9 @@ class ConfigBase:
                 return [to_dict_recursive(item) for item in obj]
             elif isinstance(obj, dict):
                 return {key: to_dict_recursive(value) for key, value in obj.items() if should_include(key, value)}
-            elif isinstance(obj, date):
+            elif type(obj) is date:
                 return obj.strftime("%d-%m-%Y")
-            elif isinstance(obj, datetime):
+            elif type(obj) is datetime:
                 if obj.tzinfo is None:
                     return obj.strftime("%d-%m-%YT%H:%M:%SZ")
                 else:

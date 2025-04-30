@@ -156,7 +156,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/change_web_app_acceleration_compartment.py.html>`__ to see an example of how to use change_web_app_acceleration_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/change_web_app_acceleration_compartment.py.html>`__ to see an example of how to use change_web_app_acceleration_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationId']
@@ -265,7 +265,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/change_web_app_acceleration_policy_compartment.py.html>`__ to see an example of how to use change_web_app_acceleration_policy_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/change_web_app_acceleration_policy_compartment.py.html>`__ to see an example of how to use change_web_app_acceleration_policy_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationPolicyId']
@@ -369,7 +369,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/create_web_app_acceleration.py.html>`__ to see an example of how to use create_web_app_acceleration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/create_web_app_acceleration.py.html>`__ to see an example of how to use create_web_app_acceleration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -464,7 +464,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/create_web_app_acceleration_policy.py.html>`__ to see an example of how to use create_web_app_acceleration_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/create_web_app_acceleration_policy.py.html>`__ to see an example of how to use create_web_app_acceleration_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -560,7 +560,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/delete_web_app_acceleration.py.html>`__ to see an example of how to use delete_web_app_acceleration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/delete_web_app_acceleration.py.html>`__ to see an example of how to use delete_web_app_acceleration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationId']
@@ -663,7 +663,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/delete_web_app_acceleration_policy.py.html>`__ to see an example of how to use delete_web_app_acceleration_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/delete_web_app_acceleration_policy.py.html>`__ to see an example of how to use delete_web_app_acceleration_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationPolicyId']
@@ -761,7 +761,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/get_web_app_acceleration.py.html>`__ to see an example of how to use get_web_app_acceleration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/get_web_app_acceleration.py.html>`__ to see an example of how to use get_web_app_acceleration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationId']
@@ -859,7 +859,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/get_web_app_acceleration_policy.py.html>`__ to see an example of how to use get_web_app_acceleration_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/get_web_app_acceleration_policy.py.html>`__ to see an example of how to use get_web_app_acceleration_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationPolicyId']
@@ -988,7 +988,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/list_web_app_acceleration_policies.py.html>`__ to see an example of how to use list_web_app_acceleration_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/list_web_app_acceleration_policies.py.html>`__ to see an example of how to use list_web_app_acceleration_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1146,7 +1146,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/list_web_app_accelerations.py.html>`__ to see an example of how to use list_web_app_accelerations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/list_web_app_accelerations.py.html>`__ to see an example of how to use list_web_app_accelerations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1273,7 +1273,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/purge_web_app_acceleration_cache.py.html>`__ to see an example of how to use purge_web_app_acceleration_cache API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/purge_web_app_acceleration_cache.py.html>`__ to see an example of how to use purge_web_app_acceleration_cache API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationId']
@@ -1379,7 +1379,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/update_web_app_acceleration.py.html>`__ to see an example of how to use update_web_app_acceleration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/update_web_app_acceleration.py.html>`__ to see an example of how to use update_web_app_acceleration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationId']
@@ -1487,7 +1487,7 @@ class WaaClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/waa/update_web_app_acceleration_policy.py.html>`__ to see an example of how to use update_web_app_acceleration_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waa/update_web_app_acceleration_policy.py.html>`__ to see an example of how to use update_web_app_acceleration_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppAccelerationPolicyId']

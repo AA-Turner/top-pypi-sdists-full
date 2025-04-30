@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_metastore_service`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_metastore_service`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service).
+Refer to the Terraform Registry for docs: [`google_dataproc_metastore_service`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataprocMetastoreService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataprocMetastoreService.DataprocMetastoreService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service google_dataproc_metastore_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service google_dataproc_metastore_service}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class DataprocMetastoreService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service google_dataproc_metastore_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service google_dataproc_metastore_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_id: The ID of the metastore service. The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
-        :param database_type: The database type that the Metastore service stores its data. Default value: "MYSQL" Possible values: ["MYSQL", "SPANNER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
-        :param deletion_protection: Indicates if the dataproc metastore should be protected against accidental deletions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
-        :param hive_metastore_config: hive_metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the metastore service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
-        :param location: The location where the metastore service should reside. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
-        :param metadata_integration: metadata_integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
-        :param network: The relative resource name of the VPC network on which the instance can be accessed. It is specified in the following form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
-        :param port: The TCP port at which the metastore service is reached. Default: 9083. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.
-        :param release_channel: The release channel of the service. If unspecified, defaults to 'STABLE'. Default value: "STABLE" Possible values: ["CANARY", "STABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
-        :param scheduled_backup: scheduled_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
-        :param tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
-        :param telemetry_config: telemetry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
-        :param tier: The tier of the service. Possible values: ["DEVELOPER", "ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
+        :param service_id: The ID of the metastore service. The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
+        :param database_type: The database type that the Metastore service stores its data. Default value: "MYSQL" Possible values: ["MYSQL", "SPANNER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
+        :param deletion_protection: Indicates if the dataproc metastore should be protected against accidental deletions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
+        :param hive_metastore_config: hive_metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the metastore service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
+        :param location: The location where the metastore service should reside. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
+        :param metadata_integration: metadata_integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
+        :param network: The relative resource name of the VPC network on which the instance can be accessed. It is specified in the following form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
+        :param port: The TCP port at which the metastore service is reached. Default: 9083. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.
+        :param release_channel: The release channel of the service. If unspecified, defaults to 'STABLE'. Default value: "STABLE" Possible values: ["CANARY", "STABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
+        :param scheduled_backup: scheduled_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
+        :param tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
+        :param telemetry_config: telemetry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
+        :param tier: The tier of the service. Possible values: ["DEVELOPER", "ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class DataprocMetastoreService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataprocMetastoreService to import.
-        :param import_from_id: The id of the existing DataprocMetastoreService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataprocMetastoreService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataprocMetastoreService to import is found.
         '''
         if __debug__:
@@ -177,7 +177,7 @@ class DataprocMetastoreService(
     @jsii.member(jsii_name="putEncryptionConfig")
     def put_encryption_config(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: The fully qualified customer provided Cloud KMS key name to use for customer data encryption. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
+        :param kms_key: The fully qualified customer provided Cloud KMS key name to use for customer data encryption. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
         '''
         value = DataprocMetastoreServiceEncryptionConfig(kms_key=kms_key)
 
@@ -194,11 +194,11 @@ class DataprocMetastoreService(
         kerberos_config: typing.Optional[typing.Union["DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param version: The Hive metastore schema version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
-        :param auxiliary_versions: auxiliary_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
-        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the Hive metastore (configured in hive-site.xml). The mappings override system defaults (some keys cannot be overridden). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
-        :param endpoint_protocol: The protocol to use for the metastore service endpoint. If unspecified, defaults to 'THRIFT'. Default value: "THRIFT" Possible values: ["THRIFT", "GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
-        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
+        :param version: The Hive metastore schema version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
+        :param auxiliary_versions: auxiliary_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
+        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the Hive metastore (configured in hive-site.xml). The mappings override system defaults (some keys cannot be overridden). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
+        :param endpoint_protocol: The protocol to use for the metastore service endpoint. If unspecified, defaults to 'THRIFT'. Default value: "THRIFT" Possible values: ["THRIFT", "GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
+        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
         '''
         value = DataprocMetastoreServiceHiveMetastoreConfig(
             version=version,
@@ -218,8 +218,8 @@ class DataprocMetastoreService(
         hour_of_day: jsii.Number,
     ) -> None:
         '''
-        :param day_of_week: The day of week, when the window starts. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
-        :param hour_of_day: The hour of day (0-23) when the window starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
+        :param day_of_week: The day of week, when the window starts. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
+        :param hour_of_day: The hour of day (0-23) when the window starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
         '''
         value = DataprocMetastoreServiceMaintenanceWindow(
             day_of_week=day_of_week, hour_of_day=hour_of_day
@@ -234,7 +234,7 @@ class DataprocMetastoreService(
         data_catalog_config: typing.Union["DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
+        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
         '''
         value = DataprocMetastoreServiceMetadataIntegration(
             data_catalog_config=data_catalog_config
@@ -249,7 +249,7 @@ class DataprocMetastoreService(
         consumers: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataprocMetastoreServiceNetworkConfigConsumers", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param consumers: consumers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
+        :param consumers: consumers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
         '''
         value = DataprocMetastoreServiceNetworkConfig(consumers=consumers)
 
@@ -264,9 +264,9 @@ class DataprocMetastoreService(
         scaling_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
-        :param instance_size: Metastore instance sizes. Possible values: ["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE", "EXTRA_LARGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
-        :param scaling_factor: Scaling factor, in increments of 0.1 for values less than 1.0, and increments of 1.0 for values greater than 1.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
+        :param instance_size: Metastore instance sizes. Possible values: ["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE", "EXTRA_LARGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
+        :param scaling_factor: Scaling factor, in increments of 0.1 for values less than 1.0, and increments of 1.0 for values greater than 1.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
         '''
         value = DataprocMetastoreServiceScalingConfig(
             autoscaling_config=autoscaling_config,
@@ -286,10 +286,10 @@ class DataprocMetastoreService(
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backup_location: A Cloud Storage URI of a folder, in the format gs://<bucket_name>/<path_inside_bucket>. A sub-folder <backup_folder> containing backup files will be stored below it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
-        :param cron_schedule: The scheduled interval in Cron format, see https://en.wikipedia.org/wiki/Cron The default is empty: scheduled backup is not enabled. Must be specified to enable scheduled backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
-        :param enabled: Defines whether the scheduled backup is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
-        :param time_zone: Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. America/Los_Angeles or Africa/Abidjan. If left unspecified, the default is UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
+        :param backup_location: A Cloud Storage URI of a folder, in the format gs://<bucket_name>/<path_inside_bucket>. A sub-folder <backup_folder> containing backup files will be stored below it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
+        :param cron_schedule: The scheduled interval in Cron format, see https://en.wikipedia.org/wiki/Cron The default is empty: scheduled backup is not enabled. Must be specified to enable scheduled backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
+        :param enabled: Defines whether the scheduled backup is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        :param time_zone: Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. America/Los_Angeles or Africa/Abidjan. If left unspecified, the default is UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
         '''
         value = DataprocMetastoreServiceScheduledBackup(
             backup_location=backup_location,
@@ -307,7 +307,7 @@ class DataprocMetastoreService(
         log_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_format: The output format of the Dataproc Metastore service's logs. Default value: "JSON" Possible values: ["LEGACY", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
+        :param log_format: The output format of the Dataproc Metastore service's logs. Default value: "JSON" Possible values: ["LEGACY", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
         '''
         value = DataprocMetastoreServiceTelemetryConfig(log_format=log_format)
 
@@ -322,9 +322,9 @@ class DataprocMetastoreService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.
         '''
         value = DataprocMetastoreServiceTimeouts(
             create=create, delete=delete, update=update
@@ -884,27 +884,27 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_id: The ID of the metastore service. The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
-        :param database_type: The database type that the Metastore service stores its data. Default value: "MYSQL" Possible values: ["MYSQL", "SPANNER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
-        :param deletion_protection: Indicates if the dataproc metastore should be protected against accidental deletions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
-        :param hive_metastore_config: hive_metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the metastore service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
-        :param location: The location where the metastore service should reside. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
-        :param metadata_integration: metadata_integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
-        :param network: The relative resource name of the VPC network on which the instance can be accessed. It is specified in the following form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
-        :param port: The TCP port at which the metastore service is reached. Default: 9083. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.
-        :param release_channel: The release channel of the service. If unspecified, defaults to 'STABLE'. Default value: "STABLE" Possible values: ["CANARY", "STABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
-        :param scheduled_backup: scheduled_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
-        :param tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
-        :param telemetry_config: telemetry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
-        :param tier: The tier of the service. Possible values: ["DEVELOPER", "ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
+        :param service_id: The ID of the metastore service. The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
+        :param database_type: The database type that the Metastore service stores its data. Default value: "MYSQL" Possible values: ["MYSQL", "SPANNER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
+        :param deletion_protection: Indicates if the dataproc metastore should be protected against accidental deletions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
+        :param hive_metastore_config: hive_metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the metastore service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
+        :param location: The location where the metastore service should reside. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
+        :param metadata_integration: metadata_integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
+        :param network: The relative resource name of the VPC network on which the instance can be accessed. It is specified in the following form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
+        :param port: The TCP port at which the metastore service is reached. Default: 9083. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.
+        :param release_channel: The release channel of the service. If unspecified, defaults to 'STABLE'. Default value: "STABLE" Possible values: ["CANARY", "STABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
+        :param scheduled_backup: scheduled_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
+        :param tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
+        :param telemetry_config: telemetry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
+        :param tier: The tier of the service. Possible values: ["DEVELOPER", "ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1086,7 +1086,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between
         3 and 63 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#service_id DataprocMetastoreService#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -1096,7 +1096,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database_type(self) -> typing.Optional[builtins.str]:
         '''The database type that the Metastore service stores its data. Default value: "MYSQL" Possible values: ["MYSQL", "SPANNER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#database_type DataprocMetastoreService#database_type}
         '''
         result = self._values.get("database_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1107,7 +1107,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates if the dataproc metastore should be protected against accidental deletions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#deletion_protection DataprocMetastoreService#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1118,7 +1118,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#encryption_config DataprocMetastoreService#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceEncryptionConfig"], result)
@@ -1129,14 +1129,14 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceHiveMetastoreConfig"]:
         '''hive_metastore_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hive_metastore_config DataprocMetastoreService#hive_metastore_config}
         '''
         result = self._values.get("hive_metastore_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceHiveMetastoreConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#id DataprocMetastoreService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1151,7 +1151,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#labels DataprocMetastoreService#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1160,7 +1160,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location where the metastore service should reside. The default value is 'global'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#location DataprocMetastoreService#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1171,7 +1171,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#maintenance_window DataprocMetastoreService#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["DataprocMetastoreServiceMaintenanceWindow"], result)
@@ -1182,7 +1182,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceMetadataIntegration"]:
         '''metadata_integration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#metadata_integration DataprocMetastoreService#metadata_integration}
         '''
         result = self._values.get("metadata_integration")
         return typing.cast(typing.Optional["DataprocMetastoreServiceMetadataIntegration"], result)
@@ -1195,7 +1195,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         "projects/{projectNumber}/global/networks/{network_id}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network DataprocMetastoreService#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1206,7 +1206,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#network_config DataprocMetastoreService#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceNetworkConfig"], result)
@@ -1215,14 +1215,14 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port at which the metastore service is reached. Default: 9083.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#port DataprocMetastoreService#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#project DataprocMetastoreService#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1230,7 +1230,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def release_channel(self) -> typing.Optional[builtins.str]:
         '''The release channel of the service. If unspecified, defaults to 'STABLE'. Default value: "STABLE" Possible values: ["CANARY", "STABLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#release_channel DataprocMetastoreService#release_channel}
         '''
         result = self._values.get("release_channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,7 +1241,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceScalingConfig"]:
         '''scaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_config DataprocMetastoreService#scaling_config}
         '''
         result = self._values.get("scaling_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceScalingConfig"], result)
@@ -1252,7 +1252,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceScheduledBackup"]:
         '''scheduled_backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scheduled_backup DataprocMetastoreService#scheduled_backup}
         '''
         result = self._values.get("scheduled_backup")
         return typing.cast(typing.Optional["DataprocMetastoreServiceScheduledBackup"], result)
@@ -1264,7 +1264,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Resource manager tag keys and values have the same definition as resource manager tags.
         Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tags DataprocMetastoreService#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1275,7 +1275,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocMetastoreServiceTelemetryConfig"]:
         '''telemetry_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#telemetry_config DataprocMetastoreService#telemetry_config}
         '''
         result = self._values.get("telemetry_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceTelemetryConfig"], result)
@@ -1284,7 +1284,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tier(self) -> typing.Optional[builtins.str]:
         '''The tier of the service. Possible values: ["DEVELOPER", "ENTERPRISE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#tier DataprocMetastoreService#tier}
         '''
         result = self._values.get("tier")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1293,7 +1293,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataprocMetastoreServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#timeouts DataprocMetastoreService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataprocMetastoreServiceTimeouts"], result)
@@ -1318,7 +1318,7 @@ class DataprocMetastoreServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataprocMetastoreServiceEncryptionConfig:
     def __init__(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: The fully qualified customer provided Cloud KMS key name to use for customer data encryption. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
+        :param kms_key: The fully qualified customer provided Cloud KMS key name to use for customer data encryption. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d336eab06ad120c0fb7be7f82d516a8d670f81cd7afcfabfd9400962df3a3c2)
@@ -1331,7 +1331,7 @@ class DataprocMetastoreServiceEncryptionConfig:
     def kms_key(self) -> builtins.str:
         '''The fully qualified customer provided Cloud KMS key name to use for customer data encryption. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kms_key DataprocMetastoreService#kms_key}
         '''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
@@ -1426,11 +1426,11 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
         kerberos_config: typing.Optional[typing.Union["DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param version: The Hive metastore schema version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
-        :param auxiliary_versions: auxiliary_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
-        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the Hive metastore (configured in hive-site.xml). The mappings override system defaults (some keys cannot be overridden). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
-        :param endpoint_protocol: The protocol to use for the metastore service endpoint. If unspecified, defaults to 'THRIFT'. Default value: "THRIFT" Possible values: ["THRIFT", "GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
-        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
+        :param version: The Hive metastore schema version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
+        :param auxiliary_versions: auxiliary_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
+        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the Hive metastore (configured in hive-site.xml). The mappings override system defaults (some keys cannot be overridden). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
+        :param endpoint_protocol: The protocol to use for the metastore service endpoint. If unspecified, defaults to 'THRIFT'. Default value: "THRIFT" Possible values: ["THRIFT", "GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
+        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
         '''
         if isinstance(kerberos_config, dict):
             kerberos_config = DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig(**kerberos_config)
@@ -1457,7 +1457,7 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
     def version(self) -> builtins.str:
         '''The Hive metastore schema version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -1469,7 +1469,7 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions"]]]:
         '''auxiliary_versions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#auxiliary_versions DataprocMetastoreService#auxiliary_versions}
         '''
         result = self._values.get("auxiliary_versions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions"]]], result)
@@ -1480,7 +1480,7 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A mapping of Hive metastore configuration key-value pairs to apply to the Hive metastore (configured in hive-site.xml). The mappings override system defaults (some keys cannot be overridden).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
         '''
         result = self._values.get("config_overrides")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1491,7 +1491,7 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
 
         If unspecified, defaults to 'THRIFT'. Default value: "THRIFT" Possible values: ["THRIFT", "GRPC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#endpoint_protocol DataprocMetastoreService#endpoint_protocol}
         '''
         result = self._values.get("endpoint_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1502,7 +1502,7 @@ class DataprocMetastoreServiceHiveMetastoreConfig:
     ) -> typing.Optional["DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig"]:
         '''kerberos_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#kerberos_config DataprocMetastoreService#kerberos_config}
         '''
         result = self._values.get("kerberos_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig"], result)
@@ -1537,9 +1537,9 @@ class DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions:
         config_overrides: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#key DataprocMetastoreService#key}.
-        :param version: The Hive metastore version of the auxiliary service. It must be less than the primary Hive metastore service's version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
-        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the auxiliary Hive metastore (configured in hive-site.xml) in addition to the primary version's overrides. If keys are present in both the auxiliary version's overrides and the primary version's overrides, the value from the auxiliary version's overrides takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#key DataprocMetastoreService#key}.
+        :param version: The Hive metastore version of the auxiliary service. It must be less than the primary Hive metastore service's version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
+        :param config_overrides: A mapping of Hive metastore configuration key-value pairs to apply to the auxiliary Hive metastore (configured in hive-site.xml) in addition to the primary version's overrides. If keys are present in both the auxiliary version's overrides and the primary version's overrides, the value from the auxiliary version's overrides takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67ab7f8c4561dce41958922f1ef0440ea4c27dd07f315aa85014cd2f6dc0e53d)
@@ -1555,7 +1555,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#key DataprocMetastoreService#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#key DataprocMetastoreService#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1564,7 +1564,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions:
     def version(self) -> builtins.str:
         '''The Hive metastore version of the auxiliary service. It must be less than the primary Hive metastore service's version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#version DataprocMetastoreService#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -1576,7 +1576,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigAuxiliaryVersions:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A mapping of Hive metastore configuration key-value pairs to apply to the auxiliary Hive metastore (configured in hive-site.xml) in addition to the primary version's overrides. If keys are present in both the auxiliary version's overrides and the primary version's overrides, the value from the auxiliary version's overrides takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#config_overrides DataprocMetastoreService#config_overrides}
         '''
         result = self._values.get("config_overrides")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1808,9 +1808,9 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig:
         principal: builtins.str,
     ) -> None:
         '''
-        :param keytab: keytab block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
-        :param krb5_config_gcs_uri: A Cloud Storage URI that specifies the path to a krb5.conf file. It is of the form gs://{bucket_name}/path/to/krb5.conf, although the file does not need to be named krb5.conf explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
-        :param principal: A Kerberos principal that exists in the both the keytab the KDC to authenticate as. A typical principal is of the form "primary/instance@REALM", but there is no exact format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
+        :param keytab: keytab block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
+        :param krb5_config_gcs_uri: A Cloud Storage URI that specifies the path to a krb5.conf file. It is of the form gs://{bucket_name}/path/to/krb5.conf, although the file does not need to be named krb5.conf explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
+        :param principal: A Kerberos principal that exists in the both the keytab the KDC to authenticate as. A typical principal is of the form "primary/instance@REALM", but there is no exact format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
         '''
         if isinstance(keytab, dict):
             keytab = DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigKeytab(**keytab)
@@ -1831,7 +1831,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig:
     ) -> "DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigKeytab":
         '''keytab block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
         '''
         result = self._values.get("keytab")
         assert result is not None, "Required property 'keytab' is missing"
@@ -1841,7 +1841,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig:
     def krb5_config_gcs_uri(self) -> builtins.str:
         '''A Cloud Storage URI that specifies the path to a krb5.conf file. It is of the form gs://{bucket_name}/path/to/krb5.conf, although the file does not need to be named krb5.conf explicitly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
         '''
         result = self._values.get("krb5_config_gcs_uri")
         assert result is not None, "Required property 'krb5_config_gcs_uri' is missing"
@@ -1853,7 +1853,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig:
 
         A typical principal is of the form "primary/instance@REALM", but there is no exact format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
         '''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
@@ -1879,7 +1879,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig:
 class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigKeytab:
     def __init__(self, *, cloud_secret: builtins.str) -> None:
         '''
-        :param cloud_secret: The relative resource name of a Secret Manager secret version, in the following form:. "projects/{projectNumber}/secrets/{secret_id}/versions/{version_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
+        :param cloud_secret: The relative resource name of a Secret Manager secret version, in the following form:. "projects/{projectNumber}/secrets/{secret_id}/versions/{version_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba58ab8776add2656543da21fee71a9429b74a88fee210a8ae9f6f7c881c58bb)
@@ -1894,7 +1894,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigKeytab:
 
         "projects/{projectNumber}/secrets/{secret_id}/versions/{version_id}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
         '''
         result = self._values.get("cloud_secret")
         assert result is not None, "Required property 'cloud_secret' is missing"
@@ -1990,7 +1990,7 @@ class DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigOutputReference(
     @jsii.member(jsii_name="putKeytab")
     def put_keytab(self, *, cloud_secret: builtins.str) -> None:
         '''
-        :param cloud_secret: The relative resource name of a Secret Manager secret version, in the following form:. "projects/{projectNumber}/secrets/{secret_id}/versions/{version_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
+        :param cloud_secret: The relative resource name of a Secret Manager secret version, in the following form:. "projects/{projectNumber}/secrets/{secret_id}/versions/{version_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cloud_secret DataprocMetastoreService#cloud_secret}
         '''
         value = DataprocMetastoreServiceHiveMetastoreConfigKerberosConfigKeytab(
             cloud_secret=cloud_secret
@@ -2106,9 +2106,9 @@ class DataprocMetastoreServiceHiveMetastoreConfigOutputReference(
         principal: builtins.str,
     ) -> None:
         '''
-        :param keytab: keytab block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
-        :param krb5_config_gcs_uri: A Cloud Storage URI that specifies the path to a krb5.conf file. It is of the form gs://{bucket_name}/path/to/krb5.conf, although the file does not need to be named krb5.conf explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
-        :param principal: A Kerberos principal that exists in the both the keytab the KDC to authenticate as. A typical principal is of the form "primary/instance@REALM", but there is no exact format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
+        :param keytab: keytab block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#keytab DataprocMetastoreService#keytab}
+        :param krb5_config_gcs_uri: A Cloud Storage URI that specifies the path to a krb5.conf file. It is of the form gs://{bucket_name}/path/to/krb5.conf, although the file does not need to be named krb5.conf explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#krb5_config_gcs_uri DataprocMetastoreService#krb5_config_gcs_uri}
+        :param principal: A Kerberos principal that exists in the both the keytab the KDC to authenticate as. A typical principal is of the form "primary/instance@REALM", but there is no exact format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#principal DataprocMetastoreService#principal}
         '''
         value = DataprocMetastoreServiceHiveMetastoreConfigKerberosConfig(
             keytab=keytab, krb5_config_gcs_uri=krb5_config_gcs_uri, principal=principal
@@ -2242,8 +2242,8 @@ class DataprocMetastoreServiceHiveMetastoreConfigOutputReference(
 class DataprocMetastoreServiceMaintenanceWindow:
     def __init__(self, *, day_of_week: builtins.str, hour_of_day: jsii.Number) -> None:
         '''
-        :param day_of_week: The day of week, when the window starts. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
-        :param hour_of_day: The hour of day (0-23) when the window starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
+        :param day_of_week: The day of week, when the window starts. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
+        :param hour_of_day: The hour of day (0-23) when the window starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37c544e5fde22a515907b412d11472d793008ae89880d48cdb98e1a6ce066ced)
@@ -2258,7 +2258,7 @@ class DataprocMetastoreServiceMaintenanceWindow:
     def day_of_week(self) -> builtins.str:
         '''The day of week, when the window starts. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#day_of_week DataprocMetastoreService#day_of_week}
         '''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
@@ -2268,7 +2268,7 @@ class DataprocMetastoreServiceMaintenanceWindow:
     def hour_of_day(self) -> jsii.Number:
         '''The hour of day (0-23) when the window starts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#hour_of_day DataprocMetastoreService#hour_of_day}
         '''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
@@ -2370,7 +2370,7 @@ class DataprocMetastoreServiceMetadataIntegration:
         data_catalog_config: typing.Union["DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
+        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
         '''
         if isinstance(data_catalog_config, dict):
             data_catalog_config = DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig(**data_catalog_config)
@@ -2387,7 +2387,7 @@ class DataprocMetastoreServiceMetadataIntegration:
     ) -> "DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig":
         '''data_catalog_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#data_catalog_config DataprocMetastoreService#data_catalog_config}
         '''
         result = self._values.get("data_catalog_config")
         assert result is not None, "Required property 'data_catalog_config' is missing"
@@ -2417,7 +2417,7 @@ class DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Defines whether the metastore metadata should be synced to Data Catalog. The default value is to disable syncing metastore metadata to Data Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        :param enabled: Defines whether the metastore metadata should be synced to Data Catalog. The default value is to disable syncing metastore metadata to Data Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__645ad1901e7fe0baf1f9cb74274228e829268a353a519abe757c0d7a12f96786)
@@ -2432,7 +2432,7 @@ class DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig:
 
         The default value is to disable syncing metastore metadata to Data Catalog.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -2537,7 +2537,7 @@ class DataprocMetastoreServiceMetadataIntegrationOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Defines whether the metastore metadata should be synced to Data Catalog. The default value is to disable syncing metastore metadata to Data Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        :param enabled: Defines whether the metastore metadata should be synced to Data Catalog. The default value is to disable syncing metastore metadata to Data Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
         '''
         value = DataprocMetastoreServiceMetadataIntegrationDataCatalogConfig(
             enabled=enabled
@@ -2589,7 +2589,7 @@ class DataprocMetastoreServiceNetworkConfig:
         consumers: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataprocMetastoreServiceNetworkConfigConsumers", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param consumers: consumers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
+        :param consumers: consumers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35ec65f5d9d0fad4d8c7434d85c8ad05c1c8af765624d1cba1ba5c7c9251d92f)
@@ -2604,7 +2604,7 @@ class DataprocMetastoreServiceNetworkConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocMetastoreServiceNetworkConfigConsumers"]]:
         '''consumers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#consumers DataprocMetastoreService#consumers}
         '''
         result = self._values.get("consumers")
         assert result is not None, "Required property 'consumers' is missing"
@@ -2630,7 +2630,7 @@ class DataprocMetastoreServiceNetworkConfig:
 class DataprocMetastoreServiceNetworkConfigConsumers:
     def __init__(self, *, subnetwork: builtins.str) -> None:
         '''
-        :param subnetwork: The subnetwork of the customer project from which an IP address is reserved and used as the Dataproc Metastore service's endpoint. It is accessible to hosts in the subnet and to all hosts in a subnet in the same region and same network. There must be at least one IP address available in the subnet's primary range. The subnet is specified in the following form: 'projects/{projectNumber}/regions/{region_id}/subnetworks/{subnetwork_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#subnetwork DataprocMetastoreService#subnetwork}
+        :param subnetwork: The subnetwork of the customer project from which an IP address is reserved and used as the Dataproc Metastore service's endpoint. It is accessible to hosts in the subnet and to all hosts in a subnet in the same region and same network. There must be at least one IP address available in the subnet's primary range. The subnet is specified in the following form: 'projects/{projectNumber}/regions/{region_id}/subnetworks/{subnetwork_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#subnetwork DataprocMetastoreService#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5c7b785655c488a57bc98d4a8ce258382c67f949e6d590edb936d1ee3650f4e)
@@ -2647,7 +2647,7 @@ class DataprocMetastoreServiceNetworkConfigConsumers:
         There must be at least one IP address available in the subnet's primary range. The subnet is specified in the following form:
         'projects/{projectNumber}/regions/{region_id}/subnetworks/{subnetwork_id}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#subnetwork DataprocMetastoreService#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#subnetwork DataprocMetastoreService#subnetwork}
         '''
         result = self._values.get("subnetwork")
         assert result is not None, "Required property 'subnetwork' is missing"
@@ -2903,9 +2903,9 @@ class DataprocMetastoreServiceScalingConfig:
         scaling_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
-        :param instance_size: Metastore instance sizes. Possible values: ["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE", "EXTRA_LARGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
-        :param scaling_factor: Scaling factor, in increments of 0.1 for values less than 1.0, and increments of 1.0 for values greater than 1.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
+        :param instance_size: Metastore instance sizes. Possible values: ["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE", "EXTRA_LARGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
+        :param scaling_factor: Scaling factor, in increments of 0.1 for values less than 1.0, and increments of 1.0 for values greater than 1.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
         '''
         if isinstance(autoscaling_config, dict):
             autoscaling_config = DataprocMetastoreServiceScalingConfigAutoscalingConfig(**autoscaling_config)
@@ -2928,7 +2928,7 @@ class DataprocMetastoreServiceScalingConfig:
     ) -> typing.Optional["DataprocMetastoreServiceScalingConfigAutoscalingConfig"]:
         '''autoscaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_config DataprocMetastoreService#autoscaling_config}
         '''
         result = self._values.get("autoscaling_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceScalingConfigAutoscalingConfig"], result)
@@ -2937,7 +2937,7 @@ class DataprocMetastoreServiceScalingConfig:
     def instance_size(self) -> typing.Optional[builtins.str]:
         '''Metastore instance sizes. Possible values: ["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE", "EXTRA_LARGE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#instance_size DataprocMetastoreService#instance_size}
         '''
         result = self._values.get("instance_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2946,7 +2946,7 @@ class DataprocMetastoreServiceScalingConfig:
     def scaling_factor(self) -> typing.Optional[jsii.Number]:
         '''Scaling factor, in increments of 0.1 for values less than 1.0, and increments of 1.0 for values greater than 1.0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#scaling_factor DataprocMetastoreService#scaling_factor}
         '''
         result = self._values.get("scaling_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2979,8 +2979,8 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfig:
         limit_config: typing.Optional[typing.Union["DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling_enabled: Defines whether autoscaling is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
-        :param limit_config: limit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
+        :param autoscaling_enabled: Defines whether autoscaling is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
+        :param limit_config: limit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
         '''
         if isinstance(limit_config, dict):
             limit_config = DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig(**limit_config)
@@ -3000,7 +3000,7 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether autoscaling is enabled. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
         '''
         result = self._values.get("autoscaling_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3011,7 +3011,7 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfig:
     ) -> typing.Optional["DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig"]:
         '''limit_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
         '''
         result = self._values.get("limit_config")
         return typing.cast(typing.Optional["DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig"], result)
@@ -3044,8 +3044,8 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig:
         min_scaling_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_scaling_factor: The maximum scaling factor that the service will autoscale to. The default value is 6.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
-        :param min_scaling_factor: The minimum scaling factor that the service will autoscale to. The default value is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
+        :param max_scaling_factor: The maximum scaling factor that the service will autoscale to. The default value is 6.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
+        :param min_scaling_factor: The minimum scaling factor that the service will autoscale to. The default value is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9137a36d4c570d9984a8f69ebae4862c8147d83cb181c69dd00c7a9621dfaf54)
@@ -3061,7 +3061,7 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig:
     def max_scaling_factor(self) -> typing.Optional[jsii.Number]:
         '''The maximum scaling factor that the service will autoscale to. The default value is 6.0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
         '''
         result = self._values.get("max_scaling_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3070,7 +3070,7 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig:
     def min_scaling_factor(self) -> typing.Optional[jsii.Number]:
         '''The minimum scaling factor that the service will autoscale to. The default value is 0.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
         '''
         result = self._values.get("min_scaling_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3195,8 +3195,8 @@ class DataprocMetastoreServiceScalingConfigAutoscalingConfigOutputReference(
         min_scaling_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_scaling_factor: The maximum scaling factor that the service will autoscale to. The default value is 6.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
-        :param min_scaling_factor: The minimum scaling factor that the service will autoscale to. The default value is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
+        :param max_scaling_factor: The maximum scaling factor that the service will autoscale to. The default value is 6.0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#max_scaling_factor DataprocMetastoreService#max_scaling_factor}
+        :param min_scaling_factor: The minimum scaling factor that the service will autoscale to. The default value is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#min_scaling_factor DataprocMetastoreService#min_scaling_factor}
         '''
         value = DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig(
             max_scaling_factor=max_scaling_factor,
@@ -3302,8 +3302,8 @@ class DataprocMetastoreServiceScalingConfigOutputReference(
         limit_config: typing.Optional[typing.Union[DataprocMetastoreServiceScalingConfigAutoscalingConfigLimitConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling_enabled: Defines whether autoscaling is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
-        :param limit_config: limit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
+        :param autoscaling_enabled: Defines whether autoscaling is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#autoscaling_enabled DataprocMetastoreService#autoscaling_enabled}
+        :param limit_config: limit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#limit_config DataprocMetastoreService#limit_config}
         '''
         value = DataprocMetastoreServiceScalingConfigAutoscalingConfig(
             autoscaling_enabled=autoscaling_enabled, limit_config=limit_config
@@ -3407,10 +3407,10 @@ class DataprocMetastoreServiceScheduledBackup:
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backup_location: A Cloud Storage URI of a folder, in the format gs://<bucket_name>/<path_inside_bucket>. A sub-folder <backup_folder> containing backup files will be stored below it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
-        :param cron_schedule: The scheduled interval in Cron format, see https://en.wikipedia.org/wiki/Cron The default is empty: scheduled backup is not enabled. Must be specified to enable scheduled backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
-        :param enabled: Defines whether the scheduled backup is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
-        :param time_zone: Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. America/Los_Angeles or Africa/Abidjan. If left unspecified, the default is UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
+        :param backup_location: A Cloud Storage URI of a folder, in the format gs://<bucket_name>/<path_inside_bucket>. A sub-folder <backup_folder> containing backup files will be stored below it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
+        :param cron_schedule: The scheduled interval in Cron format, see https://en.wikipedia.org/wiki/Cron The default is empty: scheduled backup is not enabled. Must be specified to enable scheduled backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
+        :param enabled: Defines whether the scheduled backup is enabled. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        :param time_zone: Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. America/Los_Angeles or Africa/Abidjan. If left unspecified, the default is UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30be24ee6f2109c14b5c4358621727f65ef941241cf01aaf1e04600e1a60d271)
@@ -3434,7 +3434,7 @@ class DataprocMetastoreServiceScheduledBackup:
 
         A sub-folder <backup_folder> containing backup files will be stored below it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#backup_location DataprocMetastoreService#backup_location}
         '''
         result = self._values.get("backup_location")
         assert result is not None, "Required property 'backup_location' is missing"
@@ -3444,7 +3444,7 @@ class DataprocMetastoreServiceScheduledBackup:
     def cron_schedule(self) -> typing.Optional[builtins.str]:
         '''The scheduled interval in Cron format, see https://en.wikipedia.org/wiki/Cron The default is empty: scheduled backup is not enabled. Must be specified to enable scheduled backups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#cron_schedule DataprocMetastoreService#cron_schedule}
         '''
         result = self._values.get("cron_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3455,7 +3455,7 @@ class DataprocMetastoreServiceScheduledBackup:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the scheduled backup is enabled. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#enabled DataprocMetastoreService#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3466,7 +3466,7 @@ class DataprocMetastoreServiceScheduledBackup:
 
         Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. America/Los_Angeles or Africa/Abidjan. If left unspecified, the default is UTC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#time_zone DataprocMetastoreService#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3614,7 +3614,7 @@ class DataprocMetastoreServiceScheduledBackupOutputReference(
 class DataprocMetastoreServiceTelemetryConfig:
     def __init__(self, *, log_format: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param log_format: The output format of the Dataproc Metastore service's logs. Default value: "JSON" Possible values: ["LEGACY", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
+        :param log_format: The output format of the Dataproc Metastore service's logs. Default value: "JSON" Possible values: ["LEGACY", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a8e19e2f2beb7474a06daf6cf9bd04afeeabdfe15928aae793359a84ddab4b8)
@@ -3627,7 +3627,7 @@ class DataprocMetastoreServiceTelemetryConfig:
     def log_format(self) -> typing.Optional[builtins.str]:
         '''The output format of the Dataproc Metastore service's logs. Default value: "JSON" Possible values: ["LEGACY", "JSON"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#log_format DataprocMetastoreService#log_format}
         '''
         result = self._values.get("log_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3717,9 +3717,9 @@ class DataprocMetastoreServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9285b472124affce09f75e837f2c52f6593c4be802ce6f385e9e56a8b62c646)
@@ -3736,19 +3736,19 @@ class DataprocMetastoreServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#create DataprocMetastoreService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#delete DataprocMetastoreService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_metastore_service#update DataprocMetastoreService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

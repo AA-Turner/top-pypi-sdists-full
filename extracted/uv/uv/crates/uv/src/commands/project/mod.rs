@@ -8,7 +8,6 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tracing::{debug, trace, warn};
 
-use uv_auth::UrlAuthPolicies;
 use uv_cache::{Cache, CacheBucket};
 use uv_cache_key::cache_digest;
 use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
@@ -773,8 +772,8 @@ fn environment_is_usable(
     requires_python: Option<&RequiresPython>,
     cache: &Cache,
 ) -> bool {
-    if !environment.matches_interpreter(environment.interpreter()) {
-        debug!("The virtual environment's interpreter version does not match the version it was created from.");
+    if let Some((cfg_version, int_version)) = environment.get_pyvenv_version_conflict() {
+        debug!("The interpreter in the virtual environment has different version ({int_version}) than it was created with ({cfg_version})");
         return false;
     }
 
@@ -1564,8 +1563,7 @@ pub(crate) async fn resolve_names(
         .native_tls(network_settings.native_tls)
         .connectivity(network_settings.connectivity)
         .allow_insecure_host(network_settings.allow_insecure_host.clone())
-        .url_auth_policies(UrlAuthPolicies::from(index_locations))
-        .index_urls(index_locations.index_urls())
+        .index_locations(index_locations)
         .index_strategy(*index_strategy)
         .keyring(*keyring_provider)
         .markers(interpreter.markers())
@@ -1717,8 +1715,7 @@ pub(crate) async fn resolve_environment(
         .native_tls(network_settings.native_tls)
         .connectivity(network_settings.connectivity)
         .allow_insecure_host(network_settings.allow_insecure_host.clone())
-        .url_auth_policies(UrlAuthPolicies::from(index_locations))
-        .index_urls(index_locations.index_urls())
+        .index_locations(index_locations)
         .index_strategy(*index_strategy)
         .keyring(*keyring_provider)
         .markers(interpreter.markers())
@@ -1891,8 +1888,7 @@ pub(crate) async fn sync_environment(
         .native_tls(network_settings.native_tls)
         .connectivity(network_settings.connectivity)
         .allow_insecure_host(network_settings.allow_insecure_host.clone())
-        .url_auth_policies(UrlAuthPolicies::from(index_locations))
-        .index_urls(index_locations.index_urls())
+        .index_locations(index_locations)
         .index_strategy(index_strategy)
         .keyring(keyring_provider)
         .markers(interpreter.markers())
@@ -2104,8 +2100,7 @@ pub(crate) async fn update_environment(
         .native_tls(network_settings.native_tls)
         .connectivity(network_settings.connectivity)
         .allow_insecure_host(network_settings.allow_insecure_host.clone())
-        .url_auth_policies(UrlAuthPolicies::from(index_locations))
-        .index_urls(index_locations.index_urls())
+        .index_locations(index_locations)
         .index_strategy(*index_strategy)
         .keyring(*keyring_provider)
         .markers(interpreter.markers())

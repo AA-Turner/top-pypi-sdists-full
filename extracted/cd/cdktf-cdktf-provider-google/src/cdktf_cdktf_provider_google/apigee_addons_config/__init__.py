@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_addons_config`
 
-Refer to the Terraform Registry for docs: [`google_apigee_addons_config`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config).
+Refer to the Terraform Registry for docs: [`google_apigee_addons_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeAddonsConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeAddonsConfig.ApigeeAddonsConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config google_apigee_addons_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config google_apigee_addons_config}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ApigeeAddonsConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config google_apigee_addons_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config google_apigee_addons_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param org: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
-        :param addons_config: addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
+        :param org: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
+        :param addons_config: addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ApigeeAddonsConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeAddonsConfig to import.
-        :param import_from_id: The id of the existing ApigeeAddonsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeAddonsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeAddonsConfig to import is found.
         '''
         if __debug__:
@@ -134,11 +134,11 @@ class ApigeeAddonsConfig(
         monetization_config: typing.Optional[typing.Union["ApigeeAddonsConfigAddonsConfigMonetizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_api_ops_config: advanced_api_ops_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
-        :param api_security_config: api_security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
-        :param connectors_platform_config: connectors_platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
-        :param integration_config: integration_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
-        :param monetization_config: monetization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
+        :param advanced_api_ops_config: advanced_api_ops_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
+        :param api_security_config: api_security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
+        :param connectors_platform_config: connectors_platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
+        :param integration_config: integration_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
+        :param monetization_config: monetization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
         '''
         value = ApigeeAddonsConfigAddonsConfig(
             advanced_api_ops_config=advanced_api_ops_config,
@@ -159,9 +159,9 @@ class ApigeeAddonsConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.
         '''
         value = ApigeeAddonsConfigTimeouts(create=create, delete=delete, update=update)
 
@@ -271,11 +271,11 @@ class ApigeeAddonsConfigAddonsConfig:
         monetization_config: typing.Optional[typing.Union["ApigeeAddonsConfigAddonsConfigMonetizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_api_ops_config: advanced_api_ops_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
-        :param api_security_config: api_security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
-        :param connectors_platform_config: connectors_platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
-        :param integration_config: integration_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
-        :param monetization_config: monetization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
+        :param advanced_api_ops_config: advanced_api_ops_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
+        :param api_security_config: api_security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
+        :param connectors_platform_config: connectors_platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
+        :param integration_config: integration_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
+        :param monetization_config: monetization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
         '''
         if isinstance(advanced_api_ops_config, dict):
             advanced_api_ops_config = ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig(**advanced_api_ops_config)
@@ -312,7 +312,7 @@ class ApigeeAddonsConfigAddonsConfig:
     ) -> typing.Optional["ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig"]:
         '''advanced_api_ops_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#advanced_api_ops_config ApigeeAddonsConfig#advanced_api_ops_config}
         '''
         result = self._values.get("advanced_api_ops_config")
         return typing.cast(typing.Optional["ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig"], result)
@@ -323,7 +323,7 @@ class ApigeeAddonsConfigAddonsConfig:
     ) -> typing.Optional["ApigeeAddonsConfigAddonsConfigApiSecurityConfig"]:
         '''api_security_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#api_security_config ApigeeAddonsConfig#api_security_config}
         '''
         result = self._values.get("api_security_config")
         return typing.cast(typing.Optional["ApigeeAddonsConfigAddonsConfigApiSecurityConfig"], result)
@@ -334,7 +334,7 @@ class ApigeeAddonsConfigAddonsConfig:
     ) -> typing.Optional["ApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig"]:
         '''connectors_platform_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#connectors_platform_config ApigeeAddonsConfig#connectors_platform_config}
         '''
         result = self._values.get("connectors_platform_config")
         return typing.cast(typing.Optional["ApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig"], result)
@@ -345,7 +345,7 @@ class ApigeeAddonsConfigAddonsConfig:
     ) -> typing.Optional["ApigeeAddonsConfigAddonsConfigIntegrationConfig"]:
         '''integration_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#integration_config ApigeeAddonsConfig#integration_config}
         '''
         result = self._values.get("integration_config")
         return typing.cast(typing.Optional["ApigeeAddonsConfigAddonsConfigIntegrationConfig"], result)
@@ -356,7 +356,7 @@ class ApigeeAddonsConfigAddonsConfig:
     ) -> typing.Optional["ApigeeAddonsConfigAddonsConfigMonetizationConfig"]:
         '''monetization_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#monetization_config ApigeeAddonsConfig#monetization_config}
         '''
         result = self._values.get("monetization_config")
         return typing.cast(typing.Optional["ApigeeAddonsConfigAddonsConfigMonetizationConfig"], result)
@@ -385,7 +385,7 @@ class ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a1a02b6f07ba94a34d0fe5ca667ab4971557ecde83d88ab90320fa3e239240e)
@@ -400,7 +400,7 @@ class ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies whether the Advanced API Ops add-on is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -493,7 +493,7 @@ class ApigeeAddonsConfigAddonsConfigApiSecurityConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__094e7de5aa503405b36f2e9f682e1b3cce9ece8ee9ca3543195c9cf1c9d86ac8)
@@ -508,7 +508,7 @@ class ApigeeAddonsConfigAddonsConfigApiSecurityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies whether the Advanced API Ops add-on is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -606,7 +606,7 @@ class ApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe4ed8969be273376c68c2649520b7b6b4e4d21e766fbdf0c21c0f061faec47f)
@@ -621,7 +621,7 @@ class ApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies whether the Advanced API Ops add-on is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -719,7 +719,7 @@ class ApigeeAddonsConfigAddonsConfigIntegrationConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e6dd121256184de9dc9d69cf4bce7d46c3e36a1d2c75f5cbddba36bed6a7657)
@@ -734,7 +734,7 @@ class ApigeeAddonsConfigAddonsConfigIntegrationConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies whether the Advanced API Ops add-on is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -827,7 +827,7 @@ class ApigeeAddonsConfigAddonsConfigMonetizationConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e509ef9706940604ead5ec5e40656924b88688f7a137a698867a52ae0b75a13b)
@@ -842,7 +842,7 @@ class ApigeeAddonsConfigAddonsConfigMonetizationConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies whether the Advanced API Ops add-on is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -950,7 +950,7 @@ class ApigeeAddonsConfigAddonsConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         value = ApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig(enabled=enabled)
 
@@ -963,7 +963,7 @@ class ApigeeAddonsConfigAddonsConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         value = ApigeeAddonsConfigAddonsConfigApiSecurityConfig(enabled=enabled)
 
@@ -976,7 +976,7 @@ class ApigeeAddonsConfigAddonsConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         value = ApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig(enabled=enabled)
 
@@ -989,7 +989,7 @@ class ApigeeAddonsConfigAddonsConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         value = ApigeeAddonsConfigAddonsConfigIntegrationConfig(enabled=enabled)
 
@@ -1002,7 +1002,7 @@ class ApigeeAddonsConfigAddonsConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
+        :param enabled: Flag that specifies whether the Advanced API Ops add-on is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#enabled ApigeeAddonsConfig#enabled}
         '''
         value = ApigeeAddonsConfigAddonsConfigMonetizationConfig(enabled=enabled)
 
@@ -1155,10 +1155,10 @@ class ApigeeAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param org: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
-        :param addons_config: addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
+        :param org: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
+        :param addons_config: addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1271,7 +1271,7 @@ class ApigeeAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org(self) -> builtins.str:
         '''Name of the Apigee organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#org ApigeeAddonsConfig#org}
         '''
         result = self._values.get("org")
         assert result is not None, "Required property 'org' is missing"
@@ -1281,14 +1281,14 @@ class ApigeeAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def addons_config(self) -> typing.Optional[ApigeeAddonsConfigAddonsConfig]:
         '''addons_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#addons_config ApigeeAddonsConfig#addons_config}
         '''
         result = self._values.get("addons_config")
         return typing.cast(typing.Optional[ApigeeAddonsConfigAddonsConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#id ApigeeAddonsConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1300,7 +1300,7 @@ class ApigeeAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeAddonsConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#timeouts ApigeeAddonsConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeAddonsConfigTimeouts"], result)
@@ -1331,9 +1331,9 @@ class ApigeeAddonsConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8e7f73556b00a883722bbf23f7f587eec13d1f7a7cf949577694f9ff0df1255)
@@ -1350,19 +1350,19 @@ class ApigeeAddonsConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#create ApigeeAddonsConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#delete ApigeeAddonsConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_addons_config#update ApigeeAddonsConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

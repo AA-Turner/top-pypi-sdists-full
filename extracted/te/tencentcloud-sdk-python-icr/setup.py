@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-icr',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1369"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1371"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Icr SDK for Python',
     long_description=open('README.rst').read(),

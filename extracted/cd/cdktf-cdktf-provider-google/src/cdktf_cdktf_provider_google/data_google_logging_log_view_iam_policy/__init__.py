@@ -1,7 +1,7 @@
 r'''
 # `data_google_logging_log_view_iam_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_logging_log_view_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy).
+Refer to the Terraform Registry for docs: [`data_google_logging_log_view_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleLoggingLogViewIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleLoggingLogViewIamPolicy.DataGoogleLoggingLogViewIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy google_logging_log_view_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy google_logging_log_view_iam_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataGoogleLoggingLogViewIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy google_logging_log_view_iam_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy google_logging_log_view_iam_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataGoogleLoggingLogViewIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleLoggingLogViewIamPolicy to import.
-        :param import_from_id: The id of the existing DataGoogleLoggingLogViewIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleLoggingLogViewIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleLoggingLogViewIamPolicy to import is found.
         '''
         if __debug__:
@@ -286,11 +286,11 @@ class DataGoogleLoggingLogViewIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -398,28 +398,28 @@ class DataGoogleLoggingLogViewIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#bucket DataGoogleLoggingLogViewIamPolicy#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#name DataGoogleLoggingLogViewIamPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parent(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#parent DataGoogleLoggingLogViewIamPolicy#parent}.'''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#id DataGoogleLoggingLogViewIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -429,7 +429,7 @@ class DataGoogleLoggingLogViewIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/logging_log_view_iam_policy#location DataGoogleLoggingLogViewIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -61,6 +61,8 @@ from .type_defs import (
     ChatSyncOutputTypeDef,
     CheckDocumentAccessRequestTypeDef,
     CheckDocumentAccessResponseTypeDef,
+    CreateAnonymousWebExperienceUrlRequestTypeDef,
+    CreateAnonymousWebExperienceUrlResponseTypeDef,
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
     CreateDataAccessorRequestTypeDef,
@@ -304,6 +306,16 @@ class QBusinessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/check_document_access.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qbusiness/client/#check_document_access)
+        """
+
+    def create_anonymous_web_experience_url(
+        self, **kwargs: Unpack[CreateAnonymousWebExperienceUrlRequestTypeDef]
+    ) -> CreateAnonymousWebExperienceUrlResponseTypeDef:
+        """
+        Creates a unique URL for anonymous Amazon Q Business web experience.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/create_anonymous_web_experience_url.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qbusiness/client/#create_anonymous_web_experience_url)
         """
 
     def create_application(

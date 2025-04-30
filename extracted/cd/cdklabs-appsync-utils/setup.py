@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdklabs.appsync-utils",
-    "version": "0.0.721",
+    "version": "0.0.722",
     "description": "Utilities for creating appsync apis using aws-cdk",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/awscdk-appsync-utils.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "awscdk.appsync_utils._jsii": [
-            "awscdk-appsync-utils@0.0.721.jsii.tgz"
+            "awscdk-appsync-utils@0.0.722.jsii.tgz"
         ],
         "awscdk.appsync_utils": [
             "py.typed"

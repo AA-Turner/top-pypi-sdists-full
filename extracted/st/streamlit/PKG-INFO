@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.44.1
+Version: 1.45.0
 Summary: A faster way to build and share data apps
 Home-page: https://streamlit.io
 Author: Snowflake Inc
@@ -32,14 +32,14 @@ Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.9, !=3.9.7
 Description-Content-Type: text/markdown
 Requires-Dist: altair<6,>=4.0
-Requires-Dist: blinker<2,>=1.0.0
+Requires-Dist: blinker<2,>=1.5.0
 Requires-Dist: cachetools<6,>=4.0
 Requires-Dist: click<9,>=7.0
 Requires-Dist: numpy<3,>=1.23
 Requires-Dist: packaging<25,>=20
 Requires-Dist: pandas<3,>=1.4.0
 Requires-Dist: pillow<12,>=7.1.0
-Requires-Dist: protobuf<6,>=3.20
+Requires-Dist: protobuf<7,>=3.20
 Requires-Dist: pyarrow>=7.0
 Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
@@ -103,7 +103,7 @@ The app features a bunch of examples of what you can do with Streamlit. Jump to 
 
 ### A little example
 
-Create a new file `streamlit_app.py` with the following code:
+Create a new file named `streamlit_app.py` in your project directory with the following code:
 ```python
 import streamlit as st
 x = st.slider("Select a value")

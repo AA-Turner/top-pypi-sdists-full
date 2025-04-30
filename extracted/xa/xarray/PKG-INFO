@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray
-Version: 2025.3.1
+Version: 2025.4.0
 Summary: N-D labeled arrays and datasets in Python
 Author-email: xarray Developers <xarray@googlegroups.com>
 License: Apache-2.0
@@ -55,6 +55,7 @@ Requires-Dist: nc-time-axis; extra == "viz"
 Requires-Dist: seaborn; extra == "viz"
 Provides-Extra: types
 Requires-Dist: pandas-stubs; extra == "types"
+Requires-Dist: scipy-stubs; extra == "types"
 Requires-Dist: types-PyYAML; extra == "types"
 Requires-Dist: types-Pygments; extra == "types"
 Requires-Dist: types-colorama; extra == "types"

@@ -1,7 +1,7 @@
 r'''
 # `google_app_engine_flexible_app_version`
 
-Refer to the Terraform Registry for docs: [`google_app_engine_flexible_app_version`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version).
+Refer to the Terraform Registry for docs: [`google_app_engine_flexible_app_version`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppEngineFlexibleAppVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.appEngineFlexibleAppVersion.AppEngineFlexibleAppVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version google_app_engine_flexible_app_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version google_app_engine_flexible_app_version}.'''
 
     def __init__(
         self,
@@ -91,42 +91,42 @@ class AppEngineFlexibleAppVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version google_app_engine_flexible_app_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version google_app_engine_flexible_app_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param liveness_check: liveness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
-        :param readiness_check: readiness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
-        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
-        :param service: AppEngine service resource. Can contain numbers, letters, and hyphens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
-        :param api_config: api_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
-        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
-        :param beta_settings: Metadata settings that are supplied to this version to enable beta runtime features. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
-        :param default_expiration: Duration that static files should be cached by web proxies and browsers. Only applicable if the corresponding StaticFilesHandler does not specify its own expiration time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
-        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
-        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
-        :param endpoints_api_service: endpoints_api_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
-        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
-        :param env_variables: Environment variables available to the application. As these are not returned in the API request, Terraform will not detect any changes made outside of the Terraform config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
-        :param flexible_runtime_settings: flexible_runtime_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
-        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
-        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G ManualScaling: B1, B2, B4, B8, B4_1G Defaults to F1 for AutomaticScaling and B1 for ManualScaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
-        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
-        :param nobuild_files_regex: Files that match this pattern will not be built into this version. Only applicable for Go runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
-        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
-        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
-        :param runtime_channel: The channel of the runtime to use. Only available for some runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
-        :param runtime_main_executable_path: The path or name of the app's main executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
-        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
-        :param serving_status: Current serving status of this version. Only the versions with a SERVING status create instances and can be billed. Default value: "SERVING" Possible values: ["SERVING", "STOPPED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
-        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
-        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
+        :param liveness_check: liveness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
+        :param readiness_check: readiness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
+        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
+        :param service: AppEngine service resource. Can contain numbers, letters, and hyphens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
+        :param api_config: api_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
+        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
+        :param beta_settings: Metadata settings that are supplied to this version to enable beta runtime features. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
+        :param default_expiration: Duration that static files should be cached by web proxies and browsers. Only applicable if the corresponding StaticFilesHandler does not specify its own expiration time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
+        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
+        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
+        :param endpoints_api_service: endpoints_api_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
+        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
+        :param env_variables: Environment variables available to the application. As these are not returned in the API request, Terraform will not detect any changes made outside of the Terraform config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
+        :param flexible_runtime_settings: flexible_runtime_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
+        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
+        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G ManualScaling: B1, B2, B4, B8, B4_1G Defaults to F1 for AutomaticScaling and B1 for ManualScaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
+        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
+        :param nobuild_files_regex: Files that match this pattern will not be built into this version. Only applicable for Go runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
+        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
+        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
+        :param runtime_channel: The channel of the runtime to use. Only available for some runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
+        :param runtime_main_executable_path: The path or name of the app's main executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
+        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
+        :param serving_status: Current serving status of this version. Only the versions with a SERVING status create instances and can be billed. Default value: "SERVING" Possible values: ["SERVING", "STOPPED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
+        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
+        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -196,7 +196,7 @@ class AppEngineFlexibleAppVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppEngineFlexibleAppVersion to import.
-        :param import_from_id: The id of the existing AppEngineFlexibleAppVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppEngineFlexibleAppVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppEngineFlexibleAppVersion to import is found.
         '''
         if __debug__:
@@ -218,11 +218,11 @@ class AppEngineFlexibleAppVersion(
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
-        :param auth_fail_action: Action to take when users access resources that require authentication. Default value: "AUTH_FAIL_ACTION_REDIRECT" Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
-        :param login: Level of login required to access this resource. Default value: "LOGIN_OPTIONAL" Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
-        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
-        :param url: URL to serve the endpoint at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
+        :param script: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
+        :param auth_fail_action: Action to take when users access resources that require authentication. Default value: "AUTH_FAIL_ACTION_REDIRECT" Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
+        :param login: Level of login required to access this resource. Default value: "LOGIN_OPTIONAL" Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
+        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
+        :param url: URL to serve the endpoint at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
         '''
         value = AppEngineFlexibleAppVersionApiConfig(
             script=script,
@@ -252,18 +252,18 @@ class AppEngineFlexibleAppVersion(
         request_utilization: typing.Optional[typing.Union["AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
-        :param cool_down_period: The time period that the Autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. Default: 120s Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
-        :param disk_utilization: disk_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
-        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
-        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
-        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
-        :param max_total_instances: Maximum number of instances that should be started to handle requests for this version. Default: 20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
-        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
-        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
-        :param min_total_instances: Minimum number of running instances that should be maintained for this version. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
-        :param network_utilization: network_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
-        :param request_utilization: request_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
+        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
+        :param cool_down_period: The time period that the Autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. Default: 120s Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
+        :param disk_utilization: disk_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
+        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
+        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
+        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
+        :param max_total_instances: Maximum number of instances that should be started to handle requests for this version. Default: 20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
+        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
+        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
+        :param min_total_instances: Minimum number of running instances that should be maintained for this version. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
+        :param network_utilization: network_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
+        :param request_utilization: request_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
         '''
         value = AppEngineFlexibleAppVersionAutomaticScaling(
             cpu_utilization=cpu_utilization,
@@ -292,10 +292,10 @@ class AppEngineFlexibleAppVersion(
         zip: typing.Optional[typing.Union["AppEngineFlexibleAppVersionDeploymentZip", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_build_options: cloud_build_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
-        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
+        :param cloud_build_options: cloud_build_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
+        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
         '''
         value = AppEngineFlexibleAppVersionDeployment(
             cloud_build_options=cloud_build_options,
@@ -316,10 +316,10 @@ class AppEngineFlexibleAppVersion(
         rollout_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Endpoints service name which is the name of the "service" resource in the Service Management API. For example "myapi.endpoints.myproject.cloud.goog". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
-        :param config_id: Endpoints service configuration ID as specified by the Service Management API. For example "2016-09-19r1". By default, the rollout strategy for Endpoints is "FIXED". This means that Endpoints starts up with a particular configuration ID. When a new configuration is rolled out, Endpoints must be given the new configuration ID. The configId field is used to give the configuration ID and is required in this case. Endpoints also has a rollout strategy called "MANAGED". When using this, Endpoints fetches the latest configuration and does not need the configuration ID. In this case, configId must be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
-        :param disable_trace_sampling: Enable or disable trace sampling. By default, this is set to false for enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
-        :param rollout_strategy: Endpoints rollout strategy. If FIXED, configId must be specified. If MANAGED, configId must be omitted. Default value: "FIXED" Possible values: ["FIXED", "MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
+        :param name: Endpoints service name which is the name of the "service" resource in the Service Management API. For example "myapi.endpoints.myproject.cloud.goog". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param config_id: Endpoints service configuration ID as specified by the Service Management API. For example "2016-09-19r1". By default, the rollout strategy for Endpoints is "FIXED". This means that Endpoints starts up with a particular configuration ID. When a new configuration is rolled out, Endpoints must be given the new configuration ID. The configId field is used to give the configuration ID and is required in this case. Endpoints also has a rollout strategy called "MANAGED". When using this, Endpoints fetches the latest configuration and does not need the configuration ID. In this case, configId must be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
+        :param disable_trace_sampling: Enable or disable trace sampling. By default, this is set to false for enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
+        :param rollout_strategy: Endpoints rollout strategy. If FIXED, configId must be specified. If MANAGED, configId must be omitted. Default value: "FIXED" Possible values: ["FIXED", "MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
         '''
         value = AppEngineFlexibleAppVersionEndpointsApiService(
             name=name,
@@ -333,7 +333,7 @@ class AppEngineFlexibleAppVersion(
     @jsii.member(jsii_name="putEntrypoint")
     def put_entrypoint(self, *, shell: builtins.str) -> None:
         '''
-        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
+        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
         '''
         value = AppEngineFlexibleAppVersionEntrypoint(shell=shell)
 
@@ -347,8 +347,8 @@ class AppEngineFlexibleAppVersion(
         runtime_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operating_system: Operating System of the application runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
-        :param runtime_version: The runtime version of an App Engine flexible application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
+        :param operating_system: Operating System of the application runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
+        :param runtime_version: The runtime version of an App Engine flexible application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
         '''
         value = AppEngineFlexibleAppVersionFlexibleRuntimeSettings(
             operating_system=operating_system, runtime_version=runtime_version
@@ -382,13 +382,13 @@ class AppEngineFlexibleAppVersion(
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param check_interval: Interval between health checks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
-        :param failure_threshold: Number of consecutive failed checks required before considering the VM unhealthy. Default: 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
-        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
-        :param initial_delay: The initial delay before starting to execute the checks. Default: "300s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
-        :param success_threshold: Number of consecutive successful checks required before considering the VM healthy. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
-        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param check_interval: Interval between health checks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        :param failure_threshold: Number of consecutive failed checks required before considering the VM unhealthy. Default: 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        :param initial_delay: The initial delay before starting to execute the checks. Default: "300s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
+        :param success_threshold: Number of consecutive successful checks required before considering the VM healthy. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         value = AppEngineFlexibleAppVersionLivenessCheck(
             path=path,
@@ -405,7 +405,7 @@ class AppEngineFlexibleAppVersion(
     @jsii.member(jsii_name="putManualScaling")
     def put_manual_scaling(self, *, instances: jsii.Number) -> None:
         '''
-        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
+        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
         '''
         value = AppEngineFlexibleAppVersionManualScaling(instances=instances)
 
@@ -422,11 +422,11 @@ class AppEngineFlexibleAppVersion(
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Google Compute Engine network where the virtual machines are created. Specify the short name, not the resource path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
-        :param forwarded_ports: List of ports, or port pairs, to forward from the virtual machine to the application container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
-        :param instance_tag: Tag to apply to the instance during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
-        :param session_affinity: Enable session affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
-        :param subnetwork: Google Cloud Platform sub-network where the virtual machines are created. Specify the short name, not the resource path. If the network that the instance is being created in is a Legacy network, then the IP address is allocated from the IPv4Range. If the network that the instance is being created in is an auto Subnet Mode Network, then only network name should be specified (not the subnetworkName) and the IP address is created from the IPCidrRange of the subnetwork that exists in that zone for that network. If the network that the instance is being created in is a custom Subnet Mode Network, then the subnetworkName must be specified and the IP address is created from the IPCidrRange of the subnetwork. If specified, the subnetwork must exist in the same region as the App Engine flexible environment application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
+        :param name: Google Compute Engine network where the virtual machines are created. Specify the short name, not the resource path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param forwarded_ports: List of ports, or port pairs, to forward from the virtual machine to the application container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
+        :param instance_tag: Tag to apply to the instance during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
+        :param session_affinity: Enable session affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
+        :param subnetwork: Google Cloud Platform sub-network where the virtual machines are created. Specify the short name, not the resource path. If the network that the instance is being created in is a Legacy network, then the IP address is allocated from the IPv4Range. If the network that the instance is being created in is an auto Subnet Mode Network, then only network name should be specified (not the subnetworkName) and the IP address is created from the IPCidrRange of the subnetwork that exists in that zone for that network. If the network that the instance is being created in is a custom Subnet Mode Network, then the subnetworkName must be specified and the IP address is created from the IPCidrRange of the subnetwork. If specified, the subnetwork must exist in the same region as the App Engine flexible environment application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
         '''
         value = AppEngineFlexibleAppVersionNetwork(
             name=name,
@@ -451,13 +451,13 @@ class AppEngineFlexibleAppVersion(
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param app_start_timeout: A maximum time limit on application initialization, measured from moment the application successfully replies to a healthcheck until it is ready to serve traffic. Default: "300s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
-        :param check_interval: Interval between health checks. Default: "5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
-        :param failure_threshold: Number of consecutive failed checks required before removing traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
-        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
-        :param success_threshold: Number of consecutive successful checks required before receiving traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
-        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param app_start_timeout: A maximum time limit on application initialization, measured from moment the application successfully replies to a healthcheck until it is ready to serve traffic. Default: "300s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
+        :param check_interval: Interval between health checks. Default: "5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        :param failure_threshold: Number of consecutive failed checks required before removing traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        :param success_threshold: Number of consecutive successful checks required before receiving traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         value = AppEngineFlexibleAppVersionReadinessCheck(
             path=path,
@@ -481,10 +481,10 @@ class AppEngineFlexibleAppVersion(
         volumes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppEngineFlexibleAppVersionResourcesVolumes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cpu: Number of CPU cores needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
-        :param disk_gb: Disk size (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
-        :param memory_gb: Memory (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
+        :param cpu: Number of CPU cores needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
+        :param disk_gb: Disk size (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
+        :param memory_gb: Memory (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
         '''
         value = AppEngineFlexibleAppVersionResources(
             cpu=cpu, disk_gb=disk_gb, memory_gb=memory_gb, volumes=volumes
@@ -501,9 +501,9 @@ class AppEngineFlexibleAppVersion(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.
         '''
         value = AppEngineFlexibleAppVersionTimeouts(
             create=create, delete=delete, update=update
@@ -514,7 +514,7 @@ class AppEngineFlexibleAppVersion(
     @jsii.member(jsii_name="putVpcAccessConnector")
     def put_vpc_access_connector(self, *, name: builtins.str) -> None:
         '''
-        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         value = AppEngineFlexibleAppVersionVpcAccessConnector(name=name)
 
@@ -1177,11 +1177,11 @@ class AppEngineFlexibleAppVersionApiConfig:
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
-        :param auth_fail_action: Action to take when users access resources that require authentication. Default value: "AUTH_FAIL_ACTION_REDIRECT" Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
-        :param login: Level of login required to access this resource. Default value: "LOGIN_OPTIONAL" Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
-        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
-        :param url: URL to serve the endpoint at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
+        :param script: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
+        :param auth_fail_action: Action to take when users access resources that require authentication. Default value: "AUTH_FAIL_ACTION_REDIRECT" Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
+        :param login: Level of login required to access this resource. Default value: "LOGIN_OPTIONAL" Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
+        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
+        :param url: URL to serve the endpoint at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e340960f181a5b2b488acc4d868bfad10312739207d323bf1ac85a0d270aa6a)
@@ -1206,7 +1206,7 @@ class AppEngineFlexibleAppVersionApiConfig:
     def script(self) -> builtins.str:
         '''Path to the script from the application root directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -1216,7 +1216,7 @@ class AppEngineFlexibleAppVersionApiConfig:
     def auth_fail_action(self) -> typing.Optional[builtins.str]:
         '''Action to take when users access resources that require authentication. Default value: "AUTH_FAIL_ACTION_REDIRECT" Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
         '''
         result = self._values.get("auth_fail_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1225,7 +1225,7 @@ class AppEngineFlexibleAppVersionApiConfig:
     def login(self) -> typing.Optional[builtins.str]:
         '''Level of login required to access this resource. Default value: "LOGIN_OPTIONAL" Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
         '''
         result = self._values.get("login")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1234,7 +1234,7 @@ class AppEngineFlexibleAppVersionApiConfig:
     def security_level(self) -> typing.Optional[builtins.str]:
         '''Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
         '''
         result = self._values.get("security_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1243,7 +1243,7 @@ class AppEngineFlexibleAppVersionApiConfig:
     def url(self) -> typing.Optional[builtins.str]:
         '''URL to serve the endpoint at.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#url AppEngineFlexibleAppVersion#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1433,18 +1433,18 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
         request_utilization: typing.Optional[typing.Union["AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
-        :param cool_down_period: The time period that the Autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. Default: 120s Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
-        :param disk_utilization: disk_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
-        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
-        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
-        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
-        :param max_total_instances: Maximum number of instances that should be started to handle requests for this version. Default: 20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
-        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
-        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
-        :param min_total_instances: Minimum number of running instances that should be maintained for this version. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
-        :param network_utilization: network_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
-        :param request_utilization: request_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
+        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
+        :param cool_down_period: The time period that the Autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. Default: 120s Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
+        :param disk_utilization: disk_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
+        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
+        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
+        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
+        :param max_total_instances: Maximum number of instances that should be started to handle requests for this version. Default: 20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
+        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
+        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
+        :param min_total_instances: Minimum number of running instances that should be maintained for this version. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
+        :param network_utilization: network_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
+        :param request_utilization: request_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
         '''
         if isinstance(cpu_utilization, dict):
             cpu_utilization = AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization(**cpu_utilization)
@@ -1500,7 +1500,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     ) -> "AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization":
         '''cpu_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu_utilization AppEngineFlexibleAppVersion#cpu_utilization}
         '''
         result = self._values.get("cpu_utilization")
         assert result is not None, "Required property 'cpu_utilization' is missing"
@@ -1513,7 +1513,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
         This prevents the autoscaler from collecting information when the instance is initializing,
         during which the collected usage would not be reliable. Default: 120s
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cool_down_period AppEngineFlexibleAppVersion#cool_down_period}
         '''
         result = self._values.get("cool_down_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1524,7 +1524,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     ) -> typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization"]:
         '''disk_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_utilization AppEngineFlexibleAppVersion#disk_utilization}
         '''
         result = self._values.get("disk_utilization")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization"], result)
@@ -1535,7 +1535,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
 
         Defaults to a runtime-specific value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_concurrent_requests AppEngineFlexibleAppVersion#max_concurrent_requests}
         '''
         result = self._values.get("max_concurrent_requests")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1544,7 +1544,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     def max_idle_instances(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of idle instances that should be maintained for this version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_idle_instances AppEngineFlexibleAppVersion#max_idle_instances}
         '''
         result = self._values.get("max_idle_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1553,7 +1553,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     def max_pending_latency(self) -> typing.Optional[builtins.str]:
         '''Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_pending_latency AppEngineFlexibleAppVersion#max_pending_latency}
         '''
         result = self._values.get("max_pending_latency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1562,7 +1562,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     def max_total_instances(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of instances that should be started to handle requests for this version. Default: 20.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#max_total_instances AppEngineFlexibleAppVersion#max_total_instances}
         '''
         result = self._values.get("max_total_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1573,7 +1573,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
 
         Only applicable for the default version of a service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_idle_instances AppEngineFlexibleAppVersion#min_idle_instances}
         '''
         result = self._values.get("min_idle_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1582,7 +1582,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     def min_pending_latency(self) -> typing.Optional[builtins.str]:
         '''Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_pending_latency AppEngineFlexibleAppVersion#min_pending_latency}
         '''
         result = self._values.get("min_pending_latency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1591,7 +1591,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     def min_total_instances(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of running instances that should be maintained for this version. Default: 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#min_total_instances AppEngineFlexibleAppVersion#min_total_instances}
         '''
         result = self._values.get("min_total_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1602,7 +1602,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     ) -> typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization"]:
         '''network_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network_utilization AppEngineFlexibleAppVersion#network_utilization}
         '''
         result = self._values.get("network_utilization")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization"], result)
@@ -1613,7 +1613,7 @@ class AppEngineFlexibleAppVersionAutomaticScaling:
     ) -> typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization"]:
         '''request_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#request_utilization AppEngineFlexibleAppVersion#request_utilization}
         '''
         result = self._values.get("request_utilization")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization"], result)
@@ -1646,8 +1646,8 @@ class AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization:
         aggregation_window_length: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_utilization: Target CPU utilization ratio to maintain when scaling. Must be between 0 and 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
-        :param aggregation_window_length: Period of time over which CPU utilization is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
+        :param target_utilization: Target CPU utilization ratio to maintain when scaling. Must be between 0 and 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
+        :param aggregation_window_length: Period of time over which CPU utilization is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4249c050c7b6ac7898badc8cdfff5049a65e260e57428eb36ea6169ccc7fe77a)
@@ -1663,7 +1663,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization:
     def target_utilization(self) -> jsii.Number:
         '''Target CPU utilization ratio to maintain when scaling. Must be between 0 and 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
         '''
         result = self._values.get("target_utilization")
         assert result is not None, "Required property 'target_utilization' is missing"
@@ -1673,7 +1673,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization:
     def aggregation_window_length(self) -> typing.Optional[builtins.str]:
         '''Period of time over which CPU utilization is calculated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
         '''
         result = self._values.get("aggregation_window_length")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1786,10 +1786,10 @@ class AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization:
         target_write_ops_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_read_bytes_per_second: Target bytes read per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
-        :param target_read_ops_per_second: Target ops read per seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
-        :param target_write_bytes_per_second: Target bytes written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
-        :param target_write_ops_per_second: Target ops written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
+        :param target_read_bytes_per_second: Target bytes read per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
+        :param target_read_ops_per_second: Target ops read per seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
+        :param target_write_bytes_per_second: Target bytes written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
+        :param target_write_ops_per_second: Target ops written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6cb7f36ec168bf0e0db1987e8fd48b0612086f94c3e95208f887e2e612c5b19)
@@ -1811,7 +1811,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization:
     def target_read_bytes_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target bytes read per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
         '''
         result = self._values.get("target_read_bytes_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1820,7 +1820,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization:
     def target_read_ops_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target ops read per seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
         '''
         result = self._values.get("target_read_ops_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1829,7 +1829,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization:
     def target_write_bytes_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target bytes written per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
         '''
         result = self._values.get("target_write_bytes_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1838,7 +1838,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization:
     def target_write_ops_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target ops written per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
         '''
         result = self._values.get("target_write_ops_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1997,10 +1997,10 @@ class AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization:
         target_sent_packets_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_received_bytes_per_second: Target bytes received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
-        :param target_received_packets_per_second: Target packets received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
-        :param target_sent_bytes_per_second: Target bytes sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
-        :param target_sent_packets_per_second: Target packets sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
+        :param target_received_bytes_per_second: Target bytes received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
+        :param target_received_packets_per_second: Target packets received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
+        :param target_sent_bytes_per_second: Target bytes sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
+        :param target_sent_packets_per_second: Target packets sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dfd9e939069da4c6f670272f6eb16f44c2fad908d59edbf72ebe8e6508befb05)
@@ -2022,7 +2022,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization:
     def target_received_bytes_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target bytes received per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
         '''
         result = self._values.get("target_received_bytes_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2031,7 +2031,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization:
     def target_received_packets_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target packets received per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
         '''
         result = self._values.get("target_received_packets_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2040,7 +2040,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization:
     def target_sent_bytes_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target bytes sent per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
         '''
         result = self._values.get("target_sent_bytes_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2049,7 +2049,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization:
     def target_sent_packets_per_second(self) -> typing.Optional[jsii.Number]:
         '''Target packets sent per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
         '''
         result = self._values.get("target_sent_packets_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2216,8 +2216,8 @@ class AppEngineFlexibleAppVersionAutomaticScalingOutputReference(
         aggregation_window_length: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_utilization: Target CPU utilization ratio to maintain when scaling. Must be between 0 and 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
-        :param aggregation_window_length: Period of time over which CPU utilization is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
+        :param target_utilization: Target CPU utilization ratio to maintain when scaling. Must be between 0 and 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_utilization AppEngineFlexibleAppVersion#target_utilization}
+        :param aggregation_window_length: Period of time over which CPU utilization is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#aggregation_window_length AppEngineFlexibleAppVersion#aggregation_window_length}
         '''
         value = AppEngineFlexibleAppVersionAutomaticScalingCpuUtilization(
             target_utilization=target_utilization,
@@ -2236,10 +2236,10 @@ class AppEngineFlexibleAppVersionAutomaticScalingOutputReference(
         target_write_ops_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_read_bytes_per_second: Target bytes read per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
-        :param target_read_ops_per_second: Target ops read per seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
-        :param target_write_bytes_per_second: Target bytes written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
-        :param target_write_ops_per_second: Target ops written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
+        :param target_read_bytes_per_second: Target bytes read per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_bytes_per_second AppEngineFlexibleAppVersion#target_read_bytes_per_second}
+        :param target_read_ops_per_second: Target ops read per seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_read_ops_per_second AppEngineFlexibleAppVersion#target_read_ops_per_second}
+        :param target_write_bytes_per_second: Target bytes written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_bytes_per_second AppEngineFlexibleAppVersion#target_write_bytes_per_second}
+        :param target_write_ops_per_second: Target ops written per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_write_ops_per_second AppEngineFlexibleAppVersion#target_write_ops_per_second}
         '''
         value = AppEngineFlexibleAppVersionAutomaticScalingDiskUtilization(
             target_read_bytes_per_second=target_read_bytes_per_second,
@@ -2260,10 +2260,10 @@ class AppEngineFlexibleAppVersionAutomaticScalingOutputReference(
         target_sent_packets_per_second: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_received_bytes_per_second: Target bytes received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
-        :param target_received_packets_per_second: Target packets received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
-        :param target_sent_bytes_per_second: Target bytes sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
-        :param target_sent_packets_per_second: Target packets sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
+        :param target_received_bytes_per_second: Target bytes received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_bytes_per_second AppEngineFlexibleAppVersion#target_received_bytes_per_second}
+        :param target_received_packets_per_second: Target packets received per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_received_packets_per_second AppEngineFlexibleAppVersion#target_received_packets_per_second}
+        :param target_sent_bytes_per_second: Target bytes sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_bytes_per_second AppEngineFlexibleAppVersion#target_sent_bytes_per_second}
+        :param target_sent_packets_per_second: Target packets sent per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_sent_packets_per_second AppEngineFlexibleAppVersion#target_sent_packets_per_second}
         '''
         value = AppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization(
             target_received_bytes_per_second=target_received_bytes_per_second,
@@ -2282,8 +2282,8 @@ class AppEngineFlexibleAppVersionAutomaticScalingOutputReference(
         target_request_count_per_second: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_concurrent_requests: Target number of concurrent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
-        :param target_request_count_per_second: Target requests per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
+        :param target_concurrent_requests: Target number of concurrent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
+        :param target_request_count_per_second: Target requests per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
         '''
         value = AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization(
             target_concurrent_requests=target_concurrent_requests,
@@ -2562,8 +2562,8 @@ class AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization:
         target_request_count_per_second: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_concurrent_requests: Target number of concurrent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
-        :param target_request_count_per_second: Target requests per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
+        :param target_concurrent_requests: Target number of concurrent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
+        :param target_request_count_per_second: Target requests per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dfaf1954449d8dbc3ab6c60cf4331a39dfaaa86addf0313bd70a7e41f92a972)
@@ -2579,7 +2579,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization:
     def target_concurrent_requests(self) -> typing.Optional[jsii.Number]:
         '''Target number of concurrent requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_concurrent_requests AppEngineFlexibleAppVersion#target_concurrent_requests}
         '''
         result = self._values.get("target_concurrent_requests")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2588,7 +2588,7 @@ class AppEngineFlexibleAppVersionAutomaticScalingRequestUtilization:
     def target_request_count_per_second(self) -> typing.Optional[builtins.str]:
         '''Target requests per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#target_request_count_per_second AppEngineFlexibleAppVersion#target_request_count_per_second}
         '''
         result = self._values.get("target_request_count_per_second")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2782,38 +2782,38 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param liveness_check: liveness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
-        :param readiness_check: readiness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
-        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
-        :param service: AppEngine service resource. Can contain numbers, letters, and hyphens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
-        :param api_config: api_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
-        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
-        :param beta_settings: Metadata settings that are supplied to this version to enable beta runtime features. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
-        :param default_expiration: Duration that static files should be cached by web proxies and browsers. Only applicable if the corresponding StaticFilesHandler does not specify its own expiration time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
-        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
-        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
-        :param endpoints_api_service: endpoints_api_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
-        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
-        :param env_variables: Environment variables available to the application. As these are not returned in the API request, Terraform will not detect any changes made outside of the Terraform config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
-        :param flexible_runtime_settings: flexible_runtime_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
-        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
-        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G ManualScaling: B1, B2, B4, B8, B4_1G Defaults to F1 for AutomaticScaling and B1 for ManualScaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
-        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
-        :param nobuild_files_regex: Files that match this pattern will not be built into this version. Only applicable for Go runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
-        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
-        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
-        :param runtime_channel: The channel of the runtime to use. Only available for some runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
-        :param runtime_main_executable_path: The path or name of the app's main executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
-        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
-        :param serving_status: Current serving status of this version. Only the versions with a SERVING status create instances and can be billed. Default value: "SERVING" Possible values: ["SERVING", "STOPPED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
-        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
-        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
+        :param liveness_check: liveness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
+        :param readiness_check: readiness_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
+        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
+        :param service: AppEngine service resource. Can contain numbers, letters, and hyphens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
+        :param api_config: api_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
+        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
+        :param beta_settings: Metadata settings that are supplied to this version to enable beta runtime features. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
+        :param default_expiration: Duration that static files should be cached by web proxies and browsers. Only applicable if the corresponding StaticFilesHandler does not specify its own expiration time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
+        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
+        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
+        :param endpoints_api_service: endpoints_api_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
+        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
+        :param env_variables: Environment variables available to the application. As these are not returned in the API request, Terraform will not detect any changes made outside of the Terraform config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
+        :param flexible_runtime_settings: flexible_runtime_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
+        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
+        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G ManualScaling: B1, B2, B4, B8, B4_1G Defaults to F1 for AutomaticScaling and B1 for ManualScaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
+        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
+        :param nobuild_files_regex: Files that match this pattern will not be built into this version. Only applicable for Go runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
+        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
+        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
+        :param runtime_channel: The channel of the runtime to use. Only available for some runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
+        :param runtime_main_executable_path: The path or name of the app's main executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
+        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
+        :param serving_status: Current serving status of this version. Only the versions with a SERVING status create instances and can be billed. Default value: "SERVING" Possible values: ["SERVING", "STOPPED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
+        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
+        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3029,7 +3029,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def liveness_check(self) -> "AppEngineFlexibleAppVersionLivenessCheck":
         '''liveness_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#liveness_check AppEngineFlexibleAppVersion#liveness_check}
         '''
         result = self._values.get("liveness_check")
         assert result is not None, "Required property 'liveness_check' is missing"
@@ -3039,7 +3039,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def readiness_check(self) -> "AppEngineFlexibleAppVersionReadinessCheck":
         '''readiness_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#readiness_check AppEngineFlexibleAppVersion#readiness_check}
         '''
         result = self._values.get("readiness_check")
         assert result is not None, "Required property 'readiness_check' is missing"
@@ -3049,7 +3049,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime(self) -> builtins.str:
         '''Desired runtime. Example python27.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime AppEngineFlexibleAppVersion#runtime}
         '''
         result = self._values.get("runtime")
         assert result is not None, "Required property 'runtime' is missing"
@@ -3059,7 +3059,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service(self) -> builtins.str:
         '''AppEngine service resource. Can contain numbers, letters, and hyphens.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service AppEngineFlexibleAppVersion#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -3069,7 +3069,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_config(self) -> typing.Optional[AppEngineFlexibleAppVersionApiConfig]:
         '''api_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#api_config AppEngineFlexibleAppVersion#api_config}
         '''
         result = self._values.get("api_config")
         return typing.cast(typing.Optional[AppEngineFlexibleAppVersionApiConfig], result)
@@ -3080,7 +3080,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[AppEngineFlexibleAppVersionAutomaticScaling]:
         '''automatic_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#automatic_scaling AppEngineFlexibleAppVersion#automatic_scaling}
         '''
         result = self._values.get("automatic_scaling")
         return typing.cast(typing.Optional[AppEngineFlexibleAppVersionAutomaticScaling], result)
@@ -3091,7 +3091,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Metadata settings that are supplied to this version to enable beta runtime features.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#beta_settings AppEngineFlexibleAppVersion#beta_settings}
         '''
         result = self._values.get("beta_settings")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3102,7 +3102,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only applicable if the corresponding StaticFilesHandler does not specify its own expiration time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#default_expiration AppEngineFlexibleAppVersion#default_expiration}
         '''
         result = self._values.get("default_expiration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3113,7 +3113,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', the service will be deleted if it is the last version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete_service_on_destroy AppEngineFlexibleAppVersion#delete_service_on_destroy}
         '''
         result = self._values.get("delete_service_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3122,7 +3122,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deployment(self) -> typing.Optional["AppEngineFlexibleAppVersionDeployment"]:
         '''deployment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#deployment AppEngineFlexibleAppVersion#deployment}
         '''
         result = self._values.get("deployment")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionDeployment"], result)
@@ -3133,7 +3133,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineFlexibleAppVersionEndpointsApiService"]:
         '''endpoints_api_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#endpoints_api_service AppEngineFlexibleAppVersion#endpoints_api_service}
         '''
         result = self._values.get("endpoints_api_service")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionEndpointsApiService"], result)
@@ -3142,7 +3142,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entrypoint(self) -> typing.Optional["AppEngineFlexibleAppVersionEntrypoint"]:
         '''entrypoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#entrypoint AppEngineFlexibleAppVersion#entrypoint}
         '''
         result = self._values.get("entrypoint")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionEntrypoint"], result)
@@ -3155,7 +3155,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         As these are not returned in the API request, Terraform will not detect any changes made outside of the Terraform config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#env_variables AppEngineFlexibleAppVersion#env_variables}
         '''
         result = self._values.get("env_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3166,7 +3166,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineFlexibleAppVersionFlexibleRuntimeSettings"]:
         '''flexible_runtime_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#flexible_runtime_settings AppEngineFlexibleAppVersion#flexible_runtime_settings}
         '''
         result = self._values.get("flexible_runtime_settings")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionFlexibleRuntimeSettings"], result)
@@ -3177,14 +3177,14 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionHandlers"]]]:
         '''handlers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#handlers AppEngineFlexibleAppVersion#handlers}
         '''
         result = self._values.get("handlers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionHandlers"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#id AppEngineFlexibleAppVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3198,7 +3198,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#inbound_services AppEngineFlexibleAppVersion#inbound_services}
         '''
         result = self._values.get("inbound_services")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3212,7 +3212,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         ManualScaling: B1, B2, B4, B8, B4_1G
         Defaults to F1 for AutomaticScaling and B1 for ManualScaling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_class AppEngineFlexibleAppVersion#instance_class}
         '''
         result = self._values.get("instance_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3223,7 +3223,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineFlexibleAppVersionManualScaling"]:
         '''manual_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#manual_scaling AppEngineFlexibleAppVersion#manual_scaling}
         '''
         result = self._values.get("manual_scaling")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionManualScaling"], result)
@@ -3232,7 +3232,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional["AppEngineFlexibleAppVersionNetwork"]:
         '''network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#network AppEngineFlexibleAppVersion#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionNetwork"], result)
@@ -3241,7 +3241,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nobuild_files_regex(self) -> typing.Optional[builtins.str]:
         '''Files that match this pattern will not be built into this version. Only applicable for Go runtimes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#nobuild_files_regex AppEngineFlexibleAppVersion#nobuild_files_regex}
         '''
         result = self._values.get("nobuild_files_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3252,14 +3252,14 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', the application version will not be deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#noop_on_destroy AppEngineFlexibleAppVersion#noop_on_destroy}
         '''
         result = self._values.get("noop_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#project AppEngineFlexibleAppVersion#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3267,7 +3267,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resources(self) -> typing.Optional["AppEngineFlexibleAppVersionResources"]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#resources AppEngineFlexibleAppVersion#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionResources"], result)
@@ -3279,7 +3279,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref'
         Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_api_version AppEngineFlexibleAppVersion#runtime_api_version}
         '''
         result = self._values.get("runtime_api_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3288,7 +3288,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_channel(self) -> typing.Optional[builtins.str]:
         '''The channel of the runtime to use. Only available for some runtimes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_channel AppEngineFlexibleAppVersion#runtime_channel}
         '''
         result = self._values.get("runtime_channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3297,7 +3297,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_main_executable_path(self) -> typing.Optional[builtins.str]:
         '''The path or name of the app's main executable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_main_executable_path AppEngineFlexibleAppVersion#runtime_main_executable_path}
         '''
         result = self._values.get("runtime_main_executable_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3309,7 +3309,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Admin API will use the App Engine Appspot service account as
         default if this field is neither provided in app.yaml file nor through CLI flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#service_account AppEngineFlexibleAppVersion#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3320,7 +3320,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only the versions with a SERVING status create instances and can be billed. Default value: "SERVING" Possible values: ["SERVING", "STOPPED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#serving_status AppEngineFlexibleAppVersion#serving_status}
         '''
         result = self._values.get("serving_status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3329,7 +3329,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppEngineFlexibleAppVersionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeouts AppEngineFlexibleAppVersion#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionTimeouts"], result)
@@ -3341,7 +3341,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens.
         Reserved names,"default", "latest", and any name with the prefix "ah-".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#version_id AppEngineFlexibleAppVersion#version_id}
         '''
         result = self._values.get("version_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3352,7 +3352,7 @@ class AppEngineFlexibleAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineFlexibleAppVersionVpcAccessConnector"]:
         '''vpc_access_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#vpc_access_connector AppEngineFlexibleAppVersion#vpc_access_connector}
         '''
         result = self._values.get("vpc_access_connector")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionVpcAccessConnector"], result)
@@ -3389,10 +3389,10 @@ class AppEngineFlexibleAppVersionDeployment:
         zip: typing.Optional[typing.Union["AppEngineFlexibleAppVersionDeploymentZip", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_build_options: cloud_build_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
-        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
+        :param cloud_build_options: cloud_build_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
+        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
         '''
         if isinstance(cloud_build_options, dict):
             cloud_build_options = AppEngineFlexibleAppVersionDeploymentCloudBuildOptions(**cloud_build_options)
@@ -3422,7 +3422,7 @@ class AppEngineFlexibleAppVersionDeployment:
     ) -> typing.Optional["AppEngineFlexibleAppVersionDeploymentCloudBuildOptions"]:
         '''cloud_build_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_options AppEngineFlexibleAppVersion#cloud_build_options}
         '''
         result = self._values.get("cloud_build_options")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionDeploymentCloudBuildOptions"], result)
@@ -3433,7 +3433,7 @@ class AppEngineFlexibleAppVersionDeployment:
     ) -> typing.Optional["AppEngineFlexibleAppVersionDeploymentContainer"]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#container AppEngineFlexibleAppVersion#container}
         '''
         result = self._values.get("container")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionDeploymentContainer"], result)
@@ -3444,7 +3444,7 @@ class AppEngineFlexibleAppVersionDeployment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionDeploymentFiles"]]]:
         '''files block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files AppEngineFlexibleAppVersion#files}
         '''
         result = self._values.get("files")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionDeploymentFiles"]]], result)
@@ -3453,7 +3453,7 @@ class AppEngineFlexibleAppVersionDeployment:
     def zip(self) -> typing.Optional["AppEngineFlexibleAppVersionDeploymentZip"]:
         '''zip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#zip AppEngineFlexibleAppVersion#zip}
         '''
         result = self._values.get("zip")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionDeploymentZip"], result)
@@ -3486,8 +3486,8 @@ class AppEngineFlexibleAppVersionDeploymentCloudBuildOptions:
         cloud_build_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_yaml_path: Path to the yaml file used in deployment, used to determine runtime configuration details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
-        :param cloud_build_timeout: The Cloud Build timeout used as part of any dependent builds performed by version creation. Defaults to 10 minutes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
+        :param app_yaml_path: Path to the yaml file used in deployment, used to determine runtime configuration details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
+        :param cloud_build_timeout: The Cloud Build timeout used as part of any dependent builds performed by version creation. Defaults to 10 minutes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b42c7bde6c616abe71723c3497729f29da76ecfdb9bf6a79d45f8732bd42169)
@@ -3503,7 +3503,7 @@ class AppEngineFlexibleAppVersionDeploymentCloudBuildOptions:
     def app_yaml_path(self) -> builtins.str:
         '''Path to the yaml file used in deployment, used to determine runtime configuration details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
         '''
         result = self._values.get("app_yaml_path")
         assert result is not None, "Required property 'app_yaml_path' is missing"
@@ -3515,7 +3515,7 @@ class AppEngineFlexibleAppVersionDeploymentCloudBuildOptions:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
         '''
         result = self._values.get("cloud_build_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3616,7 +3616,7 @@ class AppEngineFlexibleAppVersionDeploymentCloudBuildOptionsOutputReference(
 class AppEngineFlexibleAppVersionDeploymentContainer:
     def __init__(self, *, image: builtins.str) -> None:
         '''
-        :param image: URI to the hosted container image in Google Container Registry. The URI must be fully qualified and include a tag or digest. Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
+        :param image: URI to the hosted container image in Google Container Registry. The URI must be fully qualified and include a tag or digest. Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30057c8255603628183d50bb74b326b5293e7f5b0c80e68ca56935c4dd679b07)
@@ -3632,7 +3632,7 @@ class AppEngineFlexibleAppVersionDeploymentContainer:
         The URI must be fully qualified and include a tag or digest.
         Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -3719,9 +3719,9 @@ class AppEngineFlexibleAppVersionDeploymentFiles:
         sha1_sum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}.
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
-        :param sha1_sum: SHA1 checksum of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#sha1_sum AppEngineFlexibleAppVersion#sha1_sum}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}.
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
+        :param sha1_sum: SHA1 checksum of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#sha1_sum AppEngineFlexibleAppVersion#sha1_sum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25bbabff0c673ad9df9c0ce1d8a269e91df7434b2a68cfae48be5e705715cb04)
@@ -3737,7 +3737,7 @@ class AppEngineFlexibleAppVersionDeploymentFiles:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3746,7 +3746,7 @@ class AppEngineFlexibleAppVersionDeploymentFiles:
     def source_url(self) -> builtins.str:
         '''Source URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
         '''
         result = self._values.get("source_url")
         assert result is not None, "Required property 'source_url' is missing"
@@ -3756,7 +3756,7 @@ class AppEngineFlexibleAppVersionDeploymentFiles:
     def sha1_sum(self) -> typing.Optional[builtins.str]:
         '''SHA1 checksum of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#sha1_sum AppEngineFlexibleAppVersion#sha1_sum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#sha1_sum AppEngineFlexibleAppVersion#sha1_sum}
         '''
         result = self._values.get("sha1_sum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3993,8 +3993,8 @@ class AppEngineFlexibleAppVersionDeploymentOutputReference(
         cloud_build_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_yaml_path: Path to the yaml file used in deployment, used to determine runtime configuration details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
-        :param cloud_build_timeout: The Cloud Build timeout used as part of any dependent builds performed by version creation. Defaults to 10 minutes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
+        :param app_yaml_path: Path to the yaml file used in deployment, used to determine runtime configuration details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_yaml_path AppEngineFlexibleAppVersion#app_yaml_path}
+        :param cloud_build_timeout: The Cloud Build timeout used as part of any dependent builds performed by version creation. Defaults to 10 minutes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cloud_build_timeout AppEngineFlexibleAppVersion#cloud_build_timeout}
         '''
         value = AppEngineFlexibleAppVersionDeploymentCloudBuildOptions(
             app_yaml_path=app_yaml_path, cloud_build_timeout=cloud_build_timeout
@@ -4005,7 +4005,7 @@ class AppEngineFlexibleAppVersionDeploymentOutputReference(
     @jsii.member(jsii_name="putContainer")
     def put_container(self, *, image: builtins.str) -> None:
         '''
-        :param image: URI to the hosted container image in Google Container Registry. The URI must be fully qualified and include a tag or digest. Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
+        :param image: URI to the hosted container image in Google Container Registry. The URI must be fully qualified and include a tag or digest. Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#image AppEngineFlexibleAppVersion#image}
         '''
         value = AppEngineFlexibleAppVersionDeploymentContainer(image=image)
 
@@ -4032,8 +4032,8 @@ class AppEngineFlexibleAppVersionDeploymentOutputReference(
         files_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
-        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
+        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
         '''
         value = AppEngineFlexibleAppVersionDeploymentZip(
             source_url=source_url, files_count=files_count
@@ -4136,8 +4136,8 @@ class AppEngineFlexibleAppVersionDeploymentZip:
         files_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
-        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
+        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d68439297c89d8937975a842ee1740bc734d54acd43b45bd21e0c975d069f6b1)
@@ -4153,7 +4153,7 @@ class AppEngineFlexibleAppVersionDeploymentZip:
     def source_url(self) -> builtins.str:
         '''Source URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#source_url AppEngineFlexibleAppVersion#source_url}
         '''
         result = self._values.get("source_url")
         assert result is not None, "Required property 'source_url' is missing"
@@ -4163,7 +4163,7 @@ class AppEngineFlexibleAppVersionDeploymentZip:
     def files_count(self) -> typing.Optional[jsii.Number]:
         '''files count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#files_count AppEngineFlexibleAppVersion#files_count}
         '''
         result = self._values.get("files_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4276,10 +4276,10 @@ class AppEngineFlexibleAppVersionEndpointsApiService:
         rollout_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Endpoints service name which is the name of the "service" resource in the Service Management API. For example "myapi.endpoints.myproject.cloud.goog". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
-        :param config_id: Endpoints service configuration ID as specified by the Service Management API. For example "2016-09-19r1". By default, the rollout strategy for Endpoints is "FIXED". This means that Endpoints starts up with a particular configuration ID. When a new configuration is rolled out, Endpoints must be given the new configuration ID. The configId field is used to give the configuration ID and is required in this case. Endpoints also has a rollout strategy called "MANAGED". When using this, Endpoints fetches the latest configuration and does not need the configuration ID. In this case, configId must be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
-        :param disable_trace_sampling: Enable or disable trace sampling. By default, this is set to false for enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
-        :param rollout_strategy: Endpoints rollout strategy. If FIXED, configId must be specified. If MANAGED, configId must be omitted. Default value: "FIXED" Possible values: ["FIXED", "MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
+        :param name: Endpoints service name which is the name of the "service" resource in the Service Management API. For example "myapi.endpoints.myproject.cloud.goog". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param config_id: Endpoints service configuration ID as specified by the Service Management API. For example "2016-09-19r1". By default, the rollout strategy for Endpoints is "FIXED". This means that Endpoints starts up with a particular configuration ID. When a new configuration is rolled out, Endpoints must be given the new configuration ID. The configId field is used to give the configuration ID and is required in this case. Endpoints also has a rollout strategy called "MANAGED". When using this, Endpoints fetches the latest configuration and does not need the configuration ID. In this case, configId must be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
+        :param disable_trace_sampling: Enable or disable trace sampling. By default, this is set to false for enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
+        :param rollout_strategy: Endpoints rollout strategy. If FIXED, configId must be specified. If MANAGED, configId must be omitted. Default value: "FIXED" Possible values: ["FIXED", "MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41a8679c2e2e1ee030ea41fead9b577f32fa98edc11ec1a43133b08f0706140b)
@@ -4301,7 +4301,7 @@ class AppEngineFlexibleAppVersionEndpointsApiService:
     def name(self) -> builtins.str:
         '''Endpoints service name which is the name of the "service" resource in the Service Management API. For example "myapi.endpoints.myproject.cloud.goog".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4318,7 +4318,7 @@ class AppEngineFlexibleAppVersionEndpointsApiService:
         Endpoints also has a rollout strategy called "MANAGED". When using this, Endpoints fetches the latest configuration and does not need
         the configuration ID. In this case, configId must be omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#config_id AppEngineFlexibleAppVersion#config_id}
         '''
         result = self._values.get("config_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4329,7 +4329,7 @@ class AppEngineFlexibleAppVersionEndpointsApiService:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable or disable trace sampling. By default, this is set to false for enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disable_trace_sampling AppEngineFlexibleAppVersion#disable_trace_sampling}
         '''
         result = self._values.get("disable_trace_sampling")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4340,7 +4340,7 @@ class AppEngineFlexibleAppVersionEndpointsApiService:
 
         If FIXED, configId must be specified. If MANAGED, configId must be omitted. Default value: "FIXED" Possible values: ["FIXED", "MANAGED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#rollout_strategy AppEngineFlexibleAppVersion#rollout_strategy}
         '''
         result = self._values.get("rollout_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4490,7 +4490,7 @@ class AppEngineFlexibleAppVersionEndpointsApiServiceOutputReference(
 class AppEngineFlexibleAppVersionEntrypoint:
     def __init__(self, *, shell: builtins.str) -> None:
         '''
-        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
+        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__550d177dfe0de0347a2fc3199881f27c9c28877e1282ec571b3854631e656a46)
@@ -4503,7 +4503,7 @@ class AppEngineFlexibleAppVersionEntrypoint:
     def shell(self) -> builtins.str:
         '''The format should be a shell command that can be fed to bash -c.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#shell AppEngineFlexibleAppVersion#shell}
         '''
         result = self._values.get("shell")
         assert result is not None, "Required property 'shell' is missing"
@@ -4590,8 +4590,8 @@ class AppEngineFlexibleAppVersionFlexibleRuntimeSettings:
         runtime_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operating_system: Operating System of the application runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
-        :param runtime_version: The runtime version of an App Engine flexible application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
+        :param operating_system: Operating System of the application runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
+        :param runtime_version: The runtime version of an App Engine flexible application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0fb01e6e138973058a58f649614b8f57d7abb3c9cbedcefed8379cbc6c4fd3b)
@@ -4607,7 +4607,7 @@ class AppEngineFlexibleAppVersionFlexibleRuntimeSettings:
     def operating_system(self) -> typing.Optional[builtins.str]:
         '''Operating System of the application runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#operating_system AppEngineFlexibleAppVersion#operating_system}
         '''
         result = self._values.get("operating_system")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4616,7 +4616,7 @@ class AppEngineFlexibleAppVersionFlexibleRuntimeSettings:
     def runtime_version(self) -> typing.Optional[builtins.str]:
         '''The runtime version of an App Engine flexible application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#runtime_version AppEngineFlexibleAppVersion#runtime_version}
         '''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4739,13 +4739,13 @@ class AppEngineFlexibleAppVersionHandlers:
         url_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_fail_action: Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
-        :param login: Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
-        :param redirect_http_response_code: 30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#redirect_http_response_code AppEngineFlexibleAppVersion#redirect_http_response_code}
-        :param script: script block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
-        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
-        :param static_files: static_files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#static_files AppEngineFlexibleAppVersion#static_files}
-        :param url_regex: URL prefix. Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings. All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#url_regex AppEngineFlexibleAppVersion#url_regex}
+        :param auth_fail_action: Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
+        :param login: Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
+        :param redirect_http_response_code: 30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#redirect_http_response_code AppEngineFlexibleAppVersion#redirect_http_response_code}
+        :param script: script block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
+        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
+        :param static_files: static_files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#static_files AppEngineFlexibleAppVersion#static_files}
+        :param url_regex: URL prefix. Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings. All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#url_regex AppEngineFlexibleAppVersion#url_regex}
         '''
         if isinstance(script, dict):
             script = AppEngineFlexibleAppVersionHandlersScript(**script)
@@ -4780,7 +4780,7 @@ class AppEngineFlexibleAppVersionHandlers:
     def auth_fail_action(self) -> typing.Optional[builtins.str]:
         '''Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#auth_fail_action AppEngineFlexibleAppVersion#auth_fail_action}
         '''
         result = self._values.get("auth_fail_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4789,7 +4789,7 @@ class AppEngineFlexibleAppVersionHandlers:
     def login(self) -> typing.Optional[builtins.str]:
         '''Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#login AppEngineFlexibleAppVersion#login}
         '''
         result = self._values.get("login")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4798,7 +4798,7 @@ class AppEngineFlexibleAppVersionHandlers:
     def redirect_http_response_code(self) -> typing.Optional[builtins.str]:
         '''30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#redirect_http_response_code AppEngineFlexibleAppVersion#redirect_http_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#redirect_http_response_code AppEngineFlexibleAppVersion#redirect_http_response_code}
         '''
         result = self._values.get("redirect_http_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4807,7 +4807,7 @@ class AppEngineFlexibleAppVersionHandlers:
     def script(self) -> typing.Optional["AppEngineFlexibleAppVersionHandlersScript"]:
         '''script block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script AppEngineFlexibleAppVersion#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionHandlersScript"], result)
@@ -4816,7 +4816,7 @@ class AppEngineFlexibleAppVersionHandlers:
     def security_level(self) -> typing.Optional[builtins.str]:
         '''Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#security_level AppEngineFlexibleAppVersion#security_level}
         '''
         result = self._values.get("security_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4827,7 +4827,7 @@ class AppEngineFlexibleAppVersionHandlers:
     ) -> typing.Optional["AppEngineFlexibleAppVersionHandlersStaticFiles"]:
         '''static_files block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#static_files AppEngineFlexibleAppVersion#static_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#static_files AppEngineFlexibleAppVersion#static_files}
         '''
         result = self._values.get("static_files")
         return typing.cast(typing.Optional["AppEngineFlexibleAppVersionHandlersStaticFiles"], result)
@@ -4839,7 +4839,7 @@ class AppEngineFlexibleAppVersionHandlers:
         Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings.
         All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#url_regex AppEngineFlexibleAppVersion#url_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#url_regex AppEngineFlexibleAppVersion#url_regex}
         '''
         result = self._values.get("url_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4978,7 +4978,7 @@ class AppEngineFlexibleAppVersionHandlersOutputReference(
     @jsii.member(jsii_name="putScript")
     def put_script(self, *, script_path: builtins.str) -> None:
         '''
-        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
+        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
         '''
         value = AppEngineFlexibleAppVersionHandlersScript(script_path=script_path)
 
@@ -4997,13 +4997,13 @@ class AppEngineFlexibleAppVersionHandlersOutputReference(
         upload_path_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
-        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Default is '0s' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
-        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
-        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
-        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
-        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
+        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
+        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Default is '0s' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
+        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
+        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
+        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
+        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
         '''
         value = AppEngineFlexibleAppVersionHandlersStaticFiles(
             application_readable=application_readable,
@@ -5182,7 +5182,7 @@ class AppEngineFlexibleAppVersionHandlersOutputReference(
 class AppEngineFlexibleAppVersionHandlersScript:
     def __init__(self, *, script_path: builtins.str) -> None:
         '''
-        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
+        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a4ef84ced88babff899f76fe51e026a273c47f4a5e90e8366c617ce8046d2a0)
@@ -5195,7 +5195,7 @@ class AppEngineFlexibleAppVersionHandlersScript:
     def script_path(self) -> builtins.str:
         '''Path to the script from the application root directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#script_path AppEngineFlexibleAppVersion#script_path}
         '''
         result = self._values.get("script_path")
         assert result is not None, "Required property 'script_path' is missing"
@@ -5294,13 +5294,13 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
         upload_path_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
-        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Default is '0s' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
-        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
-        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
-        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
-        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
+        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
+        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Default is '0s' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
+        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
+        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
+        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
+        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4eb2367fd5068af79157f1403f60cd371e0f76c860a1078e2d8de605fb791061)
@@ -5337,7 +5337,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
         uploaded as static data and are only served to end users; they cannot be read by the application. If enabled,
         uploads are charged against both your code and static data storage resource quotas.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#application_readable AppEngineFlexibleAppVersion#application_readable}
         '''
         result = self._values.get("application_readable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5349,7 +5349,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s".
         Default is '0s'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#expiration AppEngineFlexibleAppVersion#expiration}
         '''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5360,7 +5360,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#http_headers AppEngineFlexibleAppVersion#http_headers}
         '''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5371,7 +5371,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
 
         Defaults to file-specific MIME types, which are derived from each file's filename extension.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#mime_type AppEngineFlexibleAppVersion#mime_type}
         '''
         result = self._values.get("mime_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5382,7 +5382,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
 
         The path can refer to text matched in groupings in the URL pattern.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5393,7 +5393,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this handler should match the request if the file referenced by the handler does not exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#require_matching_file AppEngineFlexibleAppVersion#require_matching_file}
         '''
         result = self._values.get("require_matching_file")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5402,7 +5402,7 @@ class AppEngineFlexibleAppVersionHandlersStaticFiles:
     def upload_path_regex(self) -> typing.Optional[builtins.str]:
         '''Regular expression that matches the file paths for all files that should be referenced by this handler.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#upload_path_regex AppEngineFlexibleAppVersion#upload_path_regex}
         '''
         result = self._values.get("upload_path_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5646,13 +5646,13 @@ class AppEngineFlexibleAppVersionLivenessCheck:
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param check_interval: Interval between health checks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
-        :param failure_threshold: Number of consecutive failed checks required before considering the VM unhealthy. Default: 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
-        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
-        :param initial_delay: The initial delay before starting to execute the checks. Default: "300s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
-        :param success_threshold: Number of consecutive successful checks required before considering the VM healthy. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
-        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param check_interval: Interval between health checks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        :param failure_threshold: Number of consecutive failed checks required before considering the VM unhealthy. Default: 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        :param initial_delay: The initial delay before starting to execute the checks. Default: "300s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
+        :param success_threshold: Number of consecutive successful checks required before considering the VM healthy. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__934246427f811a373c77f0a5872c9155129dfdd999639fbe73c6fa87f6a6f8cf)
@@ -5683,7 +5683,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def path(self) -> builtins.str:
         '''The request path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -5693,7 +5693,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def check_interval(self) -> typing.Optional[builtins.str]:
         '''Interval between health checks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
         '''
         result = self._values.get("check_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5702,7 +5702,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
         '''Number of consecutive failed checks required before considering the VM unhealthy. Default: 4.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
         '''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5711,7 +5711,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def host(self) -> typing.Optional[builtins.str]:
         '''Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5720,7 +5720,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def initial_delay(self) -> typing.Optional[builtins.str]:
         '''The initial delay before starting to execute the checks. Default: "300s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#initial_delay AppEngineFlexibleAppVersion#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5729,7 +5729,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def success_threshold(self) -> typing.Optional[jsii.Number]:
         '''Number of consecutive successful checks required before considering the VM healthy. Default: 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
         '''
         result = self._values.get("success_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5738,7 +5738,7 @@ class AppEngineFlexibleAppVersionLivenessCheck:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Time before the check is considered failed. Default: "4s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5944,7 +5944,7 @@ class AppEngineFlexibleAppVersionLivenessCheckOutputReference(
 class AppEngineFlexibleAppVersionManualScaling:
     def __init__(self, *, instances: jsii.Number) -> None:
         '''
-        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
+        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e5352a3c7c731eadb8bf8f29bb637015560ceb1fed008eab82bba24ff56cd28)
@@ -5960,7 +5960,7 @@ class AppEngineFlexibleAppVersionManualScaling:
         **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2
         Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instances AppEngineFlexibleAppVersion#instances}
         '''
         result = self._values.get("instances")
         assert result is not None, "Required property 'instances' is missing"
@@ -6055,11 +6055,11 @@ class AppEngineFlexibleAppVersionNetwork:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Google Compute Engine network where the virtual machines are created. Specify the short name, not the resource path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
-        :param forwarded_ports: List of ports, or port pairs, to forward from the virtual machine to the application container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
-        :param instance_tag: Tag to apply to the instance during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
-        :param session_affinity: Enable session affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
-        :param subnetwork: Google Cloud Platform sub-network where the virtual machines are created. Specify the short name, not the resource path. If the network that the instance is being created in is a Legacy network, then the IP address is allocated from the IPv4Range. If the network that the instance is being created in is an auto Subnet Mode Network, then only network name should be specified (not the subnetworkName) and the IP address is created from the IPCidrRange of the subnetwork that exists in that zone for that network. If the network that the instance is being created in is a custom Subnet Mode Network, then the subnetworkName must be specified and the IP address is created from the IPCidrRange of the subnetwork. If specified, the subnetwork must exist in the same region as the App Engine flexible environment application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
+        :param name: Google Compute Engine network where the virtual machines are created. Specify the short name, not the resource path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param forwarded_ports: List of ports, or port pairs, to forward from the virtual machine to the application container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
+        :param instance_tag: Tag to apply to the instance during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
+        :param session_affinity: Enable session affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
+        :param subnetwork: Google Cloud Platform sub-network where the virtual machines are created. Specify the short name, not the resource path. If the network that the instance is being created in is a Legacy network, then the IP address is allocated from the IPv4Range. If the network that the instance is being created in is an auto Subnet Mode Network, then only network name should be specified (not the subnetworkName) and the IP address is created from the IPCidrRange of the subnetwork that exists in that zone for that network. If the network that the instance is being created in is a custom Subnet Mode Network, then the subnetworkName must be specified and the IP address is created from the IPCidrRange of the subnetwork. If specified, the subnetwork must exist in the same region as the App Engine flexible environment application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__099930e67f98b35fff6aab9482de800b73c99a228756e33a35de887d93bef718)
@@ -6084,7 +6084,7 @@ class AppEngineFlexibleAppVersionNetwork:
     def name(self) -> builtins.str:
         '''Google Compute Engine network where the virtual machines are created. Specify the short name, not the resource path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6094,7 +6094,7 @@ class AppEngineFlexibleAppVersionNetwork:
     def forwarded_ports(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of ports, or port pairs, to forward from the virtual machine to the application container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#forwarded_ports AppEngineFlexibleAppVersion#forwarded_ports}
         '''
         result = self._values.get("forwarded_ports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6103,7 +6103,7 @@ class AppEngineFlexibleAppVersionNetwork:
     def instance_tag(self) -> typing.Optional[builtins.str]:
         '''Tag to apply to the instance during creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#instance_tag AppEngineFlexibleAppVersion#instance_tag}
         '''
         result = self._values.get("instance_tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6114,7 +6114,7 @@ class AppEngineFlexibleAppVersionNetwork:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable session affinity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#session_affinity AppEngineFlexibleAppVersion#session_affinity}
         '''
         result = self._values.get("session_affinity")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6128,7 +6128,7 @@ class AppEngineFlexibleAppVersionNetwork:
         If the network that the instance is being created in is a custom Subnet Mode Network, then the subnetworkName must be specified and the IP address is created from the IPCidrRange of the subnetwork.
         If specified, the subnetwork must exist in the same region as the App Engine flexible environment application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#subnetwork AppEngineFlexibleAppVersion#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6315,13 +6315,13 @@ class AppEngineFlexibleAppVersionReadinessCheck:
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
-        :param app_start_timeout: A maximum time limit on application initialization, measured from moment the application successfully replies to a healthcheck until it is ready to serve traffic. Default: "300s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
-        :param check_interval: Interval between health checks. Default: "5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
-        :param failure_threshold: Number of consecutive failed checks required before removing traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
-        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
-        :param success_threshold: Number of consecutive successful checks required before receiving traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
-        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        :param path: The request path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        :param app_start_timeout: A maximum time limit on application initialization, measured from moment the application successfully replies to a healthcheck until it is ready to serve traffic. Default: "300s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
+        :param check_interval: Interval between health checks. Default: "5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        :param failure_threshold: Number of consecutive failed checks required before removing traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        :param host: Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        :param success_threshold: Number of consecutive successful checks required before receiving traffic. Default: 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        :param timeout: Time before the check is considered failed. Default: "4s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83e243a8bae05eeedf728d15c34138eb144d6d47cd2f320b4450fa321dcb6521)
@@ -6352,7 +6352,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def path(self) -> builtins.str:
         '''The request path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#path AppEngineFlexibleAppVersion#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -6364,7 +6364,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
 
         Default: "300s"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#app_start_timeout AppEngineFlexibleAppVersion#app_start_timeout}
         '''
         result = self._values.get("app_start_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6373,7 +6373,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def check_interval(self) -> typing.Optional[builtins.str]:
         '''Interval between health checks.  Default: "5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#check_interval AppEngineFlexibleAppVersion#check_interval}
         '''
         result = self._values.get("check_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6382,7 +6382,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
         '''Number of consecutive failed checks required before removing traffic. Default: 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#failure_threshold AppEngineFlexibleAppVersion#failure_threshold}
         '''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6391,7 +6391,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def host(self) -> typing.Optional[builtins.str]:
         '''Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#host AppEngineFlexibleAppVersion#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6400,7 +6400,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def success_threshold(self) -> typing.Optional[jsii.Number]:
         '''Number of consecutive successful checks required before receiving traffic. Default: 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#success_threshold AppEngineFlexibleAppVersion#success_threshold}
         '''
         result = self._values.get("success_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6409,7 +6409,7 @@ class AppEngineFlexibleAppVersionReadinessCheck:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Time before the check is considered failed. Default: "4s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#timeout AppEngineFlexibleAppVersion#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6627,10 +6627,10 @@ class AppEngineFlexibleAppVersionResources:
         volumes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppEngineFlexibleAppVersionResourcesVolumes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cpu: Number of CPU cores needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
-        :param disk_gb: Disk size (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
-        :param memory_gb: Memory (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
+        :param cpu: Number of CPU cores needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
+        :param disk_gb: Disk size (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
+        :param memory_gb: Memory (GB) needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ddf03490cd409124774919d686e3fbb7bc9c96c9d0115c5b12960c4d3cfaca65)
@@ -6652,7 +6652,7 @@ class AppEngineFlexibleAppVersionResources:
     def cpu(self) -> typing.Optional[jsii.Number]:
         '''Number of CPU cores needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#cpu AppEngineFlexibleAppVersion#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6661,7 +6661,7 @@ class AppEngineFlexibleAppVersionResources:
     def disk_gb(self) -> typing.Optional[jsii.Number]:
         '''Disk size (GB) needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#disk_gb AppEngineFlexibleAppVersion#disk_gb}
         '''
         result = self._values.get("disk_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6670,7 +6670,7 @@ class AppEngineFlexibleAppVersionResources:
     def memory_gb(self) -> typing.Optional[jsii.Number]:
         '''Memory (GB) needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#memory_gb AppEngineFlexibleAppVersion#memory_gb}
         '''
         result = self._values.get("memory_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6681,7 +6681,7 @@ class AppEngineFlexibleAppVersionResources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionResourcesVolumes"]]]:
         '''volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#volumes AppEngineFlexibleAppVersion#volumes}
         '''
         result = self._values.get("volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineFlexibleAppVersionResourcesVolumes"]]], result)
@@ -6840,9 +6840,9 @@ class AppEngineFlexibleAppVersionResourcesVolumes:
         volume_type: builtins.str,
     ) -> None:
         '''
-        :param name: Unique name for the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
-        :param size_gb: Volume size in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#size_gb AppEngineFlexibleAppVersion#size_gb}
-        :param volume_type: Underlying volume type, e.g. 'tmpfs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#volume_type AppEngineFlexibleAppVersion#volume_type}
+        :param name: Unique name for the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param size_gb: Volume size in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#size_gb AppEngineFlexibleAppVersion#size_gb}
+        :param volume_type: Underlying volume type, e.g. 'tmpfs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#volume_type AppEngineFlexibleAppVersion#volume_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__336b7c220fe115940c58e133a0b2d01add54108c4c59a77e779d7323dd2d935f)
@@ -6859,7 +6859,7 @@ class AppEngineFlexibleAppVersionResourcesVolumes:
     def name(self) -> builtins.str:
         '''Unique name for the volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6869,7 +6869,7 @@ class AppEngineFlexibleAppVersionResourcesVolumes:
     def size_gb(self) -> jsii.Number:
         '''Volume size in gigabytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#size_gb AppEngineFlexibleAppVersion#size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#size_gb AppEngineFlexibleAppVersion#size_gb}
         '''
         result = self._values.get("size_gb")
         assert result is not None, "Required property 'size_gb' is missing"
@@ -6879,7 +6879,7 @@ class AppEngineFlexibleAppVersionResourcesVolumes:
     def volume_type(self) -> builtins.str:
         '''Underlying volume type, e.g. 'tmpfs'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#volume_type AppEngineFlexibleAppVersion#volume_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#volume_type AppEngineFlexibleAppVersion#volume_type}
         '''
         result = self._values.get("volume_type")
         assert result is not None, "Required property 'volume_type' is missing"
@@ -7099,9 +7099,9 @@ class AppEngineFlexibleAppVersionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f23198e67c6f4a60cf948cf01fa795ddf96d36fc98efbcbc72badde100bf301d)
@@ -7118,19 +7118,19 @@ class AppEngineFlexibleAppVersionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#create AppEngineFlexibleAppVersion#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#delete AppEngineFlexibleAppVersion#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#update AppEngineFlexibleAppVersion#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7255,7 +7255,7 @@ class AppEngineFlexibleAppVersionTimeoutsOutputReference(
 class AppEngineFlexibleAppVersionVpcAccessConnector:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02f32165dae6bfda366452e2c7aad099d37ac658220d757f1e293ffdae84991d)
@@ -7268,7 +7268,7 @@ class AppEngineFlexibleAppVersionVpcAccessConnector:
     def name(self) -> builtins.str:
         '''Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_flexible_app_version#name AppEngineFlexibleAppVersion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

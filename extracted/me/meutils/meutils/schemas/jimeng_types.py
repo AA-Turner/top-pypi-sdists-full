@@ -30,3 +30,37 @@ MODELS_MAP = {
 
     "default": "high_aes_general_v30l:general_v3.0_18b"
 }
+
+
+class LogoInfo(BaseModel):
+    add_logo: bool = False
+    position: int = 0
+    language: int = 0
+    opacity: float = 0.3
+    logo_text_content: str = "这里是明水印内容"
+
+
+class ImageRequest(BaseModel):
+    req_key: Union[
+        str, Literal["jimeng_high_aes_general_v21_L", "byteedit_v2.0", " high_aes_general_v30l_zt2i"]
+    ] = "jimeng_high_aes_general_v21_L"
+    prompt: str = "魅力姐姐"
+    seed: int = -1
+    width: int = 512
+    height: int = 512
+    use_pre_llm: bool = True
+
+    use_sr: bool = False
+    return_url: bool = True
+    logo_info: Optional[LogoInfo] = None
+
+
+class VideoRequest(BaseModel):
+    req_key: Union[str, Literal["jimeng_vgfm_t2v_l20", "jimeng_vgfm_i2v_l20"]] = "jimeng_vgfm_t2v_l20"
+    prompt: str = "魅力姐姐"
+    seed: int = -1
+
+    aspect_ratio: Literal['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21'] = "16:9"
+
+    image_urls: Optional[List[str]] = None
+    binary_data_base64: Optional[List[str]] = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: feast
-Version: 0.48.1
+Version: 0.49.0
 Summary: Python SDK for Feast
 Home-page: https://github.com/feast-dev/feast
 Author: Feast
@@ -266,7 +266,7 @@ Requires-Dist: deltalake; extra == "delta"
 Provides-Extra: docling
 Requires-Dist: docling==2.27.0; extra == "docling"
 Provides-Extra: duckdb
-Requires-Dist: ibis-framework[duckdb]<10,>=9.0.0; extra == "duckdb"
+Requires-Dist: ibis-framework[duckdb]<=9.5.0,>=9.0.0; extra == "duckdb"
 Provides-Extra: elasticsearch
 Requires-Dist: elasticsearch>=8.13.0; extra == "elasticsearch"
 Provides-Extra: faiss
@@ -293,7 +293,7 @@ Requires-Dist: hazelcast-python-client>=5.1; extra == "hazelcast"
 Provides-Extra: hbase
 Requires-Dist: happybase<3,>=1.2.0; extra == "hbase"
 Provides-Extra: ibis
-Requires-Dist: ibis-framework<10,>=9.0.0; extra == "ibis"
+Requires-Dist: ibis-framework<=9.5.0,>=9.0.0; extra == "ibis"
 Requires-Dist: ibis-substrait>=4.0.0; extra == "ibis"
 Requires-Dist: poetry-core<2; extra == "ibis"
 Requires-Dist: poetry-dynamic-versioning; extra == "ibis"
@@ -306,7 +306,7 @@ Requires-Dist: pymilvus==2.4.9; extra == "milvus"
 Requires-Dist: milvus-lite==2.4.12; extra == "milvus"
 Requires-Dist: feast[setuptools]; extra == "milvus"
 Provides-Extra: mssql
-Requires-Dist: ibis-framework[mssql]<10,>=9.0.0; extra == "mssql"
+Requires-Dist: ibis-framework[mssql]<=9.5.0,>=9.0.0; extra == "mssql"
 Provides-Extra: mysql
 Requires-Dist: pymysql; extra == "mysql"
 Requires-Dist: types-PyMySQL; extra == "mysql"
@@ -320,6 +320,8 @@ Requires-Dist: trino<0.400.0,>=0.305.0; extra == "trino"
 Requires-Dist: regex; extra == "trino"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary,pool]==3.2.5; extra == "postgres"
+Provides-Extra: postgres-c
+Requires-Dist: psycopg[c,pool]==3.2.5; extra == "postgres-c"
 Provides-Extra: pytorch
 Requires-Dist: torch==2.2.2; extra == "pytorch"
 Requires-Dist: torchvision>=0.17.2; extra == "pytorch"
@@ -361,6 +363,7 @@ Requires-Dist: pytest-ordering~=0.6.0; extra == "ci"
 Requires-Dist: pytest-mock==1.10.4; extra == "ci"
 Requires-Dist: pytest-env; extra == "ci"
 Requires-Dist: Sphinx<7,>4.0.0; extra == "ci"
+Requires-Dist: sqlglot[rs]>=23.4; extra == "ci"
 Requires-Dist: testcontainers==4.9.0; extra == "ci"
 Requires-Dist: python-keycloak==4.2.2; extra == "ci"
 Requires-Dist: pre-commit<3.3.2; extra == "ci"
@@ -385,48 +388,24 @@ Requires-Dist: feast[ci]; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: feast[ci]; extra == "docs"
 Provides-Extra: minimal
-Requires-Dist: feast[aws,duckdb,gcp,go,grpcio,k8s,milvus,mysql,opentelemetry,postgres,redis,snowflake]; extra == "minimal"
-Provides-Extra: numpy-build
-Requires-Dist: meson-python<0.16.0,>=0.15.0; extra == "numpy-build"
-Requires-Dist: Cython<3.1,>=0.29.34; extra == "numpy-build"
-Requires-Dist: flit_core<4,>=3.8; extra == "numpy-build"
-Requires-Dist: patchelf>=0.11.0; extra == "numpy-build"
-Requires-Dist: scikit-build-core>=0.10; extra == "numpy-build"
-Requires-Dist: hatch-fancy-pypi-readme>=23.2.0; extra == "numpy-build"
-Requires-Dist: hatch-vcs==0.4.0; extra == "numpy-build"
-Requires-Dist: hatchling<2,>=1.6.0; extra == "numpy-build"
-Requires-Dist: calver<2025.4.1; extra == "numpy-build"
-Provides-Extra: pandas-build
-Requires-Dist: pandas==2.2.3; extra == "pandas-build"
-Requires-Dist: meson-python==0.13.1; extra == "pandas-build"
-Requires-Dist: meson==1.2.1; extra == "pandas-build"
-Requires-Dist: oldest-supported-numpy<2023.8.3,>=2022.8.16; extra == "pandas-build"
-Requires-Dist: versioneer[toml]==0.29; extra == "pandas-build"
-Provides-Extra: addtl-sources
-Requires-Dist: python-dateutil==2.9.0; extra == "addtl-sources"
-Requires-Dist: setuptools-scm<8.0; extra == "addtl-sources"
-Requires-Dist: feast[setuptools]; extra == "addtl-sources"
-Requires-Dist: poetry-core>=2.0.0; extra == "addtl-sources"
+Requires-Dist: feast[aws,duckdb,gcp,go,grpcio,k8s,milvus,mysql,opentelemetry,postgres-c,redis,snowflake]; extra == "minimal"
 Provides-Extra: minimal-sdist-build
 Requires-Dist: feast[minimal]; extra == "minimal-sdist-build"
-Requires-Dist: feast[numpy-build]; extra == "minimal-sdist-build"
 Requires-Dist: feast[ibis]; extra == "minimal-sdist-build"
-Requires-Dist: pybindgen==0.22.0; extra == "minimal-sdist-build"
-Requires-Dist: setuptools-scm[toml]>=8; extra == "minimal-sdist-build"
-Requires-Dist: sphinx!=4.0.0; extra == "minimal-sdist-build"
-Requires-Dist: wheel==0.45.1; extra == "minimal-sdist-build"
-Requires-Dist: mypy<=1.14.0,>=1.4.1; extra == "minimal-sdist-build"
-Requires-Dist: types-psutil; extra == "minimal-sdist-build"
-Requires-Dist: types-setuptools; extra == "minimal-sdist-build"
-Requires-Dist: pdm-backend; extra == "minimal-sdist-build"
-Requires-Dist: setuptools-rust>=1.4.0; extra == "minimal-sdist-build"
-Requires-Dist: rpds-py==0.23.1; extra == "minimal-sdist-build"
-Requires-Dist: types_psutil<7.0.0.20250401; extra == "minimal-sdist-build"
 Requires-Dist: meson<1.7.2; extra == "minimal-sdist-build"
+Requires-Dist: pybindgen==0.22.0; extra == "minimal-sdist-build"
+Requires-Dist: sphinx!=4.0.0; extra == "minimal-sdist-build"
+Requires-Dist: types_psutil<7.0.0.20250401; extra == "minimal-sdist-build"
 Requires-Dist: greenlet!=0.4.17; extra == "minimal-sdist-build"
-Requires-Dist: pybind11>=2.6.0; extra == "minimal-sdist-build"
-Requires-Dist: gitpython; extra == "minimal-sdist-build"
-Requires-Dist: expandvars; extra == "minimal-sdist-build"
+Requires-Dist: meson-python<0.16.0,>=0.15.0; extra == "minimal-sdist-build"
+Requires-Dist: Cython<3.1,>=0.29.34; extra == "minimal-sdist-build"
+Requires-Dist: flit_core<4,>=3.8; extra == "minimal-sdist-build"
+Requires-Dist: patchelf>=0.11.0; extra == "minimal-sdist-build"
+Requires-Dist: scikit-build-core>=0.10; extra == "minimal-sdist-build"
+Requires-Dist: hatch-fancy-pypi-readme>=23.2.0; extra == "minimal-sdist-build"
+Requires-Dist: hatch-vcs==0.4.0; extra == "minimal-sdist-build"
+Requires-Dist: hatchling<2,>=1.6.0; extra == "minimal-sdist-build"
+Requires-Dist: calver<2025.4.1; extra == "minimal-sdist-build"
 Provides-Extra: setuptools
 Requires-Dist: setuptools<77,>=60; extra == "setuptools"
 Dynamic: home-page

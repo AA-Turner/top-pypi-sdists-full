@@ -180,7 +180,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/analyze_assets.py.html>`__ to see an example of how to use analyze_assets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/analyze_assets.py.html>`__ to see an example of how to use analyze_assets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'aggregationProperties']
@@ -330,7 +330,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/change_asset_compartment.py.html>`__ to see an example of how to use change_asset_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/change_asset_compartment.py.html>`__ to see an example of how to use change_asset_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -450,7 +450,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/change_asset_tags.py.html>`__ to see an example of how to use change_asset_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/change_asset_tags.py.html>`__ to see an example of how to use change_asset_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -562,7 +562,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/create_asset.py.html>`__ to see an example of how to use create_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/create_asset.py.html>`__ to see an example of how to use create_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -660,7 +660,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/create_inventory.py.html>`__ to see an example of how to use create_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/create_inventory.py.html>`__ to see an example of how to use create_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -756,7 +756,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/delete_asset.py.html>`__ to see an example of how to use delete_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/delete_asset.py.html>`__ to see an example of how to use delete_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -861,7 +861,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/delete_inventory.py.html>`__ to see an example of how to use delete_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/delete_inventory.py.html>`__ to see an example of how to use delete_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inventoryId']
@@ -959,7 +959,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/get_asset.py.html>`__ to see an example of how to use get_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/get_asset.py.html>`__ to see an example of how to use get_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -1057,7 +1057,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/get_inventory.py.html>`__ to see an example of how to use get_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/get_inventory.py.html>`__ to see an example of how to use get_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inventoryId']
@@ -1165,7 +1165,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/import_inventory.py.html>`__ to see an example of how to use import_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/import_inventory.py.html>`__ to see an example of how to use import_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inventoryId']
@@ -1307,7 +1307,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/list_assets.py.html>`__ to see an example of how to use list_assets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/list_assets.py.html>`__ to see an example of how to use list_assets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1466,7 +1466,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/list_historical_metrics.py.html>`__ to see an example of how to use list_historical_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/list_historical_metrics.py.html>`__ to see an example of how to use list_historical_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -1613,7 +1613,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/list_inventories.py.html>`__ to see an example of how to use list_inventories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/list_inventories.py.html>`__ to see an example of how to use list_inventories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1747,7 +1747,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/submit_historical_metrics.py.html>`__ to see an example of how to use submit_historical_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/submit_historical_metrics.py.html>`__ to see an example of how to use submit_historical_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -1859,7 +1859,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/update_asset.py.html>`__ to see an example of how to use update_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/update_asset.py.html>`__ to see an example of how to use update_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assetId']
@@ -1971,7 +1971,7 @@ class InventoryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/cloudbridge/update_inventory.py.html>`__ to see an example of how to use update_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudbridge/update_inventory.py.html>`__ to see an example of how to use update_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inventoryId']

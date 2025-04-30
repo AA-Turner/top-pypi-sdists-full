@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Union, overload
 from chalk.sql._internal.incremental import IncrementalSettings
 from chalk.sql._internal.integrations.athena import AthenaSourceImpl
 from chalk.sql._internal.integrations.bigquery import BigQuerySourceImpl
+from chalk.sql._internal.integrations.clickhouse import ClickhouseSourceImpl
 from chalk.sql._internal.integrations.cloudsql import CloudSQLSourceImpl
 from chalk.sql._internal.integrations.databricks import DatabricksSourceImpl
 from chalk.sql._internal.integrations.dynamodb import DynamoDBSourceImpl
@@ -1580,11 +1581,160 @@ def AthenaSource(
     )
 
 
+@overload
+def ClickhouseSource(
+    *,
+    name: str,
+    engine_args: Optional[Dict[str, Any]] = ...,
+) -> BaseSQLSourceProtocol:
+    """If you have only one Clickhouse connection that you'd like
+    to add to Chalk, you do not need to specify any arguments
+    to construct the source in your code.
+
+    Returns
+    -------
+    BaseSQLSourceProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    >>> source = ClickhouseSource()
+    """
+    ...
+
+
+@overload
+def ClickhouseSource(
+    *,
+    name: str,
+    engine_args: Optional[Dict[str, Any]] = ...,
+    async_engine_args: Optional[Dict[str, Any]] = ...,
+) -> BaseSQLSourceProtocol:
+    """If you have only one Clickhouse integration, there's no need to provide
+    a distinguishing name.
+
+    But what happens when you have two data sources of the same kind?
+    When you create a new data source from your dashboard,
+    you have an option to provide a name for the integration.
+    You can then reference this name in the code directly.
+
+    Parameters
+    ----------
+    name
+        Name of the integration, as configured in your dashboard.
+    engine_args
+        Additional arguments to use when constructing the SQLAlchemy engine. These arguments will be
+        merged with any default arguments from the named integration.
+
+    Returns
+    -------
+    BaseSQLSourceProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    >>> source = ClickhouseSource(name="RISK")
+    """
+    ...
+
+
+@overload
+def ClickhouseSource(
+    *,
+    name: str | None = ...,
+    host: str,
+    port: Union[int, str] = ...,
+    db: str = ...,
+    user: str = ...,
+    password: str = ...,
+    engine_args: Optional[Dict[str, Any]] = ...,
+    async_engine_args: Optional[Dict[str, Any]] = ...,
+) -> BaseSQLSourceProtocol:
+    """
+    You can also configure the integration directly using environment
+    variables on your local machine or from those added through the
+    generic environment variable support (https://docs.chalk.ai/docs/env-vars).
+
+    Parameters
+    ----------
+    name
+        Name of the integration. Not required unless if this SQL Source is used within SQL File Resolvers.
+    host
+        Name of host to connect to.
+    port
+        The port number to connect to at the server host.
+    db
+        The database name.
+    user
+        Clickhouse username to connect as.
+    password
+        The password to be used if the server demands password authentication.
+    engine_args
+        Additional arguments to use when constructing the SQLAlchemy engine.
+    async_engine_args:
+        Additional arguments to use when constructing an async SQLAlchemy engine.
+
+    Returns
+    -------
+    BaseSQLSourceProtocol
+        The SQL source for use in Chalk resolvers.
+
+    Examples
+    --------
+    >>> import os
+    >>> source = ClickhouseSource(
+    ...     host=os.getenv("CLICKHOUSE_HOST"),
+    ...     port=os.getenv("CLICKHOUSE_PORT"),
+    ...     db=os.getenv("CLICKHOUSE_DATABASE"),
+    ...     user=os.getenv("CLICKHOUSE_USER"),
+    ...     password=os.getenv("CLICKHOUSE_PASSWORD"),
+    ... )
+    >>> from chalk.features import online
+    >>> @online
+    ... def resolver_fn() -> User.name:
+    ...     return source.query_string("select name from users where id = 4").one()
+    """
+    ...
+
+
+def ClickhouseSource(
+    *,
+    name: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[Union[int, str]] = None,
+    db: Optional[str] = None,
+    user: Optional[str] = None,
+    password: Optional[str] = None,
+    engine_args: Optional[Dict[str, Any]] = None,
+    async_engine_args: Optional[Dict[str, Any]] = None,
+) -> BaseSQLSourceProtocol:
+    """Create a Clickhouse data source. SQL-based data sources
+    created without arguments assume a configuration in your
+    Chalk Dashboard. Those created with the `name=` keyword
+    argument will use the configuration for the integration
+    with the given name. And finally, those created with
+    explicit arguments will use those arguments to configure
+    the data source. See the overloaded signatures for more
+    details.
+    """
+    return ClickhouseSourceImpl(
+        name=name,
+        host=host,
+        port=port,
+        db=db,
+        user=user,
+        password=password,
+        engine_args=engine_args,
+        async_engine_args=async_engine_args,
+    )
+
+
 __all__ = (
     "AthenaSource",
     "BaseSQLSourceProtocol",
     "BigQuerySource",
     "ChalkQueryProtocol",
+    "ClickhouseSource",
     "CloudSQLSource",
     "DatabricksSource",
     "DynamoDBSource",

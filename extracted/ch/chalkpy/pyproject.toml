@@ -106,6 +106,10 @@ vertexai = [
     "google-cloud-aiplatform<1.76.0",
 ]
 
+sentence-transformers = [
+    "sentence-transformers"
+]
+
 # SQL-specific
 sql = [
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -170,6 +174,29 @@ bigquery = [
     "sqlglot>=19.0.0",
     # [[[end]]]
 ]
+
+clickhouse = [
+    "clickhouse-sqlalchemy",
+    "clickhouse-driver",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]<0.20.32",
+    "python-json-logger",
+    "s3fs",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0",
+    # [[[end]]]
+]
+
 
 spanner = [
     "sqlalchemy-spanner",
@@ -380,7 +407,7 @@ all = [
     # grps = tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]
     # final_deps = set()
     # for grp, deps in grps.items():
-    #    if grp in ("runtime", "openai", "cohere", "vertexai", "sql", "athena", "bigquery", "postgresql", "snowflake", "sqlite", "redshift", "mysql", "databricks", "trino", "spanner", "dynamodb"):
+    #    if grp in ("runtime", "openai", "cohere", "vertexai", "sql", "athena", "bigquery", "postgresql", "snowflake", "sqlite", "redshift", "mysql", "databricks", "trino", "spanner", "dynamodb", "clickhouse"):
     #        final_deps.update(deps)
     # for dep in sorted(final_deps):
     #     print(f'    "{dep}",')
@@ -389,6 +416,8 @@ all = [
     "aiomysql>=0.1.1,<0.3",
     "aiosqlite>=0.19.0,<0.21",
     "boto3",
+    "clickhouse-driver",
+    "clickhouse-sqlalchemy",
     "cohere==5.11.4",
     "cryptography<42.0.0",
     "databricks-sdk>=0.29.0,<1.0.0",

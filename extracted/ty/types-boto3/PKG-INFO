@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.38.4
-Summary: Type annotations for boto3 1.38.4 generated with mypy-boto3-builder 8.10.1
+Version: 1.38.5
+Summary: Type annotations for boto3 1.38.5 generated with mypy-boto3-builder 8.10.1
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.39.0,>=1.38.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.38.4; extra == "boto3"
+Requires-Dist: boto3==1.38.5; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-account<1.39.0,>=1.38.0; extra == "all"
@@ -403,6 +403,7 @@ Requires-Dist: types-boto3-socialmessaging<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-sqs<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-ssm<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-ssm-contacts<1.39.0,>=1.38.0; extra == "all"
+Requires-Dist: types-boto3-ssm-guiconnect<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-ssm-incidents<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-ssm-quicksetup<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-ssm-sap<1.39.0,>=1.38.0; extra == "all"
@@ -1180,6 +1181,8 @@ Provides-Extra: ssm
 Requires-Dist: types-boto3-ssm<1.39.0,>=1.38.0; extra == "ssm"
 Provides-Extra: ssm-contacts
 Requires-Dist: types-boto3-ssm-contacts<1.39.0,>=1.38.0; extra == "ssm-contacts"
+Provides-Extra: ssm-guiconnect
+Requires-Dist: types-boto3-ssm-guiconnect<1.39.0,>=1.38.0; extra == "ssm-guiconnect"
 Provides-Extra: ssm-incidents
 Requires-Dist: types-boto3-ssm-incidents<1.39.0,>=1.38.0; extra == "ssm-incidents"
 Provides-Extra: ssm-quicksetup
@@ -1284,7 +1287,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.38.4](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.38.5](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1342,7 +1345,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.4' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.5' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1670,9 +1673,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 404 services in one package
+- `types-boto3[full]` - Type annotations for all 405 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 404 services in separate
+- `types-boto3[all]` - Type annotations for all 405 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2744,6 +2747,9 @@ repository.
   [SSM](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/) service.
 - `types-boto3[ssm-contacts]` - Type annotations for
   [SSMContacts](https://youtype.github.io/types_boto3_docs/types_boto3_ssm_contacts/)
+  service.
+- `types-boto3[ssm-guiconnect]` - Type annotations for
+  [SSMGUIConnect](https://youtype.github.io/types_boto3_docs/types_boto3_ssm_guiconnect/)
   service.
 - `types-boto3[ssm-incidents]` - Type annotations for
   [SSMIncidents](https://youtype.github.io/types_boto3_docs/types_boto3_ssm_incidents/)

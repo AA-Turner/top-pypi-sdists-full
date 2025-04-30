@@ -153,7 +153,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/attach_devices_to_transfer_package.py.html>`__ to see an example of how to use attach_devices_to_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/attach_devices_to_transfer_package.py.html>`__ to see an example of how to use attach_devices_to_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id', 'transferPackageLabel']
@@ -258,7 +258,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/create_transfer_package.py.html>`__ to see an example of how to use create_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/create_transfer_package.py.html>`__ to see an example of how to use create_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -365,7 +365,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/delete_transfer_package.py.html>`__ to see an example of how to use delete_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/delete_transfer_package.py.html>`__ to see an example of how to use delete_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id', 'transferPackageLabel']
@@ -471,7 +471,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/detach_devices_from_transfer_package.py.html>`__ to see an example of how to use detach_devices_from_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/detach_devices_from_transfer_package.py.html>`__ to see an example of how to use detach_devices_from_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id', 'transferPackageLabel']
@@ -569,7 +569,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/get_transfer_package.py.html>`__ to see an example of how to use get_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/get_transfer_package.py.html>`__ to see an example of how to use get_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id', 'transferPackageLabel']
@@ -664,7 +664,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/list_transfer_packages.py.html>`__ to see an example of how to use list_transfer_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/list_transfer_packages.py.html>`__ to see an example of how to use list_transfer_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -781,7 +781,7 @@ class TransferPackageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/update_transfer_package.py.html>`__ to see an example of how to use update_transfer_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/update_transfer_package.py.html>`__ to see an example of how to use update_transfer_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id', 'transferPackageLabel']

@@ -22,7 +22,6 @@ EXTERNAL_LOGGERS = [
     "evergreen",
     "github",
     "inject",
-    "segment",
     "urllib3",
 ]
 LOGGER = structlog.get_logger(__name__)

@@ -24,6 +24,7 @@ from typing import IO
 from comet_ml.api_helpers.metric_dataframes import (
     get_dataframe_from_multi_metrics,
     interpolate_metric_dataframe,
+    metrics_to_total_fidelity_dataframe,
 )
 from comet_ml.validation.method_parameters_validator import (
     MethodParametersTypeValidator,
@@ -1547,13 +1548,17 @@ class APIExperiment(CommonExperiment):
                         df = pandas.read_csv(file)
         return df
 
-    def get_metric_total_df(self, metric_name: str) -> Optional["pd.DataFrame"]:
+    def get_metric_total_df(
+        self, metric_name: str, fallback_to_sampled_data: bool = True
+    ) -> Optional["pd.DataFrame"]:
         """
         Given the name of a total-fidelity metric, return a Pandas DataFrame
         with all the logged metric data.
 
         Args:
             metric_name (str): Name of the total-fidelity metric
+            fallback_to_sampled_data (bool): If set to `True`, when the API returns no data,
+                it would fetch regular sampled data instead.
 
         The returned DataFrame contains the following columns:
 
@@ -1590,6 +1595,12 @@ class APIExperiment(CommonExperiment):
                     df = df_part
                 else:
                     df.append(df_part, ignore_index=True)
+
+        if df is None and fallback_to_sampled_data:
+            metrics = self.get_metrics(metric=metric_name)
+            if metrics is not None and len(metrics) > 0:
+                df = metrics_to_total_fidelity_dataframe(metrics)
+
         if df is not None:
             df["datetime"] = pandas.to_datetime(df["timestamp"], unit="s")
             df["duration"] = df["timestamp"].diff()
@@ -4042,7 +4053,7 @@ class API(object):
         Args:
             experiment_keys (List[str]): A list of experiment keys.
             metrics (List[str]): a list of metric names.
-            x_axis ("step" | "epoch" | "duration"): a specifield field that metric values will be based on.
+            x_axis ("step" | "epoch" | "duration"): a specified field that metric values will be based on.
             interpolate (bool): whether to apply linear interpolation to numerical columns or not.
 
         Returns:

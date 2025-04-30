@@ -250,6 +250,8 @@ class RemotePregel(BaseRemotePregel):
             item.get("createdAt"),
             item.get("parentConfig"),
             _convert_tasks(item.get("tasks", [])),
+            # TODO: add handling of interrupts when multiple resumes land in JS
+            tuple(),
         )
 
     async def aget_state(

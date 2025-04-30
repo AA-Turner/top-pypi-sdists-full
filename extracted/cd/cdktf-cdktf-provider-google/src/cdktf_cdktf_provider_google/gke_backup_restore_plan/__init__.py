@@ -1,7 +1,7 @@
 r'''
 # `google_gke_backup_restore_plan`
 
-Refer to the Terraform Registry for docs: [`google_gke_backup_restore_plan`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan).
+Refer to the Terraform Registry for docs: [`google_gke_backup_restore_plan`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GkeBackupRestorePlan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.gkeBackupRestorePlan.GkeBackupRestorePlan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan google_gke_backup_restore_plan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan google_gke_backup_restore_plan}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GkeBackupRestorePlan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan google_gke_backup_restore_plan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan google_gke_backup_restore_plan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backup_plan: A reference to the BackupPlan from which Backups may be used as the source for Restores created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
-        :param cluster: The source cluster from which Restores will be created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
-        :param location: The region of the Restore Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
-        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
-        :param restore_config: restore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
-        :param description: User specified descriptive string for this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
+        :param backup_plan: A reference to the BackupPlan from which Backups may be used as the source for Restores created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
+        :param cluster: The source cluster from which Restores will be created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
+        :param location: The region of the Restore Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
+        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
+        :param restore_config: restore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
+        :param description: User specified descriptive string for this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GkeBackupRestorePlan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GkeBackupRestorePlan to import.
-        :param import_from_id: The id of the existing GkeBackupRestorePlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GkeBackupRestorePlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GkeBackupRestorePlan to import is found.
         '''
         if __debug__:
@@ -159,18 +159,18 @@ class GkeBackupRestorePlan(
         volume_data_restore_policy_bindings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all_namespaces: If True, restore all namespaced resources in the Backup. Setting this field to False will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
-        :param cluster_resource_conflict_policy: Defines the behavior for handling the situation where cluster-scoped resources being restored already exist in the target cluster. This MUST be set to a value other than 'CLUSTER_RESOURCE_CONFLICT_POLICY_UNSPECIFIED' if 'clusterResourceRestoreScope' is anyting other than 'noGroupKinds'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#clusterresourceconflictpolicy for more information on each policy option. Possible values: ["USE_EXISTING_VERSION", "USE_BACKUP_VERSION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
-        :param cluster_resource_restore_scope: cluster_resource_restore_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
-        :param excluded_namespaces: excluded_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
-        :param namespaced_resource_restore_mode: Defines the behavior for handling the situation where sets of namespaced resources being restored already exist in the target cluster. This MUST be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#namespacedresourcerestoremode for more information on each mode. Possible values: ["DELETE_AND_RESTORE", "FAIL_ON_CONFLICT", "MERGE_SKIP_ON_CONFLICT", "MERGE_REPLACE_VOLUME_ON_CONFLICT", "MERGE_REPLACE_ON_CONFLICT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
-        :param no_namespaces: Do not restore any namespaced resources if set to "True". Specifying this field to "False" is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
-        :param restore_order: restore_order block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
-        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
-        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
-        :param transformation_rules: transformation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
-        :param volume_data_restore_policy: Specifies the mechanism to be used to restore volume data. This should be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. If not specified, it will be treated as 'NO_VOLUME_DATA_RESTORATION'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
-        :param volume_data_restore_policy_bindings: volume_data_restore_policy_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
+        :param all_namespaces: If True, restore all namespaced resources in the Backup. Setting this field to False will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
+        :param cluster_resource_conflict_policy: Defines the behavior for handling the situation where cluster-scoped resources being restored already exist in the target cluster. This MUST be set to a value other than 'CLUSTER_RESOURCE_CONFLICT_POLICY_UNSPECIFIED' if 'clusterResourceRestoreScope' is anyting other than 'noGroupKinds'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#clusterresourceconflictpolicy for more information on each policy option. Possible values: ["USE_EXISTING_VERSION", "USE_BACKUP_VERSION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
+        :param cluster_resource_restore_scope: cluster_resource_restore_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
+        :param excluded_namespaces: excluded_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
+        :param namespaced_resource_restore_mode: Defines the behavior for handling the situation where sets of namespaced resources being restored already exist in the target cluster. This MUST be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#namespacedresourcerestoremode for more information on each mode. Possible values: ["DELETE_AND_RESTORE", "FAIL_ON_CONFLICT", "MERGE_SKIP_ON_CONFLICT", "MERGE_REPLACE_VOLUME_ON_CONFLICT", "MERGE_REPLACE_ON_CONFLICT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
+        :param no_namespaces: Do not restore any namespaced resources if set to "True". Specifying this field to "False" is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
+        :param restore_order: restore_order block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
+        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
+        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
+        :param transformation_rules: transformation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
+        :param volume_data_restore_policy: Specifies the mechanism to be used to restore volume data. This should be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. If not specified, it will be treated as 'NO_VOLUME_DATA_RESTORATION'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
+        :param volume_data_restore_policy_bindings: volume_data_restore_policy_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
         '''
         value = GkeBackupRestorePlanRestoreConfig(
             all_namespaces=all_namespaces,
@@ -198,9 +198,9 @@ class GkeBackupRestorePlan(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.
         '''
         value = GkeBackupRestorePlanTimeouts(
             create=create, delete=delete, update=update
@@ -482,16 +482,16 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backup_plan: A reference to the BackupPlan from which Backups may be used as the source for Restores created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
-        :param cluster: The source cluster from which Restores will be created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
-        :param location: The region of the Restore Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
-        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
-        :param restore_config: restore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
-        :param description: User specified descriptive string for this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
+        :param backup_plan: A reference to the BackupPlan from which Backups may be used as the source for Restores created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
+        :param cluster: The source cluster from which Restores will be created via this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
+        :param location: The region of the Restore Plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
+        :param name: The full name of the BackupPlan Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
+        :param restore_config: restore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
+        :param description: User specified descriptive string for this RestorePlan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -618,7 +618,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_plan(self) -> builtins.str:
         '''A reference to the BackupPlan from which Backups may be used as the source for Restores created via this RestorePlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#backup_plan GkeBackupRestorePlan#backup_plan}
         '''
         result = self._values.get("backup_plan")
         assert result is not None, "Required property 'backup_plan' is missing"
@@ -628,7 +628,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The source cluster from which Restores will be created via this RestorePlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster GkeBackupRestorePlan#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -638,7 +638,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The region of the Restore Plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#location GkeBackupRestorePlan#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -648,7 +648,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The full name of the BackupPlan Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -658,7 +658,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore_config(self) -> "GkeBackupRestorePlanRestoreConfig":
         '''restore_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_config GkeBackupRestorePlan#restore_config}
         '''
         result = self._values.get("restore_config")
         assert result is not None, "Required property 'restore_config' is missing"
@@ -668,14 +668,14 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''User specified descriptive string for this RestorePlan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#id GkeBackupRestorePlan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -693,14 +693,14 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#labels GkeBackupRestorePlan#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#project GkeBackupRestorePlan#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -708,7 +708,7 @@ class GkeBackupRestorePlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GkeBackupRestorePlanTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#timeouts GkeBackupRestorePlan#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GkeBackupRestorePlanTimeouts"], result)
@@ -761,18 +761,18 @@ class GkeBackupRestorePlanRestoreConfig:
         volume_data_restore_policy_bindings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all_namespaces: If True, restore all namespaced resources in the Backup. Setting this field to False will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
-        :param cluster_resource_conflict_policy: Defines the behavior for handling the situation where cluster-scoped resources being restored already exist in the target cluster. This MUST be set to a value other than 'CLUSTER_RESOURCE_CONFLICT_POLICY_UNSPECIFIED' if 'clusterResourceRestoreScope' is anyting other than 'noGroupKinds'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#clusterresourceconflictpolicy for more information on each policy option. Possible values: ["USE_EXISTING_VERSION", "USE_BACKUP_VERSION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
-        :param cluster_resource_restore_scope: cluster_resource_restore_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
-        :param excluded_namespaces: excluded_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
-        :param namespaced_resource_restore_mode: Defines the behavior for handling the situation where sets of namespaced resources being restored already exist in the target cluster. This MUST be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#namespacedresourcerestoremode for more information on each mode. Possible values: ["DELETE_AND_RESTORE", "FAIL_ON_CONFLICT", "MERGE_SKIP_ON_CONFLICT", "MERGE_REPLACE_VOLUME_ON_CONFLICT", "MERGE_REPLACE_ON_CONFLICT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
-        :param no_namespaces: Do not restore any namespaced resources if set to "True". Specifying this field to "False" is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
-        :param restore_order: restore_order block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
-        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
-        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
-        :param transformation_rules: transformation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
-        :param volume_data_restore_policy: Specifies the mechanism to be used to restore volume data. This should be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. If not specified, it will be treated as 'NO_VOLUME_DATA_RESTORATION'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
-        :param volume_data_restore_policy_bindings: volume_data_restore_policy_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
+        :param all_namespaces: If True, restore all namespaced resources in the Backup. Setting this field to False will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
+        :param cluster_resource_conflict_policy: Defines the behavior for handling the situation where cluster-scoped resources being restored already exist in the target cluster. This MUST be set to a value other than 'CLUSTER_RESOURCE_CONFLICT_POLICY_UNSPECIFIED' if 'clusterResourceRestoreScope' is anyting other than 'noGroupKinds'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#clusterresourceconflictpolicy for more information on each policy option. Possible values: ["USE_EXISTING_VERSION", "USE_BACKUP_VERSION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
+        :param cluster_resource_restore_scope: cluster_resource_restore_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
+        :param excluded_namespaces: excluded_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
+        :param namespaced_resource_restore_mode: Defines the behavior for handling the situation where sets of namespaced resources being restored already exist in the target cluster. This MUST be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#namespacedresourcerestoremode for more information on each mode. Possible values: ["DELETE_AND_RESTORE", "FAIL_ON_CONFLICT", "MERGE_SKIP_ON_CONFLICT", "MERGE_REPLACE_VOLUME_ON_CONFLICT", "MERGE_REPLACE_ON_CONFLICT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
+        :param no_namespaces: Do not restore any namespaced resources if set to "True". Specifying this field to "False" is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
+        :param restore_order: restore_order block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
+        :param selected_applications: selected_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
+        :param selected_namespaces: selected_namespaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
+        :param transformation_rules: transformation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
+        :param volume_data_restore_policy: Specifies the mechanism to be used to restore volume data. This should be set to a value other than 'NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED' if the 'namespacedResourceRestoreScope' is anything other than 'noNamespaces'. If not specified, it will be treated as 'NO_VOLUME_DATA_RESTORATION'. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
+        :param volume_data_restore_policy_bindings: volume_data_restore_policy_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
         '''
         if isinstance(cluster_resource_restore_scope, dict):
             cluster_resource_restore_scope = GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope(**cluster_resource_restore_scope)
@@ -830,7 +830,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If True, restore all namespaced resources in the Backup. Setting this field to False will result in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_namespaces GkeBackupRestorePlan#all_namespaces}
         '''
         result = self._values.get("all_namespaces")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -844,7 +844,7 @@ class GkeBackupRestorePlanRestoreConfig:
         See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#clusterresourceconflictpolicy
         for more information on each policy option. Possible values: ["USE_EXISTING_VERSION", "USE_BACKUP_VERSION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_conflict_policy GkeBackupRestorePlan#cluster_resource_conflict_policy}
         '''
         result = self._values.get("cluster_resource_conflict_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -855,7 +855,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope"]:
         '''cluster_resource_restore_scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#cluster_resource_restore_scope GkeBackupRestorePlan#cluster_resource_restore_scope}
         '''
         result = self._values.get("cluster_resource_restore_scope")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope"], result)
@@ -866,7 +866,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigExcludedNamespaces"]:
         '''excluded_namespaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_namespaces GkeBackupRestorePlan#excluded_namespaces}
         '''
         result = self._values.get("excluded_namespaces")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigExcludedNamespaces"], result)
@@ -880,7 +880,7 @@ class GkeBackupRestorePlanRestoreConfig:
         See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#namespacedresourcerestoremode
         for more information on each mode. Possible values: ["DELETE_AND_RESTORE", "FAIL_ON_CONFLICT", "MERGE_SKIP_ON_CONFLICT", "MERGE_REPLACE_VOLUME_ON_CONFLICT", "MERGE_REPLACE_ON_CONFLICT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_resource_restore_mode GkeBackupRestorePlan#namespaced_resource_restore_mode}
         '''
         result = self._values.get("namespaced_resource_restore_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -891,7 +891,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Do not restore any namespaced resources if set to "True". Specifying this field to "False" is not allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_namespaces GkeBackupRestorePlan#no_namespaces}
         '''
         result = self._values.get("no_namespaces")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -902,7 +902,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigRestoreOrder"]:
         '''restore_order block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#restore_order GkeBackupRestorePlan#restore_order}
         '''
         result = self._values.get("restore_order")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigRestoreOrder"], result)
@@ -913,7 +913,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigSelectedApplications"]:
         '''selected_applications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_applications GkeBackupRestorePlan#selected_applications}
         '''
         result = self._values.get("selected_applications")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigSelectedApplications"], result)
@@ -924,7 +924,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigSelectedNamespaces"]:
         '''selected_namespaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_namespaces GkeBackupRestorePlan#selected_namespaces}
         '''
         result = self._values.get("selected_namespaces")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigSelectedNamespaces"], result)
@@ -935,7 +935,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigTransformationRules"]]]:
         '''transformation_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#transformation_rules GkeBackupRestorePlan#transformation_rules}
         '''
         result = self._values.get("transformation_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigTransformationRules"]]], result)
@@ -950,7 +950,7 @@ class GkeBackupRestorePlanRestoreConfig:
         See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy
         for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy GkeBackupRestorePlan#volume_data_restore_policy}
         '''
         result = self._values.get("volume_data_restore_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -961,7 +961,7 @@ class GkeBackupRestorePlanRestoreConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings"]]]:
         '''volume_data_restore_policy_bindings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_data_restore_policy_bindings GkeBackupRestorePlan#volume_data_restore_policy_bindings}
         '''
         result = self._values.get("volume_data_restore_policy_bindings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings"]]], result)
@@ -998,10 +998,10 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope:
         selected_group_kinds: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupKinds", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all_group_kinds: If True, all valid cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
-        :param excluded_group_kinds: excluded_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
-        :param no_group_kinds: If True, no cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
-        :param selected_group_kinds: selected_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
+        :param all_group_kinds: If True, all valid cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
+        :param excluded_group_kinds: excluded_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
+        :param no_group_kinds: If True, no cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
+        :param selected_group_kinds: selected_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab8ea71596c1f3de8991804463b1d98820375cf27939db4ef91cc8dbc47900ef)
@@ -1025,7 +1025,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If True, all valid cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
         '''
         result = self._values.get("all_group_kinds")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1036,7 +1036,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeExcludedGroupKinds"]]]:
         '''excluded_group_kinds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
         '''
         result = self._values.get("excluded_group_kinds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeExcludedGroupKinds"]]], result)
@@ -1047,7 +1047,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If True, no cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
         '''
         result = self._values.get("no_group_kinds")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1058,7 +1058,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupKinds"]]]:
         '''selected_group_kinds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
         '''
         result = self._values.get("selected_group_kinds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupKinds"]]], result)
@@ -1088,8 +1088,8 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeExcludedGroupK
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9109aa51256fd6c72dc2d9753f4495669bad6fd3b1063c470dc50eb790d88803)
@@ -1105,7 +1105,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeExcludedGroupK
     def resource_group(self) -> typing.Optional[builtins.str]:
         '''API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1114,7 +1114,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeExcludedGroupK
     def resource_kind(self) -> typing.Optional[builtins.str]:
         '''Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         result = self._values.get("resource_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1479,8 +1479,8 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupK
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbde8c35d83581cc7703a335b92436bada9cf826f1bcbb2f62a3e5ee51fc9e21)
@@ -1496,7 +1496,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupK
     def resource_group(self) -> typing.Optional[builtins.str]:
         '''API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1505,7 +1505,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupK
     def resource_kind(self) -> typing.Optional[builtins.str]:
         '''Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         result = self._values.get("resource_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1709,7 +1709,7 @@ class GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupK
 class GkeBackupRestorePlanRestoreConfigExcludedNamespaces:
     def __init__(self, *, namespaces: typing.Sequence[builtins.str]) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9dc3e4351294ce19c609bc6dd59d7dd2586dcb4416141fff28f81879b15f9b2)
@@ -1722,7 +1722,7 @@ class GkeBackupRestorePlanRestoreConfigExcludedNamespaces:
     def namespaces(self) -> typing.List[builtins.str]:
         '''A list of Kubernetes Namespaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         result = self._values.get("namespaces")
         assert result is not None, "Required property 'namespaces' is missing"
@@ -1825,10 +1825,10 @@ class GkeBackupRestorePlanRestoreConfigOutputReference(
         selected_group_kinds: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScopeSelectedGroupKinds, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all_group_kinds: If True, all valid cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
-        :param excluded_group_kinds: excluded_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
-        :param no_group_kinds: If True, no cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
-        :param selected_group_kinds: selected_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
+        :param all_group_kinds: If True, all valid cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#all_group_kinds GkeBackupRestorePlan#all_group_kinds}
+        :param excluded_group_kinds: excluded_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#excluded_group_kinds GkeBackupRestorePlan#excluded_group_kinds}
+        :param no_group_kinds: If True, no cluster-scoped resources will be restored. Mutually exclusive to any other field in 'clusterResourceRestoreScope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#no_group_kinds GkeBackupRestorePlan#no_group_kinds}
+        :param selected_group_kinds: selected_group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#selected_group_kinds GkeBackupRestorePlan#selected_group_kinds}
         '''
         value = GkeBackupRestorePlanRestoreConfigClusterResourceRestoreScope(
             all_group_kinds=all_group_kinds,
@@ -1846,7 +1846,7 @@ class GkeBackupRestorePlanRestoreConfigOutputReference(
         namespaces: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         value = GkeBackupRestorePlanRestoreConfigExcludedNamespaces(
             namespaces=namespaces
@@ -1861,7 +1861,7 @@ class GkeBackupRestorePlanRestoreConfigOutputReference(
         group_kind_dependencies: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param group_kind_dependencies: group_kind_dependencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
+        :param group_kind_dependencies: group_kind_dependencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
         '''
         value = GkeBackupRestorePlanRestoreConfigRestoreOrder(
             group_kind_dependencies=group_kind_dependencies
@@ -1876,7 +1876,7 @@ class GkeBackupRestorePlanRestoreConfigOutputReference(
         namespaced_names: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
+        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
         '''
         value = GkeBackupRestorePlanRestoreConfigSelectedApplications(
             namespaced_names=namespaced_names
@@ -1891,7 +1891,7 @@ class GkeBackupRestorePlanRestoreConfigOutputReference(
         namespaces: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         value = GkeBackupRestorePlanRestoreConfigSelectedNamespaces(
             namespaces=namespaces
@@ -2196,7 +2196,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrder:
         group_kind_dependencies: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param group_kind_dependencies: group_kind_dependencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
+        :param group_kind_dependencies: group_kind_dependencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__933db51e4a21a13998b39026f25d295a63a9d64d9a5527cd05fbaa128a0ce59f)
@@ -2211,7 +2211,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrder:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies"]]:
         '''group_kind_dependencies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kind_dependencies GkeBackupRestorePlan#group_kind_dependencies}
         '''
         result = self._values.get("group_kind_dependencies")
         assert result is not None, "Required property 'group_kind_dependencies' is missing"
@@ -2242,8 +2242,8 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies:
         satisfying: typing.Union["GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfying", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param requiring: requiring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#requiring GkeBackupRestorePlan#requiring}
-        :param satisfying: satisfying block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#satisfying GkeBackupRestorePlan#satisfying}
+        :param requiring: requiring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#requiring GkeBackupRestorePlan#requiring}
+        :param satisfying: satisfying block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#satisfying GkeBackupRestorePlan#satisfying}
         '''
         if isinstance(requiring, dict):
             requiring = GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequiring(**requiring)
@@ -2264,7 +2264,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies:
     ) -> "GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequiring":
         '''requiring block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#requiring GkeBackupRestorePlan#requiring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#requiring GkeBackupRestorePlan#requiring}
         '''
         result = self._values.get("requiring")
         assert result is not None, "Required property 'requiring' is missing"
@@ -2276,7 +2276,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependencies:
     ) -> "GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfying":
         '''satisfying block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#satisfying GkeBackupRestorePlan#satisfying}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#satisfying GkeBackupRestorePlan#satisfying}
         '''
         result = self._values.get("satisfying")
         assert result is not None, "Required property 'satisfying' is missing"
@@ -2421,8 +2421,8 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesOutputRe
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         value = GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequiring(
             resource_group=resource_group, resource_kind=resource_kind
@@ -2438,8 +2438,8 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesOutputRe
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         value = GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfying(
             resource_group=resource_group, resource_kind=resource_kind
@@ -2506,8 +2506,8 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequirin
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8b4eb1e7be63ee43d5353ca5fb863f2ffb3c8d7a7bb12a4fb4adf54193cded3)
@@ -2523,7 +2523,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequirin
     def resource_group(self) -> typing.Optional[builtins.str]:
         '''API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2532,7 +2532,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesRequirin
     def resource_kind(self) -> typing.Optional[builtins.str]:
         '''Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         result = self._values.get("resource_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2642,8 +2642,8 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfyi
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd565965b0ab37b3decd97c45f3dbb44623ae479611492bb48a56453035a9cbd)
@@ -2659,7 +2659,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfyi
     def resource_group(self) -> typing.Optional[builtins.str]:
         '''API Group of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2668,7 +2668,7 @@ class GkeBackupRestorePlanRestoreConfigRestoreOrderGroupKindDependenciesSatisfyi
     def resource_kind(self) -> typing.Optional[builtins.str]:
         '''Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         result = self._values.get("resource_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2842,7 +2842,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplications:
         namespaced_names: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
+        :param namespaced_names: namespaced_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0526ba18388a7bf7858aa99c645e95286f3d72f5a83c16df78bed647fe721be0)
@@ -2857,7 +2857,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplications:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames"]]:
         '''namespaced_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaced_names GkeBackupRestorePlan#namespaced_names}
         '''
         result = self._values.get("namespaced_names")
         assert result is not None, "Required property 'namespaced_names' is missing"
@@ -2883,8 +2883,8 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplications:
 class GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames:
     def __init__(self, *, name: builtins.str, namespace: builtins.str) -> None:
         '''
-        :param name: The name of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
-        :param namespace: The namespace of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespace GkeBackupRestorePlan#namespace}
+        :param name: The name of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
+        :param namespace: The namespace of a Kubernetes Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespace GkeBackupRestorePlan#namespace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dde7e93656eb8844a64a416058a4dd27cef9ffabcee5f62928589f443335dd72)
@@ -2899,7 +2899,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames:
     def name(self) -> builtins.str:
         '''The name of a Kubernetes Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#name GkeBackupRestorePlan#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2909,7 +2909,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplicationsNamespacedNames:
     def namespace(self) -> builtins.str:
         '''The namespace of a Kubernetes Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespace GkeBackupRestorePlan#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespace GkeBackupRestorePlan#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -3171,7 +3171,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedApplicationsOutputReference(
 class GkeBackupRestorePlanRestoreConfigSelectedNamespaces:
     def __init__(self, *, namespaces: typing.Sequence[builtins.str]) -> None:
         '''
-        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param namespaces: A list of Kubernetes Namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e216ba11109cb63a4f4cf4f472fc3c43d21fbeb2d60b6d05bf8e119be9d67a9)
@@ -3184,7 +3184,7 @@ class GkeBackupRestorePlanRestoreConfigSelectedNamespaces:
     def namespaces(self) -> typing.List[builtins.str]:
         '''A list of Kubernetes Namespaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         result = self._values.get("namespaces")
         assert result is not None, "Required property 'namespaces' is missing"
@@ -3275,9 +3275,9 @@ class GkeBackupRestorePlanRestoreConfigTransformationRules:
         resource_filter: typing.Optional[typing.Union["GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param field_actions: field_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#field_actions GkeBackupRestorePlan#field_actions}
-        :param description: The description is a user specified string description of the transformation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
-        :param resource_filter: resource_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_filter GkeBackupRestorePlan#resource_filter}
+        :param field_actions: field_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#field_actions GkeBackupRestorePlan#field_actions}
+        :param description: The description is a user specified string description of the transformation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
+        :param resource_filter: resource_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_filter GkeBackupRestorePlan#resource_filter}
         '''
         if isinstance(resource_filter, dict):
             resource_filter = GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter(**resource_filter)
@@ -3300,7 +3300,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRules:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions"]]:
         '''field_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#field_actions GkeBackupRestorePlan#field_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#field_actions GkeBackupRestorePlan#field_actions}
         '''
         result = self._values.get("field_actions")
         assert result is not None, "Required property 'field_actions' is missing"
@@ -3310,7 +3310,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRules:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description is a user specified string description of the transformation rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#description GkeBackupRestorePlan#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3321,7 +3321,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRules:
     ) -> typing.Optional["GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter"]:
         '''resource_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_filter GkeBackupRestorePlan#resource_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_filter GkeBackupRestorePlan#resource_filter}
         '''
         result = self._values.get("resource_filter")
         return typing.cast(typing.Optional["GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter"], result)
@@ -3358,10 +3358,10 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param op: Specifies the operation to perform. Possible values: ["REMOVE", "MOVE", "COPY", "ADD", "TEST", "REPLACE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#op GkeBackupRestorePlan#op}
-        :param from_path: A string containing a JSON Pointer value that references the location in the target document to move the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#from_path GkeBackupRestorePlan#from_path}
-        :param path: A string containing a JSON-Pointer value that references a location within the target document where the operation is performed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#path GkeBackupRestorePlan#path}
-        :param value: A string that specifies the desired value in string format to use for transformation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#value GkeBackupRestorePlan#value}
+        :param op: Specifies the operation to perform. Possible values: ["REMOVE", "MOVE", "COPY", "ADD", "TEST", "REPLACE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#op GkeBackupRestorePlan#op}
+        :param from_path: A string containing a JSON Pointer value that references the location in the target document to move the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#from_path GkeBackupRestorePlan#from_path}
+        :param path: A string containing a JSON-Pointer value that references a location within the target document where the operation is performed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#path GkeBackupRestorePlan#path}
+        :param value: A string that specifies the desired value in string format to use for transformation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#value GkeBackupRestorePlan#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c94e565452511b04f21e48b3dc01e1acfc0592676bde2f2fa44c68f4ee33d8ba)
@@ -3383,7 +3383,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions:
     def op(self) -> builtins.str:
         '''Specifies the operation to perform. Possible values: ["REMOVE", "MOVE", "COPY", "ADD", "TEST", "REPLACE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#op GkeBackupRestorePlan#op}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#op GkeBackupRestorePlan#op}
         '''
         result = self._values.get("op")
         assert result is not None, "Required property 'op' is missing"
@@ -3393,7 +3393,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions:
     def from_path(self) -> typing.Optional[builtins.str]:
         '''A string containing a JSON Pointer value that references the location in the target document to move the value from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#from_path GkeBackupRestorePlan#from_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#from_path GkeBackupRestorePlan#from_path}
         '''
         result = self._values.get("from_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3402,7 +3402,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions:
     def path(self) -> typing.Optional[builtins.str]:
         '''A string containing a JSON-Pointer value that references a location within the target document where the operation is performed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#path GkeBackupRestorePlan#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#path GkeBackupRestorePlan#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3411,7 +3411,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesFieldActions:
     def value(self) -> typing.Optional[builtins.str]:
         '''A string that specifies the desired value in string format to use for transformation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#value GkeBackupRestorePlan#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#value GkeBackupRestorePlan#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3786,9 +3786,9 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesOutputReference(
         namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param group_kinds: group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
-        :param json_path: This is a JSONPath expression that matches specific fields of candidate resources and it operates as a filtering parameter (resources that are not matched with this expression will not be candidates for transformation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
-        :param namespaces: (Filtering parameter) Any resource subject to transformation must be contained within one of the listed Kubernetes Namespace in the Backup. If this field is not provided, no namespace filtering will be performed (all resources in all Namespaces, including all cluster-scoped resources, will be candidates for transformation). To mix cluster-scoped and namespaced resources in the same rule, use an empty string ("") as one of the target namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param group_kinds: group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
+        :param json_path: This is a JSONPath expression that matches specific fields of candidate resources and it operates as a filtering parameter (resources that are not matched with this expression will not be candidates for transformation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
+        :param namespaces: (Filtering parameter) Any resource subject to transformation must be contained within one of the listed Kubernetes Namespace in the Backup. If this field is not provided, no namespace filtering will be performed (all resources in all Namespaces, including all cluster-scoped resources, will be candidates for transformation). To mix cluster-scoped and namespaced resources in the same rule, use an empty string ("") as one of the target namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         value = GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter(
             group_kinds=group_kinds, json_path=json_path, namespaces=namespaces
@@ -3885,9 +3885,9 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter:
         namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param group_kinds: group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
-        :param json_path: This is a JSONPath expression that matches specific fields of candidate resources and it operates as a filtering parameter (resources that are not matched with this expression will not be candidates for transformation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
-        :param namespaces: (Filtering parameter) Any resource subject to transformation must be contained within one of the listed Kubernetes Namespace in the Backup. If this field is not provided, no namespace filtering will be performed (all resources in all Namespaces, including all cluster-scoped resources, will be candidates for transformation). To mix cluster-scoped and namespaced resources in the same rule, use an empty string ("") as one of the target namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        :param group_kinds: group_kinds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
+        :param json_path: This is a JSONPath expression that matches specific fields of candidate resources and it operates as a filtering parameter (resources that are not matched with this expression will not be candidates for transformation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
+        :param namespaces: (Filtering parameter) Any resource subject to transformation must be contained within one of the listed Kubernetes Namespace in the Backup. If this field is not provided, no namespace filtering will be performed (all resources in all Namespaces, including all cluster-scoped resources, will be candidates for transformation). To mix cluster-scoped and namespaced resources in the same rule, use an empty string ("") as one of the target namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb1ae33a316fe673554d58021a5790952182cd4b1b569382b0b596e922ba8d77)
@@ -3908,7 +3908,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterGroupKinds"]]]:
         '''group_kinds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#group_kinds GkeBackupRestorePlan#group_kinds}
         '''
         result = self._values.get("group_kinds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterGroupKinds"]]], result)
@@ -3917,7 +3917,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter:
     def json_path(self) -> typing.Optional[builtins.str]:
         '''This is a JSONPath expression that matches specific fields of candidate resources and it operates as a filtering parameter (resources that are not matched with this expression will not be candidates for transformation).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#json_path GkeBackupRestorePlan#json_path}
         '''
         result = self._values.get("json_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3932,7 +3932,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilter:
         To mix cluster-scoped and namespaced resources in the same rule,
         use an empty string ("") as one of the target namespaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#namespaces GkeBackupRestorePlan#namespaces}
         '''
         result = self._values.get("namespaces")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3962,8 +3962,8 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterGroupKin
         resource_kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
-        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        :param resource_group: API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        :param resource_kind: Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e28a89c9e703637369080fe5b43629b42c1113481e773b9a4b4c6bd47ad17204)
@@ -3979,7 +3979,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterGroupKin
     def resource_group(self) -> typing.Optional[builtins.str]:
         '''API Group string of a Kubernetes resource, e.g. "apiextensions.k8s.io", "storage.k8s.io", etc. Use empty string for core group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_group GkeBackupRestorePlan#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3988,7 +3988,7 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterGroupKin
     def resource_kind(self) -> typing.Optional[builtins.str]:
         '''Kind of a Kubernetes resource, e.g. "CustomResourceDefinition", "StorageClass", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#resource_kind GkeBackupRestorePlan#resource_kind}
         '''
         result = self._values.get("resource_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4303,8 +4303,8 @@ class GkeBackupRestorePlanRestoreConfigTransformationRulesResourceFilterOutputRe
 class GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings:
     def __init__(self, *, policy: builtins.str, volume_type: builtins.str) -> None:
         '''
-        :param policy: Specifies the mechanism to be used to restore this volume data. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#policy GkeBackupRestorePlan#policy}
-        :param volume_type: The volume type, as determined by the PVC's bound PV, to apply the policy to. Possible values: ["GCE_PERSISTENT_DISK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_type GkeBackupRestorePlan#volume_type}
+        :param policy: Specifies the mechanism to be used to restore this volume data. See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#policy GkeBackupRestorePlan#policy}
+        :param volume_type: The volume type, as determined by the PVC's bound PV, to apply the policy to. Possible values: ["GCE_PERSISTENT_DISK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_type GkeBackupRestorePlan#volume_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91f00614a25597cbdc208fd3ea9acf8ee139167be62696b50746e65c0e9f54e8)
@@ -4322,7 +4322,7 @@ class GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings:
         See https://cloud.google.com/kubernetes-engine/docs/add-on/backup-for-gke/reference/rest/v1/RestoreConfig#VolumeDataRestorePolicy
         for more information on each policy option. Possible values: ["RESTORE_VOLUME_DATA_FROM_BACKUP", "REUSE_VOLUME_HANDLE_FROM_BACKUP", "NO_VOLUME_DATA_RESTORATION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#policy GkeBackupRestorePlan#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#policy GkeBackupRestorePlan#policy}
         '''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
@@ -4332,7 +4332,7 @@ class GkeBackupRestorePlanRestoreConfigVolumeDataRestorePolicyBindings:
     def volume_type(self) -> builtins.str:
         '''The volume type, as determined by the PVC's bound PV, to apply the policy to. Possible values: ["GCE_PERSISTENT_DISK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#volume_type GkeBackupRestorePlan#volume_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#volume_type GkeBackupRestorePlan#volume_type}
         '''
         result = self._values.get("volume_type")
         assert result is not None, "Required property 'volume_type' is missing"
@@ -4535,9 +4535,9 @@ class GkeBackupRestorePlanTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15ee245e638c98fea4e5a4a520b24fbedbcc9c169bf3c55aa0a8265bdae44acc)
@@ -4554,19 +4554,19 @@ class GkeBackupRestorePlanTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#create GkeBackupRestorePlan#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#delete GkeBackupRestorePlan#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_backup_restore_plan#update GkeBackupRestorePlan#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

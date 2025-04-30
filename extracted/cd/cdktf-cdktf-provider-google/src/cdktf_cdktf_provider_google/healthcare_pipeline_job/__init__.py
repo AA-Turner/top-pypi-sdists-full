@@ -1,7 +1,7 @@
 r'''
 # `google_healthcare_pipeline_job`
 
-Refer to the Terraform Registry for docs: [`google_healthcare_pipeline_job`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job).
+Refer to the Terraform Registry for docs: [`google_healthcare_pipeline_job`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HealthcarePipelineJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.healthcarePipelineJob.HealthcarePipelineJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job google_healthcare_pipeline_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job google_healthcare_pipeline_job}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class HealthcarePipelineJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job google_healthcare_pipeline_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job google_healthcare_pipeline_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset: Healthcare Dataset under which the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
-        :param location: Location where the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
-        :param name: Specifies the name of the pipeline job. This field is user-assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
-        :param backfill_pipeline_job: backfill_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
-        :param disable_lineage: If true, disables writing lineage for the pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-supplied key-value pairs used to organize Pipeline Jobs. Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{N}*-]{0,62} Label values are optional, must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}\\p{N}*-]{0,63} No more than 64 labels can be associated with a given pipeline. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
-        :param mapping_pipeline_job: mapping_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
-        :param reconciliation_pipeline_job: reconciliation_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
+        :param dataset: Healthcare Dataset under which the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
+        :param location: Location where the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
+        :param name: Specifies the name of the pipeline job. This field is user-assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
+        :param backfill_pipeline_job: backfill_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
+        :param disable_lineage: If true, disables writing lineage for the pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-supplied key-value pairs used to organize Pipeline Jobs. Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{N}*-]{0,62} Label values are optional, must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}\\p{N}*-]{0,63} No more than 64 labels can be associated with a given pipeline. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
+        :param mapping_pipeline_job: mapping_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        :param reconciliation_pipeline_job: reconciliation_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class HealthcarePipelineJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HealthcarePipelineJob to import.
-        :param import_from_id: The id of the existing HealthcarePipelineJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HealthcarePipelineJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HealthcarePipelineJob to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class HealthcarePipelineJob(
         mapping_pipeline_job: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mapping_pipeline_job: Specifies the mapping pipeline job to backfill, the name format should follow: projects/{projectId}/locations/{locationId}/datasets/{datasetId}/pipelineJobs/{pipelineJobId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        :param mapping_pipeline_job: Specifies the mapping pipeline job to backfill, the name format should follow: projects/{projectId}/locations/{locationId}/datasets/{datasetId}/pipelineJobs/{pipelineJobId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
         '''
         value = HealthcarePipelineJobBackfillPipelineJob(
             mapping_pipeline_job=mapping_pipeline_job
@@ -166,10 +166,10 @@ class HealthcarePipelineJob(
         reconciliation_destination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mapping_config: mapping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
-        :param fhir_store_destination: If set, the mapping pipeline will write snapshots to this FHIR store without assigning stable IDs. You must grant your pipeline project's Cloud Healthcare Service Agent serviceaccount healthcare.fhirResources.executeBundle and healthcare.fhirResources.create permissions on the destination store. The destination store must set [disableReferentialIntegrity][FhirStore.disable_referential_integrity] to true. The destination store must use FHIR version R4. Format: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{fhirStoreID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
-        :param fhir_streaming_source: fhir_streaming_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
-        :param reconciliation_destination: If set to true, a mapping pipeline will send output snapshots to the reconciliation pipeline in its dataset. A reconciliation pipeline must exist in this dataset before a mapping pipeline with a reconciliation destination can be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
+        :param mapping_config: mapping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
+        :param fhir_store_destination: If set, the mapping pipeline will write snapshots to this FHIR store without assigning stable IDs. You must grant your pipeline project's Cloud Healthcare Service Agent serviceaccount healthcare.fhirResources.executeBundle and healthcare.fhirResources.create permissions on the destination store. The destination store must set [disableReferentialIntegrity][FhirStore.disable_referential_integrity] to true. The destination store must use FHIR version R4. Format: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{fhirStoreID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        :param fhir_streaming_source: fhir_streaming_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
+        :param reconciliation_destination: If set to true, a mapping pipeline will send output snapshots to the reconciliation pipeline in its dataset. A reconciliation pipeline must exist in this dataset before a mapping pipeline with a reconciliation destination can be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
         '''
         value = HealthcarePipelineJobMappingPipelineJob(
             mapping_config=mapping_config,
@@ -189,9 +189,9 @@ class HealthcarePipelineJob(
         fhir_store_destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param matching_uri_prefix: Specifies the top level directory of the matching configs used in all mapping pipelines, which extract properties for resources to be matched on. Example: gs://{bucket-id}/{path/to/matching/configs} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
-        :param merge_config: merge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
-        :param fhir_store_destination: The harmonized FHIR store to write harmonized FHIR resources to, in the format of: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        :param matching_uri_prefix: Specifies the top level directory of the matching configs used in all mapping pipelines, which extract properties for resources to be matched on. Example: gs://{bucket-id}/{path/to/matching/configs} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
+        :param merge_config: merge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
+        :param fhir_store_destination: The harmonized FHIR store to write harmonized FHIR resources to, in the format of: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
         '''
         value = HealthcarePipelineJobReconciliationPipelineJob(
             matching_uri_prefix=matching_uri_prefix,
@@ -210,9 +210,9 @@ class HealthcarePipelineJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.
         '''
         value = HealthcarePipelineJobTimeouts(
             create=create, delete=delete, update=update
@@ -454,7 +454,7 @@ class HealthcarePipelineJobBackfillPipelineJob:
         mapping_pipeline_job: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mapping_pipeline_job: Specifies the mapping pipeline job to backfill, the name format should follow: projects/{projectId}/locations/{locationId}/datasets/{datasetId}/pipelineJobs/{pipelineJobId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        :param mapping_pipeline_job: Specifies the mapping pipeline job to backfill, the name format should follow: projects/{projectId}/locations/{locationId}/datasets/{datasetId}/pipelineJobs/{pipelineJobId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89b4be80a16786c8e444693e8bd8eb8b01aa78dc95c310acce7608ca95ddc73a)
@@ -467,7 +467,7 @@ class HealthcarePipelineJobBackfillPipelineJob:
     def mapping_pipeline_job(self) -> typing.Optional[builtins.str]:
         '''Specifies the mapping pipeline job to backfill, the name format should follow: projects/{projectId}/locations/{locationId}/datasets/{datasetId}/pipelineJobs/{pipelineJobId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
         '''
         result = self._values.get("mapping_pipeline_job")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -596,16 +596,16 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset: Healthcare Dataset under which the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
-        :param location: Location where the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
-        :param name: Specifies the name of the pipeline job. This field is user-assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
-        :param backfill_pipeline_job: backfill_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
-        :param disable_lineage: If true, disables writing lineage for the pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-supplied key-value pairs used to organize Pipeline Jobs. Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{N}*-]{0,62} Label values are optional, must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}\\p{N}*-]{0,63} No more than 64 labels can be associated with a given pipeline. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
-        :param mapping_pipeline_job: mapping_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
-        :param reconciliation_pipeline_job: reconciliation_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
+        :param dataset: Healthcare Dataset under which the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
+        :param location: Location where the Pipeline Job is to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
+        :param name: Specifies the name of the pipeline job. This field is user-assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
+        :param backfill_pipeline_job: backfill_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
+        :param disable_lineage: If true, disables writing lineage for the pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-supplied key-value pairs used to organize Pipeline Jobs. Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{N}*-]{0,62} Label values are optional, must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes, and must conform to the following PCRE regular expression: [\\p{Ll}\\p{Lo}\\p{N}*-]{0,63} No more than 64 labels can be associated with a given pipeline. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
+        :param mapping_pipeline_job: mapping_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        :param reconciliation_pipeline_job: reconciliation_pipeline_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -738,7 +738,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataset(self) -> builtins.str:
         '''Healthcare Dataset under which the Pipeline Job is to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#dataset HealthcarePipelineJob#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -748,7 +748,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Location where the Pipeline Job is to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#location HealthcarePipelineJob#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -758,7 +758,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Specifies the name of the pipeline job. This field is user-assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#name HealthcarePipelineJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -770,7 +770,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[HealthcarePipelineJobBackfillPipelineJob]:
         '''backfill_pipeline_job block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#backfill_pipeline_job HealthcarePipelineJob#backfill_pipeline_job}
         '''
         result = self._values.get("backfill_pipeline_job")
         return typing.cast(typing.Optional[HealthcarePipelineJobBackfillPipelineJob], result)
@@ -781,14 +781,14 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, disables writing lineage for the pipeline.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#disable_lineage HealthcarePipelineJob#disable_lineage}
         '''
         result = self._values.get("disable_lineage")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#id HealthcarePipelineJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -813,7 +813,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#labels HealthcarePipelineJob#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -824,7 +824,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["HealthcarePipelineJobMappingPipelineJob"]:
         '''mapping_pipeline_job block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_pipeline_job HealthcarePipelineJob#mapping_pipeline_job}
         '''
         result = self._values.get("mapping_pipeline_job")
         return typing.cast(typing.Optional["HealthcarePipelineJobMappingPipelineJob"], result)
@@ -835,7 +835,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["HealthcarePipelineJobReconciliationPipelineJob"]:
         '''reconciliation_pipeline_job block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_pipeline_job HealthcarePipelineJob#reconciliation_pipeline_job}
         '''
         result = self._values.get("reconciliation_pipeline_job")
         return typing.cast(typing.Optional["HealthcarePipelineJobReconciliationPipelineJob"], result)
@@ -844,7 +844,7 @@ class HealthcarePipelineJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HealthcarePipelineJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#timeouts HealthcarePipelineJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HealthcarePipelineJobTimeouts"], result)
@@ -881,10 +881,10 @@ class HealthcarePipelineJobMappingPipelineJob:
         reconciliation_destination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mapping_config: mapping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
-        :param fhir_store_destination: If set, the mapping pipeline will write snapshots to this FHIR store without assigning stable IDs. You must grant your pipeline project's Cloud Healthcare Service Agent serviceaccount healthcare.fhirResources.executeBundle and healthcare.fhirResources.create permissions on the destination store. The destination store must set [disableReferentialIntegrity][FhirStore.disable_referential_integrity] to true. The destination store must use FHIR version R4. Format: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{fhirStoreID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
-        :param fhir_streaming_source: fhir_streaming_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
-        :param reconciliation_destination: If set to true, a mapping pipeline will send output snapshots to the reconciliation pipeline in its dataset. A reconciliation pipeline must exist in this dataset before a mapping pipeline with a reconciliation destination can be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
+        :param mapping_config: mapping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
+        :param fhir_store_destination: If set, the mapping pipeline will write snapshots to this FHIR store without assigning stable IDs. You must grant your pipeline project's Cloud Healthcare Service Agent serviceaccount healthcare.fhirResources.executeBundle and healthcare.fhirResources.create permissions on the destination store. The destination store must set [disableReferentialIntegrity][FhirStore.disable_referential_integrity] to true. The destination store must use FHIR version R4. Format: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{fhirStoreID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        :param fhir_streaming_source: fhir_streaming_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
+        :param reconciliation_destination: If set to true, a mapping pipeline will send output snapshots to the reconciliation pipeline in its dataset. A reconciliation pipeline must exist in this dataset before a mapping pipeline with a reconciliation destination can be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
         '''
         if isinstance(mapping_config, dict):
             mapping_config = HealthcarePipelineJobMappingPipelineJobMappingConfig(**mapping_config)
@@ -910,7 +910,7 @@ class HealthcarePipelineJobMappingPipelineJob:
     def mapping_config(self) -> "HealthcarePipelineJobMappingPipelineJobMappingConfig":
         '''mapping_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#mapping_config HealthcarePipelineJob#mapping_config}
         '''
         result = self._values.get("mapping_config")
         assert result is not None, "Required property 'mapping_config' is missing"
@@ -929,7 +929,7 @@ class HealthcarePipelineJobMappingPipelineJob:
         to true. The destination store must use FHIR version R4.
         Format: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{fhirStoreID}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
         '''
         result = self._values.get("fhir_store_destination")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -940,7 +940,7 @@ class HealthcarePipelineJobMappingPipelineJob:
     ) -> typing.Optional["HealthcarePipelineJobMappingPipelineJobFhirStreamingSource"]:
         '''fhir_streaming_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_streaming_source HealthcarePipelineJob#fhir_streaming_source}
         '''
         result = self._values.get("fhir_streaming_source")
         return typing.cast(typing.Optional["HealthcarePipelineJobMappingPipelineJobFhirStreamingSource"], result)
@@ -955,7 +955,7 @@ class HealthcarePipelineJobMappingPipelineJob:
         pipeline must exist in this dataset before a mapping pipeline
         with a reconciliation destination can be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#reconciliation_destination HealthcarePipelineJob#reconciliation_destination}
         '''
         result = self._values.get("reconciliation_destination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -985,8 +985,8 @@ class HealthcarePipelineJobMappingPipelineJobFhirStreamingSource:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fhir_store: The path to the FHIR store in the format projects/{projectId}/locations/{locationId}/datasets/{datasetId}/fhirStores/{fhirStoreId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
-        :param description: Describes the streaming FHIR data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param fhir_store: The path to the FHIR store in the format projects/{projectId}/locations/{locationId}/datasets/{datasetId}/fhirStores/{fhirStoreId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
+        :param description: Describes the streaming FHIR data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6897743733845ebc17b05b026f645bb9d0b52612f0c5f377e68f628c35315fa7)
@@ -1002,7 +1002,7 @@ class HealthcarePipelineJobMappingPipelineJobFhirStreamingSource:
     def fhir_store(self) -> builtins.str:
         '''The path to the FHIR store in the format projects/{projectId}/locations/{locationId}/datasets/{datasetId}/fhirStores/{fhirStoreId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
         '''
         result = self._values.get("fhir_store")
         assert result is not None, "Required property 'fhir_store' is missing"
@@ -1012,7 +1012,7 @@ class HealthcarePipelineJobMappingPipelineJobFhirStreamingSource:
     def description(self) -> typing.Optional[builtins.str]:
         '''Describes the streaming FHIR data source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1121,8 +1121,8 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfig:
         whistle_config_source: typing.Optional[typing.Union["HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
-        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
         '''
         if isinstance(whistle_config_source, dict):
             whistle_config_source = HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource(**whistle_config_source)
@@ -1140,7 +1140,7 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfig:
     def description(self) -> typing.Optional[builtins.str]:
         '''Describes the mapping configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1151,7 +1151,7 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfig:
     ) -> typing.Optional["HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource"]:
         '''whistle_config_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
         '''
         result = self._values.get("whistle_config_source")
         return typing.cast(typing.Optional["HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource"], result)
@@ -1196,8 +1196,8 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfigOutputReference(
         uri: builtins.str,
     ) -> None:
         '''
-        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
-        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         value = HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource(
             import_uri_prefix=import_uri_prefix, uri=uri
@@ -1270,8 +1270,8 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfigOutputReference(
 class HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource:
     def __init__(self, *, import_uri_prefix: builtins.str, uri: builtins.str) -> None:
         '''
-        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
-        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23d884660ce6f2a67dd353eee22840344ba0f34523cadf836418688c8832b704)
@@ -1286,7 +1286,7 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource:
     def import_uri_prefix(self) -> builtins.str:
         '''Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
         '''
         result = self._values.get("import_uri_prefix")
         assert result is not None, "Required property 'import_uri_prefix' is missing"
@@ -1296,7 +1296,7 @@ class HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource:
     def uri(self) -> builtins.str:
         '''Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1414,8 +1414,8 @@ class HealthcarePipelineJobMappingPipelineJobOutputReference(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fhir_store: The path to the FHIR store in the format projects/{projectId}/locations/{locationId}/datasets/{datasetId}/fhirStores/{fhirStoreId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
-        :param description: Describes the streaming FHIR data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param fhir_store: The path to the FHIR store in the format projects/{projectId}/locations/{locationId}/datasets/{datasetId}/fhirStores/{fhirStoreId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store HealthcarePipelineJob#fhir_store}
+        :param description: Describes the streaming FHIR data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         value = HealthcarePipelineJobMappingPipelineJobFhirStreamingSource(
             fhir_store=fhir_store, description=description
@@ -1431,8 +1431,8 @@ class HealthcarePipelineJobMappingPipelineJobOutputReference(
         whistle_config_source: typing.Optional[typing.Union[HealthcarePipelineJobMappingPipelineJobMappingConfigWhistleConfigSource, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
-        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
         '''
         value = HealthcarePipelineJobMappingPipelineJobMappingConfig(
             description=description, whistle_config_source=whistle_config_source
@@ -1557,9 +1557,9 @@ class HealthcarePipelineJobReconciliationPipelineJob:
         fhir_store_destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param matching_uri_prefix: Specifies the top level directory of the matching configs used in all mapping pipelines, which extract properties for resources to be matched on. Example: gs://{bucket-id}/{path/to/matching/configs} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
-        :param merge_config: merge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
-        :param fhir_store_destination: The harmonized FHIR store to write harmonized FHIR resources to, in the format of: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        :param matching_uri_prefix: Specifies the top level directory of the matching configs used in all mapping pipelines, which extract properties for resources to be matched on. Example: gs://{bucket-id}/{path/to/matching/configs} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
+        :param merge_config: merge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
+        :param fhir_store_destination: The harmonized FHIR store to write harmonized FHIR resources to, in the format of: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
         '''
         if isinstance(merge_config, dict):
             merge_config = HealthcarePipelineJobReconciliationPipelineJobMergeConfig(**merge_config)
@@ -1581,7 +1581,7 @@ class HealthcarePipelineJobReconciliationPipelineJob:
 
         Example: gs://{bucket-id}/{path/to/matching/configs}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#matching_uri_prefix HealthcarePipelineJob#matching_uri_prefix}
         '''
         result = self._values.get("matching_uri_prefix")
         assert result is not None, "Required property 'matching_uri_prefix' is missing"
@@ -1593,7 +1593,7 @@ class HealthcarePipelineJobReconciliationPipelineJob:
     ) -> "HealthcarePipelineJobReconciliationPipelineJobMergeConfig":
         '''merge_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#merge_config HealthcarePipelineJob#merge_config}
         '''
         result = self._values.get("merge_config")
         assert result is not None, "Required property 'merge_config' is missing"
@@ -1603,7 +1603,7 @@ class HealthcarePipelineJobReconciliationPipelineJob:
     def fhir_store_destination(self) -> typing.Optional[builtins.str]:
         '''The harmonized FHIR store to write harmonized FHIR resources to, in the format of: project/{projectID}/locations/{locationID}/datasets/{datasetName}/fhirStores/{id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#fhir_store_destination HealthcarePipelineJob#fhir_store_destination}
         '''
         result = self._values.get("fhir_store_destination")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1636,8 +1636,8 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfig:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
-        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         if isinstance(whistle_config_source, dict):
             whistle_config_source = HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSource(**whistle_config_source)
@@ -1657,7 +1657,7 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfig:
     ) -> "HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSource":
         '''whistle_config_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
         '''
         result = self._values.get("whistle_config_source")
         assert result is not None, "Required property 'whistle_config_source' is missing"
@@ -1667,7 +1667,7 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfig:
     def description(self) -> typing.Optional[builtins.str]:
         '''Describes the mapping configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1712,8 +1712,8 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfigOutputReference(
         uri: builtins.str,
     ) -> None:
         '''
-        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
-        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         value = HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSource(
             import_uri_prefix=import_uri_prefix, uri=uri
@@ -1782,8 +1782,8 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfigOutputReference(
 class HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSource:
     def __init__(self, *, import_uri_prefix: builtins.str, uri: builtins.str) -> None:
         '''
-        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
-        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        :param import_uri_prefix: Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        :param uri: Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bce2010ef04015218a6f65399121aade11151ddd678a63e97d3ac005243e3647)
@@ -1798,7 +1798,7 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSour
     def import_uri_prefix(self) -> builtins.str:
         '''Directory path where all the Whistle files are located. Example: gs://{bucket-id}/{path/to/import-root/dir}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#import_uri_prefix HealthcarePipelineJob#import_uri_prefix}
         '''
         result = self._values.get("import_uri_prefix")
         assert result is not None, "Required property 'import_uri_prefix' is missing"
@@ -1808,7 +1808,7 @@ class HealthcarePipelineJobReconciliationPipelineJobMergeConfigWhistleConfigSour
     def uri(self) -> builtins.str:
         '''Main configuration file which has the entrypoint or the root function. Example: gs://{bucket-id}/{path/to/import-root/dir}/entrypoint-file-name.wstl.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#uri HealthcarePipelineJob#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1926,8 +1926,8 @@ class HealthcarePipelineJobReconciliationPipelineJobOutputReference(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
-        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
+        :param whistle_config_source: whistle_config_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#whistle_config_source HealthcarePipelineJob#whistle_config_source}
+        :param description: Describes the mapping configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#description HealthcarePipelineJob#description}
         '''
         value = HealthcarePipelineJobReconciliationPipelineJobMergeConfig(
             whistle_config_source=whistle_config_source, description=description
@@ -2019,9 +2019,9 @@ class HealthcarePipelineJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b33739aba83c43023647abaf188319c70867c1369f9780a1f6fa5ae75304bba)
@@ -2038,19 +2038,19 @@ class HealthcarePipelineJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#create HealthcarePipelineJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#delete HealthcarePipelineJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_pipeline_job#update HealthcarePipelineJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

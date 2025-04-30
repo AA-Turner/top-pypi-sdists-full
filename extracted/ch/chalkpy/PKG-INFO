@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.78.7
+Version: 2.79.0
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -82,6 +82,8 @@ Provides-Extra: cohere
 Requires-Dist: cohere==5.11.4; extra == "cohere"
 Provides-Extra: vertexai
 Requires-Dist: google-cloud-aiplatform<1.76.0; extra == "vertexai"
+Provides-Extra: sentence-transformers
+Requires-Dist: sentence-transformers; extra == "sentence-transformers"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sql"
 Requires-Dist: duckdb<1.2.0,>=0.6; extra == "sql"
@@ -119,6 +121,19 @@ Requires-Dist: python-json-logger; extra == "bigquery"
 Requires-Dist: s3fs; extra == "bigquery"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "bigquery"
 Requires-Dist: sqlglot>=19.0.0; extra == "bigquery"
+Provides-Extra: clickhouse
+Requires-Dist: clickhouse-sqlalchemy; extra == "clickhouse"
+Requires-Dist: clickhouse-driver; extra == "clickhouse"
+Requires-Dist: duckdb<1.2.0,>=0.6; extra == "clickhouse"
+Requires-Dist: fsspec; extra == "clickhouse"
+Requires-Dist: gcsfs; extra == "clickhouse"
+Requires-Dist: google-auth; extra == "clickhouse"
+Requires-Dist: google-cloud-storage; extra == "clickhouse"
+Requires-Dist: polars[timezone]<0.20.32; extra == "clickhouse"
+Requires-Dist: python-json-logger; extra == "clickhouse"
+Requires-Dist: s3fs; extra == "clickhouse"
+Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "clickhouse"
+Requires-Dist: sqlglot>=19.0.0; extra == "clickhouse"
 Provides-Extra: spanner
 Requires-Dist: sqlalchemy-spanner; extra == "spanner"
 Requires-Dist: google-auth; extra == "spanner"
@@ -245,6 +260,8 @@ Requires-Dist: PyAthena>=3.0.0; extra == "all"
 Requires-Dist: aiomysql<0.3,>=0.1.1; extra == "all"
 Requires-Dist: aiosqlite<0.21,>=0.19.0; extra == "all"
 Requires-Dist: boto3; extra == "all"
+Requires-Dist: clickhouse-driver; extra == "all"
+Requires-Dist: clickhouse-sqlalchemy; extra == "all"
 Requires-Dist: cohere==5.11.4; extra == "all"
 Requires-Dist: cryptography<42.0.0; extra == "all"
 Requires-Dist: databricks-sdk<1.0.0,>=0.29.0; extra == "all"

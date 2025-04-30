@@ -1,7 +1,7 @@
 r'''
 # `google_data_catalog_tag`
 
-Refer to the Terraform Registry for docs: [`google_data_catalog_tag`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag).
+Refer to the Terraform Registry for docs: [`google_data_catalog_tag`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataCatalogTag(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataCatalogTag.DataCatalogTag",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag google_data_catalog_tag}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag google_data_catalog_tag}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataCatalogTag(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag google_data_catalog_tag} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag google_data_catalog_tag} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
-        :param template: The resource name of the tag template that this tag uses. Example: projects/{project_id}/locations/{location}/tagTemplates/{tagTemplateId} This field cannot be modified after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
-        :param column: Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an individual column based on that schema. For attaching a tag to a nested column, use '.' to separate the column names. Example: 'outer_column.inner_column' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to all entries in that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
+        :param template: The resource name of the tag template that this tag uses. Example: projects/{project_id}/locations/{location}/tagTemplates/{tagTemplateId} This field cannot be modified after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
+        :param column: Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an individual column based on that schema. For attaching a tag to a nested column, use '.' to separate the column names. Example: 'outer_column.inner_column' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to all entries in that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataCatalogTag(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataCatalogTag to import.
-        :param import_from_id: The id of the existing DataCatalogTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataCatalogTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataCatalogTag to import is found.
         '''
         if __debug__:
@@ -151,9 +151,9 @@ class DataCatalogTag(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.
         '''
         value = DataCatalogTagTimeouts(create=create, delete=delete, update=update)
 
@@ -336,12 +336,12 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
-        :param template: The resource name of the tag template that this tag uses. Example: projects/{project_id}/locations/{location}/tagTemplates/{tagTemplateId} This field cannot be modified after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
-        :param column: Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an individual column based on that schema. For attaching a tag to a nested column, use '.' to separate the column names. Example: 'outer_column.inner_column' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to all entries in that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
+        :param template: The resource name of the tag template that this tag uses. Example: projects/{project_id}/locations/{location}/tagTemplates/{tagTemplateId} This field cannot be modified after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
+        :param column: Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an individual column based on that schema. For attaching a tag to a nested column, use '.' to separate the column names. Example: 'outer_column.inner_column' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to all entries in that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -459,7 +459,7 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataCatalogTagFields"]]:
         '''fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#fields DataCatalogTag#fields}
         '''
         result = self._values.get("fields")
         assert result is not None, "Required property 'fields' is missing"
@@ -469,7 +469,7 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template(self) -> builtins.str:
         '''The resource name of the tag template that this tag uses. Example: projects/{project_id}/locations/{location}/tagTemplates/{tagTemplateId} This field cannot be modified after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#template DataCatalogTag#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -485,14 +485,14 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For attaching a tag to a nested column, use '.' to separate the column names. Example:
         'outer_column.inner_column'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#column DataCatalogTag#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#id DataCatalogTag#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -507,7 +507,7 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This can be the name of an entry or an entry group. If an entry group, the tag will be attached to
         all entries in that group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#parent DataCatalogTag#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -516,7 +516,7 @@ class DataCatalogTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataCatalogTagTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#timeouts DataCatalogTag#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataCatalogTagTimeouts"], result)
@@ -557,12 +557,12 @@ class DataCatalogTagFields:
         timestamp_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#field_name DataCatalogTag#field_name}.
-        :param bool_value: Holds the value for a tag field with boolean type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#bool_value DataCatalogTag#bool_value}
-        :param double_value: Holds the value for a tag field with double type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#double_value DataCatalogTag#double_value}
-        :param enum_value: The display name of the enum value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#enum_value DataCatalogTag#enum_value}
-        :param string_value: Holds the value for a tag field with string type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#string_value DataCatalogTag#string_value}
-        :param timestamp_value: Holds the value for a tag field with timestamp type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#timestamp_value DataCatalogTag#timestamp_value}
+        :param field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#field_name DataCatalogTag#field_name}.
+        :param bool_value: Holds the value for a tag field with boolean type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#bool_value DataCatalogTag#bool_value}
+        :param double_value: Holds the value for a tag field with double type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#double_value DataCatalogTag#double_value}
+        :param enum_value: The display name of the enum value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#enum_value DataCatalogTag#enum_value}
+        :param string_value: Holds the value for a tag field with string type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#string_value DataCatalogTag#string_value}
+        :param timestamp_value: Holds the value for a tag field with timestamp type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#timestamp_value DataCatalogTag#timestamp_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5da09fdfff085988b98741b11ec23ecc91fd626cd05b14249ca1ceca94adac95)
@@ -588,7 +588,7 @@ class DataCatalogTagFields:
 
     @builtins.property
     def field_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#field_name DataCatalogTag#field_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#field_name DataCatalogTag#field_name}.'''
         result = self._values.get("field_name")
         assert result is not None, "Required property 'field_name' is missing"
         return typing.cast(builtins.str, result)
@@ -599,7 +599,7 @@ class DataCatalogTagFields:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Holds the value for a tag field with boolean type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#bool_value DataCatalogTag#bool_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#bool_value DataCatalogTag#bool_value}
         '''
         result = self._values.get("bool_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -608,7 +608,7 @@ class DataCatalogTagFields:
     def double_value(self) -> typing.Optional[jsii.Number]:
         '''Holds the value for a tag field with double type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#double_value DataCatalogTag#double_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#double_value DataCatalogTag#double_value}
         '''
         result = self._values.get("double_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -617,7 +617,7 @@ class DataCatalogTagFields:
     def enum_value(self) -> typing.Optional[builtins.str]:
         '''The display name of the enum value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#enum_value DataCatalogTag#enum_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#enum_value DataCatalogTag#enum_value}
         '''
         result = self._values.get("enum_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -626,7 +626,7 @@ class DataCatalogTagFields:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''Holds the value for a tag field with string type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#string_value DataCatalogTag#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#string_value DataCatalogTag#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -635,7 +635,7 @@ class DataCatalogTagFields:
     def timestamp_value(self) -> typing.Optional[builtins.str]:
         '''Holds the value for a tag field with timestamp type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#timestamp_value DataCatalogTag#timestamp_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#timestamp_value DataCatalogTag#timestamp_value}
         '''
         result = self._values.get("timestamp_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -937,9 +937,9 @@ class DataCatalogTagTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b0d80cb71eb56fc5f259aa36908424131df1dd8c32b532601b93fb74f104167)
@@ -956,19 +956,19 @@ class DataCatalogTagTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#create DataCatalogTag#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#delete DataCatalogTag#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_tag#update DataCatalogTag#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

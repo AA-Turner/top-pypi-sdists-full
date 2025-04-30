@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_authorized_view`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_authorized_view`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view).
+Refer to the Terraform Registry for docs: [`google_bigtable_authorized_view`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableAuthorizedView(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableAuthorizedView.BigtableAuthorizedView",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view google_bigtable_authorized_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view google_bigtable_authorized_view}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class BigtableAuthorizedView(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view google_bigtable_authorized_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view google_bigtable_authorized_view} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_name: The name of the Bigtable instance in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
-        :param name: The name of the authorized view. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
-        :param table_name: The name of the Bigtable table in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
-        :param deletion_protection: A field to make the authorized view protected against data loss i.e. when set to PROTECTED, deleting the authorized view, the table containing the authorized view, and the instance containing the authorized view would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Note this field configs the deletion protection provided by the API in the backend, and should not be confused with Terraform-side deletion protection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
-        :param subset_view: subset_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
+        :param instance_name: The name of the Bigtable instance in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
+        :param name: The name of the authorized view. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
+        :param table_name: The name of the Bigtable table in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
+        :param deletion_protection: A field to make the authorized view protected against data loss i.e. when set to PROTECTED, deleting the authorized view, the table containing the authorized view, and the instance containing the authorized view would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Note this field configs the deletion protection provided by the API in the backend, and should not be confused with Terraform-side deletion protection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
+        :param subset_view: subset_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class BigtableAuthorizedView(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableAuthorizedView to import.
-        :param import_from_id: The id of the existing BigtableAuthorizedView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableAuthorizedView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableAuthorizedView to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class BigtableAuthorizedView(
         row_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param family_subsets: family_subsets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
-        :param row_prefixes: Base64-encoded row prefixes to be included in the authorized view. To provide access to all rows, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
+        :param family_subsets: family_subsets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
+        :param row_prefixes: Base64-encoded row prefixes to be included in the authorized view. To provide access to all rows, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
         '''
         value = BigtableAuthorizedViewSubsetView(
             family_subsets=family_subsets, row_prefixes=row_prefixes
@@ -160,8 +160,8 @@ class BigtableAuthorizedView(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.
         '''
         value = BigtableAuthorizedViewTimeouts(create=create, update=update)
 
@@ -374,14 +374,14 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_name: The name of the Bigtable instance in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
-        :param name: The name of the authorized view. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
-        :param table_name: The name of the Bigtable table in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
-        :param deletion_protection: A field to make the authorized view protected against data loss i.e. when set to PROTECTED, deleting the authorized view, the table containing the authorized view, and the instance containing the authorized view would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Note this field configs the deletion protection provided by the API in the backend, and should not be confused with Terraform-side deletion protection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
-        :param subset_view: subset_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
+        :param instance_name: The name of the Bigtable instance in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
+        :param name: The name of the authorized view. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
+        :param table_name: The name of the Bigtable table in which the authorized view belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
+        :param deletion_protection: A field to make the authorized view protected against data loss i.e. when set to PROTECTED, deleting the authorized view, the table containing the authorized view, and the instance containing the authorized view would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Note this field configs the deletion protection provided by the API in the backend, and should not be confused with Terraform-side deletion protection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
+        :param subset_view: subset_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -504,7 +504,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_name(self) -> builtins.str:
         '''The name of the Bigtable instance in which the authorized view belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#instance_name BigtableAuthorizedView#instance_name}
         '''
         result = self._values.get("instance_name")
         assert result is not None, "Required property 'instance_name' is missing"
@@ -516,7 +516,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#name BigtableAuthorizedView#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -526,7 +526,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table_name(self) -> builtins.str:
         '''The name of the Bigtable table in which the authorized view belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#table_name BigtableAuthorizedView#table_name}
         '''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
@@ -536,14 +536,14 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deletion_protection(self) -> typing.Optional[builtins.str]:
         '''A field to make the authorized view protected against data loss i.e. when set to PROTECTED, deleting the authorized view, the table containing the authorized view, and the instance containing the authorized view would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Note this field configs the deletion protection provided by the API in the backend, and should not be confused with Terraform-side deletion protection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#deletion_protection BigtableAuthorizedView#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#id BigtableAuthorizedView#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -557,7 +557,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#project BigtableAuthorizedView#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -566,7 +566,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subset_view(self) -> typing.Optional["BigtableAuthorizedViewSubsetView"]:
         '''subset_view block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#subset_view BigtableAuthorizedView#subset_view}
         '''
         result = self._values.get("subset_view")
         return typing.cast(typing.Optional["BigtableAuthorizedViewSubsetView"], result)
@@ -575,7 +575,7 @@ class BigtableAuthorizedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableAuthorizedViewTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#timeouts BigtableAuthorizedView#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableAuthorizedViewTimeouts"], result)
@@ -605,8 +605,8 @@ class BigtableAuthorizedViewSubsetView:
         row_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param family_subsets: family_subsets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
-        :param row_prefixes: Base64-encoded row prefixes to be included in the authorized view. To provide access to all rows, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
+        :param family_subsets: family_subsets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
+        :param row_prefixes: Base64-encoded row prefixes to be included in the authorized view. To provide access to all rows, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13bedd5db978bc4029e9244abf3c68337bedebbe764aeb74027e5c9b83126137)
@@ -624,7 +624,7 @@ class BigtableAuthorizedViewSubsetView:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BigtableAuthorizedViewSubsetViewFamilySubsets"]]]:
         '''family_subsets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#family_subsets BigtableAuthorizedView#family_subsets}
         '''
         result = self._values.get("family_subsets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BigtableAuthorizedViewSubsetViewFamilySubsets"]]], result)
@@ -635,7 +635,7 @@ class BigtableAuthorizedViewSubsetView:
 
         To provide access to all rows, include the empty string as a prefix ("").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#row_prefixes BigtableAuthorizedView#row_prefixes}
         '''
         result = self._values.get("row_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -670,9 +670,9 @@ class BigtableAuthorizedViewSubsetViewFamilySubsets:
         qualifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param family_name: Name of the column family to be included in the authorized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#family_name BigtableAuthorizedView#family_name}
-        :param qualifier_prefixes: Base64-encoded prefixes for qualifiers of the column family to be included in the authorized view. Every qualifier starting with one of these prefixes is included in the authorized view. To provide access to all qualifiers, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#qualifier_prefixes BigtableAuthorizedView#qualifier_prefixes}
-        :param qualifiers: Base64-encoded individual exact column qualifiers of the column family to be included in the authorized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#qualifiers BigtableAuthorizedView#qualifiers}
+        :param family_name: Name of the column family to be included in the authorized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#family_name BigtableAuthorizedView#family_name}
+        :param qualifier_prefixes: Base64-encoded prefixes for qualifiers of the column family to be included in the authorized view. Every qualifier starting with one of these prefixes is included in the authorized view. To provide access to all qualifiers, include the empty string as a prefix (""). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#qualifier_prefixes BigtableAuthorizedView#qualifier_prefixes}
+        :param qualifiers: Base64-encoded individual exact column qualifiers of the column family to be included in the authorized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#qualifiers BigtableAuthorizedView#qualifiers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7317994fa38d8e646346d52905a198592c3683a6ebb6f998b364d37c676c351f)
@@ -691,7 +691,7 @@ class BigtableAuthorizedViewSubsetViewFamilySubsets:
     def family_name(self) -> builtins.str:
         '''Name of the column family to be included in the authorized view.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#family_name BigtableAuthorizedView#family_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#family_name BigtableAuthorizedView#family_name}
         '''
         result = self._values.get("family_name")
         assert result is not None, "Required property 'family_name' is missing"
@@ -703,7 +703,7 @@ class BigtableAuthorizedViewSubsetViewFamilySubsets:
 
         Every qualifier starting with one of these prefixes is included in the authorized view. To provide access to all qualifiers, include the empty string as a prefix ("").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#qualifier_prefixes BigtableAuthorizedView#qualifier_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#qualifier_prefixes BigtableAuthorizedView#qualifier_prefixes}
         '''
         result = self._values.get("qualifier_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -712,7 +712,7 @@ class BigtableAuthorizedViewSubsetViewFamilySubsets:
     def qualifiers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Base64-encoded individual exact column qualifiers of the column family to be included in the authorized view.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#qualifiers BigtableAuthorizedView#qualifiers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#qualifiers BigtableAuthorizedView#qualifiers}
         '''
         result = self._values.get("qualifiers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1024,8 +1024,8 @@ class BigtableAuthorizedViewTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f54055ffd4a1eca8a1fd0fa7fc46b87bf79a92038ac125c0eaa62a6128750f9f)
@@ -1039,13 +1039,13 @@ class BigtableAuthorizedViewTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#create BigtableAuthorizedView#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_authorized_view#update BigtableAuthorizedView#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

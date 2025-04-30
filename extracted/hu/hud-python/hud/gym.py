@@ -8,12 +8,12 @@ from hud.env.environment import Environment
 from hud.env.local_docker_client import LocalDockerClient
 from hud.env.remote_client import RemoteClient
 from hud.env.remote_docker_client import RemoteDockerClient
-from hud.task import Task
 from hud.types import CustomGym, Gym
 from hud.utils.common import get_gym_id
 
 if TYPE_CHECKING:
     from hud.job import Job
+    from hud.task import Task
 
 logger = logging.getLogger("hud.gym")
 
@@ -54,9 +54,9 @@ async def make(
     
     gym = None
     task = None
-    if isinstance(env_src, Gym):
+    if isinstance(env_src, str | CustomGym):
         gym = env_src
-    elif isinstance(env_src, Task):
+    else:
         gym = env_src.gym
         task = env_src
 

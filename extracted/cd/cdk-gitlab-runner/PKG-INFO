@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-gitlab-runner
-Version: 2.3.115
+Version: 2.3.116
 Summary: Use AWS CDK to create a gitlab runner, and use gitlab runner to help you execute your Gitlab pipeline job.
 Home-page: https://github.com/neilkuan/cdk-gitlab-runner.git
 Author: Neil Kuan<guan840912@gmail.com>

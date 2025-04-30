@@ -55,6 +55,7 @@ from .common import (
 )
 
 basemaps = Box(xyz_to_leaflet(), frozen_box=True)
+MapWidget._use_message_queue = False
 
 
 class Map(MapWidget):
@@ -98,6 +99,8 @@ class Map(MapWidget):
             height (str, optional): The height of the map. Defaults to "600px".
             controls (dict, optional): The controls and their positions on the
                 map. Defaults to {"fullscreen": "top-right", "scale": "bottom-left"}.
+            projection (str, optional): The projection of the map. It can be
+                "mercator" or "globe". Defaults to "mercator".
             **kwargs: Additional keyword arguments that are passed to the MapOptions class.
                 See https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/MapOptions/
                 for more information.
@@ -163,7 +166,6 @@ class Map(MapWidget):
         )
 
         super().__init__(map_options, height=height)
-        super().use_message_queue()
 
         for control, position in controls.items():
             self.add_control(control, position)

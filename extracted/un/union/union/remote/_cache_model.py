@@ -5,9 +5,10 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional, Tuple, Union
+from functools import partial
+from typing import Dict, Generator, Optional, Tuple, Union
 
-from flytekit import ImageSpec, Resources, Secret, Workflow, current_context
+from flytekit import FlyteDirectory, ImageSpec, Resources, Secret, Workflow, current_context
 from flytekit.core.context_manager import ExecutionParameters
 
 import union
@@ -135,6 +136,39 @@ def get_partition_keys_for_model(info: HuggingFaceModelInfo) -> Dict[str, str]:
     }
 
 
+def _yield_files(hfs, repo_id: str, revision: str) -> Generator[dict, None, None]:
+    for _, _, files in hfs.walk(repo_id, revision=revision, detail=True):
+        for file_details in files.values():
+            yield file_details
+
+
+def _stream_file_to_dir(
+    file_details: dict,
+    hfs,
+    prefix_len: int,
+    directory: FlyteDirectory,
+    chunk_size: int,
+):
+    name = file_details["name"]
+    size = file_details["size"]
+    with hfs.open(name, "rb", block_size=0) as res:
+        filename = name[prefix_len:]
+        ff = directory.new_file(filename)
+        copied = 0
+        print(f"Copying {name} to {ff.path}, size: {size}. Total chunks: {size // chunk_size}", flush=True)
+        with ff.open("wb") as sink:
+            while True:
+                chunk = res.read(chunk_size)
+                sink.write(chunk)
+                copied = copied + len(chunk)
+                if copied >= size:
+                    break
+                percent_complete = copied / size * 100
+                if int(percent_complete) > 0 and int(percent_complete) % 10 == 0:
+                    print(f"Completed copying {percent_complete} %...", flush=True)
+        print(f"Copied {name} to {ff.path}", flush=True)
+
+
 def stream_all_files_to_flytedir(
     repo_id: str,
     commit: str,
@@ -157,31 +191,30 @@ def stream_all_files_to_flytedir(
     card = None
 
     hfs = HfFileSystem(token=token)
-    for file_details in hfs.ls(repo_id, revision=commit, detail=True):
-        f = file_details["name"]
-        if f.endswith(".md"):
-            print(f"Reading card from {f}")
-            with hfs.open(f, "r") as res:
-                card = res.read()
-            continue
 
-        with hfs.open(f, "rb", block_size=0) as res:
-            filename = os.path.basename(f)
-            size = file_details["size"]
-            ff = directory.new_file(filename)
-            copied = 0
-            print(f"Copying {f} to {ff.path}, size: {size}. Total chunks: {size // chunk_size}")
-            with ff.open("wb") as sink:
-                while True:
-                    chunk = res.read(chunk_size)
-                    sink.write(chunk)
-                    copied = copied + len(chunk)
-                    if copied >= size:
-                        break
-                    percent_complete = copied / size * 100
-                    if int(percent_complete) > 0 and int(percent_complete) % 10 == 0:
-                        print(f"Completed copying {percent_complete} %...")
-        print(f"Copied {f} to {directory.path}")
+    try:
+        readme_file_details = hfs.info(f"{repo_id}/README.md", revision=commit)
+        readme_name = readme_file_details["name"]
+        with hfs.open(readme_name, "r") as res:
+            card = res.read()
+
+    except FileNotFoundError:
+        print("No readme file", flush=True)
+
+    root_name_detail = hfs.info(repo_id, revision=commit)
+    prefix = root_name_detail["name"]
+    prefix_len = len(prefix) + 1
+
+    stream_file_partial = partial(
+        _stream_file_to_dir,
+        hfs=hfs,
+        prefix_len=prefix_len,
+        directory=directory,
+        chunk_size=chunk_size,
+    )
+
+    for file_details in _yield_files(hfs, repo_id=repo_id, revision=commit):
+        stream_file_partial(file_details)
     return directory, card
 
 

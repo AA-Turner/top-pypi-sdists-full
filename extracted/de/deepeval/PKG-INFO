@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 2.7.9
+Version: 2.8.1
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -18,8 +18,6 @@ Requires-Dist: black
 Requires-Dist: coverage
 Requires-Dist: google-genai (>=1.9.0,<2.0.0)
 Requires-Dist: grpcio (>=1.67.1,<2.0.0)
-Requires-Dist: langchain_community
-Requires-Dist: langchain_openai
 Requires-Dist: nest_asyncio
 Requires-Dist: ollama
 Requires-Dist: openai

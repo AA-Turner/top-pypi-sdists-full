@@ -24,7 +24,7 @@ dependencies = [
     "rich",
     "rich_click",
     "flytekit>=v1.15.4",
-    "flyteidl>=v1.15.1",
+    "flyteidl>=v1.15.3",
     "sentry-sdk>=2.0.0",
     "mashumaro",
     # Actors are only required for linux and execution

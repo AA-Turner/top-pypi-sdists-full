@@ -1,15 +1,16 @@
 """Checker of PEP-8 Naming Conventions."""
 import ast
+import enum
 from ast import iter_child_nodes
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator, Sequence
 from fnmatch import fnmatchcase
 from functools import partial
 from itertools import chain
 
 from flake8 import style_guide
 
-__version__ = '0.14.1'
+__version__ = '0.15.0'
 
 CLASS_METHODS = frozenset((
     '__new__',
@@ -31,43 +32,53 @@ METHOD_CONTAINER_NODES = {
 FUNC_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
-class _ASTCheckMeta(type):
-    def __init__(cls, class_name, bases, namespace):
-        cls.codes = tuple(code for code in namespace if code.startswith('N'))
-        try:
-            cls.all.append(cls())
-        except AttributeError:
-            cls.all = []
+class BaseASTCheck:
+    """Base for AST Checks."""
+
+    all: list['BaseASTCheck'] = []
+    codes: tuple[str, ...]
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.all.append(cls())
+        cls.codes = tuple(code for code in dir(cls) if code.startswith('N'))
+
+    def err(self, node, code: str, **kwargs):
+        lineno, col_offset = node.lineno, node.col_offset
+        if isinstance(node, ast.ClassDef):
+            col_offset += 6
+        elif isinstance(node, FUNC_NODES):
+            col_offset += 4
+        code_str = getattr(self, code)
+        if kwargs:
+            code_str = code_str.format(**kwargs)
+        return lineno, col_offset + 1, f'{code} {code_str}', self
 
 
-def _err(self, node, code, **kwargs):
-    lineno, col_offset = node.lineno, node.col_offset
-    if isinstance(node, ast.ClassDef):
-        col_offset += 6
-    elif isinstance(node, FUNC_NODES):
-        col_offset += 4
-    code_str = getattr(self, code)
-    if kwargs:
-        code_str = code_str.format(**kwargs)
-    return lineno, col_offset + 1, f'{code} {code_str}', self
+class NameSet(frozenset[str]):
+    """A set of names that can be matched as Unix shell-style wildcards."""
+    _fnmatch: bool = False
+
+    def __new__(cls, iterable: Iterable[str]):
+        obj = super().__new__(cls, iterable)
+        obj._fnmatch = any("*" in s or "?" in s or "[" in s for s in iterable)
+        return obj
+
+    def __contains__(self, item: object, /) -> bool:
+        if self._fnmatch and isinstance(item, str):
+            return any(fnmatchcase(item, name) for name in self)
+        return super().__contains__(item)
 
 
-def _ignored(name, ignore):
-    return any(fnmatchcase(name, i) for i in ignore)
-
-
-BaseASTCheck = _ASTCheckMeta('BaseASTCheck', (object,),
-                             {'__doc__': "Base for AST Checks.", 'err': _err})
-
-
-class _FunctionType:
+@enum.unique
+class FunctionType(enum.Enum):
     CLASSMETHOD = 'classmethod'
     STATICMETHOD = 'staticmethod'
     FUNCTION = 'function'
     METHOD = 'method'
 
 
-_default_ignore_names = [
+_default_ignored_names = [
         'setUp',
         'tearDown',
         'setUpClass',
@@ -85,11 +96,11 @@ _default_staticmethod_decorators = ['staticmethod']
 
 
 def _build_decorator_to_type(classmethod_decorators, staticmethod_decorators):
-    decorator_to_type = {}
+    decorator_to_type: dict[str, FunctionType] = {}
     for decorator in classmethod_decorators:
-        decorator_to_type[decorator] = _FunctionType.CLASSMETHOD
+        decorator_to_type[decorator] = FunctionType.CLASSMETHOD
     for decorator in staticmethod_decorators:
-        decorator_to_type[decorator] = _FunctionType.STATICMETHOD
+        decorator_to_type[decorator] = FunctionType.STATICMETHOD
     return decorator_to_type
 
 
@@ -100,7 +111,7 @@ class NamingChecker:
     visitors = BaseASTCheck.all
     decorator_to_type = _build_decorator_to_type(
         _default_classmethod_decorators, _default_staticmethod_decorators)
-    ignore_names = frozenset(_default_ignore_names)
+    ignored = NameSet(_default_ignored_names)
 
     def __init__(self, tree, filename):
         self.tree = tree
@@ -109,7 +120,7 @@ class NamingChecker:
     def add_options(cls, parser):
         parser.add_option(
             '--ignore-names',
-            default=_default_ignore_names,
+            default=_default_ignored_names,
             parse_from_config=True,
             comma_separated_list=True,
             help='List of names or glob patterns the pep8-naming '
@@ -137,14 +148,14 @@ class NamingChecker:
 
     @classmethod
     def parse_options(cls, options):
-        cls.ignore_names = frozenset(options.ignore_names)
+        cls.ignored = NameSet(options.ignore_names)
         cls.decorator_to_type = _build_decorator_to_type(
             options.classmethod_decorators,
             options.staticmethod_decorators)
 
-        # Build a list of node visitors based the error codes that have been
-        # selected in the style guide. Only the checks that have been selected
-        # will be evaluated as a performance optimization.
+        # Rebuild the list of node visitors based the error codes that have
+        # been selected in the style guide. Only the checks that have been
+        # selected will be evaluated as a performance optimization.
         engine = style_guide.DecisionEngine(options)
         cls.visitors = frozenset(
             visitor for visitor in BaseASTCheck.all for code in visitor.codes
@@ -161,25 +172,25 @@ class NamingChecker:
             yield from self.visit_tree(child, parents)
         parents.pop()
 
-    def visit_node(self, node, parents: Iterable):
+    def visit_node(self, node, parents: Sequence):
         if isinstance(node, ast.ClassDef):
             self.tag_class_functions(node)
         elif isinstance(node, FUNC_NODES):
             self.find_global_defs(node)
 
         method = 'visit_' + node.__class__.__name__.lower()
-        ignore_names = self.ignore_names
+        ignored = self.ignored
         for visitor in self.visitors:
             visitor_method = getattr(visitor, method, None)
             if visitor_method is None:
                 continue
-            yield from visitor_method(node, parents, ignore_names)
+            yield from visitor_method(node, parents, ignored)
 
     def tag_class_functions(self, cls_node):
         """Tag functions if they are methods, classmethods, staticmethods"""
         # tries to find all 'old style decorators' like
         # m = staticmethod(m)
-        late_decoration = {}
+        late_decoration: dict[str, FunctionType] = {}
         for node in iter_child_nodes(cls_node):
             if not (isinstance(node, ast.Assign) and
                     isinstance(node.value, ast.Call) and
@@ -204,7 +215,12 @@ class NamingChecker:
         self.set_function_nodes_types(
             iter_child_nodes(cls_node), ismetaclass, late_decoration)
 
-    def set_function_nodes_types(self, nodes, ismetaclass, late_decoration):
+    def set_function_nodes_types(
+        self,
+        nodes: Iterator[ast.AST],
+        ismetaclass: bool,
+        late_decoration: dict[str, FunctionType],
+    ):
         # iterate over all functions and tag them
         for node in nodes:
             if type(node) in METHOD_CONTAINER_NODES:
@@ -212,16 +228,18 @@ class NamingChecker:
                     iter_child_nodes(node), ismetaclass, late_decoration)
             if not isinstance(node, FUNC_NODES):
                 continue
-            node.function_type = _FunctionType.METHOD
+            setattr(node, 'function_type', FunctionType.METHOD)
             if node.name in CLASS_METHODS or ismetaclass:
-                node.function_type = _FunctionType.CLASSMETHOD
+                setattr(node, 'function_type', FunctionType.CLASSMETHOD)
             if node.name in late_decoration:
-                node.function_type = late_decoration[node.name]
+                setattr(node, 'function_type', late_decoration[node.name])
             elif node.decorator_list:
                 for d in node.decorator_list:
                     name = self.find_decorator_name(d)
-                    if name in self.decorator_to_type:
-                        node.function_type = self.decorator_to_type[name]
+                    if name is None:
+                        continue
+                    if function_type := self.decorator_to_type.get(name):
+                        setattr(node, 'function_type', function_type)
                         break
 
     @classmethod
@@ -257,14 +275,14 @@ class ClassNameCheck(BaseASTCheck):
     N818 = "exception name '{name}' should be named with an Error suffix"
 
     @classmethod
-    def get_classdef(cls, name, parents: Iterable):
+    def get_classdef(cls, name, parents: Sequence):
         for parent in parents:
             for node in parent.body:
                 if isinstance(node, ast.ClassDef) and node.name == name:
                     return node
 
     @classmethod
-    def superclass_names(cls, name, parents: Iterable, _names=None):
+    def superclass_names(cls, name, parents: Sequence, _names=None):
         names = _names or set()
         classdef = cls.get_classdef(name, parents)
         if not classdef:
@@ -275,9 +293,9 @@ class ClassNameCheck(BaseASTCheck):
                 names.update(cls.superclass_names(base.id, parents, names))
         return names
 
-    def visit_classdef(self, node, parents: Iterable, ignore=None):
+    def visit_classdef(self, node, parents: Sequence, ignored: NameSet):
         name = node.name
-        if _ignored(name, ignore):
+        if name in ignored:
             return
         name = name.strip('_')
         if not name[:1].isupper() or '_' in name:
@@ -310,19 +328,19 @@ class FunctionNameCheck(BaseASTCheck):
                 return True
         return False
 
-    def visit_functiondef(self, node, parents: Iterable, ignore=None):
-        function_type = getattr(node, 'function_type', _FunctionType.FUNCTION)
+    def visit_functiondef(self, node, parents: Sequence, ignored: NameSet):
+        function_type = getattr(node, 'function_type', FunctionType.FUNCTION)
         name = node.name
-        if _ignored(name, ignore):
+        if name in ignored:
             return
         if name in ('__dir__', '__getattr__'):
             return
-        if (function_type != _FunctionType.FUNCTION
+        if (function_type != FunctionType.FUNCTION
                 and self.has_override_decorator(node)):
             return
         if name.lower() != name:
             yield self.err(node, 'N802', name=name)
-        if (function_type == _FunctionType.FUNCTION
+        if (function_type == FunctionType.FUNCTION
                 and name[:2] == '__' and name[-2:] == '__'):
             yield self.err(node, 'N807', name=name)
 
@@ -341,22 +359,22 @@ class FunctionArgNamesCheck(BaseASTCheck):
     N804 = "first argument of a classmethod should be named 'cls'"
     N805 = "first argument of a method should be named 'self'"
 
-    def visit_functiondef(self, node, parents: Iterable, ignore=None):
+    def visit_functiondef(self, node, parents: Sequence, ignored: NameSet):
         args = node.args.posonlyargs + node.args.args + node.args.kwonlyargs
 
         # Start by applying checks that are specific to the first argument.
         #
-        # Note: The `ignore` check shouldn't be necessary here because we'd
+        # Note: The `ignored` check shouldn't be necessary here because we'd
         #       expect users to explicitly ignore N804/N805 when using names
         #       other than `self` and `cls` rather than ignoring names like
         #       `klass` to get around these checks. However, a previous
         #       implementation allowed for that, so we retain that behavior
         #       for backwards compatibility.
-        if args and (name := args[0].arg) and not _ignored(name, ignore):
+        if args and (name := args[0].arg) and name not in ignored:
             function_type = getattr(node, 'function_type', None)
-            if function_type == _FunctionType.METHOD and name != 'self':
+            if function_type == FunctionType.METHOD and name != 'self':
                 yield self.err(args[0], 'N805')
-            elif function_type == _FunctionType.CLASSMETHOD and name != 'cls':
+            elif function_type == FunctionType.CLASSMETHOD and name != 'cls':
                 yield self.err(args[0], 'N804')
 
         # Also add the special *arg and **kwarg arguments for the rest of the
@@ -370,7 +388,7 @@ class FunctionArgNamesCheck(BaseASTCheck):
 
         for arg in args:
             name = arg.arg
-            if name.lower() != name and not _ignored(name, ignore):
+            if name.lower() != name and name not in ignored:
                 yield self.err(arg, 'N803', name=name)
 
     visit_asyncfunctiondef = visit_functiondef
@@ -386,7 +404,7 @@ class ImportAsCheck(BaseASTCheck):
     N814 = "camelcase '{name}' imported as constant '{asname}'"
     N817 = "camelcase '{name}' imported as acronym '{asname}'"
 
-    def visit_importfrom(self, node, parents: Iterable, ignore=None):
+    def visit_importfrom(self, node, parents: Sequence, ignored: NameSet):
         for name in node.names:
             asname = name.asname
             if not asname:
@@ -418,7 +436,7 @@ class VariablesCheck(BaseASTCheck):
     N815 = "variable '{name}' in class scope should not be mixedCase"
     N816 = "variable '{name}' in global scope should not be mixedCase"
 
-    def _find_errors(self, assignment_target, parents: Iterable, ignore):
+    def _find_errors(self, assignment_target, parents: Sequence, ignored: NameSet):
         for parent_func in reversed(parents):
             if isinstance(parent_func, ast.ClassDef):
                 checker = self.class_variable_check
@@ -429,7 +447,7 @@ class VariablesCheck(BaseASTCheck):
         else:
             checker = self.global_variable_check
         for name in _extract_names(assignment_target):
-            if _ignored(name, ignore):
+            if name in ignored:
                 continue
             error_code = checker(name)
             if error_code:
@@ -446,38 +464,38 @@ class VariablesCheck(BaseASTCheck):
                     return True
         return False
 
-    def visit_assign(self, node, parents: Iterable, ignore=None):
+    def visit_assign(self, node, parents: Sequence, ignored: NameSet):
         if self.is_namedtupe(node.value):
             return
         for target in node.targets:
-            yield from self._find_errors(target, parents, ignore)
+            yield from self._find_errors(target, parents, ignored)
 
-    def visit_namedexpr(self, node, parents: Iterable, ignore):
+    def visit_namedexpr(self, node, parents: Sequence, ignored: NameSet):
         if self.is_namedtupe(node.value):
             return
-        yield from self._find_errors(node.target, parents, ignore)
+        yield from self._find_errors(node.target, parents, ignored)
 
     visit_annassign = visit_namedexpr
 
-    def visit_with(self, node, parents: Iterable, ignore):
+    def visit_with(self, node, parents: Sequence, ignored: NameSet):
         for item in node.items:
             yield from self._find_errors(
-                    item.optional_vars, parents, ignore)
+                    item.optional_vars, parents, ignored)
 
     visit_asyncwith = visit_with
 
-    def visit_for(self, node, parents: Iterable, ignore):
-        yield from self._find_errors(node.target, parents, ignore)
+    def visit_for(self, node, parents: Sequence, ignored: NameSet):
+        yield from self._find_errors(node.target, parents, ignored)
 
     visit_asyncfor = visit_for
 
-    def visit_excepthandler(self, node, parents: Iterable, ignore):
+    def visit_excepthandler(self, node, parents: Sequence, ignored: NameSet):
         if node.name:
-            yield from self._find_errors(node, parents, ignore)
+            yield from self._find_errors(node, parents, ignored)
 
-    def visit_generatorexp(self, node, parents: Iterable, ignore):
+    def visit_generatorexp(self, node, parents: Sequence, ignored: NameSet):
         for gen in node.generators:
-            yield from self._find_errors(gen.target, parents, ignore)
+            yield from self._find_errors(gen.target, parents, ignored)
 
     visit_listcomp = visit_dictcomp = visit_setcomp = visit_generatorexp
 
@@ -498,6 +516,44 @@ class VariablesCheck(BaseASTCheck):
         if var_name.lower() == var_name:
             return None
         return 'N806'
+
+
+class TypeVarNameCheck(BaseASTCheck):
+    N808 = "type variable name '{name}' should use CapWords convention " \
+           "and an optional '_co' or '_contra' suffix"
+
+    def visit_module(self, node, parents: Sequence, ignored: NameSet):
+        for body in node.body:
+            try:
+                if len(body.targets) != 1:
+                    continue
+                name = body.targets[0].id
+                func_name = body.value.func.id
+                args = [a.value for a in body.value.args]
+                keywords = {kw.arg: kw.value.value for kw in body.value.keywords}
+            except AttributeError:
+                continue
+
+            if func_name != "TypeVar" or name in ignored:
+                continue
+
+            if len(args) == 0 or args[0] != name:
+                yield self.err(body, 'N808', name=name)
+
+            if not name[:1].isupper():
+                yield self.err(body, 'N808', name=name)
+
+            parts = name.split('_')
+            if len(parts) > 2:
+                yield self.err(body, 'N808', name=name)
+
+            suffix = parts[-1] if len(parts) > 1 else ''
+            if suffix and suffix != 'co' and suffix != 'contra':
+                yield self.err(body, 'N808', name=name)
+            elif keywords.get('covariant') and suffix != 'co':
+                yield self.err(body, 'N808', name=name)
+            elif keywords.get('contravariant') and suffix != 'contra':
+                yield self.err(body, 'N808', name=name)
 
 
 def _extract_names(assignment_target):

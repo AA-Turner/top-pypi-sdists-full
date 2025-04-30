@@ -1,7 +1,7 @@
 r'''
 # `google_compute_node_group`
 
-Refer to the Terraform Registry for docs: [`google_compute_node_group`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group).
+Refer to the Terraform Registry for docs: [`google_compute_node_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeNodeGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeNodeGroup.ComputeNodeGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group google_compute_node_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group google_compute_node_group}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ComputeNodeGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group google_compute_node_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group google_compute_node_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
-        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
-        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
+        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
+        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
+        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ComputeNodeGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeNodeGroup to import.
-        :param import_from_id: The id of the existing ComputeNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeNodeGroup to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class ComputeNodeGroup(
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
-        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
-        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
+        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
+        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
+        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
         '''
         value = ComputeNodeGroupAutoscalingPolicy(
             max_nodes=max_nodes, min_nodes=min_nodes, mode=mode
@@ -169,7 +169,7 @@ class ComputeNodeGroup(
     @jsii.member(jsii_name="putMaintenanceWindow")
     def put_maintenance_window(self, *, start_time: builtins.str) -> None:
         '''
-        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
+        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
         '''
         value = ComputeNodeGroupMaintenanceWindow(start_time=start_time)
 
@@ -183,8 +183,8 @@ class ComputeNodeGroup(
         project_map: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeNodeGroupShareSettingsProjectMap", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
+        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
         '''
         value = ComputeNodeGroupShareSettings(
             share_type=share_type, project_map=project_map
@@ -201,9 +201,9 @@ class ComputeNodeGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.
         '''
         value = ComputeNodeGroupTimeouts(create=create, delete=delete, update=update)
 
@@ -478,9 +478,9 @@ class ComputeNodeGroupAutoscalingPolicy:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
-        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
-        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
+        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
+        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
+        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9caaefa03175a20b73f0439620dce227c4bb8634ea25d58a8c888058a4bf0189)
@@ -502,7 +502,7 @@ class ComputeNodeGroupAutoscalingPolicy:
         Set to a value less than or equal
         to 100 and greater than or equal to min-nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#max_nodes ComputeNodeGroup#max_nodes}
         '''
         result = self._values.get("max_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -511,7 +511,7 @@ class ComputeNodeGroupAutoscalingPolicy:
     def min_nodes(self) -> typing.Optional[jsii.Number]:
         '''Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#min_nodes ComputeNodeGroup#min_nodes}
         '''
         result = self._values.get("min_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -528,7 +528,7 @@ class ComputeNodeGroupAutoscalingPolicy:
           You must use this mode if your node groups are configured to
           restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#mode ComputeNodeGroup#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -701,18 +701,18 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
-        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
-        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
+        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
+        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
+        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -853,7 +853,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_template(self) -> builtins.str:
         '''The URL of the node template to which this node group belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#node_template ComputeNodeGroup#node_template}
         '''
         result = self._values.get("node_template")
         assert result is not None, "Required property 'node_template' is missing"
@@ -863,7 +863,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling_policy(self) -> typing.Optional[ComputeNodeGroupAutoscalingPolicy]:
         '''autoscaling_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#autoscaling_policy ComputeNodeGroup#autoscaling_policy}
         '''
         result = self._values.get("autoscaling_policy")
         return typing.cast(typing.Optional[ComputeNodeGroupAutoscalingPolicy], result)
@@ -872,14 +872,14 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional textual description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#description ComputeNodeGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -893,7 +893,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#initial_size ComputeNodeGroup#initial_size}
         '''
         result = self._values.get("initial_size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -904,7 +904,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_policy ComputeNodeGroup#maintenance_policy}
         '''
         result = self._values.get("maintenance_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -915,7 +915,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeNodeGroupMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#maintenance_window ComputeNodeGroup#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["ComputeNodeGroupMaintenanceWindow"], result)
@@ -924,14 +924,14 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#name ComputeNodeGroup#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project ComputeNodeGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -939,7 +939,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def share_settings(self) -> typing.Optional["ComputeNodeGroupShareSettings"]:
         '''share_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_settings ComputeNodeGroup#share_settings}
         '''
         result = self._values.get("share_settings")
         return typing.cast(typing.Optional["ComputeNodeGroupShareSettings"], result)
@@ -948,7 +948,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeNodeGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#timeouts ComputeNodeGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeNodeGroupTimeouts"], result)
@@ -957,7 +957,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''Zone where this node group is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#zone ComputeNodeGroup#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -982,7 +982,7 @@ class ComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ComputeNodeGroupMaintenanceWindow:
     def __init__(self, *, start_time: builtins.str) -> None:
         '''
-        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
+        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eec3f6f98265e2abfa9d8afd34d49fbfdb389ca42cc77ec0db424f3e3e30560c)
@@ -995,7 +995,7 @@ class ComputeNodeGroupMaintenanceWindow:
     def start_time(self) -> builtins.str:
         '''instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#start_time ComputeNodeGroup#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -1079,8 +1079,8 @@ class ComputeNodeGroupShareSettings:
         project_map: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeNodeGroupShareSettingsProjectMap", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
+        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46cffd27bf45857d0fd173adabc90cd505910afd1ae138dabe9ae3eb61ec3b13)
@@ -1096,7 +1096,7 @@ class ComputeNodeGroupShareSettings:
     def share_type(self) -> builtins.str:
         '''Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#share_type ComputeNodeGroup#share_type}
         '''
         result = self._values.get("share_type")
         assert result is not None, "Required property 'share_type' is missing"
@@ -1108,7 +1108,7 @@ class ComputeNodeGroupShareSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeNodeGroupShareSettingsProjectMap"]]]:
         '''project_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project_map ComputeNodeGroup#project_map}
         '''
         result = self._values.get("project_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeNodeGroupShareSettingsProjectMap"]]], result)
@@ -1215,8 +1215,8 @@ class ComputeNodeGroupShareSettingsOutputReference(
 class ComputeNodeGroupShareSettingsProjectMap:
     def __init__(self, *, id: builtins.str, project_id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: The project id/number should be the same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project_id ComputeNodeGroup#project_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: The project id/number should be the same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project_id ComputeNodeGroup#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa105f3fae893e9560c64591fe087e5c24a15425f13e46da0951c979e37366a0)
@@ -1229,7 +1229,7 @@ class ComputeNodeGroupShareSettingsProjectMap:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#id ComputeNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1242,7 +1242,7 @@ class ComputeNodeGroupShareSettingsProjectMap:
     def project_id(self) -> builtins.str:
         '''The project id/number should be the same as the key of this project config in the project map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#project_id ComputeNodeGroup#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#project_id ComputeNodeGroup#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1445,9 +1445,9 @@ class ComputeNodeGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1abe21e32df89cf947c56e3686a6d9fede9a4f1ce7fcb2749f7bbea63987e726)
@@ -1464,19 +1464,19 @@ class ComputeNodeGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#create ComputeNodeGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#delete ComputeNodeGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_node_group#update ComputeNodeGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

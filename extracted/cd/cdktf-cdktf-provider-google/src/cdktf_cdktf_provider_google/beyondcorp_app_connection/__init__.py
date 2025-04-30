@@ -1,7 +1,7 @@
 r'''
 # `google_beyondcorp_app_connection`
 
-Refer to the Terraform Registry for docs: [`google_beyondcorp_app_connection`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection).
+Refer to the Terraform Registry for docs: [`google_beyondcorp_app_connection`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BeyondcorpAppConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.beyondcorpAppConnection.BeyondcorpAppConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection google_beyondcorp_app_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection google_beyondcorp_app_connection}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class BeyondcorpAppConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection google_beyondcorp_app_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection google_beyondcorp_app_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_endpoint: application_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
-        :param name: ID of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
-        :param connectors: List of AppConnectors that are authorised to be associated with this AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
-        :param display_name: An arbitrary user-provided name for the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
-        :param gateway: gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.
-        :param region: The region of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
-        :param type: The type of network connectivity used by the AppConnection. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#type for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        :param application_endpoint: application_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
+        :param name: ID of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
+        :param connectors: List of AppConnectors that are authorised to be associated with this AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
+        :param display_name: An arbitrary user-provided name for the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
+        :param gateway: gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.
+        :param region: The region of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
+        :param type: The type of network connectivity used by the AppConnection. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#type for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class BeyondcorpAppConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BeyondcorpAppConnection to import.
-        :param import_from_id: The id of the existing BeyondcorpAppConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BeyondcorpAppConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BeyondcorpAppConnection to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class BeyondcorpAppConnection(
         port: jsii.Number,
     ) -> None:
         '''
-        :param host: Hostname or IP address of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
-        :param port: Port of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
+        :param host: Hostname or IP address of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
+        :param port: Port of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
         '''
         value = BeyondcorpAppConnectionApplicationEndpoint(host=host, port=port)
 
@@ -167,8 +167,8 @@ class BeyondcorpAppConnection(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_gateway: AppGateway name in following format: projects/{project_id}/locations/{locationId}/appgateways/{gateway_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
-        :param type: The type of hosting used by the gateway. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#Type_1 for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        :param app_gateway: AppGateway name in following format: projects/{project_id}/locations/{locationId}/appgateways/{gateway_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
+        :param type: The type of hosting used by the gateway. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#Type_1 for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         '''
         value = BeyondcorpAppConnectionGateway(app_gateway=app_gateway, type=type)
 
@@ -183,9 +183,9 @@ class BeyondcorpAppConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.
         '''
         value = BeyondcorpAppConnectionTimeouts(
             create=create, delete=delete, update=update
@@ -435,8 +435,8 @@ class BeyondcorpAppConnection(
 class BeyondcorpAppConnectionApplicationEndpoint:
     def __init__(self, *, host: builtins.str, port: jsii.Number) -> None:
         '''
-        :param host: Hostname or IP address of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
-        :param port: Port of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
+        :param host: Hostname or IP address of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
+        :param port: Port of the remote application endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd531c9e158c1058d2de5990741c72b6f69ef1ec388e9d010184e49b24c1f042)
@@ -451,7 +451,7 @@ class BeyondcorpAppConnectionApplicationEndpoint:
     def host(self) -> builtins.str:
         '''Hostname or IP address of the remote application endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#host BeyondcorpAppConnection#host}
         '''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
@@ -461,7 +461,7 @@ class BeyondcorpAppConnectionApplicationEndpoint:
     def port(self) -> jsii.Number:
         '''Port of the remote application endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#port BeyondcorpAppConnection#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -606,17 +606,17 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_endpoint: application_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
-        :param name: ID of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
-        :param connectors: List of AppConnectors that are authorised to be associated with this AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
-        :param display_name: An arbitrary user-provided name for the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
-        :param gateway: gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.
-        :param region: The region of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
-        :param type: The type of network connectivity used by the AppConnection. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#type for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        :param application_endpoint: application_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
+        :param name: ID of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
+        :param connectors: List of AppConnectors that are authorised to be associated with this AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
+        :param display_name: An arbitrary user-provided name for the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
+        :param gateway: gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.
+        :param region: The region of the AppConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
+        :param type: The type of network connectivity used by the AppConnection. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#type for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -751,7 +751,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_endpoint(self) -> BeyondcorpAppConnectionApplicationEndpoint:
         '''application_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#application_endpoint BeyondcorpAppConnection#application_endpoint}
         '''
         result = self._values.get("application_endpoint")
         assert result is not None, "Required property 'application_endpoint' is missing"
@@ -761,7 +761,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''ID of the AppConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#name BeyondcorpAppConnection#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -771,7 +771,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connectors(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of AppConnectors that are authorised to be associated with this AppConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#connectors BeyondcorpAppConnection#connectors}
         '''
         result = self._values.get("connectors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -780,7 +780,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''An arbitrary user-provided name for the AppConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#display_name BeyondcorpAppConnection#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -789,14 +789,14 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gateway(self) -> typing.Optional["BeyondcorpAppConnectionGateway"]:
         '''gateway block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#gateway BeyondcorpAppConnection#gateway}
         '''
         result = self._values.get("gateway")
         return typing.cast(typing.Optional["BeyondcorpAppConnectionGateway"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#id BeyondcorpAppConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -811,14 +811,14 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#labels BeyondcorpAppConnection#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#project BeyondcorpAppConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -826,7 +826,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the AppConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#region BeyondcorpAppConnection#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -835,7 +835,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BeyondcorpAppConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#timeouts BeyondcorpAppConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BeyondcorpAppConnectionTimeouts"], result)
@@ -844,7 +844,7 @@ class BeyondcorpAppConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of network connectivity used by the AppConnection. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#type for a list of possible values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -874,8 +874,8 @@ class BeyondcorpAppConnectionGateway:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_gateway: AppGateway name in following format: projects/{project_id}/locations/{locationId}/appgateways/{gateway_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
-        :param type: The type of hosting used by the gateway. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#Type_1 for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        :param app_gateway: AppGateway name in following format: projects/{project_id}/locations/{locationId}/appgateways/{gateway_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
+        :param type: The type of hosting used by the gateway. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#Type_1 for a list of possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78f2fe96d8cfecbb39d682b457d4b15b3878d4876f88390cbd268d6390f4b35f)
@@ -891,7 +891,7 @@ class BeyondcorpAppConnectionGateway:
     def app_gateway(self) -> builtins.str:
         '''AppGateway name in following format: projects/{project_id}/locations/{locationId}/appgateways/{gateway_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#app_gateway BeyondcorpAppConnection#app_gateway}
         '''
         result = self._values.get("app_gateway")
         assert result is not None, "Required property 'app_gateway' is missing"
@@ -901,7 +901,7 @@ class BeyondcorpAppConnectionGateway:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of hosting used by the gateway. Refer to https://cloud.google.com/beyondcorp/docs/reference/rest/v1/projects.locations.appConnections#Type_1 for a list of possible values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#type BeyondcorpAppConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1016,9 +1016,9 @@ class BeyondcorpAppConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28fa82453c0421c106b9e3d87abb2d485b010922b805e0e10027f8b67d19084d)
@@ -1035,19 +1035,19 @@ class BeyondcorpAppConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#create BeyondcorpAppConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#delete BeyondcorpAppConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connection#update BeyondcorpAppConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

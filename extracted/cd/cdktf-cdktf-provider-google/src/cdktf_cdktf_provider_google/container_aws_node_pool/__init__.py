@@ -1,7 +1,7 @@
 r'''
 # `google_container_aws_node_pool`
 
-Refer to the Terraform Registry for docs: [`google_container_aws_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool).
+Refer to the Terraform Registry for docs: [`google_container_aws_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAwsNodePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.containerAwsNodePool.ContainerAwsNodePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool google_container_aws_node_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool google_container_aws_node_pool}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ContainerAwsNodePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool google_container_aws_node_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool google_container_aws_node_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
-        :param cluster: The awsCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
-        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
-        :param subnet_id: The subnet where the node pool node run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
-        :param version: The Kubernetes version to run on this node pool (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAwsServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
-        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
-        :param update_settings: update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
+        :param cluster: The awsCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
+        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
+        :param subnet_id: The subnet where the node pool node run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
+        :param version: The Kubernetes version to run on this node pool (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAwsServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
+        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
+        :param update_settings: update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ContainerAwsNodePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAwsNodePool to import.
-        :param import_from_id: The id of the existing ContainerAwsNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAwsNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAwsNodePool to import is found.
         '''
         if __debug__:
@@ -164,8 +164,8 @@ class ContainerAwsNodePool(
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Maximum number of nodes in the NodePool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes in the NodePool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
+        :param max_node_count: Maximum number of nodes in the NodePool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes in the NodePool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
         '''
         value = ContainerAwsNodePoolAutoscaling(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -190,17 +190,17 @@ class ContainerAwsNodePool(
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAwsNodePoolConfigTaints", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param config_encryption: config_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
-        :param iam_instance_profile: The name of the AWS IAM role assigned to nodes in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
-        :param autoscaling_metrics_collection: autoscaling_metrics_collection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
-        :param instance_type: Optional. The AWS instance type. When unspecified, it defaults to ``m5.large``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
-        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
-        :param security_group_ids: Optional. The IDs of additional security groups to add to nodes in this pool. The manager will automatically create security groups with minimum rules needed for a functioning cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
-        :param tags: Optional. Key/value metadata to assign to each underlying AWS resource. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
+        :param config_encryption: config_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
+        :param iam_instance_profile: The name of the AWS IAM role assigned to nodes in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
+        :param autoscaling_metrics_collection: autoscaling_metrics_collection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
+        :param instance_type: Optional. The AWS instance type. When unspecified, it defaults to ``m5.large``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
+        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
+        :param security_group_ids: Optional. The IDs of additional security groups to add to nodes in this pool. The manager will automatically create security groups with minimum rules needed for a functioning cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
+        :param tags: Optional. Key/value metadata to assign to each underlying AWS resource. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
         '''
         value = ContainerAwsNodePoolConfigA(
             config_encryption=config_encryption,
@@ -228,10 +228,10 @@ class ContainerAwsNodePool(
         pod_pids_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_cfs_quota: Whether or not to enable CPU CFS quota. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Optional. The CPU CFS quota period to use for the node. Defaults to "100ms". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: The CpuManagerPolicy to use for the node. Defaults to "none". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
-        :param pod_pids_limit: Optional. The maximum number of PIDs in each pod running on the node. The limit scales automatically based on underlying machine size if left unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
+        :param cpu_cfs_quota: Whether or not to enable CPU CFS quota. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Optional. The CPU CFS quota period to use for the node. Defaults to "100ms". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: The CpuManagerPolicy to use for the node. Defaults to "none". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
+        :param pod_pids_limit: Optional. The maximum number of PIDs in each pod running on the node. The limit scales automatically based on underlying machine size if left unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
         '''
         value = ContainerAwsNodePoolKubeletConfig(
             cpu_cfs_quota=cpu_cfs_quota,
@@ -249,7 +249,7 @@ class ContainerAwsNodePool(
         auto_repair: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
+        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
         '''
         value = ContainerAwsNodePoolManagement(auto_repair=auto_repair)
 
@@ -258,7 +258,7 @@ class ContainerAwsNodePool(
     @jsii.member(jsii_name="putMaxPodsConstraint")
     def put_max_pods_constraint(self, *, max_pods_per_node: jsii.Number) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
+        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
         '''
         value = ContainerAwsNodePoolMaxPodsConstraint(
             max_pods_per_node=max_pods_per_node
@@ -275,9 +275,9 @@ class ContainerAwsNodePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.
         '''
         value = ContainerAwsNodePoolTimeouts(
             create=create, delete=delete, update=update
@@ -292,7 +292,7 @@ class ContainerAwsNodePool(
         surge_settings: typing.Optional[typing.Union["ContainerAwsNodePoolUpdateSettingsSurgeSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param surge_settings: surge_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
+        :param surge_settings: surge_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
         '''
         value = ContainerAwsNodePoolUpdateSettings(surge_settings=surge_settings)
 
@@ -606,8 +606,8 @@ class ContainerAwsNodePoolAutoscaling:
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Maximum number of nodes in the NodePool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes in the NodePool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
+        :param max_node_count: Maximum number of nodes in the NodePool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes in the NodePool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd64a433d527d89df9417424cb1a02825c465d00157837096d9706805e8a2c76)
@@ -622,7 +622,7 @@ class ContainerAwsNodePoolAutoscaling:
     def max_node_count(self) -> jsii.Number:
         '''Maximum number of nodes in the NodePool. Must be >= min_node_count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_node_count ContainerAwsNodePool#max_node_count}
         '''
         result = self._values.get("max_node_count")
         assert result is not None, "Required property 'max_node_count' is missing"
@@ -632,7 +632,7 @@ class ContainerAwsNodePoolAutoscaling:
     def min_node_count(self) -> jsii.Number:
         '''Minimum number of nodes in the NodePool. Must be >= 1 and <= max_node_count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#min_node_count ContainerAwsNodePool#min_node_count}
         '''
         result = self._values.get("min_node_count")
         assert result is not None, "Required property 'min_node_count' is missing"
@@ -783,21 +783,21 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
-        :param cluster: The awsCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
-        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
-        :param subnet_id: The subnet where the node pool node run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
-        :param version: The Kubernetes version to run on this node pool (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAwsServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
-        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
-        :param update_settings: update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
+        :param cluster: The awsCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
+        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
+        :param subnet_id: The subnet where the node pool node run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
+        :param version: The Kubernetes version to run on this node pool (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAwsServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
+        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
+        :param update_settings: update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -946,7 +946,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling(self) -> ContainerAwsNodePoolAutoscaling:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling ContainerAwsNodePool#autoscaling}
         '''
         result = self._values.get("autoscaling")
         assert result is not None, "Required property 'autoscaling' is missing"
@@ -956,7 +956,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The awsCluster for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cluster ContainerAwsNodePool#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -966,7 +966,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> "ContainerAwsNodePoolConfigA":
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config ContainerAwsNodePool#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -976,7 +976,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#location ContainerAwsNodePool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -986,7 +986,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_pods_constraint(self) -> "ContainerAwsNodePoolMaxPodsConstraint":
         '''max_pods_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_constraint ContainerAwsNodePool#max_pods_constraint}
         '''
         result = self._values.get("max_pods_constraint")
         assert result is not None, "Required property 'max_pods_constraint' is missing"
@@ -996,7 +996,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#name ContainerAwsNodePool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1006,7 +1006,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subnet_id(self) -> builtins.str:
         '''The subnet where the node pool node run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#subnet_id ContainerAwsNodePool#subnet_id}
         '''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
@@ -1016,7 +1016,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> builtins.str:
         '''The Kubernetes version to run on this node pool (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAwsServerConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#version ContainerAwsNodePool#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -1033,14 +1033,14 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field ``effective_annotations`` for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#annotations ContainerAwsNodePool#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#id ContainerAwsNodePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1052,7 +1052,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kubelet_config(self) -> typing.Optional["ContainerAwsNodePoolKubeletConfig"]:
         '''kubelet_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kubelet_config ContainerAwsNodePool#kubelet_config}
         '''
         result = self._values.get("kubelet_config")
         return typing.cast(typing.Optional["ContainerAwsNodePoolKubeletConfig"], result)
@@ -1061,7 +1061,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def management(self) -> typing.Optional["ContainerAwsNodePoolManagement"]:
         '''management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#management ContainerAwsNodePool#management}
         '''
         result = self._values.get("management")
         return typing.cast(typing.Optional["ContainerAwsNodePoolManagement"], result)
@@ -1070,7 +1070,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#project ContainerAwsNodePool#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1079,7 +1079,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAwsNodePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#timeouts ContainerAwsNodePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAwsNodePoolTimeouts"], result)
@@ -1088,7 +1088,7 @@ class ContainerAwsNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def update_settings(self) -> typing.Optional["ContainerAwsNodePoolUpdateSettings"]:
         '''update_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update_settings ContainerAwsNodePool#update_settings}
         '''
         result = self._values.get("update_settings")
         return typing.cast(typing.Optional["ContainerAwsNodePoolUpdateSettings"], result)
@@ -1139,17 +1139,17 @@ class ContainerAwsNodePoolConfigA:
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAwsNodePoolConfigTaints", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param config_encryption: config_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
-        :param iam_instance_profile: The name of the AWS IAM role assigned to nodes in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
-        :param autoscaling_metrics_collection: autoscaling_metrics_collection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
-        :param instance_type: Optional. The AWS instance type. When unspecified, it defaults to ``m5.large``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
-        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
-        :param security_group_ids: Optional. The IDs of additional security groups to add to nodes in this pool. The manager will automatically create security groups with minimum rules needed for a functioning cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
-        :param tags: Optional. Key/value metadata to assign to each underlying AWS resource. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
+        :param config_encryption: config_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
+        :param iam_instance_profile: The name of the AWS IAM role assigned to nodes in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
+        :param autoscaling_metrics_collection: autoscaling_metrics_collection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
+        :param instance_type: Optional. The AWS instance type. When unspecified, it defaults to ``m5.large``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
+        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
+        :param security_group_ids: Optional. The IDs of additional security groups to add to nodes in this pool. The manager will automatically create security groups with minimum rules needed for a functioning cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
+        :param tags: Optional. Key/value metadata to assign to each underlying AWS resource. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
         '''
         if isinstance(config_encryption, dict):
             config_encryption = ContainerAwsNodePoolConfigConfigEncryption(**config_encryption)
@@ -1201,7 +1201,7 @@ class ContainerAwsNodePoolConfigA:
     def config_encryption(self) -> "ContainerAwsNodePoolConfigConfigEncryption":
         '''config_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#config_encryption ContainerAwsNodePool#config_encryption}
         '''
         result = self._values.get("config_encryption")
         assert result is not None, "Required property 'config_encryption' is missing"
@@ -1211,7 +1211,7 @@ class ContainerAwsNodePoolConfigA:
     def iam_instance_profile(self) -> builtins.str:
         '''The name of the AWS IAM role assigned to nodes in the pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iam_instance_profile ContainerAwsNodePool#iam_instance_profile}
         '''
         result = self._values.get("iam_instance_profile")
         assert result is not None, "Required property 'iam_instance_profile' is missing"
@@ -1223,7 +1223,7 @@ class ContainerAwsNodePoolConfigA:
     ) -> typing.Optional["ContainerAwsNodePoolConfigAutoscalingMetricsCollection"]:
         '''autoscaling_metrics_collection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#autoscaling_metrics_collection ContainerAwsNodePool#autoscaling_metrics_collection}
         '''
         result = self._values.get("autoscaling_metrics_collection")
         return typing.cast(typing.Optional["ContainerAwsNodePoolConfigAutoscalingMetricsCollection"], result)
@@ -1232,7 +1232,7 @@ class ContainerAwsNodePoolConfigA:
     def instance_type(self) -> typing.Optional[builtins.str]:
         '''Optional. The AWS instance type. When unspecified, it defaults to ``m5.large``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#instance_type ContainerAwsNodePool#instance_type}
         '''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1243,7 +1243,7 @@ class ContainerAwsNodePoolConfigA:
 
         The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#labels ContainerAwsNodePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1252,7 +1252,7 @@ class ContainerAwsNodePoolConfigA:
     def proxy_config(self) -> typing.Optional["ContainerAwsNodePoolConfigProxyConfig"]:
         '''proxy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#proxy_config ContainerAwsNodePool#proxy_config}
         '''
         result = self._values.get("proxy_config")
         return typing.cast(typing.Optional["ContainerAwsNodePoolConfigProxyConfig"], result)
@@ -1261,7 +1261,7 @@ class ContainerAwsNodePoolConfigA:
     def root_volume(self) -> typing.Optional["ContainerAwsNodePoolConfigRootVolume"]:
         '''root_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#root_volume ContainerAwsNodePool#root_volume}
         '''
         result = self._values.get("root_volume")
         return typing.cast(typing.Optional["ContainerAwsNodePoolConfigRootVolume"], result)
@@ -1272,7 +1272,7 @@ class ContainerAwsNodePoolConfigA:
 
         The IDs of additional security groups to add to nodes in this pool. The manager will automatically create security groups with minimum rules needed for a functioning cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#security_group_ids ContainerAwsNodePool#security_group_ids}
         '''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1281,7 +1281,7 @@ class ContainerAwsNodePoolConfigA:
     def ssh_config(self) -> typing.Optional["ContainerAwsNodePoolConfigSshConfig"]:
         '''ssh_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ssh_config ContainerAwsNodePool#ssh_config}
         '''
         result = self._values.get("ssh_config")
         return typing.cast(typing.Optional["ContainerAwsNodePoolConfigSshConfig"], result)
@@ -1292,7 +1292,7 @@ class ContainerAwsNodePoolConfigA:
 
         Key/value metadata to assign to each underlying AWS resource. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#tags ContainerAwsNodePool#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1303,7 +1303,7 @@ class ContainerAwsNodePoolConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAwsNodePoolConfigTaints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#taints ContainerAwsNodePool#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAwsNodePoolConfigTaints"]]], result)
@@ -1348,8 +1348,8 @@ class ContainerAwsNodePoolConfigAOutputReference(
         metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param granularity: The frequency at which EC2 Auto Scaling sends aggregated data to AWS CloudWatch. The only valid value is "1Minute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
-        :param metrics: The metrics to enable. For a list of valid metrics, see https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_EnableMetricsCollection.html. If you specify granularity and don't specify any metrics, all metrics are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
+        :param granularity: The frequency at which EC2 Auto Scaling sends aggregated data to AWS CloudWatch. The only valid value is "1Minute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
+        :param metrics: The metrics to enable. For a list of valid metrics, see https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_EnableMetricsCollection.html. If you specify granularity and don't specify any metrics, all metrics are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
         '''
         value = ContainerAwsNodePoolConfigAutoscalingMetricsCollection(
             granularity=granularity, metrics=metrics
@@ -1360,7 +1360,7 @@ class ContainerAwsNodePoolConfigAOutputReference(
     @jsii.member(jsii_name="putConfigEncryption")
     def put_config_encryption(self, *, kms_key_arn: builtins.str) -> None:
         '''
-        :param kms_key_arn: The ARN of the AWS KMS key used to encrypt node pool configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        :param kms_key_arn: The ARN of the AWS KMS key used to encrypt node pool configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
         '''
         value = ContainerAwsNodePoolConfigConfigEncryption(kms_key_arn=kms_key_arn)
 
@@ -1374,8 +1374,8 @@ class ContainerAwsNodePoolConfigAOutputReference(
         secret_version: builtins.str,
     ) -> None:
         '''
-        :param secret_arn: The ARN of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
-        :param secret_version: The version string of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
+        :param secret_arn: The ARN of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
+        :param secret_version: The version string of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
         '''
         value = ContainerAwsNodePoolConfigProxyConfig(
             secret_arn=secret_arn, secret_version=secret_version
@@ -1394,11 +1394,11 @@ class ContainerAwsNodePoolConfigAOutputReference(
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param iops: Optional. The number of I/O operations per second (IOPS) to provision for GP3 volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
-        :param kms_key_arn: Optional. The Amazon Resource Name (ARN) of the Customer Managed Key (CMK) used to encrypt AWS EBS volumes. If not specified, the default Amazon managed key associated to the AWS region where this cluster runs will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
-        :param size_gib: Optional. The size of the volume, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
-        :param throughput: Optional. The throughput to provision for the volume, in MiB/s. Only valid if the volume type is GP3. If volume type is gp3 and throughput is not specified, the throughput will defaults to 125. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
-        :param volume_type: Optional. Type of the EBS volume. When unspecified, it defaults to GP2 volume. Possible values: VOLUME_TYPE_UNSPECIFIED, GP2, GP3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
+        :param iops: Optional. The number of I/O operations per second (IOPS) to provision for GP3 volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
+        :param kms_key_arn: Optional. The Amazon Resource Name (ARN) of the Customer Managed Key (CMK) used to encrypt AWS EBS volumes. If not specified, the default Amazon managed key associated to the AWS region where this cluster runs will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        :param size_gib: Optional. The size of the volume, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
+        :param throughput: Optional. The throughput to provision for the volume, in MiB/s. Only valid if the volume type is GP3. If volume type is gp3 and throughput is not specified, the throughput will defaults to 125. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
+        :param volume_type: Optional. Type of the EBS volume. When unspecified, it defaults to GP2 volume. Possible values: VOLUME_TYPE_UNSPECIFIED, GP2, GP3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
         '''
         value = ContainerAwsNodePoolConfigRootVolume(
             iops=iops,
@@ -1413,7 +1413,7 @@ class ContainerAwsNodePoolConfigAOutputReference(
     @jsii.member(jsii_name="putSshConfig")
     def put_ssh_config(self, *, ec2_key_pair: builtins.str) -> None:
         '''
-        :param ec2_key_pair: The name of the EC2 key pair used to login into cluster machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
+        :param ec2_key_pair: The name of the EC2 key pair used to login into cluster machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
         '''
         value = ContainerAwsNodePoolConfigSshConfig(ec2_key_pair=ec2_key_pair)
 
@@ -1660,8 +1660,8 @@ class ContainerAwsNodePoolConfigAutoscalingMetricsCollection:
         metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param granularity: The frequency at which EC2 Auto Scaling sends aggregated data to AWS CloudWatch. The only valid value is "1Minute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
-        :param metrics: The metrics to enable. For a list of valid metrics, see https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_EnableMetricsCollection.html. If you specify granularity and don't specify any metrics, all metrics are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
+        :param granularity: The frequency at which EC2 Auto Scaling sends aggregated data to AWS CloudWatch. The only valid value is "1Minute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
+        :param metrics: The metrics to enable. For a list of valid metrics, see https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_EnableMetricsCollection.html. If you specify granularity and don't specify any metrics, all metrics are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__deb1d7e895a22cd03558840c0e7f12fb1743b1ba71d569e73064a42f2c524fb4)
@@ -1677,7 +1677,7 @@ class ContainerAwsNodePoolConfigAutoscalingMetricsCollection:
     def granularity(self) -> builtins.str:
         '''The frequency at which EC2 Auto Scaling sends aggregated data to AWS CloudWatch. The only valid value is "1Minute".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#granularity ContainerAwsNodePool#granularity}
         '''
         result = self._values.get("granularity")
         assert result is not None, "Required property 'granularity' is missing"
@@ -1689,7 +1689,7 @@ class ContainerAwsNodePoolConfigAutoscalingMetricsCollection:
 
         For a list of valid metrics, see https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_EnableMetricsCollection.html. If you specify granularity and don't specify any metrics, all metrics are enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#metrics ContainerAwsNodePool#metrics}
         '''
         result = self._values.get("metrics")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1790,7 +1790,7 @@ class ContainerAwsNodePoolConfigAutoscalingMetricsCollectionOutputReference(
 class ContainerAwsNodePoolConfigConfigEncryption:
     def __init__(self, *, kms_key_arn: builtins.str) -> None:
         '''
-        :param kms_key_arn: The ARN of the AWS KMS key used to encrypt node pool configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        :param kms_key_arn: The ARN of the AWS KMS key used to encrypt node pool configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c554313de55e128b926c59f160b77fc4f7a9b4428763a0df34093df18baa21a3)
@@ -1803,7 +1803,7 @@ class ContainerAwsNodePoolConfigConfigEncryption:
     def kms_key_arn(self) -> builtins.str:
         '''The ARN of the AWS KMS key used to encrypt node pool configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
         '''
         result = self._values.get("kms_key_arn")
         assert result is not None, "Required property 'kms_key_arn' is missing"
@@ -1889,8 +1889,8 @@ class ContainerAwsNodePoolConfigProxyConfig:
         secret_version: builtins.str,
     ) -> None:
         '''
-        :param secret_arn: The ARN of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
-        :param secret_version: The version string of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
+        :param secret_arn: The ARN of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
+        :param secret_version: The version string of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0066d3ec0ce572ab0afe4cf849bf2db374ac872c56d7ef5bc2ed5e2b32b4fc6)
@@ -1905,7 +1905,7 @@ class ContainerAwsNodePoolConfigProxyConfig:
     def secret_arn(self) -> builtins.str:
         '''The ARN of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_arn ContainerAwsNodePool#secret_arn}
         '''
         result = self._values.get("secret_arn")
         assert result is not None, "Required property 'secret_arn' is missing"
@@ -1915,7 +1915,7 @@ class ContainerAwsNodePoolConfigProxyConfig:
     def secret_version(self) -> builtins.str:
         '''The version string of the AWS Secret Manager secret that contains the HTTP(S) proxy configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#secret_version ContainerAwsNodePool#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -2025,11 +2025,11 @@ class ContainerAwsNodePoolConfigRootVolume:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param iops: Optional. The number of I/O operations per second (IOPS) to provision for GP3 volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
-        :param kms_key_arn: Optional. The Amazon Resource Name (ARN) of the Customer Managed Key (CMK) used to encrypt AWS EBS volumes. If not specified, the default Amazon managed key associated to the AWS region where this cluster runs will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
-        :param size_gib: Optional. The size of the volume, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
-        :param throughput: Optional. The throughput to provision for the volume, in MiB/s. Only valid if the volume type is GP3. If volume type is gp3 and throughput is not specified, the throughput will defaults to 125. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
-        :param volume_type: Optional. Type of the EBS volume. When unspecified, it defaults to GP2 volume. Possible values: VOLUME_TYPE_UNSPECIFIED, GP2, GP3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
+        :param iops: Optional. The number of I/O operations per second (IOPS) to provision for GP3 volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
+        :param kms_key_arn: Optional. The Amazon Resource Name (ARN) of the Customer Managed Key (CMK) used to encrypt AWS EBS volumes. If not specified, the default Amazon managed key associated to the AWS region where this cluster runs will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        :param size_gib: Optional. The size of the volume, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
+        :param throughput: Optional. The throughput to provision for the volume, in MiB/s. Only valid if the volume type is GP3. If volume type is gp3 and throughput is not specified, the throughput will defaults to 125. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
+        :param volume_type: Optional. Type of the EBS volume. When unspecified, it defaults to GP2 volume. Possible values: VOLUME_TYPE_UNSPECIFIED, GP2, GP3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__334be749685ed3f67f961d8e566d16c65a93d333b69b9eceddb9a95a1ddd23a7)
@@ -2054,7 +2054,7 @@ class ContainerAwsNodePoolConfigRootVolume:
     def iops(self) -> typing.Optional[jsii.Number]:
         '''Optional. The number of I/O operations per second (IOPS) to provision for GP3 volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#iops ContainerAwsNodePool#iops}
         '''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2065,7 +2065,7 @@ class ContainerAwsNodePoolConfigRootVolume:
 
         The Amazon Resource Name (ARN) of the Customer Managed Key (CMK) used to encrypt AWS EBS volumes. If not specified, the default Amazon managed key associated to the AWS region where this cluster runs will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#kms_key_arn ContainerAwsNodePool#kms_key_arn}
         '''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2076,7 +2076,7 @@ class ContainerAwsNodePoolConfigRootVolume:
 
         The size of the volume, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#size_gib ContainerAwsNodePool#size_gib}
         '''
         result = self._values.get("size_gib")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2087,7 +2087,7 @@ class ContainerAwsNodePoolConfigRootVolume:
 
         The throughput to provision for the volume, in MiB/s. Only valid if the volume type is GP3. If volume type is gp3 and throughput is not specified, the throughput will defaults to 125.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#throughput ContainerAwsNodePool#throughput}
         '''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2096,7 +2096,7 @@ class ContainerAwsNodePoolConfigRootVolume:
     def volume_type(self) -> typing.Optional[builtins.str]:
         '''Optional. Type of the EBS volume. When unspecified, it defaults to GP2 volume. Possible values: VOLUME_TYPE_UNSPECIFIED, GP2, GP3.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#volume_type ContainerAwsNodePool#volume_type}
         '''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2262,7 +2262,7 @@ class ContainerAwsNodePoolConfigRootVolumeOutputReference(
 class ContainerAwsNodePoolConfigSshConfig:
     def __init__(self, *, ec2_key_pair: builtins.str) -> None:
         '''
-        :param ec2_key_pair: The name of the EC2 key pair used to login into cluster machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
+        :param ec2_key_pair: The name of the EC2 key pair used to login into cluster machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40e52343a801bf734b11f5192d5e6785a58e18350698bb7f247d61ed21e7c6eb)
@@ -2275,7 +2275,7 @@ class ContainerAwsNodePoolConfigSshConfig:
     def ec2_key_pair(self) -> builtins.str:
         '''The name of the EC2 key pair used to login into cluster machines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#ec2_key_pair ContainerAwsNodePool#ec2_key_pair}
         '''
         result = self._values.get("ec2_key_pair")
         assert result is not None, "Required property 'ec2_key_pair' is missing"
@@ -2360,9 +2360,9 @@ class ContainerAwsNodePoolConfigTaints:
         value: builtins.str,
     ) -> None:
         '''
-        :param effect: The taint effect. Possible values: EFFECT_UNSPECIFIED, NO_SCHEDULE, PREFER_NO_SCHEDULE, NO_EXECUTE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#effect ContainerAwsNodePool#effect}
-        :param key: Key for the taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#key ContainerAwsNodePool#key}
-        :param value: Value for the taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#value ContainerAwsNodePool#value}
+        :param effect: The taint effect. Possible values: EFFECT_UNSPECIFIED, NO_SCHEDULE, PREFER_NO_SCHEDULE, NO_EXECUTE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#effect ContainerAwsNodePool#effect}
+        :param key: Key for the taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#key ContainerAwsNodePool#key}
+        :param value: Value for the taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#value ContainerAwsNodePool#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb06d30fdf866d69edbe6adef18ad261070f9850079463f929d3349bd4d5d1aa)
@@ -2379,7 +2379,7 @@ class ContainerAwsNodePoolConfigTaints:
     def effect(self) -> builtins.str:
         '''The taint effect. Possible values: EFFECT_UNSPECIFIED, NO_SCHEDULE, PREFER_NO_SCHEDULE, NO_EXECUTE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#effect ContainerAwsNodePool#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#effect ContainerAwsNodePool#effect}
         '''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
@@ -2389,7 +2389,7 @@ class ContainerAwsNodePoolConfigTaints:
     def key(self) -> builtins.str:
         '''Key for the taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#key ContainerAwsNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#key ContainerAwsNodePool#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -2399,7 +2399,7 @@ class ContainerAwsNodePoolConfigTaints:
     def value(self) -> builtins.str:
         '''Value for the taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#value ContainerAwsNodePool#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#value ContainerAwsNodePool#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -2625,10 +2625,10 @@ class ContainerAwsNodePoolKubeletConfig:
         pod_pids_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_cfs_quota: Whether or not to enable CPU CFS quota. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Optional. The CPU CFS quota period to use for the node. Defaults to "100ms". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: The CpuManagerPolicy to use for the node. Defaults to "none". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
-        :param pod_pids_limit: Optional. The maximum number of PIDs in each pod running on the node. The limit scales automatically based on underlying machine size if left unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
+        :param cpu_cfs_quota: Whether or not to enable CPU CFS quota. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Optional. The CPU CFS quota period to use for the node. Defaults to "100ms". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: The CpuManagerPolicy to use for the node. Defaults to "none". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
+        :param pod_pids_limit: Optional. The maximum number of PIDs in each pod running on the node. The limit scales automatically based on underlying machine size if left unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f35bf4eeb5ee82688c0bf7f2170bdd4ab2b96b0b743e5598a513a5f41a52656)
@@ -2652,7 +2652,7 @@ class ContainerAwsNodePoolKubeletConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not to enable CPU CFS quota. Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota ContainerAwsNodePool#cpu_cfs_quota}
         '''
         result = self._values.get("cpu_cfs_quota")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2661,7 +2661,7 @@ class ContainerAwsNodePoolKubeletConfig:
     def cpu_cfs_quota_period(self) -> typing.Optional[builtins.str]:
         '''Optional. The CPU CFS quota period to use for the node. Defaults to "100ms".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_cfs_quota_period ContainerAwsNodePool#cpu_cfs_quota_period}
         '''
         result = self._values.get("cpu_cfs_quota_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2670,7 +2670,7 @@ class ContainerAwsNodePoolKubeletConfig:
     def cpu_manager_policy(self) -> typing.Optional[builtins.str]:
         '''The CpuManagerPolicy to use for the node. Defaults to "none".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#cpu_manager_policy ContainerAwsNodePool#cpu_manager_policy}
         '''
         result = self._values.get("cpu_manager_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2681,7 +2681,7 @@ class ContainerAwsNodePoolKubeletConfig:
 
         The maximum number of PIDs in each pod running on the node. The limit scales automatically based on underlying machine size if left unset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#pod_pids_limit ContainerAwsNodePool#pod_pids_limit}
         '''
         result = self._values.get("pod_pids_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2835,7 +2835,7 @@ class ContainerAwsNodePoolManagement:
         auto_repair: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
+        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cad01253f11ea035595e73c4678cd759a57012b790cab724a4f27da04aaf629)
@@ -2850,7 +2850,7 @@ class ContainerAwsNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Whether or not the nodes will be automatically repaired.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#auto_repair ContainerAwsNodePool#auto_repair}
         '''
         result = self._values.get("auto_repair")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2937,7 +2937,7 @@ class ContainerAwsNodePoolManagementOutputReference(
 class ContainerAwsNodePoolMaxPodsConstraint:
     def __init__(self, *, max_pods_per_node: jsii.Number) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
+        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08b69280c5452cbf128a2fdb997b0b33521e8992f0ce51a096870c8d97abdf37)
@@ -2950,7 +2950,7 @@ class ContainerAwsNodePoolMaxPodsConstraint:
     def max_pods_per_node(self) -> jsii.Number:
         '''The maximum number of pods to schedule on a single node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_pods_per_node ContainerAwsNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         assert result is not None, "Required property 'max_pods_per_node' is missing"
@@ -3035,9 +3035,9 @@ class ContainerAwsNodePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d409cd4dcb787c5523a4ee4e33cd697f86577c624f67924310249fdd2366d0da)
@@ -3054,19 +3054,19 @@ class ContainerAwsNodePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#create ContainerAwsNodePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#delete ContainerAwsNodePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#update ContainerAwsNodePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3195,7 +3195,7 @@ class ContainerAwsNodePoolUpdateSettings:
         surge_settings: typing.Optional[typing.Union["ContainerAwsNodePoolUpdateSettingsSurgeSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param surge_settings: surge_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
+        :param surge_settings: surge_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
         '''
         if isinstance(surge_settings, dict):
             surge_settings = ContainerAwsNodePoolUpdateSettingsSurgeSettings(**surge_settings)
@@ -3212,7 +3212,7 @@ class ContainerAwsNodePoolUpdateSettings:
     ) -> typing.Optional["ContainerAwsNodePoolUpdateSettingsSurgeSettings"]:
         '''surge_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#surge_settings ContainerAwsNodePool#surge_settings}
         '''
         result = self._values.get("surge_settings")
         return typing.cast(typing.Optional["ContainerAwsNodePoolUpdateSettingsSurgeSettings"], result)
@@ -3257,8 +3257,8 @@ class ContainerAwsNodePoolUpdateSettingsOutputReference(
         max_unavailable: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_surge: Optional. The maximum number of nodes that can be created beyond the current size of the node pool during the update process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
-        :param max_unavailable: Optional. The maximum number of nodes that can be simultaneously unavailable during the update process. A node is considered unavailable if its status is not Ready. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
+        :param max_surge: Optional. The maximum number of nodes that can be created beyond the current size of the node pool during the update process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
+        :param max_unavailable: Optional. The maximum number of nodes that can be simultaneously unavailable during the update process. A node is considered unavailable if its status is not Ready. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
         '''
         value = ContainerAwsNodePoolUpdateSettingsSurgeSettings(
             max_surge=max_surge, max_unavailable=max_unavailable
@@ -3313,8 +3313,8 @@ class ContainerAwsNodePoolUpdateSettingsSurgeSettings:
         max_unavailable: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_surge: Optional. The maximum number of nodes that can be created beyond the current size of the node pool during the update process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
-        :param max_unavailable: Optional. The maximum number of nodes that can be simultaneously unavailable during the update process. A node is considered unavailable if its status is not Ready. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
+        :param max_surge: Optional. The maximum number of nodes that can be created beyond the current size of the node pool during the update process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
+        :param max_unavailable: Optional. The maximum number of nodes that can be simultaneously unavailable during the update process. A node is considered unavailable if its status is not Ready. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41703609ab0578e2de458a89e4a7e6834ded317c335d2c7e6398b4567cb1d4ae)
@@ -3332,7 +3332,7 @@ class ContainerAwsNodePoolUpdateSettingsSurgeSettings:
 
         The maximum number of nodes that can be created beyond the current size of the node pool during the update process.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_surge ContainerAwsNodePool#max_surge}
         '''
         result = self._values.get("max_surge")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3343,7 +3343,7 @@ class ContainerAwsNodePoolUpdateSettingsSurgeSettings:
 
         The maximum number of nodes that can be simultaneously unavailable during the update process. A node is considered unavailable if its status is not Ready.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_aws_node_pool#max_unavailable ContainerAwsNodePool#max_unavailable}
         '''
         result = self._values.get("max_unavailable")
         return typing.cast(typing.Optional[jsii.Number], result)

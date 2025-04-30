@@ -1,7 +1,7 @@
 r'''
 # `google_secure_source_manager_instance`
 
-Refer to the Terraform Registry for docs: [`google_secure_source_manager_instance`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance).
+Refer to the Terraform Registry for docs: [`google_secure_source_manager_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecureSourceManagerInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.secureSourceManagerInstance.SecureSourceManagerInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance google_secure_source_manager_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance google_secure_source_manager_instance}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class SecureSourceManagerInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance google_secure_source_manager_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance google_secure_source_manager_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: The name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
-        :param location: The location for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Customer-managed encryption key name, in the format projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
-        :param private_config: private_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
-        :param workforce_identity_federation_config: workforce_identity_federation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
+        :param instance_id: The name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
+        :param location: The location for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Customer-managed encryption key name, in the format projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
+        :param private_config: private_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
+        :param workforce_identity_federation_config: workforce_identity_federation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class SecureSourceManagerInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecureSourceManagerInstance to import.
-        :param import_from_id: The id of the existing SecureSourceManagerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecureSourceManagerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecureSourceManagerInstance to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class SecureSourceManagerInstance(
         is_private: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param ca_pool: CA pool resource, resource must in the format of 'projects/{project}/locations/{location}/caPools/{ca_pool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
-        :param is_private: 'Indicate if it's private instance.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
+        :param ca_pool: CA pool resource, resource must in the format of 'projects/{project}/locations/{location}/caPools/{ca_pool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
+        :param is_private: 'Indicate if it's private instance.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
         '''
         value = SecureSourceManagerInstancePrivateConfig(
             ca_pool=ca_pool, is_private=is_private
@@ -164,9 +164,9 @@ class SecureSourceManagerInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.
         '''
         value = SecureSourceManagerInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -181,7 +181,7 @@ class SecureSourceManagerInstance(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: 'Whether Workforce Identity Federation is enabled.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
+        :param enabled: 'Whether Workforce Identity Federation is enabled.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
         '''
         value = SecureSourceManagerInstanceWorkforceIdentityFederationConfig(
             enabled=enabled
@@ -466,15 +466,15 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: The name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
-        :param location: The location for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Customer-managed encryption key name, in the format projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
-        :param private_config: private_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
-        :param workforce_identity_federation_config: workforce_identity_federation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
+        :param instance_id: The name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
+        :param location: The location for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Customer-managed encryption key name, in the format projects/* /locations/* /keyRings/* /cryptoKeys/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
+        :param private_config: private_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
+        :param workforce_identity_federation_config: workforce_identity_federation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -603,7 +603,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_id(self) -> builtins.str:
         '''The name for the Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#instance_id SecureSourceManagerInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -613,7 +613,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#location SecureSourceManagerInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -621,7 +621,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#id SecureSourceManagerInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -633,7 +633,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''Customer-managed encryption key name, in the format projects/* /locations/* /keyRings/* /cryptoKeys/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#kms_key SecureSourceManagerInstance#kms_key}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -647,7 +647,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#labels SecureSourceManagerInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -658,14 +658,14 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SecureSourceManagerInstancePrivateConfig"]:
         '''private_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#private_config SecureSourceManagerInstance#private_config}
         '''
         result = self._values.get("private_config")
         return typing.cast(typing.Optional["SecureSourceManagerInstancePrivateConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#project SecureSourceManagerInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -673,7 +673,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SecureSourceManagerInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#timeouts SecureSourceManagerInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecureSourceManagerInstanceTimeouts"], result)
@@ -684,7 +684,7 @@ class SecureSourceManagerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SecureSourceManagerInstanceWorkforceIdentityFederationConfig"]:
         '''workforce_identity_federation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#workforce_identity_federation_config SecureSourceManagerInstance#workforce_identity_federation_config}
         '''
         result = self._values.get("workforce_identity_federation_config")
         return typing.cast(typing.Optional["SecureSourceManagerInstanceWorkforceIdentityFederationConfig"], result)
@@ -873,8 +873,8 @@ class SecureSourceManagerInstancePrivateConfig:
         is_private: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param ca_pool: CA pool resource, resource must in the format of 'projects/{project}/locations/{location}/caPools/{ca_pool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
-        :param is_private: 'Indicate if it's private instance.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
+        :param ca_pool: CA pool resource, resource must in the format of 'projects/{project}/locations/{location}/caPools/{ca_pool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
+        :param is_private: 'Indicate if it's private instance.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86a844b6ca0baf25d36985fb4971a570cad8632bbfba68d2596e4f5cfebd5c2f)
@@ -889,7 +889,7 @@ class SecureSourceManagerInstancePrivateConfig:
     def ca_pool(self) -> builtins.str:
         '''CA pool resource, resource must in the format of 'projects/{project}/locations/{location}/caPools/{ca_pool}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#ca_pool SecureSourceManagerInstance#ca_pool}
         '''
         result = self._values.get("ca_pool")
         assert result is not None, "Required property 'ca_pool' is missing"
@@ -899,7 +899,7 @@ class SecureSourceManagerInstancePrivateConfig:
     def is_private(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         ''''Indicate if it's private instance.'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#is_private SecureSourceManagerInstance#is_private}
         '''
         result = self._values.get("is_private")
         assert result is not None, "Required property 'is_private' is missing"
@@ -1018,9 +1018,9 @@ class SecureSourceManagerInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31465274fe0638f7cfc0b489b4188133f9a70ebabb11145459d11f18d642fb7d)
@@ -1037,19 +1037,19 @@ class SecureSourceManagerInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#create SecureSourceManagerInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#delete SecureSourceManagerInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#update SecureSourceManagerInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1178,7 +1178,7 @@ class SecureSourceManagerInstanceWorkforceIdentityFederationConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: 'Whether Workforce Identity Federation is enabled.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
+        :param enabled: 'Whether Workforce Identity Federation is enabled.'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df9f5290218ee9ca88723505b2744e71b2cd8d0b5e916dd907ea9ffe85ef3beb)
@@ -1191,7 +1191,7 @@ class SecureSourceManagerInstanceWorkforceIdentityFederationConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         ''''Whether Workforce Identity Federation is enabled.'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_instance#enabled SecureSourceManagerInstance#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"

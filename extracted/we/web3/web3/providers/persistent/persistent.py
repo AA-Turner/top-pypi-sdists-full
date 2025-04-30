@@ -24,6 +24,7 @@ from websockets import (
 
 from web3._utils.batching import (
     BATCH_REQUEST_ID,
+    async_batching_context,
     sort_batch_response_by_response_ids,
 )
 from web3._utils.caching import (
@@ -87,12 +88,14 @@ class PersistentConnectionProvider(AsyncJSONBaseProvider, ABC):
         subscription_response_queue_size: int = 500,
         silence_listener_task_exceptions: bool = False,
         max_connection_retries: int = 5,
+        request_information_cache_size: int = 500,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._request_processor = RequestProcessor(
             self,
             subscription_response_queue_size=subscription_response_queue_size,
+            request_information_cache_size=request_information_cache_size,
         )
         self._message_listener_task: Optional["asyncio.Task[None]"] = None
         self._batch_request_counter: Optional[int] = None
@@ -235,14 +238,17 @@ class PersistentConnectionProvider(AsyncJSONBaseProvider, ABC):
         rpc_request = await self.send_request(method, params)
         return await self.recv_for_request(rpc_request)
 
+    @async_batching_context
     async def make_batch_request(
         self, requests: List[Tuple[RPCEndpoint, Any]]
     ) -> List[RPCResponse]:
         request_data = self.encode_batch_rpc_request(requests)
         await self.socket_send(request_data)
 
+        # breakpoint()
         response = cast(
-            List[RPCResponse], await self._get_response_for_request_id(BATCH_REQUEST_ID)
+            List[RPCResponse],
+            await self._get_response_for_request_id(BATCH_REQUEST_ID),
         )
         return response
 
@@ -318,17 +324,16 @@ class PersistentConnectionProvider(AsyncJSONBaseProvider, ABC):
             for (
                 response
             ) in self._request_processor._request_response_cache._data.values():
-                request = (
-                    self._request_processor._request_information_cache.get_cache_entry(
+                if isinstance(response, dict):
+                    request = self._request_processor._request_information_cache.get_cache_entry(  # noqa: E501
                         generate_cache_key(response["id"])
                     )
-                )
-                if "error" in response and request is None:
-                    # if we find an error response in the cache without a corresponding
-                    # request, raise the error
-                    validate_rpc_response_and_raise_if_error(
-                        response, None, logger=self.logger
-                    )
+                    if "error" in response and request is None:
+                        # if we find an error response in the cache without a
+                        # corresponding request, raise the error
+                        validate_rpc_response_and_raise_if_error(
+                            cast(RPCResponse, response), None, logger=self.logger
+                        )
 
     async def _message_listener(self) -> None:
         self.logger.info(

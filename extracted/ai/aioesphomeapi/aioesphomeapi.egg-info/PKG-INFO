@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: aioesphomeapi
-Version: 30.0.1
+Version: 30.1.0
 Summary: Python API for interacting with ESPHome devices.
 Home-page: https://esphome.io/
-Download-URL: https://github.com/esphome/aioesphomeapi/archive/30.0.1.zip
+Download-URL: https://github.com/esphome/aioesphomeapi/archive/30.1.0.zip
 Author: Otto Winter
 Author-email: esphome@nabucasa.com
 License: MIT

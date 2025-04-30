@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-full",
-    version="1.38.4",
+    version="1.38.5",
     packages=[
         "mypy_boto3_accessanalyzer",
         "mypy_boto3_account",
@@ -379,6 +379,7 @@ setup(
         "mypy_boto3_sqs",
         "mypy_boto3_ssm",
         "mypy_boto3_ssm_contacts",
+        "mypy_boto3_ssm_guiconnect",
         "mypy_boto3_ssm_incidents",
         "mypy_boto3_ssm_quicksetup",
         "mypy_boto3_ssm_sap",
@@ -423,7 +424,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.4 generated with mypy-boto3-builder 8.10.1",
+    description="All-in-one type annotations for boto3 1.38.5 generated with mypy-boto3-builder 8.10.1",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -812,6 +813,7 @@ setup(
         "mypy_boto3_sqs": ["py.typed", "*.pyi"],
         "mypy_boto3_ssm": ["py.typed", "*.pyi"],
         "mypy_boto3_ssm_contacts": ["py.typed", "*.pyi"],
+        "mypy_boto3_ssm_guiconnect": ["py.typed", "*.pyi"],
         "mypy_boto3_ssm_incidents": ["py.typed", "*.pyi"],
         "mypy_boto3_ssm_quicksetup": ["py.typed", "*.pyi"],
         "mypy_boto3_ssm_sap": ["py.typed", "*.pyi"],

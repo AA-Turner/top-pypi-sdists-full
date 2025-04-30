@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: auto-coder
-Version: 0.1.361
+Version: 0.1.362
 Summary: AutoCoder: AutoCoder
 Author: allwefantasy
 Classifier: Programming Language :: Python :: 3.10
@@ -64,6 +64,7 @@ Requires-Dist: pathvalidate
 Requires-Dist: pexpect
 Requires-Dist: mcp; python_version >= "3.10"
 Requires-Dist: setuptools
+Requires-Dist: filelock
 
 <p align="center">
   <picture>    

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.2.1
+Version: 0.2.2
 Summary: SDK for the HUD evaluation platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-sdk
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-sdk/issues
 Project-URL: Documentation, https://hud.so
-Author-email: Human Union Data SDK <founders@hud.so>
+Author-email: HUD SDK <founders@hud.so>
 License: MIT License
         
         Copyright (c) 2025 Human Union Data, Inc
@@ -37,8 +37,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.10
 Requires-Dist: aiodocker>=0.24.0
+Requires-Dist: anthropic
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: inspect-ai>=0.3.80
+Requires-Dist: ipykernel
+Requires-Dist: langchain
+Requires-Dist: langchain-openai
+Requires-Dist: numpy
+Requires-Dist: openai
 Requires-Dist: pillow>=11.1.0
 Requires-Dist: pydantic-settings<3,>=2
 Requires-Dist: pydantic<3,>=2
@@ -117,10 +123,9 @@ async def main():
     obs, _ = await env.reset() # Gets first observation
     for i in range(5):
         actions, done = await agent.predict(obs)
-        if done:
-            break
-        
+
         obs, reward, terminated, info = await env.step(actions)
+        if done or terminated: break
     
     # Evaluate and close
     result = await env.evaluate()
@@ -132,22 +137,37 @@ if __name__ == "__main__":
 
 ```
 
+Alternatively, run a full evaluation set via the ```run_job``` command:
+
+```python
+from hud import load_taskset, run_job, ClaudeAgent
+
+# load
+taskset = load_taskset("GAIA")
+
+# evaluate
+job = await run_job(ClaudeAgent, taskset, "test-gaia-job")
+
+# get results OR view them in app.hud.so
+print(await job.get_analytics())
+```
+
 ## Documentation Sections
 
 Explore the core concepts and features of the SDK:
 
-*   **[Tasks and TaskSets](/concepts/task)**: Define goals, context, setup, and evaluation criteria for agent scenarios. This includes both interactive and **question-answering (QA)** style tasks.
-*   **[Environments](/concepts/environment)**: Understand the browser and OS runtimes where agents interact.
-*   **[Agents](/concepts/agent)**: Learn about the agent architecture (Claude, Operator) and how they process observations and predict actions.
-*   **[Adapters](/concepts/adapter)**: See how actions and observations are translated between agents and environments.
-*   **[Jobs](/concepts/job)**: Group related runs for analysis and viewing on the HUD platform.
-*   **[Trajectories](/concepts/trajectory)**: Understand the recorded data from each agent run.
+*   **[Tasks and TaskSets](https://documentation.hud.so/concepts/task)**: Define goals, context, setup, and evaluation criteria for agent scenarios. This includes both interactive and **question-answering (QA)** style tasks.
+*   **[Environments](https://documentation.hud.so/concepts/environment)**: Understand the browser and OS runtimes where agents interact.
+*   **[Agents](https://documentation.hud.so/concepts/agent)**: Learn about the agent architecture (Claude, Operator) and how they process observations and predict actions.
+*   **[Adapters](https://documentation.hud.so/concepts/adapter)**: See how actions and observations are translated between agents and environments.
+*   **[Jobs](https://documentation.hud.so/concepts/job)**: Group related runs for analysis and viewing on the HUD platform.
+*   **[Trajectories](https://documentation.hud.so/concepts/trajectory)**: Understand the recorded data from each agent run.
 *   **Advanced Topics**:
-    *   **[CLA Action Details](/advanced/cla-details)**: Explore the standardized action format.
-    *   **[Custom Environments](/advanced/custom-environments)**: Build your own Docker-based local or remote environments.
-    *   **[Advanced Environment Control](/advanced/environment-control)**: Use `invoke`, `execute`, and `_setup` for finer control.
+    *   **[CLA Action Details](https://documentation.hud.so/advanced/cla-details)**: Explore the standardized action format.
+    *   **[Custom Environments](https://documentation.hud.so/advanced/custom-environments)**: Build your own Docker-based local or remote environments.
+    *   **[Advanced Environment Control](https://documentation.hud.so/advanced/environment-control)**: Use `invoke`, `execute`, and `_setup` for finer control.
 
-*   **[Full API Reference](/api-reference/gym)**: Detailed specifications for all modules and classes.
+*   **[Full API Reference](https://documentation.hud.so/api-reference/gym)**: Detailed specifications for all modules and classes.
 
 ## [Examples](examples/)
 
@@ -160,7 +180,7 @@ We recommend you first take a look at the example notebooks showing how to use t
 
 ## Documentation
 
-For comprehensive guides, examples, and API reference, visit [our docs](https://docs.hud.so/introduction)
+For comprehensive guides, examples, and API reference, visit [our docs](https://documentation.hud.so/introduction)
 
 ## License
 

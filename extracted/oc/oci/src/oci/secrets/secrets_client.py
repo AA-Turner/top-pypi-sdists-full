@@ -155,7 +155,7 @@ class SecretsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/secrets/get_secret_bundle.py.html>`__ to see an example of how to use get_secret_bundle API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/secrets/get_secret_bundle.py.html>`__ to see an example of how to use get_secret_bundle API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -287,7 +287,7 @@ class SecretsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/secrets/get_secret_bundle_by_name.py.html>`__ to see an example of how to use get_secret_bundle_by_name API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/secrets/get_secret_bundle_by_name.py.html>`__ to see an example of how to use get_secret_bundle_by_name API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretName', 'vaultId']
@@ -417,7 +417,7 @@ class SecretsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/secrets/list_secret_bundle_versions.py.html>`__ to see an example of how to use list_secret_bundle_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/secrets/list_secret_bundle_versions.py.html>`__ to see an example of how to use list_secret_bundle_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']

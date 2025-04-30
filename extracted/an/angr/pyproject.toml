@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2", "wheel", "pyvex==9.2.152"]
+requires = ["setuptools>=61.2", "wheel", "pyvex==9.2.153"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,13 +19,13 @@ requires-python = ">=3.10"
 dependencies = [
     "cxxheaderparser",
     "GitPython",
-    "ailment==9.2.152",
-    "archinfo==9.2.152",
+    "ailment==9.2.153",
+    "archinfo==9.2.153",
     "cachetools",
     "capstone==5.0.3",
     "cffi>=1.14.0",
-    "claripy==9.2.152",
-    "cle==9.2.152",
+    "claripy==9.2.153",
+    "cle==9.2.153",
     "mulpyplexer",
     "networkx!=2.8.1,>=2.0",
     "protobuf>=5.28.2",
@@ -33,7 +33,7 @@ dependencies = [
     "pycparser>=2.18",
     "pydemumble",
     "pyformlang",
-    "pyvex==9.2.152",
+    "pyvex==9.2.153",
     "rich>=13.1.0",
     "sortedcontainers",
     "sympy",
@@ -76,6 +76,17 @@ unicorn = [
 [project.scripts]
 angr = "angr.__main__:main"
 
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pytest>=8.3.5",
+    "pytest-durations>=1.4.0",
+    "pytest-profiling>=1.8.1",
+    "pytest-timeout>=2.3.1",
+    "pytest-xdist>=3.6.1",
+    "ruff>=0.11.7",
+]
+
 [tool.setuptools]
 include-package-data = true
 license-files = ["LICENSE"]
@@ -92,6 +103,9 @@ angr = [
 
 [tool.setuptools.dynamic]
 version = {attr = "angr.__version__"}
+
+[tool.uv]
+default-groups = ["angrdb", "pcode", "unicorn"]
 
 [tool.uv.sources]
 archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }

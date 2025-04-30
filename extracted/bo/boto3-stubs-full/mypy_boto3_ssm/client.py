@@ -191,6 +191,8 @@ from .type_defs import (
     DescribeSessionsRequestTypeDef,
     DescribeSessionsResponseTypeDef,
     DisassociateOpsItemRelatedItemRequestTypeDef,
+    GetAccessTokenRequestTypeDef,
+    GetAccessTokenResponseTypeDef,
     GetAutomationExecutionRequestTypeDef,
     GetAutomationExecutionResultTypeDef,
     GetCalendarStateRequestTypeDef,
@@ -305,6 +307,8 @@ from .type_defs import (
     SendAutomationSignalRequestTypeDef,
     SendCommandRequestTypeDef,
     SendCommandResultTypeDef,
+    StartAccessRequestRequestTypeDef,
+    StartAccessRequestResponseTypeDef,
     StartAssociationsOnceRequestTypeDef,
     StartAutomationExecutionRequestTypeDef,
     StartAutomationExecutionResultTypeDef,
@@ -361,6 +365,7 @@ __all__ = ("SSMClient",)
 
 
 class Exceptions(BaseClientExceptions):
+    AccessDeniedException: Type[BotocoreClientError]
     AlreadyExistsException: Type[BotocoreClientError]
     AssociatedInstances: Type[BotocoreClientError]
     AssociationAlreadyExists: Type[BotocoreClientError]
@@ -480,11 +485,13 @@ class Exceptions(BaseClientExceptions):
     ResourcePolicyInvalidParameterException: Type[BotocoreClientError]
     ResourcePolicyLimitExceededException: Type[BotocoreClientError]
     ResourcePolicyNotFoundException: Type[BotocoreClientError]
+    ServiceQuotaExceededException: Type[BotocoreClientError]
     ServiceSettingNotFound: Type[BotocoreClientError]
     StatusUnchanged: Type[BotocoreClientError]
     SubTypeCountLimitExceededException: Type[BotocoreClientError]
     TargetInUseException: Type[BotocoreClientError]
     TargetNotConnected: Type[BotocoreClientError]
+    ThrottlingException: Type[BotocoreClientError]
     TooManyTagsError: Type[BotocoreClientError]
     TooManyUpdates: Type[BotocoreClientError]
     TotalSizeLimitExceededException: Type[BotocoreClientError]
@@ -1185,6 +1192,16 @@ class SSMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#disassociate_ops_item_related_item)
         """
 
+    def get_access_token(
+        self, **kwargs: Unpack[GetAccessTokenRequestTypeDef]
+    ) -> GetAccessTokenResponseTypeDef:
+        """
+        Returns a credentials set to be used with just-in-time node access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/get_access_token.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#get_access_token)
+        """
+
     def get_automation_execution(
         self, **kwargs: Unpack[GetAutomationExecutionRequestTypeDef]
     ) -> GetAutomationExecutionResultTypeDef:
@@ -1792,6 +1809,16 @@ class SSMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/send_command.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#send_command)
+        """
+
+    def start_access_request(
+        self, **kwargs: Unpack[StartAccessRequestRequestTypeDef]
+    ) -> StartAccessRequestResponseTypeDef:
+        """
+        Starts the workflow for just-in-time node access sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/start_access_request.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#start_access_request)
         """
 
     def start_associations_once(

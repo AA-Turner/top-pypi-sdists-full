@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode_api4
-Version: 5.29.0
+Version: 5.29.1
 Summary: The official Python SDK for Linode API v4
 Author-email: Linode <devs@linode.com>
 License: BSD-3-Clause

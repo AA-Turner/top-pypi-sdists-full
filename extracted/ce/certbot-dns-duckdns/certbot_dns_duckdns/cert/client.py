@@ -6,7 +6,8 @@ import os
 
 from certbot import errors
 from certbot.plugins import dns_common
-from dns import resolver
+import dns.version
+import dns.resolver
 
 from certbot_dns_duckdns.duckdns.client import (
     DuckDNSClient,
@@ -33,6 +34,7 @@ class Authenticator(dns_common.DNSAuthenticator):
 
         self._old_txt_value = ""
         self._credentials = None
+        self._token = None
 
     @classmethod
     def add_parser_arguments(
@@ -72,7 +74,8 @@ class Authenticator(dns_common.DNSAuthenticator):
 
     def _setup_credentials(self) -> None:
         # If token cli param is provided we do not need a credentials file
-        if self.conf("token"):
+        self._token = self.conf("token")
+        if self._token:
             return
 
         credentials_file = self.conf("credentials")
@@ -92,6 +95,8 @@ class Authenticator(dns_common.DNSAuthenticator):
             if not token:
                 raise errors.PluginError("No DuckDNS token found.")
 
+            self._token = token
+
     def _perform(self, domain: str, validation_name: str, validation: str) -> None:
         """
         Add the TXT record of the provided DuckDNS domain.
@@ -107,9 +112,12 @@ class Authenticator(dns_common.DNSAuthenticator):
 
         if not self.conf("no-txt-restore"):
             # get the current TXT record
-            custom_resolver = resolver.Resolver()
+            custom_resolver = dns.resolver.Resolver()
             try:
-                txt_values = custom_resolver.resolve(duckdns_domain, "TXT")
+                if dns.version.MAJOR > 1:
+                    txt_values = custom_resolver.resolve(duckdns_domain, "TXT")
+                else:
+                    txt_values = custom_resolver.query(duckdns_domain, "TXT")
             except Exception as e:
                 raise errors.PluginError(e)
 
@@ -156,7 +164,12 @@ class Authenticator(dns_common.DNSAuthenticator):
 
         :return: the created DuckDNSClient object
         """
-        token = self.conf("token") or self._credentials.conf("token")
+        token = self.conf("token")
+        if not token and self._credentials is not None:
+            token = self._credentials.conf("token")
+        else:
+            token = self._token
+
         return DuckDNSClient(token)
 
     def _get_duckdns_domain(self, domain: str) -> str:
@@ -175,7 +188,14 @@ class Authenticator(dns_common.DNSAuthenticator):
 
         # delegated acme challenge (ipv4)
         try:
-            result = resolver.resolve(f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "A")
+            if dns.version.MAJOR > 1:
+                result = dns.resolver.resolve(
+                    f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "A"
+                )
+            else:
+                result = dns.resolver.query(
+                    f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "A"
+                )
             delegated_domain = result.canonical_name.to_text().rstrip(".")
 
             # check if the delegated domain is a valid duckdns.org domain
@@ -183,12 +203,19 @@ class Authenticator(dns_common.DNSAuthenticator):
                 return delegated_domain
 
             raise errors.PluginError(NotValidDuckdnsDomainError(delegated_domain))
-        except (resolver.NXDOMAIN, resolver.NoAnswer):
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
             pass
 
         # delegated acme challenge (ipv6)
         try:
-            result = resolver.resolve(f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "AAAA")
+            if dns.version.MAJOR > 1:
+                result = dns.resolver.resolve(
+                    f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "AAAA"
+                )
+            else:
+                result = dns.resolver.query(
+                    f"{ACME_CHALLENGE_TXT_PREFIX}.{domain}", "AAAA"
+                )
             delegated_domain = result.canonical_name.to_text().rstrip(".")
 
             # check if the delegated domain is a valid duckdns.org domain
@@ -196,7 +223,7 @@ class Authenticator(dns_common.DNSAuthenticator):
                 return delegated_domain
 
             raise errors.PluginError(NotValidDuckdnsDomainError(delegated_domain))
-        except (resolver.NXDOMAIN, resolver.NoAnswer):
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
             pass
 
         # invalid domain

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama-parse
-Version: 0.6.18
+Version: 0.6.20
 Summary: Parse files into RAG-Optimized formats.
 License: MIT
 Author: Logan Markewich
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: llama-cloud-services (>=0.6.17)
+Requires-Dist: llama-cloud-services (>=0.6.20)
 Description-Content-Type: text/markdown
 
 # LlamaParse

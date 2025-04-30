@@ -165,7 +165,7 @@ GetChatControlsConfigurationPaginatorName = Literal["get_chat_controls_configura
 GroupStatusType = Literal["DELETED", "DELETING", "FAILED", "PROCESSING", "SUCCEEDED"]
 HallucinationReductionControlType = Literal["DISABLED", "ENABLED"]
 IdentityTypeType = Literal[
-    "AWS_IAM_IDC", "AWS_IAM_IDP_OIDC", "AWS_IAM_IDP_SAML", "AWS_QUICKSIGHT_IDP"
+    "ANONYMOUS", "AWS_IAM_IDC", "AWS_IAM_IDP_OIDC", "AWS_IAM_IDP_SAML", "AWS_QUICKSIGHT_IDP"
 ]
 ImageExtractionStatusType = Literal["DISABLED", "ENABLED"]
 IndexStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
@@ -627,6 +627,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

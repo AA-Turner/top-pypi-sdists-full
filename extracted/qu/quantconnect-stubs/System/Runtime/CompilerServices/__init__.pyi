@@ -1811,22 +1811,22 @@ class AsyncHelpers(System.Object):
 
     @staticmethod
     @overload
-    def await(task: System.Threading.Tasks.Task) -> None:
+    def Await(task: System.Threading.Tasks.Task) -> None:
         ...
 
     @staticmethod
     @overload
-    def await(task: System.Threading.Tasks.ValueTask) -> None:
+    def Await(task: System.Threading.Tasks.ValueTask) -> None:
         ...
 
     @staticmethod
     @overload
-    def await(configured_awaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable) -> None:
+    def Await(configuredAwaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable) -> None:
         ...
 
     @staticmethod
     @overload
-    def await(configured_awaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable) -> None:
+    def Await(configuredAwaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable) -> None:
         ...
 
 

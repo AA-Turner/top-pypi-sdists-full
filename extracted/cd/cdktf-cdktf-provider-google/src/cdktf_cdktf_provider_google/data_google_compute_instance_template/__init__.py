@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_instance_template`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_instance_template`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template).
+Refer to the Terraform Registry for docs: [`data_google_compute_instance_template`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeInstanceTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeInstanceTemplate.DataGoogleComputeInstanceTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template google_compute_instance_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template google_compute_instance_template}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataGoogleComputeInstanceTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template google_compute_instance_template} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template google_compute_instance_template} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.
-        :param name: The name of the instance template. If you leave this blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
-        :param self_link_unique: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.
+        :param name: The name of the instance template. If you leave this blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
+        :param self_link_unique: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataGoogleComputeInstanceTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeInstanceTemplate to import.
-        :param import_from_id: The id of the existing DataGoogleComputeInstanceTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeInstanceTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeInstanceTemplate to import is found.
         '''
         if __debug__:
@@ -805,12 +805,12 @@ class DataGoogleComputeInstanceTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.
-        :param name: The name of the instance template. If you leave this blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
-        :param self_link_unique: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.
+        :param name: The name of the instance template. If you leave this blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
+        :param self_link_unique: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -923,13 +923,13 @@ class DataGoogleComputeInstanceTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def filter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#filter DataGoogleComputeInstanceTemplate#filter}.'''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#id DataGoogleComputeInstanceTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -941,7 +941,7 @@ class DataGoogleComputeInstanceTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def most_recent(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#most_recent DataGoogleComputeInstanceTemplate#most_recent}.'''
         result = self._values.get("most_recent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -949,7 +949,7 @@ class DataGoogleComputeInstanceTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the instance template. If you leave this blank, Terraform will auto-generate a unique name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#name DataGoogleComputeInstanceTemplate#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -960,14 +960,14 @@ class DataGoogleComputeInstanceTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#project DataGoogleComputeInstanceTemplate#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def self_link_unique(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_instance_template#self_link_unique DataGoogleComputeInstanceTemplate#self_link_unique}.'''
         result = self._values.get("self_link_unique")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1131,6 +1131,11 @@ class DataGoogleComputeInstanceTemplateDiskDiskEncryptionKeyOutputReference(
     @jsii.member(jsii_name="kmsKeySelfLink")
     def kms_key_self_link(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "kmsKeySelfLink"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "kmsKeyServiceAccount"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -1508,6 +1513,16 @@ class DataGoogleComputeInstanceTemplateDiskSourceImageEncryptionKeyOutputReferen
         return typing.cast(builtins.str, jsii.get(self, "kmsKeyServiceAccount"))
 
     @builtins.property
+    @jsii.member(jsii_name="rawKey")
+    def raw_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rawKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rsaEncryptedKey"))
+
+    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
@@ -1657,6 +1672,16 @@ class DataGoogleComputeInstanceTemplateDiskSourceSnapshotEncryptionKeyOutputRefe
     @jsii.member(jsii_name="kmsKeyServiceAccount")
     def kms_key_service_account(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "kmsKeyServiceAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rawKey")
+    def raw_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rawKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rsaEncryptedKey"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")

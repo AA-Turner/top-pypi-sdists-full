@@ -1,7 +1,7 @@
 r'''
 # `google_site_verification_owner`
 
-Refer to the Terraform Registry for docs: [`google_site_verification_owner`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner).
+Refer to the Terraform Registry for docs: [`google_site_verification_owner`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SiteVerificationOwner(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.siteVerificationOwner.SiteVerificationOwner",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner google_site_verification_owner}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner google_site_verification_owner}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SiteVerificationOwner(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner google_site_verification_owner} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner google_site_verification_owner} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param email: The email address of the owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
-        :param web_resource_id: The id of the Web Resource to add this owner to, in the form "webResource/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
+        :param email: The email address of the owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
+        :param web_resource_id: The id of the Web Resource to add this owner to, in the form "webResource/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SiteVerificationOwner(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SiteVerificationOwner to import.
-        :param import_from_id: The id of the existing SiteVerificationOwner that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SiteVerificationOwner that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SiteVerificationOwner to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class SiteVerificationOwner(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.
         '''
         value = SiteVerificationOwnerTimeouts(create=create, delete=delete)
 
@@ -264,10 +264,10 @@ class SiteVerificationOwnerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param email: The email address of the owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
-        :param web_resource_id: The id of the Web Resource to add this owner to, in the form "webResource/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
+        :param email: The email address of the owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
+        :param web_resource_id: The id of the Web Resource to add this owner to, in the form "webResource/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -377,7 +377,7 @@ class SiteVerificationOwnerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def email(self) -> builtins.str:
         '''The email address of the owner.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#email SiteVerificationOwner#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -387,7 +387,7 @@ class SiteVerificationOwnerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def web_resource_id(self) -> builtins.str:
         '''The id of the Web Resource to add this owner to, in the form "webResource/".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#web_resource_id SiteVerificationOwner#web_resource_id}
         '''
         result = self._values.get("web_resource_id")
         assert result is not None, "Required property 'web_resource_id' is missing"
@@ -395,7 +395,7 @@ class SiteVerificationOwnerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#id SiteVerificationOwner#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -407,7 +407,7 @@ class SiteVerificationOwnerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SiteVerificationOwnerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#timeouts SiteVerificationOwner#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SiteVerificationOwnerTimeouts"], result)
@@ -437,8 +437,8 @@ class SiteVerificationOwnerTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__797a6293add635c12267f465d11ce3dd0527b70486d52f6ca3685b62899ee349)
@@ -452,13 +452,13 @@ class SiteVerificationOwnerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#create SiteVerificationOwner#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/site_verification_owner#delete SiteVerificationOwner#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_reservation_assignment`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_reservation_assignment`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment).
+Refer to the Terraform Registry for docs: [`google_bigquery_reservation_assignment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigqueryReservationAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigqueryReservationAssignment.BigqueryReservationAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment google_bigquery_reservation_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment google_bigquery_reservation_assignment}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class BigqueryReservationAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment google_bigquery_reservation_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment google_bigquery_reservation_assignment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
-        :param job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
-        :param reservation: The reservation for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
+        :param assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
+        :param job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
+        :param reservation: The reservation for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class BigqueryReservationAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigqueryReservationAssignment to import.
-        :param import_from_id: The id of the existing BigqueryReservationAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigqueryReservationAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigqueryReservationAssignment to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class BigqueryReservationAssignment(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.
         '''
         value = BigqueryReservationAssignmentTimeouts(create=create, delete=delete)
 
@@ -348,13 +348,13 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
-        :param job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
-        :param reservation: The reservation for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
+        :param assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
+        :param job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
+        :param reservation: The reservation for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -472,7 +472,7 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def assignee(self) -> builtins.str:
         '''The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#assignee BigqueryReservationAssignment#assignee}
         '''
         result = self._values.get("assignee")
         assert result is not None, "Required property 'assignee' is missing"
@@ -482,7 +482,7 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def job_type(self) -> builtins.str:
         '''Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#job_type BigqueryReservationAssignment#job_type}
         '''
         result = self._values.get("job_type")
         assert result is not None, "Required property 'job_type' is missing"
@@ -492,7 +492,7 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def reservation(self) -> builtins.str:
         '''The reservation for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#reservation BigqueryReservationAssignment#reservation}
         '''
         result = self._values.get("reservation")
         assert result is not None, "Required property 'reservation' is missing"
@@ -500,7 +500,7 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#id BigqueryReservationAssignment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -512,14 +512,14 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def location(self) -> typing.Optional[builtins.str]:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#location BigqueryReservationAssignment#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#project BigqueryReservationAssignment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -527,7 +527,7 @@ class BigqueryReservationAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["BigqueryReservationAssignmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#timeouts BigqueryReservationAssignment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigqueryReservationAssignmentTimeouts"], result)
@@ -557,8 +557,8 @@ class BigqueryReservationAssignmentTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bacd6ae6a95166396e16ae5f94bf5949c82ee9894c3977049ed1d15983cab858)
@@ -572,13 +572,13 @@ class BigqueryReservationAssignmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#create BigqueryReservationAssignment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_reservation_assignment#delete BigqueryReservationAssignment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

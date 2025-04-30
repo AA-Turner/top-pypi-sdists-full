@@ -1,7 +1,7 @@
 r'''
 # `google_vertex_ai_index`
 
-Refer to the Terraform Registry for docs: [`google_vertex_ai_index`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index).
+Refer to the Terraform Registry for docs: [`google_vertex_ai_index`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VertexAiIndex(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.vertexAiIndex.VertexAiIndex",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index google_vertex_ai_index}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index google_vertex_ai_index}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class VertexAiIndex(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index google_vertex_ai_index} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index google_vertex_ai_index} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name of the Index. The name can be up to 128 characters long and can consist of any UTF-8 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
-        :param description: The description of the Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_update_method: The update method to use with this Index. The value must be the followings. If not set, BATCH_UPDATE will be used by default. - BATCH_UPDATE: user can call indexes.patch with files on Cloud Storage of datapoints to update. - STREAM_UPDATE: user can call indexes.upsertDatapoints/DeleteDatapoints to update the Index and the updates will be applied in corresponding DeployedIndexes in nearly real-time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
-        :param labels: The labels with user-defined metadata to organize your Indexes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.
-        :param region: The region of the index. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
+        :param display_name: The display name of the Index. The name can be up to 128 characters long and can consist of any UTF-8 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
+        :param description: The description of the Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_update_method: The update method to use with this Index. The value must be the followings. If not set, BATCH_UPDATE will be used by default. - BATCH_UPDATE: user can call indexes.patch with files on Cloud Storage of datapoints to update. - STREAM_UPDATE: user can call indexes.upsertDatapoints/DeleteDatapoints to update the Index and the updates will be applied in corresponding DeployedIndexes in nearly real-time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
+        :param labels: The labels with user-defined metadata to organize your Indexes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.
+        :param region: The region of the index. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class VertexAiIndex(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VertexAiIndex to import.
-        :param import_from_id: The id of the existing VertexAiIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VertexAiIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VertexAiIndex to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class VertexAiIndex(
         is_complete_overwrite: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
-        :param contents_delta_uri: Allows inserting, updating or deleting the contents of the Matching Engine Index. The string must be a valid Cloud Storage directory path. If this field is set when calling IndexService.UpdateIndex, then no other Index field can be also updated as part of the same call. The expected structure and format of the files this URI points to is described at https://cloud.google.com/vertex-ai/docs/matching-engine/using-matching-engine#input-data-format Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
-        :param is_complete_overwrite: If this field is set together with contentsDeltaUri when calling IndexService.UpdateIndex, then existing content of the Index will be replaced by the data from the contentsDeltaUri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
+        :param contents_delta_uri: Allows inserting, updating or deleting the contents of the Matching Engine Index. The string must be a valid Cloud Storage directory path. If this field is set when calling IndexService.UpdateIndex, then no other Index field can be also updated as part of the same call. The expected structure and format of the files this URI points to is described at https://cloud.google.com/vertex-ai/docs/matching-engine/using-matching-engine#input-data-format Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
+        :param is_complete_overwrite: If this field is set together with contentsDeltaUri when calling IndexService.UpdateIndex, then existing content of the Index will be replaced by the data from the contentsDeltaUri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
         '''
         value = VertexAiIndexMetadata(
             config=config,
@@ -168,9 +168,9 @@ class VertexAiIndex(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.
         '''
         value = VertexAiIndexTimeouts(create=create, delete=delete, update=update)
 
@@ -461,15 +461,15 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name of the Index. The name can be up to 128 characters long and can consist of any UTF-8 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
-        :param description: The description of the Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_update_method: The update method to use with this Index. The value must be the followings. If not set, BATCH_UPDATE will be used by default. - BATCH_UPDATE: user can call indexes.patch with files on Cloud Storage of datapoints to update. - STREAM_UPDATE: user can call indexes.upsertDatapoints/DeleteDatapoints to update the Index and the updates will be applied in corresponding DeployedIndexes in nearly real-time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
-        :param labels: The labels with user-defined metadata to organize your Indexes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.
-        :param region: The region of the index. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
+        :param display_name: The display name of the Index. The name can be up to 128 characters long and can consist of any UTF-8 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
+        :param description: The description of the Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_update_method: The update method to use with this Index. The value must be the followings. If not set, BATCH_UPDATE will be used by default. - BATCH_UPDATE: user can call indexes.patch with files on Cloud Storage of datapoints to update. - STREAM_UPDATE: user can call indexes.upsertDatapoints/DeleteDatapoints to update the Index and the updates will be applied in corresponding DeployedIndexes in nearly real-time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
+        :param labels: The labels with user-defined metadata to organize your Indexes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.
+        :param region: The region of the index. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -599,7 +599,7 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The name can be up to 128 characters long and can consist of any UTF-8 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#display_name VertexAiIndex#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -609,14 +609,14 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the Index.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#description VertexAiIndex#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#id VertexAiIndex#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -633,7 +633,7 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - BATCH_UPDATE: user can call indexes.patch with files on Cloud Storage of datapoints to update.
         - STREAM_UPDATE: user can call indexes.upsertDatapoints/DeleteDatapoints to update the Index and the updates will be applied in corresponding DeployedIndexes in nearly real-time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#index_update_method VertexAiIndex#index_update_method}
         '''
         result = self._values.get("index_update_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -645,7 +645,7 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#labels VertexAiIndex#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -654,14 +654,14 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional["VertexAiIndexMetadata"]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#metadata VertexAiIndex#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional["VertexAiIndexMetadata"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#project VertexAiIndex#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -669,7 +669,7 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the index. eg us-central1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#region VertexAiIndex#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -678,7 +678,7 @@ class VertexAiIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VertexAiIndexTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#timeouts VertexAiIndex#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VertexAiIndexTimeouts"], result)
@@ -1002,9 +1002,9 @@ class VertexAiIndexMetadata:
         is_complete_overwrite: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
-        :param contents_delta_uri: Allows inserting, updating or deleting the contents of the Matching Engine Index. The string must be a valid Cloud Storage directory path. If this field is set when calling IndexService.UpdateIndex, then no other Index field can be also updated as part of the same call. The expected structure and format of the files this URI points to is described at https://cloud.google.com/vertex-ai/docs/matching-engine/using-matching-engine#input-data-format Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
-        :param is_complete_overwrite: If this field is set together with contentsDeltaUri when calling IndexService.UpdateIndex, then existing content of the Index will be replaced by the data from the contentsDeltaUri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
+        :param contents_delta_uri: Allows inserting, updating or deleting the contents of the Matching Engine Index. The string must be a valid Cloud Storage directory path. If this field is set when calling IndexService.UpdateIndex, then no other Index field can be also updated as part of the same call. The expected structure and format of the files this URI points to is described at https://cloud.google.com/vertex-ai/docs/matching-engine/using-matching-engine#input-data-format Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
+        :param is_complete_overwrite: If this field is set together with contentsDeltaUri when calling IndexService.UpdateIndex, then existing content of the Index will be replaced by the data from the contentsDeltaUri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
         '''
         if isinstance(config, dict):
             config = VertexAiIndexMetadataConfig(**config)
@@ -1025,7 +1025,7 @@ class VertexAiIndexMetadata:
     def config(self) -> typing.Optional["VertexAiIndexMetadataConfig"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#config VertexAiIndex#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["VertexAiIndexMetadataConfig"], result)
@@ -1040,7 +1040,7 @@ class VertexAiIndexMetadata:
         The expected structure and format of the files this URI points to is
         described at https://cloud.google.com/vertex-ai/docs/matching-engine/using-matching-engine#input-data-format
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#contents_delta_uri VertexAiIndex#contents_delta_uri}
         '''
         result = self._values.get("contents_delta_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1051,7 +1051,7 @@ class VertexAiIndexMetadata:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If this field is set together with contentsDeltaUri when calling IndexService.UpdateIndex, then existing content of the Index will be replaced by the data from the contentsDeltaUri.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#is_complete_overwrite VertexAiIndex#is_complete_overwrite}
         '''
         result = self._values.get("is_complete_overwrite")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1092,12 +1092,12 @@ class VertexAiIndexMetadataConfig:
         shard_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dimensions: The number of dimensions of the input vectors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
-        :param algorithm_config: algorithm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
-        :param approximate_neighbors_count: The default number of neighbors to find via approximate search before exact reordering is performed. Exact reordering is a procedure where results returned by an approximate search algorithm are reordered via a more expensive distance computation. Required if tree-AH algorithm is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
-        :param distance_measure_type: The distance measure used in nearest neighbor search. The value must be one of the followings: - SQUARED_L2_DISTANCE: Euclidean (L_2) Distance - L1_DISTANCE: Manhattan (L_1) Distance - COSINE_DISTANCE: Cosine Distance. Defined as 1 - cosine similarity. - DOT_PRODUCT_DISTANCE: Dot Product Distance. Defined as a negative of the dot product Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
-        :param feature_norm_type: Type of normalization to be carried out on each vector. The value must be one of the followings: - UNIT_L2_NORM: Unit L2 normalization type - NONE: No normalization type is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
-        :param shard_size: Index data is split into equal parts to be processed. These are called "shards". The shard size must be specified when creating an index. The value must be one of the followings: - SHARD_SIZE_SMALL: Small (2GB) - SHARD_SIZE_MEDIUM: Medium (20GB) - SHARD_SIZE_LARGE: Large (50GB) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
+        :param dimensions: The number of dimensions of the input vectors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
+        :param algorithm_config: algorithm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
+        :param approximate_neighbors_count: The default number of neighbors to find via approximate search before exact reordering is performed. Exact reordering is a procedure where results returned by an approximate search algorithm are reordered via a more expensive distance computation. Required if tree-AH algorithm is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
+        :param distance_measure_type: The distance measure used in nearest neighbor search. The value must be one of the followings: - SQUARED_L2_DISTANCE: Euclidean (L_2) Distance - L1_DISTANCE: Manhattan (L_1) Distance - COSINE_DISTANCE: Cosine Distance. Defined as 1 - cosine similarity. - DOT_PRODUCT_DISTANCE: Dot Product Distance. Defined as a negative of the dot product Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
+        :param feature_norm_type: Type of normalization to be carried out on each vector. The value must be one of the followings: - UNIT_L2_NORM: Unit L2 normalization type - NONE: No normalization type is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
+        :param shard_size: Index data is split into equal parts to be processed. These are called "shards". The shard size must be specified when creating an index. The value must be one of the followings: - SHARD_SIZE_SMALL: Small (2GB) - SHARD_SIZE_MEDIUM: Medium (20GB) - SHARD_SIZE_LARGE: Large (50GB) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
         '''
         if isinstance(algorithm_config, dict):
             algorithm_config = VertexAiIndexMetadataConfigAlgorithmConfig(**algorithm_config)
@@ -1127,7 +1127,7 @@ class VertexAiIndexMetadataConfig:
     def dimensions(self) -> jsii.Number:
         '''The number of dimensions of the input vectors.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
         '''
         result = self._values.get("dimensions")
         assert result is not None, "Required property 'dimensions' is missing"
@@ -1139,7 +1139,7 @@ class VertexAiIndexMetadataConfig:
     ) -> typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfig"]:
         '''algorithm_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
         '''
         result = self._values.get("algorithm_config")
         return typing.cast(typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfig"], result)
@@ -1152,7 +1152,7 @@ class VertexAiIndexMetadataConfig:
         approximate search algorithm are reordered via a more expensive distance computation.
         Required if tree-AH algorithm is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
         '''
         result = self._values.get("approximate_neighbors_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1168,7 +1168,7 @@ class VertexAiIndexMetadataConfig:
         - COSINE_DISTANCE: Cosine Distance. Defined as 1 - cosine similarity.
         - DOT_PRODUCT_DISTANCE: Dot Product Distance. Defined as a negative of the dot product
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
         '''
         result = self._values.get("distance_measure_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1182,7 +1182,7 @@ class VertexAiIndexMetadataConfig:
         - UNIT_L2_NORM: Unit L2 normalization type
         - NONE: No normalization type is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
         '''
         result = self._values.get("feature_norm_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1198,7 +1198,7 @@ class VertexAiIndexMetadataConfig:
         - SHARD_SIZE_MEDIUM: Medium (20GB)
         - SHARD_SIZE_LARGE: Large (50GB)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
         '''
         result = self._values.get("shard_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1231,8 +1231,8 @@ class VertexAiIndexMetadataConfigAlgorithmConfig:
         tree_ah_config: typing.Optional[typing.Union["VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param brute_force_config: brute_force_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
-        :param tree_ah_config: tree_ah_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
+        :param brute_force_config: brute_force_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
+        :param tree_ah_config: tree_ah_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
         '''
         if isinstance(brute_force_config, dict):
             brute_force_config = VertexAiIndexMetadataConfigAlgorithmConfigBruteForceConfig(**brute_force_config)
@@ -1254,7 +1254,7 @@ class VertexAiIndexMetadataConfigAlgorithmConfig:
     ) -> typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfigBruteForceConfig"]:
         '''brute_force_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
         '''
         result = self._values.get("brute_force_config")
         return typing.cast(typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfigBruteForceConfig"], result)
@@ -1265,7 +1265,7 @@ class VertexAiIndexMetadataConfigAlgorithmConfig:
     ) -> typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig"]:
         '''tree_ah_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
         '''
         result = self._values.get("tree_ah_config")
         return typing.cast(typing.Optional["VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig"], result)
@@ -1375,8 +1375,8 @@ class VertexAiIndexMetadataConfigAlgorithmConfigOutputReference(
         leaf_nodes_to_search_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param leaf_node_embedding_count: Number of embeddings on each leaf node. The default value is 1000 if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
-        :param leaf_nodes_to_search_percent: The default percentage of leaf nodes that any query may be searched. Must be in range 1-100, inclusive. The default value is 10 (means 10%) if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
+        :param leaf_node_embedding_count: Number of embeddings on each leaf node. The default value is 1000 if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
+        :param leaf_nodes_to_search_percent: The default percentage of leaf nodes that any query may be searched. Must be in range 1-100, inclusive. The default value is 10 (means 10%) if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
         '''
         value = VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig(
             leaf_node_embedding_count=leaf_node_embedding_count,
@@ -1455,8 +1455,8 @@ class VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig:
         leaf_nodes_to_search_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param leaf_node_embedding_count: Number of embeddings on each leaf node. The default value is 1000 if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
-        :param leaf_nodes_to_search_percent: The default percentage of leaf nodes that any query may be searched. Must be in range 1-100, inclusive. The default value is 10 (means 10%) if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
+        :param leaf_node_embedding_count: Number of embeddings on each leaf node. The default value is 1000 if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
+        :param leaf_nodes_to_search_percent: The default percentage of leaf nodes that any query may be searched. Must be in range 1-100, inclusive. The default value is 10 (means 10%) if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9800582b6ed7f8f6095b3c1f88a2f6445c8e6eb4133ac5131f2c37db4686318)
@@ -1472,7 +1472,7 @@ class VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig:
     def leaf_node_embedding_count(self) -> typing.Optional[jsii.Number]:
         '''Number of embeddings on each leaf node. The default value is 1000 if not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_node_embedding_count VertexAiIndex#leaf_node_embedding_count}
         '''
         result = self._values.get("leaf_node_embedding_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1484,7 +1484,7 @@ class VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig:
         Must be in
         range 1-100, inclusive. The default value is 10 (means 10%) if not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#leaf_nodes_to_search_percent VertexAiIndex#leaf_nodes_to_search_percent}
         '''
         result = self._values.get("leaf_nodes_to_search_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1609,8 +1609,8 @@ class VertexAiIndexMetadataConfigOutputReference(
         tree_ah_config: typing.Optional[typing.Union[VertexAiIndexMetadataConfigAlgorithmConfigTreeAhConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param brute_force_config: brute_force_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
-        :param tree_ah_config: tree_ah_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
+        :param brute_force_config: brute_force_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#brute_force_config VertexAiIndex#brute_force_config}
+        :param tree_ah_config: tree_ah_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#tree_ah_config VertexAiIndex#tree_ah_config}
         '''
         value = VertexAiIndexMetadataConfigAlgorithmConfig(
             brute_force_config=brute_force_config, tree_ah_config=tree_ah_config
@@ -1785,12 +1785,12 @@ class VertexAiIndexMetadataOutputReference(
         shard_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dimensions: The number of dimensions of the input vectors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
-        :param algorithm_config: algorithm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
-        :param approximate_neighbors_count: The default number of neighbors to find via approximate search before exact reordering is performed. Exact reordering is a procedure where results returned by an approximate search algorithm are reordered via a more expensive distance computation. Required if tree-AH algorithm is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
-        :param distance_measure_type: The distance measure used in nearest neighbor search. The value must be one of the followings: - SQUARED_L2_DISTANCE: Euclidean (L_2) Distance - L1_DISTANCE: Manhattan (L_1) Distance - COSINE_DISTANCE: Cosine Distance. Defined as 1 - cosine similarity. - DOT_PRODUCT_DISTANCE: Dot Product Distance. Defined as a negative of the dot product Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
-        :param feature_norm_type: Type of normalization to be carried out on each vector. The value must be one of the followings: - UNIT_L2_NORM: Unit L2 normalization type - NONE: No normalization type is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
-        :param shard_size: Index data is split into equal parts to be processed. These are called "shards". The shard size must be specified when creating an index. The value must be one of the followings: - SHARD_SIZE_SMALL: Small (2GB) - SHARD_SIZE_MEDIUM: Medium (20GB) - SHARD_SIZE_LARGE: Large (50GB) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
+        :param dimensions: The number of dimensions of the input vectors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#dimensions VertexAiIndex#dimensions}
+        :param algorithm_config: algorithm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#algorithm_config VertexAiIndex#algorithm_config}
+        :param approximate_neighbors_count: The default number of neighbors to find via approximate search before exact reordering is performed. Exact reordering is a procedure where results returned by an approximate search algorithm are reordered via a more expensive distance computation. Required if tree-AH algorithm is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#approximate_neighbors_count VertexAiIndex#approximate_neighbors_count}
+        :param distance_measure_type: The distance measure used in nearest neighbor search. The value must be one of the followings: - SQUARED_L2_DISTANCE: Euclidean (L_2) Distance - L1_DISTANCE: Manhattan (L_1) Distance - COSINE_DISTANCE: Cosine Distance. Defined as 1 - cosine similarity. - DOT_PRODUCT_DISTANCE: Dot Product Distance. Defined as a negative of the dot product Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#distance_measure_type VertexAiIndex#distance_measure_type}
+        :param feature_norm_type: Type of normalization to be carried out on each vector. The value must be one of the followings: - UNIT_L2_NORM: Unit L2 normalization type - NONE: No normalization type is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#feature_norm_type VertexAiIndex#feature_norm_type}
+        :param shard_size: Index data is split into equal parts to be processed. These are called "shards". The shard size must be specified when creating an index. The value must be one of the followings: - SHARD_SIZE_SMALL: Small (2GB) - SHARD_SIZE_MEDIUM: Medium (20GB) - SHARD_SIZE_LARGE: Large (50GB) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#shard_size VertexAiIndex#shard_size}
         '''
         value = VertexAiIndexMetadataConfig(
             dimensions=dimensions,
@@ -1893,9 +1893,9 @@ class VertexAiIndexTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__573540121c5308a4424a29f792f7c14587f34518ec87151d590b5550fbcdf00c)
@@ -1912,19 +1912,19 @@ class VertexAiIndexTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#create VertexAiIndex#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#delete VertexAiIndex#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_index#update VertexAiIndex#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

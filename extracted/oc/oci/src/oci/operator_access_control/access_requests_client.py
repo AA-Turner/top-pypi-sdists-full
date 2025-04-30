@@ -163,7 +163,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/approve_access_request.py.html>`__ to see an example of how to use approve_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/approve_access_request.py.html>`__ to see an example of how to use approve_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -266,7 +266,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/get_access_request.py.html>`__ to see an example of how to use get_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/get_access_request.py.html>`__ to see an example of how to use get_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -367,7 +367,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/get_audit_log_report.py.html>`__ to see an example of how to use get_audit_log_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/get_audit_log_report.py.html>`__ to see an example of how to use get_audit_log_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -490,7 +490,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/interaction_request.py.html>`__ to see an example of how to use interaction_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/interaction_request.py.html>`__ to see an example of how to use interaction_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -601,7 +601,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/list_access_request_histories.py.html>`__ to see an example of how to use list_access_request_histories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/list_access_request_histories.py.html>`__ to see an example of how to use list_access_request_histories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -746,7 +746,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/list_access_requests.py.html>`__ to see an example of how to use list_access_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/list_access_requests.py.html>`__ to see an example of how to use list_access_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -884,7 +884,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/list_interactions.py.html>`__ to see an example of how to use list_interactions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/list_interactions.py.html>`__ to see an example of how to use list_interactions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1009,7 +1009,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/reject_access_request.py.html>`__ to see an example of how to use reject_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/reject_access_request.py.html>`__ to see an example of how to use reject_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1129,7 +1129,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/review_access_request.py.html>`__ to see an example of how to use review_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/review_access_request.py.html>`__ to see an example of how to use review_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']
@@ -1251,7 +1251,7 @@ class AccessRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/operatoraccesscontrol/revoke_access_request.py.html>`__ to see an example of how to use revoke_access_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/revoke_access_request.py.html>`__ to see an example of how to use revoke_access_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['accessRequestId']

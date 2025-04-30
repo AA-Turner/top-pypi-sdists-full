@@ -1,7 +1,7 @@
 r'''
 # `google_compute_target_pool`
 
-Refer to the Terraform Registry for docs: [`google_compute_target_pool`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool).
+Refer to the Terraform Registry for docs: [`google_compute_target_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeTargetPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeTargetPool.ComputeTargetPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool google_compute_target_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool google_compute_target_pool}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ComputeTargetPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool google_compute_target_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool google_compute_target_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A unique name for the resource, required by GCE. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
-        :param backup_pool: URL to the backup target pool. Must also set failover_ratio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
-        :param description: Textual description field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
-        :param failover_ratio: Ratio (0 to 1) of failed nodes before using the backup pool (which must also be set). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
-        :param health_checks: List of zero or one health check name or self_link. Only legacy google_compute_http_health_check is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instances: List of instances in the pool. They can be given as URLs, or in the form of "zone/name". Note that the instances need not exist at the time of target pool creation, so there is no need to use the Terraform interpolators to create a dependency on the instances from the target pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
-        :param region: Where the target pool resides. Defaults to project region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
-        :param session_affinity: How to distribute load. Options are "NONE" (no affinity). "CLIENT_IP" (hash of the source/dest addresses / ports), and "CLIENT_IP_PROTO" also includes the protocol (default "NONE"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
+        :param name: A unique name for the resource, required by GCE. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
+        :param backup_pool: URL to the backup target pool. Must also set failover_ratio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
+        :param description: Textual description field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
+        :param failover_ratio: Ratio (0 to 1) of failed nodes before using the backup pool (which must also be set). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
+        :param health_checks: List of zero or one health check name or self_link. Only legacy google_compute_http_health_check is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instances: List of instances in the pool. They can be given as URLs, or in the form of "zone/name". Note that the instances need not exist at the time of target pool creation, so there is no need to use the Terraform interpolators to create a dependency on the instances from the target pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
+        :param region: Where the target pool resides. Defaults to project region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
+        :param session_affinity: How to distribute load. Options are "NONE" (no affinity). "CLIENT_IP" (hash of the source/dest addresses / ports), and "CLIENT_IP_PROTO" also includes the protocol (default "NONE"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ComputeTargetPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeTargetPool to import.
-        :param import_from_id: The id of the existing ComputeTargetPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeTargetPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeTargetPool to import is found.
         '''
         if __debug__:
@@ -153,9 +153,9 @@ class ComputeTargetPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.
         '''
         value = ComputeTargetPoolTimeouts(create=create, delete=delete, update=update)
 
@@ -457,17 +457,17 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A unique name for the resource, required by GCE. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
-        :param backup_pool: URL to the backup target pool. Must also set failover_ratio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
-        :param description: Textual description field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
-        :param failover_ratio: Ratio (0 to 1) of failed nodes before using the backup pool (which must also be set). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
-        :param health_checks: List of zero or one health check name or self_link. Only legacy google_compute_http_health_check is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instances: List of instances in the pool. They can be given as URLs, or in the form of "zone/name". Note that the instances need not exist at the time of target pool creation, so there is no need to use the Terraform interpolators to create a dependency on the instances from the target pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
-        :param region: Where the target pool resides. Defaults to project region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
-        :param session_affinity: How to distribute load. Options are "NONE" (no affinity). "CLIENT_IP" (hash of the source/dest addresses / ports), and "CLIENT_IP_PROTO" also includes the protocol (default "NONE"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
+        :param name: A unique name for the resource, required by GCE. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
+        :param backup_pool: URL to the backup target pool. Must also set failover_ratio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
+        :param description: Textual description field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
+        :param failover_ratio: Ratio (0 to 1) of failed nodes before using the backup pool (which must also be set). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
+        :param health_checks: List of zero or one health check name or self_link. Only legacy google_compute_http_health_check is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instances: List of instances in the pool. They can be given as URLs, or in the form of "zone/name". Note that the instances need not exist at the time of target pool creation, so there is no need to use the Terraform interpolators to create a dependency on the instances from the target pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
+        :param region: Where the target pool resides. Defaults to project region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
+        :param session_affinity: How to distribute load. Options are "NONE" (no affinity). "CLIENT_IP" (hash of the source/dest addresses / ports), and "CLIENT_IP_PROTO" also includes the protocol (default "NONE"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -599,7 +599,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A unique name for the resource, required by GCE. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#name ComputeTargetPool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -609,7 +609,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_pool(self) -> typing.Optional[builtins.str]:
         '''URL to the backup target pool. Must also set failover_ratio.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#backup_pool ComputeTargetPool#backup_pool}
         '''
         result = self._values.get("backup_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -618,7 +618,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Textual description field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#description ComputeTargetPool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -627,7 +627,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def failover_ratio(self) -> typing.Optional[jsii.Number]:
         '''Ratio (0 to 1) of failed nodes before using the backup pool (which must also be set).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#failover_ratio ComputeTargetPool#failover_ratio}
         '''
         result = self._values.get("failover_ratio")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -636,14 +636,14 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def health_checks(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of zero or one health check name or self_link. Only legacy google_compute_http_health_check is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#health_checks ComputeTargetPool#health_checks}
         '''
         result = self._values.get("health_checks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#id ComputeTargetPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -657,7 +657,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         They can be given as URLs, or in the form of "zone/name". Note that the instances need not exist at the time of target pool creation, so there is no need to use the Terraform interpolators to create a dependency on the instances from the target pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#instances ComputeTargetPool#instances}
         '''
         result = self._values.get("instances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -668,7 +668,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#project ComputeTargetPool#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -677,7 +677,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Where the target pool resides. Defaults to project region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#region ComputeTargetPool#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -688,7 +688,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Options are "NONE" (no affinity). "CLIENT_IP" (hash of the source/dest addresses / ports), and "CLIENT_IP_PROTO" also includes the protocol (default "NONE").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#session_affinity ComputeTargetPool#session_affinity}
         '''
         result = self._values.get("session_affinity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -697,7 +697,7 @@ class ComputeTargetPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeTargetPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#timeouts ComputeTargetPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeTargetPoolTimeouts"], result)
@@ -728,9 +728,9 @@ class ComputeTargetPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d215e2101c5aecf7a5fc0bd9ddd599553a9ef61a1eca7b78d333337c530ca730)
@@ -747,19 +747,19 @@ class ComputeTargetPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#create ComputeTargetPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#delete ComputeTargetPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_target_pool#update ComputeTargetPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

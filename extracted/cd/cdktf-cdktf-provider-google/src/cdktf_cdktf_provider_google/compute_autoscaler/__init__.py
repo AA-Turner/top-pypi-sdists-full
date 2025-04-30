@@ -1,7 +1,7 @@
 r'''
 # `google_compute_autoscaler`
 
-Refer to the Terraform Registry for docs: [`google_compute_autoscaler`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler).
+Refer to the Terraform Registry for docs: [`google_compute_autoscaler`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeAutoscaler(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeAutoscaler.ComputeAutoscaler",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler google_compute_autoscaler}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler google_compute_autoscaler}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ComputeAutoscaler(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler google_compute_autoscaler} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler google_compute_autoscaler} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
-        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
-        :param target: URL of the managed instance group that this autoscaler will scale. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
-        :param zone: URL of the zone where the instance group resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
+        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
+        :param target: URL of the managed instance group that this autoscaler will scale. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
+        :param zone: URL of the zone where the instance group resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ComputeAutoscaler(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeAutoscaler to import.
-        :param import_from_id: The id of the existing ComputeAutoscaler that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeAutoscaler that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeAutoscaler to import is found.
         '''
         if __debug__:
@@ -150,15 +150,15 @@ class ComputeAutoscaler(
         scaling_schedules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeAutoscalerAutoscalingPolicyScalingSchedules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_replicas: The maximum number of instances that the autoscaler can scale up to. This is required when creating or updating an autoscaler. The maximum number of replicas should not be lower than minimal number of replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
-        :param min_replicas: The minimum number of replicas that the autoscaler can scale down to. This cannot be less than 0. If not provided, autoscaler will choose a default value depending on maximum number of instances allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
-        :param cooldown_period: The number of seconds that the autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. The default time autoscaler waits is 60 seconds. Virtual machine initialization times might vary because of numerous factors. We recommend that you test how long an instance may take to initialize. To do this, create an instance and time the startup process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
-        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
-        :param load_balancing_utilization: load_balancing_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
-        :param mode: Defines operating mode for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
-        :param scale_in_control: scale_in_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
-        :param scaling_schedules: scaling_schedules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
+        :param max_replicas: The maximum number of instances that the autoscaler can scale up to. This is required when creating or updating an autoscaler. The maximum number of replicas should not be lower than minimal number of replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
+        :param min_replicas: The minimum number of replicas that the autoscaler can scale down to. This cannot be less than 0. If not provided, autoscaler will choose a default value depending on maximum number of instances allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
+        :param cooldown_period: The number of seconds that the autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. The default time autoscaler waits is 60 seconds. Virtual machine initialization times might vary because of numerous factors. We recommend that you test how long an instance may take to initialize. To do this, create an instance and time the startup process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
+        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
+        :param load_balancing_utilization: load_balancing_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
+        :param mode: Defines operating mode for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
+        :param scale_in_control: scale_in_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
+        :param scaling_schedules: scaling_schedules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
         '''
         value = ComputeAutoscalerAutoscalingPolicy(
             max_replicas=max_replicas,
@@ -183,9 +183,9 @@ class ComputeAutoscaler(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.
         '''
         value = ComputeAutoscalerTimeouts(create=create, delete=delete, update=update)
 
@@ -391,15 +391,15 @@ class ComputeAutoscalerAutoscalingPolicy:
         scaling_schedules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeAutoscalerAutoscalingPolicyScalingSchedules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_replicas: The maximum number of instances that the autoscaler can scale up to. This is required when creating or updating an autoscaler. The maximum number of replicas should not be lower than minimal number of replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
-        :param min_replicas: The minimum number of replicas that the autoscaler can scale down to. This cannot be less than 0. If not provided, autoscaler will choose a default value depending on maximum number of instances allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
-        :param cooldown_period: The number of seconds that the autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. The default time autoscaler waits is 60 seconds. Virtual machine initialization times might vary because of numerous factors. We recommend that you test how long an instance may take to initialize. To do this, create an instance and time the startup process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
-        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
-        :param load_balancing_utilization: load_balancing_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
-        :param mode: Defines operating mode for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
-        :param scale_in_control: scale_in_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
-        :param scaling_schedules: scaling_schedules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
+        :param max_replicas: The maximum number of instances that the autoscaler can scale up to. This is required when creating or updating an autoscaler. The maximum number of replicas should not be lower than minimal number of replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
+        :param min_replicas: The minimum number of replicas that the autoscaler can scale down to. This cannot be less than 0. If not provided, autoscaler will choose a default value depending on maximum number of instances allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
+        :param cooldown_period: The number of seconds that the autoscaler should wait before it starts collecting information from a new instance. This prevents the autoscaler from collecting information when the instance is initializing, during which the collected usage would not be reliable. The default time autoscaler waits is 60 seconds. Virtual machine initialization times might vary because of numerous factors. We recommend that you test how long an instance may take to initialize. To do this, create an instance and time the startup process. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
+        :param cpu_utilization: cpu_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
+        :param load_balancing_utilization: load_balancing_utilization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
+        :param mode: Defines operating mode for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
+        :param scale_in_control: scale_in_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
+        :param scaling_schedules: scaling_schedules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
         '''
         if isinstance(cpu_utilization, dict):
             cpu_utilization = ComputeAutoscalerAutoscalingPolicyCpuUtilization(**cpu_utilization)
@@ -445,7 +445,7 @@ class ComputeAutoscalerAutoscalingPolicy:
         maximum number of replicas should not be lower than minimal number
         of replicas.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_replicas ComputeAutoscaler#max_replicas}
         '''
         result = self._values.get("max_replicas")
         assert result is not None, "Required property 'max_replicas' is missing"
@@ -459,7 +459,7 @@ class ComputeAutoscalerAutoscalingPolicy:
         choose a default value depending on maximum number of instances
         allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#min_replicas ComputeAutoscaler#min_replicas}
         '''
         result = self._values.get("min_replicas")
         assert result is not None, "Required property 'min_replicas' is missing"
@@ -479,7 +479,7 @@ class ComputeAutoscalerAutoscalingPolicy:
         instance may take to initialize. To do this, create an instance
         and time the startup process.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cooldown_period ComputeAutoscaler#cooldown_period}
         '''
         result = self._values.get("cooldown_period")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -490,7 +490,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     ) -> typing.Optional["ComputeAutoscalerAutoscalingPolicyCpuUtilization"]:
         '''cpu_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#cpu_utilization ComputeAutoscaler#cpu_utilization}
         '''
         result = self._values.get("cpu_utilization")
         return typing.cast(typing.Optional["ComputeAutoscalerAutoscalingPolicyCpuUtilization"], result)
@@ -501,7 +501,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     ) -> typing.Optional["ComputeAutoscalerAutoscalingPolicyLoadBalancingUtilization"]:
         '''load_balancing_utilization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#load_balancing_utilization ComputeAutoscaler#load_balancing_utilization}
         '''
         result = self._values.get("load_balancing_utilization")
         return typing.cast(typing.Optional["ComputeAutoscalerAutoscalingPolicyLoadBalancingUtilization"], result)
@@ -512,7 +512,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeAutoscalerAutoscalingPolicyMetric"]]]:
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#metric ComputeAutoscaler#metric}
         '''
         result = self._values.get("metric")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeAutoscalerAutoscalingPolicyMetric"]]], result)
@@ -521,7 +521,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Defines operating mode for this policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#mode ComputeAutoscaler#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -532,7 +532,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     ) -> typing.Optional["ComputeAutoscalerAutoscalingPolicyScaleInControl"]:
         '''scale_in_control block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scale_in_control ComputeAutoscaler#scale_in_control}
         '''
         result = self._values.get("scale_in_control")
         return typing.cast(typing.Optional["ComputeAutoscalerAutoscalingPolicyScaleInControl"], result)
@@ -543,7 +543,7 @@ class ComputeAutoscalerAutoscalingPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeAutoscalerAutoscalingPolicyScalingSchedules"]]]:
         '''scaling_schedules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#scaling_schedules ComputeAutoscaler#scaling_schedules}
         '''
         result = self._values.get("scaling_schedules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeAutoscalerAutoscalingPolicyScalingSchedules"]]], result)
@@ -573,8 +573,8 @@ class ComputeAutoscalerAutoscalingPolicyCpuUtilization:
         predictive_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The target CPU utilization that the autoscaler should maintain. Must be a float value in the range (0, 1]. If not specified, the default is 0.6. If the CPU level is below the target utilization, the autoscaler scales down the number of instances until it reaches the minimum number of instances you specified or until the average CPU of your instances reaches the target utilization. If the average CPU is above the target utilization, the autoscaler scales up until it reaches the maximum number of instances you specified or until the average utilization reaches the target utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
-        :param predictive_method: Indicates whether predictive autoscaling based on CPU metric is enabled. Valid values are:. - NONE (default). No predictive method is used. The autoscaler scales the group to meet current demand based on real-time metrics. - OPTIMIZE_AVAILABILITY. Predictive autoscaling improves availability by monitoring daily and weekly load patterns and scaling out ahead of anticipated demand. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
+        :param target: The target CPU utilization that the autoscaler should maintain. Must be a float value in the range (0, 1]. If not specified, the default is 0.6. If the CPU level is below the target utilization, the autoscaler scales down the number of instances until it reaches the minimum number of instances you specified or until the average CPU of your instances reaches the target utilization. If the average CPU is above the target utilization, the autoscaler scales up until it reaches the maximum number of instances you specified or until the average utilization reaches the target utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param predictive_method: Indicates whether predictive autoscaling based on CPU metric is enabled. Valid values are:. - NONE (default). No predictive method is used. The autoscaler scales the group to meet current demand based on real-time metrics. - OPTIMIZE_AVAILABILITY. Predictive autoscaling improves availability by monitoring daily and weekly load patterns and scaling out ahead of anticipated demand. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c736170ebd225e5a151cc447e73b3a5002af737667c1e31b35ca051db5a76a0a)
@@ -603,7 +603,7 @@ class ComputeAutoscalerAutoscalingPolicyCpuUtilization:
         specified or until the average utilization reaches the target
         utilization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -616,7 +616,7 @@ class ComputeAutoscalerAutoscalingPolicyCpuUtilization:
         - NONE (default). No predictive method is used. The autoscaler scales the group to meet current demand based on real-time metrics.
         - OPTIMIZE_AVAILABILITY. Predictive autoscaling improves availability by monitoring daily and weekly load patterns and scaling out ahead of anticipated demand.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
         '''
         result = self._values.get("predictive_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -717,7 +717,7 @@ class ComputeAutoscalerAutoscalingPolicyCpuUtilizationOutputReference(
 class ComputeAutoscalerAutoscalingPolicyLoadBalancingUtilization:
     def __init__(self, *, target: jsii.Number) -> None:
         '''
-        :param target: Fraction of backend capacity utilization (set in HTTP(s) load balancing configuration) that autoscaler should maintain. Must be a positive float value. If not defined, the default is 0.8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param target: Fraction of backend capacity utilization (set in HTTP(s) load balancing configuration) that autoscaler should maintain. Must be a positive float value. If not defined, the default is 0.8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0b5f1359092d6644afc8f2033cbb16e49fb566fad7b779e96bbc8fa6f8e164e)
@@ -733,7 +733,7 @@ class ComputeAutoscalerAutoscalingPolicyLoadBalancingUtilization:
         Must
         be a positive float value. If not defined, the default is 0.8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -828,11 +828,11 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The identifier (type) of the Stackdriver Monitoring metric. The metric cannot have negative values. The metric must have a value type of INT64 or DOUBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
-        :param filter: A filter string to be used as the filter string for a Stackdriver Monitoring TimeSeries.list API call. This filter is used to select a specific TimeSeries for the purpose of autoscaling and to determine whether the metric is exporting per-instance or per-group data. You can only use the AND operator for joining selectors. You can only use direct equality comparison operator (=) without any functions for each selector. You can specify the metric in both the filter string and in the metric field. However, if specified in both places, the metric must be identical. The monitored resource type determines what kind of values are expected for the metric. If it is a gce_instance, the autoscaler expects the metric to include a separate TimeSeries for each instance in a group. In such a case, you cannot filter on resource labels. If the resource type is any other value, the autoscaler expects this metric to contain values that apply to the entire autoscaled instance group and resource label filtering can be performed to point autoscaler at the correct TimeSeries to scale upon. This is called a per-group metric for the purpose of autoscaling. If not specified, the type defaults to gce_instance. You should provide a filter that is selective enough to pick just one TimeSeries for the autoscaled group or for each of the instances (if you are using gce_instance resource type). If multiple TimeSeries are returned upon the query execution, the autoscaler will sum their respective values to obtain its scaling value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#filter ComputeAutoscaler#filter}
-        :param single_instance_assignment: If scaling is based on a per-group metric value that represents the total amount of work to be done or resource usage, set this value to an amount assigned for a single instance of the scaled group. The autoscaler will keep the number of instances proportional to the value of this metric, the metric itself should not change value due to group resizing. For example, a good metric to use with the target is 'pubsub.googleapis.com/subscription/num_undelivered_messages' or a custom metric exporting the total number of requests coming to your instances. A bad example would be a metric exporting an average or median latency, since this value can't include a chunk assignable to a single instance, it could be better used with utilization_target instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#single_instance_assignment ComputeAutoscaler#single_instance_assignment}
-        :param target: The target value of the metric that autoscaler should maintain. This must be a positive value. A utilization metric scales number of virtual machines handling requests to increase or decrease proportionally to the metric. For example, a good metric to use as a utilizationTarget is www.googleapis.com/compute/instance/network/received_bytes_count. The autoscaler will work to keep this value constant for each of the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
-        :param type: Defines how target utilization value is expressed for a Stackdriver Monitoring metric. Possible values: ["GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#type ComputeAutoscaler#type}
+        :param name: The identifier (type) of the Stackdriver Monitoring metric. The metric cannot have negative values. The metric must have a value type of INT64 or DOUBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
+        :param filter: A filter string to be used as the filter string for a Stackdriver Monitoring TimeSeries.list API call. This filter is used to select a specific TimeSeries for the purpose of autoscaling and to determine whether the metric is exporting per-instance or per-group data. You can only use the AND operator for joining selectors. You can only use direct equality comparison operator (=) without any functions for each selector. You can specify the metric in both the filter string and in the metric field. However, if specified in both places, the metric must be identical. The monitored resource type determines what kind of values are expected for the metric. If it is a gce_instance, the autoscaler expects the metric to include a separate TimeSeries for each instance in a group. In such a case, you cannot filter on resource labels. If the resource type is any other value, the autoscaler expects this metric to contain values that apply to the entire autoscaled instance group and resource label filtering can be performed to point autoscaler at the correct TimeSeries to scale upon. This is called a per-group metric for the purpose of autoscaling. If not specified, the type defaults to gce_instance. You should provide a filter that is selective enough to pick just one TimeSeries for the autoscaled group or for each of the instances (if you are using gce_instance resource type). If multiple TimeSeries are returned upon the query execution, the autoscaler will sum their respective values to obtain its scaling value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#filter ComputeAutoscaler#filter}
+        :param single_instance_assignment: If scaling is based on a per-group metric value that represents the total amount of work to be done or resource usage, set this value to an amount assigned for a single instance of the scaled group. The autoscaler will keep the number of instances proportional to the value of this metric, the metric itself should not change value due to group resizing. For example, a good metric to use with the target is 'pubsub.googleapis.com/subscription/num_undelivered_messages' or a custom metric exporting the total number of requests coming to your instances. A bad example would be a metric exporting an average or median latency, since this value can't include a chunk assignable to a single instance, it could be better used with utilization_target instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#single_instance_assignment ComputeAutoscaler#single_instance_assignment}
+        :param target: The target value of the metric that autoscaler should maintain. This must be a positive value. A utilization metric scales number of virtual machines handling requests to increase or decrease proportionally to the metric. For example, a good metric to use as a utilizationTarget is www.googleapis.com/compute/instance/network/received_bytes_count. The autoscaler will work to keep this value constant for each of the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param type: Defines how target utilization value is expressed for a Stackdriver Monitoring metric. Possible values: ["GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#type ComputeAutoscaler#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5531a24a9547b0eedb1c11c8cd2dc2f4e2427bdb549c035636e192b732ba1e21)
@@ -859,7 +859,7 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
 
         The metric must have a value type of INT64 or DOUBLE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -896,7 +896,7 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
         TimeSeries are returned upon the query execution, the autoscaler
         will sum their respective values to obtain its scaling value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#filter ComputeAutoscaler#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#filter ComputeAutoscaler#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -919,7 +919,7 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
         single instance, it could be better used with utilization_target
         instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#single_instance_assignment ComputeAutoscaler#single_instance_assignment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#single_instance_assignment ComputeAutoscaler#single_instance_assignment}
         '''
         result = self._values.get("single_instance_assignment")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -937,7 +937,7 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
         The autoscaler will work to keep this value constant for each
         of the instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -946,7 +946,7 @@ class ComputeAutoscalerAutoscalingPolicyMetric:
     def type(self) -> typing.Optional[builtins.str]:
         '''Defines how target utilization value is expressed for a Stackdriver Monitoring metric. Possible values: ["GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#type ComputeAutoscaler#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#type ComputeAutoscaler#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1229,8 +1229,8 @@ class ComputeAutoscalerAutoscalingPolicyOutputReference(
         predictive_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The target CPU utilization that the autoscaler should maintain. Must be a float value in the range (0, 1]. If not specified, the default is 0.6. If the CPU level is below the target utilization, the autoscaler scales down the number of instances until it reaches the minimum number of instances you specified or until the average CPU of your instances reaches the target utilization. If the average CPU is above the target utilization, the autoscaler scales up until it reaches the maximum number of instances you specified or until the average utilization reaches the target utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
-        :param predictive_method: Indicates whether predictive autoscaling based on CPU metric is enabled. Valid values are:. - NONE (default). No predictive method is used. The autoscaler scales the group to meet current demand based on real-time metrics. - OPTIMIZE_AVAILABILITY. Predictive autoscaling improves availability by monitoring daily and weekly load patterns and scaling out ahead of anticipated demand. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
+        :param target: The target CPU utilization that the autoscaler should maintain. Must be a float value in the range (0, 1]. If not specified, the default is 0.6. If the CPU level is below the target utilization, the autoscaler scales down the number of instances until it reaches the minimum number of instances you specified or until the average CPU of your instances reaches the target utilization. If the average CPU is above the target utilization, the autoscaler scales up until it reaches the maximum number of instances you specified or until the average utilization reaches the target utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param predictive_method: Indicates whether predictive autoscaling based on CPU metric is enabled. Valid values are:. - NONE (default). No predictive method is used. The autoscaler scales the group to meet current demand based on real-time metrics. - OPTIMIZE_AVAILABILITY. Predictive autoscaling improves availability by monitoring daily and weekly load patterns and scaling out ahead of anticipated demand. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#predictive_method ComputeAutoscaler#predictive_method}
         '''
         value = ComputeAutoscalerAutoscalingPolicyCpuUtilization(
             target=target, predictive_method=predictive_method
@@ -1241,7 +1241,7 @@ class ComputeAutoscalerAutoscalingPolicyOutputReference(
     @jsii.member(jsii_name="putLoadBalancingUtilization")
     def put_load_balancing_utilization(self, *, target: jsii.Number) -> None:
         '''
-        :param target: Fraction of backend capacity utilization (set in HTTP(s) load balancing configuration) that autoscaler should maintain. Must be a positive float value. If not defined, the default is 0.8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param target: Fraction of backend capacity utilization (set in HTTP(s) load balancing configuration) that autoscaler should maintain. Must be a positive float value. If not defined, the default is 0.8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         value = ComputeAutoscalerAutoscalingPolicyLoadBalancingUtilization(
             target=target
@@ -1270,8 +1270,8 @@ class ComputeAutoscalerAutoscalingPolicyOutputReference(
         time_window_sec: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_scaled_in_replicas: max_scaled_in_replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
-        :param time_window_sec: How long back autoscaling should look when computing recommendations to include directives regarding slower scale down, as described above. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
+        :param max_scaled_in_replicas: max_scaled_in_replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
+        :param time_window_sec: How long back autoscaling should look when computing recommendations to include directives regarding slower scale down, as described above. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
         '''
         value = ComputeAutoscalerAutoscalingPolicyScaleInControl(
             max_scaled_in_replicas=max_scaled_in_replicas,
@@ -1489,8 +1489,8 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControl:
         time_window_sec: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_scaled_in_replicas: max_scaled_in_replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
-        :param time_window_sec: How long back autoscaling should look when computing recommendations to include directives regarding slower scale down, as described above. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
+        :param max_scaled_in_replicas: max_scaled_in_replicas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
+        :param time_window_sec: How long back autoscaling should look when computing recommendations to include directives regarding slower scale down, as described above. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
         '''
         if isinstance(max_scaled_in_replicas, dict):
             max_scaled_in_replicas = ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas(**max_scaled_in_replicas)
@@ -1510,7 +1510,7 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControl:
     ) -> typing.Optional["ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas"]:
         '''max_scaled_in_replicas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#max_scaled_in_replicas ComputeAutoscaler#max_scaled_in_replicas}
         '''
         result = self._values.get("max_scaled_in_replicas")
         return typing.cast(typing.Optional["ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas"], result)
@@ -1519,7 +1519,7 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControl:
     def time_window_sec(self) -> typing.Optional[jsii.Number]:
         '''How long back autoscaling should look when computing recommendations to include directives regarding slower scale down, as described above.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#time_window_sec ComputeAutoscaler#time_window_sec}
         '''
         result = self._values.get("time_window_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1549,8 +1549,8 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas:
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed number of VM instances. This must be a positive integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
-        :param percent: Specifies a percentage of instances between 0 to 100%, inclusive. For example, specify 80 for 80%. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
+        :param fixed: Specifies a fixed number of VM instances. This must be a positive integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
+        :param percent: Specifies a percentage of instances between 0 to 100%, inclusive. For example, specify 80 for 80%. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f596228190b816e4515aa6ff62d0791ec2107f1213c1b46e7b09ea7e8c31aae0)
@@ -1566,7 +1566,7 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas:
     def fixed(self) -> typing.Optional[jsii.Number]:
         '''Specifies a fixed number of VM instances. This must be a positive integer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
         '''
         result = self._values.get("fixed")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1575,7 +1575,7 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''Specifies a percentage of instances between 0 to 100%, inclusive. For example, specify 80 for 80%.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1700,8 +1700,8 @@ class ComputeAutoscalerAutoscalingPolicyScaleInControlOutputReference(
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed number of VM instances. This must be a positive integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
-        :param percent: Specifies a percentage of instances between 0 to 100%, inclusive. For example, specify 80 for 80%. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
+        :param fixed: Specifies a fixed number of VM instances. This must be a positive integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#fixed ComputeAutoscaler#fixed}
+        :param percent: Specifies a percentage of instances between 0 to 100%, inclusive. For example, specify 80 for 80%. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#percent ComputeAutoscaler#percent}
         '''
         value = ComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas(
             fixed=fixed, percent=percent
@@ -1792,13 +1792,13 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration_sec: The duration of time intervals (in seconds) for which this scaling schedule will be running. The minimum allowed value is 300. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#duration_sec ComputeAutoscaler#duration_sec}
-        :param min_required_replicas: Minimum number of VM instances that autoscaler will recommend in time intervals starting according to schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#min_required_replicas ComputeAutoscaler#min_required_replicas}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}.
-        :param schedule: The start timestamps of time intervals when this scaling schedule should provide a scaling signal. This field uses the extended cron format (with an optional year field). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#schedule ComputeAutoscaler#schedule}
-        :param description: A description of a scaling schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
-        :param disabled: A boolean value that specifies if a scaling schedule can influence autoscaler recommendations. If set to true, then a scaling schedule has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#disabled ComputeAutoscaler#disabled}
-        :param time_zone: The time zone to be used when interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#time_zone ComputeAutoscaler#time_zone}
+        :param duration_sec: The duration of time intervals (in seconds) for which this scaling schedule will be running. The minimum allowed value is 300. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#duration_sec ComputeAutoscaler#duration_sec}
+        :param min_required_replicas: Minimum number of VM instances that autoscaler will recommend in time intervals starting according to schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#min_required_replicas ComputeAutoscaler#min_required_replicas}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}.
+        :param schedule: The start timestamps of time intervals when this scaling schedule should provide a scaling signal. This field uses the extended cron format (with an optional year field). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#schedule ComputeAutoscaler#schedule}
+        :param description: A description of a scaling schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
+        :param disabled: A boolean value that specifies if a scaling schedule can influence autoscaler recommendations. If set to true, then a scaling schedule has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#disabled ComputeAutoscaler#disabled}
+        :param time_zone: The time zone to be used when interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#time_zone ComputeAutoscaler#time_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79c0ecbffbc008de74deea02047d9f251cbabf7adc2c6ec7633d5d55de7547e9)
@@ -1828,7 +1828,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
 
         The minimum allowed value is 300.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#duration_sec ComputeAutoscaler#duration_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#duration_sec ComputeAutoscaler#duration_sec}
         '''
         result = self._values.get("duration_sec")
         assert result is not None, "Required property 'duration_sec' is missing"
@@ -1838,7 +1838,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
     def min_required_replicas(self) -> jsii.Number:
         '''Minimum number of VM instances that autoscaler will recommend in time intervals starting according to schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#min_required_replicas ComputeAutoscaler#min_required_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#min_required_replicas ComputeAutoscaler#min_required_replicas}
         '''
         result = self._values.get("min_required_replicas")
         assert result is not None, "Required property 'min_required_replicas' is missing"
@@ -1846,7 +1846,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1857,7 +1857,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
 
         This field uses the extended cron format (with an optional year field).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#schedule ComputeAutoscaler#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#schedule ComputeAutoscaler#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1867,7 +1867,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of a scaling schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1880,7 +1880,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
 
         If set to true, then a scaling schedule has no effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#disabled ComputeAutoscaler#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#disabled ComputeAutoscaler#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1891,7 +1891,7 @@ class ComputeAutoscalerAutoscalingPolicyScalingSchedules:
 
         The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#time_zone ComputeAutoscaler#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#time_zone ComputeAutoscaler#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2230,14 +2230,14 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
-        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
-        :param target: URL of the managed instance group that this autoscaler will scale. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
-        :param zone: URL of the zone where the instance group resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
+        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
+        :param target: URL of the managed instance group that this autoscaler will scale. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
+        :param zone: URL of the zone where the instance group resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2360,7 +2360,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling_policy(self) -> ComputeAutoscalerAutoscalingPolicy:
         '''autoscaling_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#autoscaling_policy ComputeAutoscaler#autoscaling_policy}
         '''
         result = self._values.get("autoscaling_policy")
         assert result is not None, "Required property 'autoscaling_policy' is missing"
@@ -2376,7 +2376,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#name ComputeAutoscaler#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2386,7 +2386,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> builtins.str:
         '''URL of the managed instance group that this autoscaler will scale.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#target ComputeAutoscaler#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -2396,14 +2396,14 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#description ComputeAutoscaler#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#id ComputeAutoscaler#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2413,7 +2413,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#project ComputeAutoscaler#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2421,7 +2421,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeAutoscalerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#timeouts ComputeAutoscaler#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeAutoscalerTimeouts"], result)
@@ -2430,7 +2430,7 @@ class ComputeAutoscalerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''URL of the zone where the instance group resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#zone ComputeAutoscaler#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2461,9 +2461,9 @@ class ComputeAutoscalerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cacadf6d4f44f8495f0cda59dcee137a1f0f87b4af87ff5224783212d60c7828)
@@ -2480,19 +2480,19 @@ class ComputeAutoscalerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#create ComputeAutoscaler#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#delete ComputeAutoscaler#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_autoscaler#update ComputeAutoscaler#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

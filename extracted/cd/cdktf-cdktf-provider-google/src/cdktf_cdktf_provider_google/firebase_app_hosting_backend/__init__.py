@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_app_hosting_backend`
 
-Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_backend`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend).
+Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_backend`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirebaseAppHostingBackend(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firebaseAppHostingBackend.FirebaseAppHostingBackend",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend google_firebase_app_hosting_backend}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend google_firebase_app_hosting_backend}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class FirebaseAppHostingBackend(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend google_firebase_app_hosting_backend} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend google_firebase_app_hosting_backend} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: The `ID of a Web App <https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps#WebApp.FIELDS.app_id>`_ associated with the backend. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
-        :param backend_id: Id of the backend. Also used as the service ID for Cloud Run, and as part of the default domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
-        :param location: The canonical IDs of a Google Cloud location such as "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
-        :param service_account: The name of the service account used for Cloud Build and Cloud Run. Should have the role roles/firebaseapphosting.computeRunner or equivalent permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
-        :param serving_locality: Immutable. Specifies how App Hosting will serve the content for this backend. It will either be contained to a single region (REGIONAL_STRICT) or allowed to use App Hosting's global-replicated serving infrastructure (GLOBAL_ACCESS). Possible values: ["REGIONAL_STRICT", "GLOBAL_ACCESS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
-        :param codebase: codebase block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
-        :param display_name: Human-readable name. 63 character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
-        :param environment: The environment name of the backend, used to load environment variables from environment specific configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
+        :param app_id: The `ID of a Web App <https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps#WebApp.FIELDS.app_id>`_ associated with the backend. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
+        :param backend_id: Id of the backend. Also used as the service ID for Cloud Run, and as part of the default domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
+        :param location: The canonical IDs of a Google Cloud location such as "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
+        :param service_account: The name of the service account used for Cloud Build and Cloud Run. Should have the role roles/firebaseapphosting.computeRunner or equivalent permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
+        :param serving_locality: Immutable. Specifies how App Hosting will serve the content for this backend. It will either be contained to a single region (REGIONAL_STRICT) or allowed to use App Hosting's global-replicated serving infrastructure (GLOBAL_ACCESS). Possible values: ["REGIONAL_STRICT", "GLOBAL_ACCESS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
+        :param codebase: codebase block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
+        :param display_name: Human-readable name. 63 character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
+        :param environment: The environment name of the backend, used to load environment variables from environment specific configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class FirebaseAppHostingBackend(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirebaseAppHostingBackend to import.
-        :param import_from_id: The id of the existing FirebaseAppHostingBackend that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirebaseAppHostingBackend that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirebaseAppHostingBackend to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class FirebaseAppHostingBackend(
         root_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The resource name for the Developer Connect `'gitRepositoryLink' <https://cloud.google.com/developer-connect/docs/api/reference/rest/v1/projects.locations.connections.gitRepositoryLinks>`_ connected to this backend, in the format:. projects/{project}/locations/{location}/connections/{connection}/gitRepositoryLinks/{repositoryLink} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
-        :param root_directory: If 'repository' is provided, the directory relative to the root of the repository to use as the root for the deployed web app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
+        :param repository: The resource name for the Developer Connect `'gitRepositoryLink' <https://cloud.google.com/developer-connect/docs/api/reference/rest/v1/projects.locations.connections.gitRepositoryLinks>`_ connected to this backend, in the format:. projects/{project}/locations/{location}/connections/{connection}/gitRepositoryLinks/{repositoryLink} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
+        :param root_directory: If 'repository' is provided, the directory relative to the root of the repository to use as the root for the deployed web app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
         '''
         value = FirebaseAppHostingBackendCodebase(
             repository=repository, root_directory=root_directory
@@ -176,9 +176,9 @@ class FirebaseAppHostingBackend(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.
         '''
         value = FirebaseAppHostingBackendTimeouts(
             create=create, delete=delete, update=update
@@ -513,8 +513,8 @@ class FirebaseAppHostingBackendCodebase:
         root_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The resource name for the Developer Connect `'gitRepositoryLink' <https://cloud.google.com/developer-connect/docs/api/reference/rest/v1/projects.locations.connections.gitRepositoryLinks>`_ connected to this backend, in the format:. projects/{project}/locations/{location}/connections/{connection}/gitRepositoryLinks/{repositoryLink} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
-        :param root_directory: If 'repository' is provided, the directory relative to the root of the repository to use as the root for the deployed web app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
+        :param repository: The resource name for the Developer Connect `'gitRepositoryLink' <https://cloud.google.com/developer-connect/docs/api/reference/rest/v1/projects.locations.connections.gitRepositoryLinks>`_ connected to this backend, in the format:. projects/{project}/locations/{location}/connections/{connection}/gitRepositoryLinks/{repositoryLink} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
+        :param root_directory: If 'repository' is provided, the directory relative to the root of the repository to use as the root for the deployed web app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78a09de4572faa59089a8273eec8ba52226d3a9588f715177a2e30547856d792)
@@ -532,7 +532,7 @@ class FirebaseAppHostingBackendCodebase:
 
         projects/{project}/locations/{location}/connections/{connection}/gitRepositoryLinks/{repositoryLink}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#repository FirebaseAppHostingBackend#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -542,7 +542,7 @@ class FirebaseAppHostingBackendCodebase:
     def root_directory(self) -> typing.Optional[builtins.str]:
         '''If 'repository' is provided, the directory relative to the root of the repository to use as the root for the deployed web app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#root_directory FirebaseAppHostingBackend#root_directory}
         '''
         result = self._values.get("root_directory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -692,19 +692,19 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: The `ID of a Web App <https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps#WebApp.FIELDS.app_id>`_ associated with the backend. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
-        :param backend_id: Id of the backend. Also used as the service ID for Cloud Run, and as part of the default domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
-        :param location: The canonical IDs of a Google Cloud location such as "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
-        :param service_account: The name of the service account used for Cloud Build and Cloud Run. Should have the role roles/firebaseapphosting.computeRunner or equivalent permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
-        :param serving_locality: Immutable. Specifies how App Hosting will serve the content for this backend. It will either be contained to a single region (REGIONAL_STRICT) or allowed to use App Hosting's global-replicated serving infrastructure (GLOBAL_ACCESS). Possible values: ["REGIONAL_STRICT", "GLOBAL_ACCESS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
-        :param codebase: codebase block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
-        :param display_name: Human-readable name. 63 character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
-        :param environment: The environment name of the backend, used to load environment variables from environment specific configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
+        :param app_id: The `ID of a Web App <https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps#WebApp.FIELDS.app_id>`_ associated with the backend. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
+        :param backend_id: Id of the backend. Also used as the service ID for Cloud Run, and as part of the default domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
+        :param location: The canonical IDs of a Google Cloud location such as "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
+        :param service_account: The name of the service account used for Cloud Build and Cloud Run. Should have the role roles/firebaseapphosting.computeRunner or equivalent permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
+        :param serving_locality: Immutable. Specifies how App Hosting will serve the content for this backend. It will either be contained to a single region (REGIONAL_STRICT) or allowed to use App Hosting's global-replicated serving infrastructure (GLOBAL_ACCESS). Possible values: ["REGIONAL_STRICT", "GLOBAL_ACCESS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
+        :param codebase: codebase block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
+        :param display_name: Human-readable name. 63 character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
+        :param environment: The environment name of the backend, used to load environment variables from environment specific configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -840,7 +840,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_id(self) -> builtins.str:
         '''The `ID of a Web App <https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.webApps#WebApp.FIELDS.app_id>`_ associated with the backend.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#app_id FirebaseAppHostingBackend#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -853,7 +853,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Also used as the service ID for Cloud Run, and as part
         of the default domain name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#backend_id FirebaseAppHostingBackend#backend_id}
         '''
         result = self._values.get("backend_id")
         assert result is not None, "Required property 'backend_id' is missing"
@@ -863,7 +863,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The canonical IDs of a Google Cloud location such as "us-east1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#location FirebaseAppHostingBackend#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -873,7 +873,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account(self) -> builtins.str:
         '''The name of the service account used for Cloud Build and Cloud Run. Should have the role roles/firebaseapphosting.computeRunner or equivalent permissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#service_account FirebaseAppHostingBackend#service_account}
         '''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
@@ -887,7 +887,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         either be contained to a single region (REGIONAL_STRICT) or allowed to use
         App Hosting's global-replicated serving infrastructure (GLOBAL_ACCESS). Possible values: ["REGIONAL_STRICT", "GLOBAL_ACCESS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#serving_locality FirebaseAppHostingBackend#serving_locality}
         '''
         result = self._values.get("serving_locality")
         assert result is not None, "Required property 'serving_locality' is missing"
@@ -905,7 +905,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#annotations FirebaseAppHostingBackend#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -914,7 +914,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def codebase(self) -> typing.Optional[FirebaseAppHostingBackendCodebase]:
         '''codebase block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#codebase FirebaseAppHostingBackend#codebase}
         '''
         result = self._values.get("codebase")
         return typing.cast(typing.Optional[FirebaseAppHostingBackendCodebase], result)
@@ -923,7 +923,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Human-readable name. 63 character limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#display_name FirebaseAppHostingBackend#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -932,14 +932,14 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> typing.Optional[builtins.str]:
         '''The environment name of the backend, used to load environment variables from environment specific configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#environment FirebaseAppHostingBackend#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#id FirebaseAppHostingBackend#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -954,14 +954,14 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#labels FirebaseAppHostingBackend#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#project FirebaseAppHostingBackend#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -969,7 +969,7 @@ class FirebaseAppHostingBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirebaseAppHostingBackendTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#timeouts FirebaseAppHostingBackend#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirebaseAppHostingBackendTimeouts"], result)
@@ -1292,9 +1292,9 @@ class FirebaseAppHostingBackendTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7905057014901e0735183d40f5078e92d6a810074cf80596fc451b011c7033b)
@@ -1311,19 +1311,19 @@ class FirebaseAppHostingBackendTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#create FirebaseAppHostingBackend#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#delete FirebaseAppHostingBackend#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebase_app_hosting_backend#update FirebaseAppHostingBackend#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

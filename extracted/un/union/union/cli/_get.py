@@ -127,6 +127,7 @@ def apps(ctx: click.Context, name: Optional[str], project: str, domain: str):
         table.add_column("Link", overflow="fold")
         table.add_column("Status", overflow="fold")
         table.add_column("Desired State", overflow="fold")
+        table.add_column("Message", overflow="fold")
         table.add_column("CPU", overflow="fold")
         table.add_column("Memory", overflow="fold")
 
@@ -138,6 +139,7 @@ def apps(ctx: click.Context, name: Optional[str], project: str, domain: str):
 
             status = app_remote.deployment_status(app)
             desired_state = app_remote.desired_state(app)
+            message = app_remote.get_message(app)
 
             table_items.append(
                 {
@@ -145,6 +147,7 @@ def apps(ctx: click.Context, name: Optional[str], project: str, domain: str):
                     "url": url,
                     "status": status,
                     "desired_state": desired_state,
+                    "message": message,
                     "cpu": limits.get("cpu", "-"),
                     "memory": limits.get("memory", "-"),
                 }
@@ -158,6 +161,7 @@ def apps(ctx: click.Context, name: Optional[str], project: str, domain: str):
                 item["url"],
                 item["status"],
                 item["desired_state"],
+                item["message"],
                 item["cpu"],
                 item["memory"],
             )
@@ -175,10 +179,11 @@ def apps(ctx: click.Context, name: Optional[str], project: str, domain: str):
                 "status": app_remote.deployment_status(app_idl),
                 "link": app_idl.status.ingress.public_url,
                 "desired_state": app_remote.desired_state(app_idl),
+                "message": app_remote.get_message(app_idl),
                 "cpu": limits.get("cpu", "-"),
                 "memory": limits.get("memory", "-"),
             }
-            items = ["name", "link", "status", "cpu", "memory", "desired_state"]
+            items = ["name", "link", "status", "message", "cpu", "memory", "desired_state"]
             max_item_len = max(len(i) for i in items)
 
             for item in items:

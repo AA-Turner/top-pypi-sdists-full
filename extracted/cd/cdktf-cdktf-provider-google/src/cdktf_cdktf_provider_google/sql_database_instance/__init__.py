@@ -1,7 +1,7 @@
 r'''
 # `google_sql_database_instance`
 
-Refer to the Terraform Registry for docs: [`google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance).
+Refer to the Terraform Registry for docs: [`google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SqlDatabaseInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.sqlDatabaseInstance.SqlDatabaseInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance google_sql_database_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance google_sql_database_instance}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class SqlDatabaseInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance google_sql_database_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance google_sql_database_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
-        :param clone: clone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
-        :param deletion_protection: Used to block Terraform from deleting a SQL Instance. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
-        :param encryption_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The type of the instance. The valid values are:- 'SQL_INSTANCE_TYPE_UNSPECIFIED', 'CLOUD_SQL_INSTANCE', 'ON_PREMISES_INSTANCE' and 'READ_REPLICA_INSTANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
-        :param maintenance_version: Maintenance version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
-        :param master_instance_name: The name of the instance that will act as the master in the replication setup. Note, this requires the master to have binary_log_enabled set, as well as existing backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
-        :param region: The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
-        :param replica_configuration: replica_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
-        :param replica_names: The replicas of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
-        :param replication_cluster: replication_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
-        :param restore_backup_context: restore_backup_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
-        :param root_password: Initial root password. Required for MS SQL Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
+        :param database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
+        :param clone: clone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
+        :param deletion_protection: Used to block Terraform from deleting a SQL Instance. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
+        :param encryption_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The type of the instance. The valid values are:- 'SQL_INSTANCE_TYPE_UNSPECIFIED', 'CLOUD_SQL_INSTANCE', 'ON_PREMISES_INSTANCE' and 'READ_REPLICA_INSTANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
+        :param maintenance_version: Maintenance version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
+        :param master_instance_name: The name of the instance that will act as the master in the replication setup. Note, this requires the master to have binary_log_enabled set, as well as existing backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        :param region: The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
+        :param replica_configuration: replica_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
+        :param replica_names: The replicas of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
+        :param replication_cluster: replication_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
+        :param restore_backup_context: restore_backup_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
+        :param root_password: Initial root password. Required for MS SQL Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class SqlDatabaseInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SqlDatabaseInstance to import.
-        :param import_from_id: The id of the existing SqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SqlDatabaseInstance to import is found.
         '''
         if __debug__:
@@ -176,11 +176,11 @@ class SqlDatabaseInstance(
         preferred_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_instance_name: The name of the instance from which the point in time should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
-        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with `RFC 1035 <https://tools.ietf.org/html/rfc1035>`_. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
-        :param database_names: (SQL Server only, use with point_in_time) clone only the specified databases from the source instance. Clone all databases if empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
-        :param point_in_time: The timestamp of the point in time that should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
-        :param preferred_zone: (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
+        :param source_instance_name: The name of the instance from which the point in time should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
+        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with `RFC 1035 <https://tools.ietf.org/html/rfc1035>`_. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        :param database_names: (SQL Server only, use with point_in_time) clone only the specified databases from the source instance. Clone all databases if empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
+        :param point_in_time: The timestamp of the point in time that should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
+        :param preferred_zone: (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
         '''
         value = SqlDatabaseInstanceClone(
             source_instance_name=source_instance_name,
@@ -210,18 +210,18 @@ class SqlDatabaseInstance(
         verify_server_certificate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ca_certificate: PEM representation of the trusted CA's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
-        :param cascadable_replica: Specifies if a SQL Server replica is a cascadable replica. A cascadable replica is a SQL Server cross region replica that supports replica(s) under it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
-        :param client_certificate: PEM representation of the replica's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
-        :param client_key: PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
-        :param connect_retry_interval: The number of seconds between connect retries. MySQL's default is 60 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
-        :param dump_file_path: Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
-        :param failover_target: Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
-        :param master_heartbeat_period: Time in ms between replication heartbeats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
-        :param password: Password for the replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
-        :param ssl_cipher: Permissible ciphers for use in SSL encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
-        :param username: Username for replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
-        :param verify_server_certificate: True if the master's common name value is checked during the SSL handshake. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
+        :param ca_certificate: PEM representation of the trusted CA's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
+        :param cascadable_replica: Specifies if a SQL Server replica is a cascadable replica. A cascadable replica is a SQL Server cross region replica that supports replica(s) under it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
+        :param client_certificate: PEM representation of the replica's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
+        :param client_key: PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
+        :param connect_retry_interval: The number of seconds between connect retries. MySQL's default is 60 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
+        :param dump_file_path: Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
+        :param failover_target: Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
+        :param master_heartbeat_period: Time in ms between replication heartbeats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
+        :param password: Password for the replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
+        :param ssl_cipher: Permissible ciphers for use in SSL encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
+        :param username: Username for replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
+        :param verify_server_certificate: True if the master's common name value is checked during the SSL handshake. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
         '''
         value = SqlDatabaseInstanceReplicaConfiguration(
             ca_certificate=ca_certificate,
@@ -247,7 +247,7 @@ class SqlDatabaseInstance(
         failover_dr_replica_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param failover_dr_replica_name: If the instance is a primary instance, then this field identifies the disaster recovery (DR) replica. The standard format of this field is "your-project:your-instance". You can also set this field to "your-instance", but cloud SQL backend will convert it to the aforementioned standard format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
+        :param failover_dr_replica_name: If the instance is a primary instance, then this field identifies the disaster recovery (DR) replica. The standard format of this field is "your-project:your-instance". You can also set this field to "your-instance", but cloud SQL backend will convert it to the aforementioned standard format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
         '''
         value = SqlDatabaseInstanceReplicationCluster(
             failover_dr_replica_name=failover_dr_replica_name
@@ -264,9 +264,9 @@ class SqlDatabaseInstance(
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backup_run_id: The ID of the backup run to restore from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
-        :param instance_id: The ID of the instance that the backup was taken from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
-        :param project: The full project ID of the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        :param backup_run_id: The ID of the backup run to restore from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
+        :param instance_id: The ID of the instance that the backup was taken from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
+        :param project: The full project ID of the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
         '''
         value = SqlDatabaseInstanceRestoreBackupContext(
             backup_run_id=backup_run_id, instance_id=instance_id, project=project
@@ -309,35 +309,35 @@ class SqlDatabaseInstance(
         user_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param tier: The machine type to use. See tiers for more details and supported versions. Postgres supports only shared-core machine types, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
-        :param activation_policy: This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
-        :param active_directory_config: active_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
-        :param availability_type: The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
-        :param backup_configuration: backup_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
-        :param collation: The name of server instance collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
-        :param connector_enforcement: Enables the enforcement of Cloud SQL Auth Proxy or Cloud SQL connectors for all the connections. If enabled, all the direct connections are rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
-        :param database_flags: database_flags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
-        :param data_cache_config: data_cache_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
-        :param deletion_protection_enabled: Configuration to protect against accidental instance deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
-        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
-        :param disk_autoresize: Enables auto-resizing of the storage size. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
-        :param disk_autoresize_limit: The maximum size, in GB, to which storage capacity can be automatically increased. The default value is 0, which specifies that there is no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
-        :param disk_size: The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB for PD_SSD, PD_HDD and 20GB for HYPERDISK_BALANCED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
-        :param disk_type: The type of data disk: PD_SSD, PD_HDD, or HYPERDISK_BALANCED. Defaults to PD_SSD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
-        :param edition: The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
-        :param enable_dataplex_integration: Enables Dataplex Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
-        :param enable_google_ml_integration: Enables Vertex AI Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
-        :param insights_config: insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
-        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
-        :param location_preference: location_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
-        :param password_validation_policy: password_validation_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
-        :param pricing_plan: Pricing plan for this instance, can only be PER_USE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
-        :param retain_backups_on_delete: When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The ON_DEMAND backup will be retained until customer deletes the backup or the project. The AUTOMATED backup will be retained based on the backups retention setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
-        :param sql_server_audit_config: sql_server_audit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
-        :param time_zone: The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
-        :param user_labels: A set of key/value user label pairs to assign to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
+        :param tier: The machine type to use. See tiers for more details and supported versions. Postgres supports only shared-core machine types, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
+        :param activation_policy: This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
+        :param active_directory_config: active_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
+        :param availability_type: The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
+        :param backup_configuration: backup_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
+        :param collation: The name of server instance collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
+        :param connector_enforcement: Enables the enforcement of Cloud SQL Auth Proxy or Cloud SQL connectors for all the connections. If enabled, all the direct connections are rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
+        :param database_flags: database_flags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
+        :param data_cache_config: data_cache_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
+        :param deletion_protection_enabled: Configuration to protect against accidental instance deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
+        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
+        :param disk_autoresize: Enables auto-resizing of the storage size. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
+        :param disk_autoresize_limit: The maximum size, in GB, to which storage capacity can be automatically increased. The default value is 0, which specifies that there is no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
+        :param disk_size: The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB for PD_SSD, PD_HDD and 20GB for HYPERDISK_BALANCED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
+        :param disk_type: The type of supported data disk is tier dependent and can be PD_SSD or PD_HDD or HyperDisk_Balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
+        :param edition: The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
+        :param enable_dataplex_integration: Enables Dataplex Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
+        :param enable_google_ml_integration: Enables Vertex AI Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
+        :param insights_config: insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
+        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
+        :param location_preference: location_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
+        :param password_validation_policy: password_validation_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
+        :param pricing_plan: Pricing plan for this instance, can only be PER_USE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
+        :param retain_backups_on_delete: When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The ON_DEMAND backup will be retained until customer deletes the backup or the project. The AUTOMATED backup will be retained based on the backups retention setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
+        :param sql_server_audit_config: sql_server_audit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
+        :param time_zone: The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
+        :param user_labels: A set of key/value user label pairs to assign to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
         '''
         value = SqlDatabaseInstanceSettings(
             tier=tier,
@@ -382,9 +382,9 @@ class SqlDatabaseInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.
         '''
         value = SqlDatabaseInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -492,6 +492,11 @@ class SqlDatabaseInstance(
     @jsii.member(jsii_name="dnsName")
     def dns_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "dnsName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dnsNames")
+    def dns_names(self) -> "SqlDatabaseInstanceDnsNamesList":
+        return typing.cast("SqlDatabaseInstanceDnsNamesList", jsii.get(self, "dnsNames"))
 
     @builtins.property
     @jsii.member(jsii_name="firstIpAddress")
@@ -836,11 +841,11 @@ class SqlDatabaseInstanceClone:
         preferred_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_instance_name: The name of the instance from which the point in time should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
-        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with `RFC 1035 <https://tools.ietf.org/html/rfc1035>`_. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
-        :param database_names: (SQL Server only, use with point_in_time) clone only the specified databases from the source instance. Clone all databases if empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
-        :param point_in_time: The timestamp of the point in time that should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
-        :param preferred_zone: (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
+        :param source_instance_name: The name of the instance from which the point in time should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
+        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with `RFC 1035 <https://tools.ietf.org/html/rfc1035>`_. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        :param database_names: (SQL Server only, use with point_in_time) clone only the specified databases from the source instance. Clone all databases if empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
+        :param point_in_time: The timestamp of the point in time that should be restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
+        :param preferred_zone: (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b44a200e038d655ed373067ea7967371892ef11ef977afc99a1e867e92794105)
@@ -865,7 +870,7 @@ class SqlDatabaseInstanceClone:
     def source_instance_name(self) -> builtins.str:
         '''The name of the instance from which the point in time should be restored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#source_instance_name SqlDatabaseInstance#source_instance_name}
         '''
         result = self._values.get("source_instance_name")
         assert result is not None, "Required property 'source_instance_name' is missing"
@@ -877,7 +882,7 @@ class SqlDatabaseInstanceClone:
 
         For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with `RFC 1035 <https://tools.ietf.org/html/rfc1035>`_. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
         '''
         result = self._values.get("allocated_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -888,7 +893,7 @@ class SqlDatabaseInstanceClone:
 
         Clone all databases if empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_names SqlDatabaseInstance#database_names}
         '''
         result = self._values.get("database_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -897,7 +902,7 @@ class SqlDatabaseInstanceClone:
     def point_in_time(self) -> typing.Optional[builtins.str]:
         '''The timestamp of the point in time that should be restored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time SqlDatabaseInstance#point_in_time}
         '''
         result = self._values.get("point_in_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -908,7 +913,7 @@ class SqlDatabaseInstanceClone:
 
         If no zone is specified, clone to the same zone as the source instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#preferred_zone SqlDatabaseInstance#preferred_zone}
         '''
         result = self._values.get("preferred_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1128,24 +1133,24 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
-        :param clone: clone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
-        :param deletion_protection: Used to block Terraform from deleting a SQL Instance. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
-        :param encryption_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The type of the instance. The valid values are:- 'SQL_INSTANCE_TYPE_UNSPECIFIED', 'CLOUD_SQL_INSTANCE', 'ON_PREMISES_INSTANCE' and 'READ_REPLICA_INSTANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
-        :param maintenance_version: Maintenance version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
-        :param master_instance_name: The name of the instance that will act as the master in the replication setup. Note, this requires the master to have binary_log_enabled set, as well as existing backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
-        :param region: The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
-        :param replica_configuration: replica_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
-        :param replica_names: The replicas of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
-        :param replication_cluster: replication_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
-        :param restore_backup_context: restore_backup_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
-        :param root_password: Initial root password. Required for MS SQL Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
+        :param database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
+        :param clone: clone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
+        :param deletion_protection: Used to block Terraform from deleting a SQL Instance. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
+        :param encryption_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The type of the instance. The valid values are:- 'SQL_INSTANCE_TYPE_UNSPECIFIED', 'CLOUD_SQL_INSTANCE', 'ON_PREMISES_INSTANCE' and 'READ_REPLICA_INSTANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
+        :param maintenance_version: Maintenance version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
+        :param master_instance_name: The name of the instance that will act as the master in the replication setup. Note, this requires the master to have binary_log_enabled set, as well as existing backups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        :param region: The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
+        :param replica_configuration: replica_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
+        :param replica_names: The replicas of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
+        :param replication_cluster: replication_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
+        :param restore_backup_context: restore_backup_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
+        :param root_password: Initial root password. Required for MS SQL Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1310,7 +1315,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_version SqlDatabaseInstance#database_version}
         '''
         result = self._values.get("database_version")
         assert result is not None, "Required property 'database_version' is missing"
@@ -1320,7 +1325,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def clone(self) -> typing.Optional[SqlDatabaseInstanceClone]:
         '''clone block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#clone SqlDatabaseInstance#clone}
         '''
         result = self._values.get("clone")
         return typing.cast(typing.Optional[SqlDatabaseInstanceClone], result)
@@ -1331,20 +1336,20 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Used to block Terraform from deleting a SQL Instance. Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection SqlDatabaseInstance#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def encryption_key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#encryption_key_name SqlDatabaseInstance#encryption_key_name}.'''
         result = self._values.get("encryption_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#id SqlDatabaseInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1356,7 +1361,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_type(self) -> typing.Optional[builtins.str]:
         '''The type of the instance. The valid values are:- 'SQL_INSTANCE_TYPE_UNSPECIFIED', 'CLOUD_SQL_INSTANCE', 'ON_PREMISES_INSTANCE' and 'READ_REPLICA_INSTANCE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_type SqlDatabaseInstance#instance_type}
         '''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1365,7 +1370,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_version(self) -> typing.Optional[builtins.str]:
         '''Maintenance version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_version SqlDatabaseInstance#maintenance_version}
         '''
         result = self._values.get("maintenance_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1376,7 +1381,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note, this requires the master to have binary_log_enabled set, as well as existing backups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_instance_name SqlDatabaseInstance#master_instance_name}
         '''
         result = self._values.get("master_instance_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1387,7 +1392,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1398,7 +1403,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1409,7 +1414,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#region SqlDatabaseInstance#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1420,7 +1425,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SqlDatabaseInstanceReplicaConfiguration"]:
         '''replica_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_configuration SqlDatabaseInstance#replica_configuration}
         '''
         result = self._values.get("replica_configuration")
         return typing.cast(typing.Optional["SqlDatabaseInstanceReplicaConfiguration"], result)
@@ -1429,7 +1434,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The replicas of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replica_names SqlDatabaseInstance#replica_names}
         '''
         result = self._values.get("replica_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1440,7 +1445,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SqlDatabaseInstanceReplicationCluster"]:
         '''replication_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#replication_cluster SqlDatabaseInstance#replication_cluster}
         '''
         result = self._values.get("replication_cluster")
         return typing.cast(typing.Optional["SqlDatabaseInstanceReplicationCluster"], result)
@@ -1451,7 +1456,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SqlDatabaseInstanceRestoreBackupContext"]:
         '''restore_backup_context block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#restore_backup_context SqlDatabaseInstance#restore_backup_context}
         '''
         result = self._values.get("restore_backup_context")
         return typing.cast(typing.Optional["SqlDatabaseInstanceRestoreBackupContext"], result)
@@ -1460,7 +1465,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def root_password(self) -> typing.Optional[builtins.str]:
         '''Initial root password. Required for MS SQL Server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#root_password SqlDatabaseInstance#root_password}
         '''
         result = self._values.get("root_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1469,7 +1474,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def settings(self) -> typing.Optional["SqlDatabaseInstanceSettings"]:
         '''settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#settings SqlDatabaseInstance#settings}
         '''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettings"], result)
@@ -1478,7 +1483,7 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SqlDatabaseInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#timeouts SqlDatabaseInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SqlDatabaseInstanceTimeouts"], result)
@@ -1493,6 +1498,157 @@ class SqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "SqlDatabaseInstanceConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.sqlDatabaseInstance.SqlDatabaseInstanceDnsNames",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class SqlDatabaseInstanceDnsNames:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SqlDatabaseInstanceDnsNames(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SqlDatabaseInstanceDnsNamesList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.sqlDatabaseInstance.SqlDatabaseInstanceDnsNamesList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__139daea944be9c4bd0953561e8d0bae628262b8bdaa79d34cc166e0f0b8c46a9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(self, index: jsii.Number) -> "SqlDatabaseInstanceDnsNamesOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5e0f6b5399fc73fd1ec61917a78b370e82054b671d729bc430676f85fceb74a)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SqlDatabaseInstanceDnsNamesOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4d5c9677c75191ff048b758b1f1efc8ec1a0931bdaf7ae27a7fee9c429a69a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c05831baa7c4022dcfed135fc3cad020d46514179eda6e79cf2282b96799d3b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__789338d26c566a516da2dd927195a690ed9bd0177218f6b7c0c5ad4ffc38e7a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class SqlDatabaseInstanceDnsNamesOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.sqlDatabaseInstance.SqlDatabaseInstanceDnsNamesOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__563e7470b3e27b667cf62054c998d19c1c384dc622cfec41833a59e84680b09e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionType")
+    def connection_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "connectionType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dnsScope")
+    def dns_scope(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "dnsScope"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[SqlDatabaseInstanceDnsNames]:
+        return typing.cast(typing.Optional[SqlDatabaseInstanceDnsNames], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[SqlDatabaseInstanceDnsNames],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcef201253e5e5380e0defb2a51c869703df2f21f0148a10911a554c14c87873)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1682,18 +1838,18 @@ class SqlDatabaseInstanceReplicaConfiguration:
         verify_server_certificate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ca_certificate: PEM representation of the trusted CA's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
-        :param cascadable_replica: Specifies if a SQL Server replica is a cascadable replica. A cascadable replica is a SQL Server cross region replica that supports replica(s) under it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
-        :param client_certificate: PEM representation of the replica's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
-        :param client_key: PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
-        :param connect_retry_interval: The number of seconds between connect retries. MySQL's default is 60 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
-        :param dump_file_path: Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
-        :param failover_target: Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
-        :param master_heartbeat_period: Time in ms between replication heartbeats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
-        :param password: Password for the replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
-        :param ssl_cipher: Permissible ciphers for use in SSL encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
-        :param username: Username for replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
-        :param verify_server_certificate: True if the master's common name value is checked during the SSL handshake. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
+        :param ca_certificate: PEM representation of the trusted CA's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
+        :param cascadable_replica: Specifies if a SQL Server replica is a cascadable replica. A cascadable replica is a SQL Server cross region replica that supports replica(s) under it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
+        :param client_certificate: PEM representation of the replica's x509 certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
+        :param client_key: PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
+        :param connect_retry_interval: The number of seconds between connect retries. MySQL's default is 60 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
+        :param dump_file_path: Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
+        :param failover_target: Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
+        :param master_heartbeat_period: Time in ms between replication heartbeats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
+        :param password: Password for the replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
+        :param ssl_cipher: Permissible ciphers for use in SSL encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
+        :param username: Username for replication connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
+        :param verify_server_certificate: True if the master's common name value is checked during the SSL handshake. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9f32b8b2aa7273badba55c69653945bb6911bb6dbef4ad8ff1ad655d7f09ce)
@@ -1739,7 +1895,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def ca_certificate(self) -> typing.Optional[builtins.str]:
         '''PEM representation of the trusted CA's x509 certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ca_certificate SqlDatabaseInstance#ca_certificate}
         '''
         result = self._values.get("ca_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1752,7 +1908,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
 
         A cascadable replica is a SQL Server cross region replica that supports replica(s) under it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#cascadable_replica SqlDatabaseInstance#cascadable_replica}
         '''
         result = self._values.get("cascadable_replica")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1761,7 +1917,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def client_certificate(self) -> typing.Optional[builtins.str]:
         '''PEM representation of the replica's x509 certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_certificate SqlDatabaseInstance#client_certificate}
         '''
         result = self._values.get("client_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1770,7 +1926,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def client_key(self) -> typing.Optional[builtins.str]:
         '''PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#client_key SqlDatabaseInstance#client_key}
         '''
         result = self._values.get("client_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1779,7 +1935,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def connect_retry_interval(self) -> typing.Optional[jsii.Number]:
         '''The number of seconds between connect retries. MySQL's default is 60 seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connect_retry_interval SqlDatabaseInstance#connect_retry_interval}
         '''
         result = self._values.get("connect_retry_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1788,7 +1944,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def dump_file_path(self) -> typing.Optional[builtins.str]:
         '''Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#dump_file_path SqlDatabaseInstance#dump_file_path}
         '''
         result = self._values.get("dump_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1801,7 +1957,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
 
         If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_target SqlDatabaseInstance#failover_target}
         '''
         result = self._values.get("failover_target")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1810,7 +1966,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def master_heartbeat_period(self) -> typing.Optional[jsii.Number]:
         '''Time in ms between replication heartbeats.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#master_heartbeat_period SqlDatabaseInstance#master_heartbeat_period}
         '''
         result = self._values.get("master_heartbeat_period")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1819,7 +1975,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the replication connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password SqlDatabaseInstance#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1828,7 +1984,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def ssl_cipher(self) -> typing.Optional[builtins.str]:
         '''Permissible ciphers for use in SSL encryption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_cipher SqlDatabaseInstance#ssl_cipher}
         '''
         result = self._values.get("ssl_cipher")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1837,7 +1993,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     def username(self) -> typing.Optional[builtins.str]:
         '''Username for replication connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#username SqlDatabaseInstance#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1848,7 +2004,7 @@ class SqlDatabaseInstanceReplicaConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if the master's common name value is checked during the SSL handshake.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#verify_server_certificate SqlDatabaseInstance#verify_server_certificate}
         '''
         result = self._values.get("verify_server_certificate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2188,7 +2344,7 @@ class SqlDatabaseInstanceReplicationCluster:
         failover_dr_replica_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param failover_dr_replica_name: If the instance is a primary instance, then this field identifies the disaster recovery (DR) replica. The standard format of this field is "your-project:your-instance". You can also set this field to "your-instance", but cloud SQL backend will convert it to the aforementioned standard format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
+        :param failover_dr_replica_name: If the instance is a primary instance, then this field identifies the disaster recovery (DR) replica. The standard format of this field is "your-project:your-instance". You can also set this field to "your-instance", but cloud SQL backend will convert it to the aforementioned standard format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78ba3d908375e150a6c085951e95f3889524a6740eb50bd38182d55eeee9c986)
@@ -2203,7 +2359,7 @@ class SqlDatabaseInstanceReplicationCluster:
 
         The standard format of this field is "your-project:your-instance". You can also set this field to "your-instance", but cloud SQL backend will convert it to the aforementioned standard format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#failover_dr_replica_name SqlDatabaseInstance#failover_dr_replica_name}
         '''
         result = self._values.get("failover_dr_replica_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2300,9 +2456,9 @@ class SqlDatabaseInstanceRestoreBackupContext:
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backup_run_id: The ID of the backup run to restore from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
-        :param instance_id: The ID of the instance that the backup was taken from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
-        :param project: The full project ID of the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        :param backup_run_id: The ID of the backup run to restore from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
+        :param instance_id: The ID of the instance that the backup was taken from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
+        :param project: The full project ID of the source instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56be5af80cce82d2f7eb5040cab2b6898efbf0dd13061f2d63e05418e1ea4096)
@@ -2321,7 +2477,7 @@ class SqlDatabaseInstanceRestoreBackupContext:
     def backup_run_id(self) -> jsii.Number:
         '''The ID of the backup run to restore from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_run_id SqlDatabaseInstance#backup_run_id}
         '''
         result = self._values.get("backup_run_id")
         assert result is not None, "Required property 'backup_run_id' is missing"
@@ -2331,7 +2487,7 @@ class SqlDatabaseInstanceRestoreBackupContext:
     def instance_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the instance that the backup was taken from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#instance_id SqlDatabaseInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2340,7 +2496,7 @@ class SqlDatabaseInstanceRestoreBackupContext:
     def project(self) -> typing.Optional[builtins.str]:
         '''The full project ID of the source instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#project SqlDatabaseInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2688,35 +2844,35 @@ class SqlDatabaseInstanceSettings:
         user_labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param tier: The machine type to use. See tiers for more details and supported versions. Postgres supports only shared-core machine types, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
-        :param activation_policy: This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
-        :param active_directory_config: active_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
-        :param availability_type: The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
-        :param backup_configuration: backup_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
-        :param collation: The name of server instance collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
-        :param connector_enforcement: Enables the enforcement of Cloud SQL Auth Proxy or Cloud SQL connectors for all the connections. If enabled, all the direct connections are rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
-        :param database_flags: database_flags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
-        :param data_cache_config: data_cache_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
-        :param deletion_protection_enabled: Configuration to protect against accidental instance deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
-        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
-        :param disk_autoresize: Enables auto-resizing of the storage size. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
-        :param disk_autoresize_limit: The maximum size, in GB, to which storage capacity can be automatically increased. The default value is 0, which specifies that there is no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
-        :param disk_size: The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB for PD_SSD, PD_HDD and 20GB for HYPERDISK_BALANCED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
-        :param disk_type: The type of data disk: PD_SSD, PD_HDD, or HYPERDISK_BALANCED. Defaults to PD_SSD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
-        :param edition: The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
-        :param enable_dataplex_integration: Enables Dataplex Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
-        :param enable_google_ml_integration: Enables Vertex AI Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
-        :param insights_config: insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
-        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
-        :param location_preference: location_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
-        :param password_validation_policy: password_validation_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
-        :param pricing_plan: Pricing plan for this instance, can only be PER_USE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
-        :param retain_backups_on_delete: When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The ON_DEMAND backup will be retained until customer deletes the backup or the project. The AUTOMATED backup will be retained based on the backups retention setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
-        :param sql_server_audit_config: sql_server_audit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
-        :param time_zone: The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
-        :param user_labels: A set of key/value user label pairs to assign to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
+        :param tier: The machine type to use. See tiers for more details and supported versions. Postgres supports only shared-core machine types, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
+        :param activation_policy: This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
+        :param active_directory_config: active_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
+        :param availability_type: The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
+        :param backup_configuration: backup_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
+        :param collation: The name of server instance collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
+        :param connector_enforcement: Enables the enforcement of Cloud SQL Auth Proxy or Cloud SQL connectors for all the connections. If enabled, all the direct connections are rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
+        :param database_flags: database_flags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
+        :param data_cache_config: data_cache_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
+        :param deletion_protection_enabled: Configuration to protect against accidental instance deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
+        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
+        :param disk_autoresize: Enables auto-resizing of the storage size. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
+        :param disk_autoresize_limit: The maximum size, in GB, to which storage capacity can be automatically increased. The default value is 0, which specifies that there is no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
+        :param disk_size: The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB for PD_SSD, PD_HDD and 20GB for HYPERDISK_BALANCED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
+        :param disk_type: The type of supported data disk is tier dependent and can be PD_SSD or PD_HDD or HyperDisk_Balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
+        :param edition: The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
+        :param enable_dataplex_integration: Enables Dataplex Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
+        :param enable_google_ml_integration: Enables Vertex AI Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
+        :param insights_config: insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
+        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
+        :param location_preference: location_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
+        :param password_validation_policy: password_validation_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
+        :param pricing_plan: Pricing plan for this instance, can only be PER_USE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
+        :param retain_backups_on_delete: When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The ON_DEMAND backup will be retained until customer deletes the backup or the project. The AUTOMATED backup will be retained based on the backups retention setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
+        :param sql_server_audit_config: sql_server_audit_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
+        :param time_zone: The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
+        :param user_labels: A set of key/value user label pairs to assign to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
         '''
         if isinstance(active_directory_config, dict):
             active_directory_config = SqlDatabaseInstanceSettingsActiveDirectoryConfig(**active_directory_config)
@@ -2837,7 +2993,7 @@ class SqlDatabaseInstanceSettings:
 
         See tiers for more details and supported versions. Postgres supports only shared-core machine types, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#tier SqlDatabaseInstance#tier}
         '''
         result = self._values.get("tier")
         assert result is not None, "Required property 'tier' is missing"
@@ -2847,7 +3003,7 @@ class SqlDatabaseInstanceSettings:
     def activation_policy(self) -> typing.Optional[builtins.str]:
         '''This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#activation_policy SqlDatabaseInstance#activation_policy}
         '''
         result = self._values.get("activation_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2858,7 +3014,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsActiveDirectoryConfig"]:
         '''active_directory_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#active_directory_config SqlDatabaseInstance#active_directory_config}
         '''
         result = self._values.get("active_directory_config")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsActiveDirectoryConfig"], result)
@@ -2869,7 +3025,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsAdvancedMachineFeatures"]:
         '''advanced_machine_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#advanced_machine_features SqlDatabaseInstance#advanced_machine_features}
         '''
         result = self._values.get("advanced_machine_features")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsAdvancedMachineFeatures"], result)
@@ -2884,7 +3040,7 @@ class SqlDatabaseInstanceSettings:
         For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled
         is set to true. Defaults to ZONAL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#availability_type SqlDatabaseInstance#availability_type}
         '''
         result = self._values.get("availability_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2895,7 +3051,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsBackupConfiguration"]:
         '''backup_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_configuration SqlDatabaseInstance#backup_configuration}
         '''
         result = self._values.get("backup_configuration")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsBackupConfiguration"], result)
@@ -2904,7 +3060,7 @@ class SqlDatabaseInstanceSettings:
     def collation(self) -> typing.Optional[builtins.str]:
         '''The name of server instance collation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#collation SqlDatabaseInstance#collation}
         '''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2915,7 +3071,7 @@ class SqlDatabaseInstanceSettings:
 
         If enabled, all the direct connections are rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#connector_enforcement SqlDatabaseInstance#connector_enforcement}
         '''
         result = self._values.get("connector_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2926,7 +3082,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsDatabaseFlags"]]]:
         '''database_flags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#database_flags SqlDatabaseInstance#database_flags}
         '''
         result = self._values.get("database_flags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsDatabaseFlags"]]], result)
@@ -2937,7 +3093,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsDataCacheConfig"]:
         '''data_cache_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_config SqlDatabaseInstance#data_cache_config}
         '''
         result = self._values.get("data_cache_config")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsDataCacheConfig"], result)
@@ -2948,7 +3104,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Configuration to protect against accidental instance deletion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deletion_protection_enabled SqlDatabaseInstance#deletion_protection_enabled}
         '''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2959,7 +3115,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsDenyMaintenancePeriod"]:
         '''deny_maintenance_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#deny_maintenance_period SqlDatabaseInstance#deny_maintenance_period}
         '''
         result = self._values.get("deny_maintenance_period")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsDenyMaintenancePeriod"], result)
@@ -2970,7 +3126,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables auto-resizing of the storage size. Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize SqlDatabaseInstance#disk_autoresize}
         '''
         result = self._values.get("disk_autoresize")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2981,7 +3137,7 @@ class SqlDatabaseInstanceSettings:
 
         The default value is 0, which specifies that there is no limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_autoresize_limit SqlDatabaseInstance#disk_autoresize_limit}
         '''
         result = self._values.get("disk_autoresize_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2992,16 +3148,16 @@ class SqlDatabaseInstanceSettings:
 
         Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB for PD_SSD, PD_HDD and 20GB for HYPERDISK_BALANCED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_size SqlDatabaseInstance#disk_size}
         '''
         result = self._values.get("disk_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def disk_type(self) -> typing.Optional[builtins.str]:
-        '''The type of data disk: PD_SSD, PD_HDD, or HYPERDISK_BALANCED. Defaults to PD_SSD.
+        '''The type of supported data disk is tier dependent and can be PD_SSD or PD_HDD or HyperDisk_Balanced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disk_type SqlDatabaseInstance#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3010,7 +3166,7 @@ class SqlDatabaseInstanceSettings:
     def edition(self) -> typing.Optional[builtins.str]:
         '''The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#edition SqlDatabaseInstance#edition}
         '''
         result = self._values.get("edition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3021,7 +3177,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Dataplex Integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_dataplex_integration SqlDatabaseInstance#enable_dataplex_integration}
         '''
         result = self._values.get("enable_dataplex_integration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3032,7 +3188,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Vertex AI Integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_google_ml_integration SqlDatabaseInstance#enable_google_ml_integration}
         '''
         result = self._values.get("enable_google_ml_integration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3043,7 +3199,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsInsightsConfig"]:
         '''insights_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#insights_config SqlDatabaseInstance#insights_config}
         '''
         result = self._values.get("insights_config")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsInsightsConfig"], result)
@@ -3054,7 +3210,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsIpConfiguration"]:
         '''ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ip_configuration SqlDatabaseInstance#ip_configuration}
         '''
         result = self._values.get("ip_configuration")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsIpConfiguration"], result)
@@ -3065,7 +3221,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsLocationPreference"]:
         '''location_preference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location_preference SqlDatabaseInstance#location_preference}
         '''
         result = self._values.get("location_preference")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsLocationPreference"], result)
@@ -3076,7 +3232,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#maintenance_window SqlDatabaseInstance#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsMaintenanceWindow"], result)
@@ -3087,7 +3243,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsPasswordValidationPolicy"]:
         '''password_validation_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_validation_policy SqlDatabaseInstance#password_validation_policy}
         '''
         result = self._values.get("password_validation_policy")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsPasswordValidationPolicy"], result)
@@ -3096,7 +3252,7 @@ class SqlDatabaseInstanceSettings:
     def pricing_plan(self) -> typing.Optional[builtins.str]:
         '''Pricing plan for this instance, can only be PER_USE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#pricing_plan SqlDatabaseInstance#pricing_plan}
         '''
         result = self._values.get("pricing_plan")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3109,7 +3265,7 @@ class SqlDatabaseInstanceSettings:
 
         The ON_DEMAND backup will be retained until customer deletes the backup or the project. The AUTOMATED backup will be retained based on the backups retention setting.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retain_backups_on_delete SqlDatabaseInstance#retain_backups_on_delete}
         '''
         result = self._values.get("retain_backups_on_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3120,7 +3276,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsSqlServerAuditConfig"]:
         '''sql_server_audit_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#sql_server_audit_config SqlDatabaseInstance#sql_server_audit_config}
         '''
         result = self._values.get("sql_server_audit_config")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsSqlServerAuditConfig"], result)
@@ -3129,7 +3285,7 @@ class SqlDatabaseInstanceSettings:
     def time_zone(self) -> typing.Optional[builtins.str]:
         '''The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time_zone SqlDatabaseInstance#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3140,7 +3296,7 @@ class SqlDatabaseInstanceSettings:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key/value user label pairs to assign to the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#user_labels SqlDatabaseInstance#user_labels}
         '''
         result = self._values.get("user_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3165,7 +3321,7 @@ class SqlDatabaseInstanceSettings:
 class SqlDatabaseInstanceSettingsActiveDirectoryConfig:
     def __init__(self, *, domain: builtins.str) -> None:
         '''
-        :param domain: Domain name of the Active Directory for SQL Server (e.g., mydomain.com). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
+        :param domain: Domain name of the Active Directory for SQL Server (e.g., mydomain.com). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2dc813db5334b41b6f793c113709c729ad3c0f9b91a14c28239a46c2455f7ff)
@@ -3178,7 +3334,7 @@ class SqlDatabaseInstanceSettingsActiveDirectoryConfig:
     def domain(self) -> builtins.str:
         '''Domain name of the Active Directory for SQL Server (e.g., mydomain.com).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
         '''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
@@ -3263,7 +3419,7 @@ class SqlDatabaseInstanceSettingsAdvancedMachineFeatures:
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. Can be 1 or 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
+        :param threads_per_core: The number of threads per physical core. Can be 1 or 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a1cb33ed07dc41f1293082b18005f289220df93d700183d9b9442e714b48406)
@@ -3276,7 +3432,7 @@ class SqlDatabaseInstanceSettingsAdvancedMachineFeatures:
     def threads_per_core(self) -> typing.Optional[jsii.Number]:
         '''The number of threads per physical core. Can be 1 or 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
         '''
         result = self._values.get("threads_per_core")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3378,13 +3534,13 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
         transaction_log_retention_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_retention_settings: backup_retention_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
-        :param binary_log_enabled: True if binary logging is enabled. If settings.backup_configuration.enabled is false, this must be as well. Can only be used with MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
-        :param enabled: True if backup configuration is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
-        :param location: Location of the backup configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
-        :param point_in_time_recovery_enabled: True if Point-in-time recovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
-        :param start_time: HH:MM format time indicating when backup configuration starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
-        :param transaction_log_retention_days: The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
+        :param backup_retention_settings: backup_retention_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
+        :param binary_log_enabled: True if binary logging is enabled. If settings.backup_configuration.enabled is false, this must be as well. Can only be used with MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
+        :param enabled: True if backup configuration is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
+        :param location: Location of the backup configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
+        :param point_in_time_recovery_enabled: True if Point-in-time recovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
+        :param start_time: HH:MM format time indicating when backup configuration starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
+        :param transaction_log_retention_days: The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
         '''
         if isinstance(backup_retention_settings, dict):
             backup_retention_settings = SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings(**backup_retention_settings)
@@ -3419,7 +3575,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
     ) -> typing.Optional["SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings"]:
         '''backup_retention_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
         '''
         result = self._values.get("backup_retention_settings")
         return typing.cast(typing.Optional["SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings"], result)
@@ -3432,7 +3588,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
 
         If settings.backup_configuration.enabled is false, this must be as well. Can only be used with MySQL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
         '''
         result = self._values.get("binary_log_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3443,7 +3599,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if backup configuration is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3452,7 +3608,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
     def location(self) -> typing.Optional[builtins.str]:
         '''Location of the backup configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3463,7 +3619,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if Point-in-time recovery is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
         '''
         result = self._values.get("point_in_time_recovery_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3472,7 +3628,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''HH:MM format time indicating when backup configuration starts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3483,7 +3639,7 @@ class SqlDatabaseInstanceSettingsBackupConfiguration:
 
         (For PostgreSQL Enterprise Plus instances, from 1 to 35.)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
         '''
         result = self._values.get("transaction_log_retention_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3516,8 +3672,8 @@ class SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings:
         retention_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param retained_backups: Number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
-        :param retention_unit: The unit that 'retainedBackups' represents. Defaults to COUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
+        :param retained_backups: Number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
+        :param retention_unit: The unit that 'retainedBackups' represents. Defaults to COUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c437328f320ab782a48f15f5c7f058b0b5e94f7a13331d236f2efa853ff1f4a)
@@ -3533,7 +3689,7 @@ class SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings:
     def retained_backups(self) -> jsii.Number:
         '''Number of backups to retain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
         '''
         result = self._values.get("retained_backups")
         assert result is not None, "Required property 'retained_backups' is missing"
@@ -3543,7 +3699,7 @@ class SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings:
     def retention_unit(self) -> typing.Optional[builtins.str]:
         '''The unit that 'retainedBackups' represents. Defaults to COUNT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
         '''
         result = self._values.get("retention_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3664,8 +3820,8 @@ class SqlDatabaseInstanceSettingsBackupConfigurationOutputReference(
         retention_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param retained_backups: Number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
-        :param retention_unit: The unit that 'retainedBackups' represents. Defaults to COUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
+        :param retained_backups: Number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retained_backups SqlDatabaseInstance#retained_backups}
+        :param retention_unit: The unit that 'retainedBackups' represents. Defaults to COUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_unit SqlDatabaseInstance#retention_unit}
         '''
         value = SqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettings(
             retained_backups=retained_backups, retention_unit=retention_unit
@@ -3866,7 +4022,7 @@ class SqlDatabaseInstanceSettingsDataCacheConfig:
         data_cache_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param data_cache_enabled: Whether data cache is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
+        :param data_cache_enabled: Whether data cache is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0816fa3f3d36f57770772ea30ac2ed3633bb5a0f88f241b5416ebedfdd227e97)
@@ -3881,7 +4037,7 @@ class SqlDatabaseInstanceSettingsDataCacheConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether data cache is enabled for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
         '''
         result = self._values.get("data_cache_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3972,8 +4128,8 @@ class SqlDatabaseInstanceSettingsDataCacheConfigOutputReference(
 class SqlDatabaseInstanceSettingsDatabaseFlags:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Name of the flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
-        :param value: Value of the flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}
+        :param name: Name of the flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
+        :param value: Value of the flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f33c9eab581d94610142bfe4047349dac9f80575bfdddd55cf645988b08e516)
@@ -3988,7 +4144,7 @@ class SqlDatabaseInstanceSettingsDatabaseFlags:
     def name(self) -> builtins.str:
         '''Name of the flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3998,7 +4154,7 @@ class SqlDatabaseInstanceSettingsDatabaseFlags:
     def value(self) -> builtins.str:
         '''Value of the flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -4201,9 +4357,9 @@ class SqlDatabaseInstanceSettingsDenyMaintenancePeriod:
         time: builtins.str,
     ) -> None:
         '''
-        :param end_date: End date before which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
-        :param start_date: Start date after which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
-        :param time: Time in UTC when the "deny maintenance period" starts on start_date and ends on end_date. The time is in format: HH:mm:SS, i.e., 00:00:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
+        :param end_date: End date before which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
+        :param start_date: Start date after which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
+        :param time: Time in UTC when the "deny maintenance period" starts on start_date and ends on end_date. The time is in format: HH:mm:SS, i.e., 00:00:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__090897c16ada1f62e0493a1c3d0bc0f376fdd8d67225b3396394383fc32b4aeb)
@@ -4222,7 +4378,7 @@ class SqlDatabaseInstanceSettingsDenyMaintenancePeriod:
 
         The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
         '''
         result = self._values.get("end_date")
         assert result is not None, "Required property 'end_date' is missing"
@@ -4234,7 +4390,7 @@ class SqlDatabaseInstanceSettingsDenyMaintenancePeriod:
 
         The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
         '''
         result = self._values.get("start_date")
         assert result is not None, "Required property 'start_date' is missing"
@@ -4246,7 +4402,7 @@ class SqlDatabaseInstanceSettingsDenyMaintenancePeriod:
 
         The time is in format: HH:mm:SS, i.e., 00:00:00
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
         '''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
@@ -4375,11 +4531,11 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
         record_client_address: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query_insights_enabled: True if Query Insights feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. Between 0 and 20. Default to 5. For Enterprise Plus instances, from 0 to 200. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
-        :param query_string_length: Maximum query length stored in bytes. Between 256 and 4500. Default to 1024. For Enterprise Plus instances, from 1 to 1048576. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
-        :param record_application_tags: True if Query Insights will record application tags from query when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
-        :param record_client_address: True if Query Insights will record client address when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
+        :param query_insights_enabled: True if Query Insights feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. Between 0 and 20. Default to 5. For Enterprise Plus instances, from 0 to 200. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
+        :param query_string_length: Maximum query length stored in bytes. Between 256 and 4500. Default to 1024. For Enterprise Plus instances, from 1 to 1048576. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
+        :param record_application_tags: True if Query Insights will record application tags from query when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
+        :param record_client_address: True if Query Insights will record client address when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bed2f49e117189d5f9c56d315b1d15369aac31e55f2d8b2c094185c9493394f)
@@ -4406,7 +4562,7 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if Query Insights feature is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
         '''
         result = self._values.get("query_insights_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4417,7 +4573,7 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
 
         Between 0 and 20. Default to 5. For Enterprise Plus instances, from 0 to 200.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
         '''
         result = self._values.get("query_plans_per_minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4428,7 +4584,7 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
 
         Between 256 and 4500. Default to 1024. For Enterprise Plus instances, from 1 to 1048576.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
         '''
         result = self._values.get("query_string_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4439,7 +4595,7 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if Query Insights will record application tags from query when enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
         '''
         result = self._values.get("record_application_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4450,7 +4606,7 @@ class SqlDatabaseInstanceSettingsInsightsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if Query Insights will record client address when enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
         '''
         result = self._values.get("record_client_address")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4663,16 +4819,16 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
         ssl_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the instance ip will be created in the allocated range. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
-        :param authorized_networks: authorized_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
-        :param custom_subject_alternative_names: The custom subject alternative names for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
-        :param enable_private_path_for_google_cloud_services: Whether Google Cloud services such as BigQuery are allowed to access data in this Cloud SQL instance over a private IP connection. SQLSERVER database type is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
-        :param ipv4_enabled: Whether this Cloud SQL instance should be assigned a public IPV4 address. At least ipv4_enabled must be enabled or a private_network must be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
-        :param private_network: The VPC network from which the Cloud SQL instance is accessible for private IP. For example, projects/myProject/global/networks/default. Specifying a network enables private IP. At least ipv4_enabled must be enabled or a private_network must be configured. This setting can be updated, but it cannot be removed after it is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
-        :param server_ca_mode: Specify how the server certificate's Certificate Authority is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
-        :param server_ca_pool: The resource name of the server CA pool for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
-        :param ssl_mode: Specify how SSL connection should be enforced in DB connections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
+        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the instance ip will be created in the allocated range. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        :param authorized_networks: authorized_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
+        :param custom_subject_alternative_names: The custom subject alternative names for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
+        :param enable_private_path_for_google_cloud_services: Whether Google Cloud services such as BigQuery are allowed to access data in this Cloud SQL instance over a private IP connection. SQLSERVER database type is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
+        :param ipv4_enabled: Whether this Cloud SQL instance should be assigned a public IPV4 address. At least ipv4_enabled must be enabled or a private_network must be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
+        :param private_network: The VPC network from which the Cloud SQL instance is accessible for private IP. For example, projects/myProject/global/networks/default. Specifying a network enables private IP. At least ipv4_enabled must be enabled or a private_network must be configured. This setting can be updated, but it cannot be removed after it is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
+        :param server_ca_mode: Specify how the server certificate's Certificate Authority is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
+        :param server_ca_pool: The resource name of the server CA pool for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
+        :param ssl_mode: Specify how SSL connection should be enforced in DB connections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe34d3ed763b412872746717e6789569095e9c8758a60c27990296d63b49bf6f)
@@ -4714,7 +4870,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
 
         For example: "google-managed-services-default". If set, the instance ip will be created in the allocated range. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
         '''
         result = self._values.get("allocated_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4725,7 +4881,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationAuthorizedNetworks"]]]:
         '''authorized_networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
         '''
         result = self._values.get("authorized_networks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationAuthorizedNetworks"]]], result)
@@ -4736,7 +4892,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''The custom subject alternative names for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
         '''
         result = self._values.get("custom_subject_alternative_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4749,7 +4905,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
 
         SQLSERVER database type is not supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
         '''
         result = self._values.get("enable_private_path_for_google_cloud_services")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4762,7 +4918,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
 
         At least ipv4_enabled must be enabled or a private_network must be configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
         '''
         result = self._values.get("ipv4_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4773,7 +4929,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
 
         For example, projects/myProject/global/networks/default. Specifying a network enables private IP. At least ipv4_enabled must be enabled or a private_network must be configured. This setting can be updated, but it cannot be removed after it is set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
         '''
         result = self._values.get("private_network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4784,7 +4940,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationPscConfig"]]]:
         '''psc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
         '''
         result = self._values.get("psc_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationPscConfig"]]], result)
@@ -4793,7 +4949,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     def server_ca_mode(self) -> typing.Optional[builtins.str]:
         '''Specify how the server certificate's Certificate Authority is hosted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
         '''
         result = self._values.get("server_ca_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4802,7 +4958,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     def server_ca_pool(self) -> typing.Optional[builtins.str]:
         '''The resource name of the server CA pool for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
         '''
         result = self._values.get("server_ca_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4811,7 +4967,7 @@ class SqlDatabaseInstanceSettingsIpConfiguration:
     def ssl_mode(self) -> typing.Optional[builtins.str]:
         '''Specify how SSL connection should be enforced in DB connections.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
         '''
         result = self._values.get("ssl_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4846,9 +5002,9 @@ class SqlDatabaseInstanceSettingsIpConfigurationAuthorizedNetworks:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}.
-        :param expiration_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#expiration_time SqlDatabaseInstance#expiration_time}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}.
+        :param expiration_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#expiration_time SqlDatabaseInstance#expiration_time}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__493097ffcbbc668070facbf3224a2c25ade663ab6ce0c24163f4d3aa948a44a2)
@@ -4865,20 +5021,20 @@ class SqlDatabaseInstanceSettingsIpConfigurationAuthorizedNetworks:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#value SqlDatabaseInstance#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expiration_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#expiration_time SqlDatabaseInstance#expiration_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#expiration_time SqlDatabaseInstance#expiration_time}.'''
         result = self._values.get("expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#name SqlDatabaseInstance#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5391,9 +5547,9 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfig:
         psc_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_consumer_projects: List of consumer projects that are allow-listed for PSC connections to this instance. This instance can be connected to with PSC from any network in these projects. Each consumer project in this list may be represented by a project number (numeric) or by a project id (alphanumeric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allowed_consumer_projects SqlDatabaseInstance#allowed_consumer_projects}
-        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_auto_connections SqlDatabaseInstance#psc_auto_connections}
-        :param psc_enabled: Whether PSC connectivity is enabled for this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_enabled SqlDatabaseInstance#psc_enabled}
+        :param allowed_consumer_projects: List of consumer projects that are allow-listed for PSC connections to this instance. This instance can be connected to with PSC from any network in these projects. Each consumer project in this list may be represented by a project number (numeric) or by a project id (alphanumeric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allowed_consumer_projects SqlDatabaseInstance#allowed_consumer_projects}
+        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_auto_connections SqlDatabaseInstance#psc_auto_connections}
+        :param psc_enabled: Whether PSC connectivity is enabled for this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_enabled SqlDatabaseInstance#psc_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2640256bd9b56b6daf23679d6b26401fd77136c1208e9a5fb6ea236cb55e9599)
@@ -5414,7 +5570,7 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfig:
 
         This instance can be connected to with PSC from any network in these projects. Each consumer project in this list may be represented by a project number (numeric) or by a project id (alphanumeric).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allowed_consumer_projects SqlDatabaseInstance#allowed_consumer_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allowed_consumer_projects SqlDatabaseInstance#allowed_consumer_projects}
         '''
         result = self._values.get("allowed_consumer_projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5425,7 +5581,7 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationPscConfigPscAutoConnections"]]]:
         '''psc_auto_connections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_auto_connections SqlDatabaseInstance#psc_auto_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_auto_connections SqlDatabaseInstance#psc_auto_connections}
         '''
         result = self._values.get("psc_auto_connections")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SqlDatabaseInstanceSettingsIpConfigurationPscConfigPscAutoConnections"]]], result)
@@ -5436,7 +5592,7 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether PSC connectivity is enabled for this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_enabled SqlDatabaseInstance#psc_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_enabled SqlDatabaseInstance#psc_enabled}
         '''
         result = self._values.get("psc_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5686,8 +5842,8 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfigPscAutoConnections:
         consumer_service_project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param consumer_network: The consumer network of this consumer endpoint. This must be a resource path that includes both the host project and the network name. The consumer host project of this network might be different from the consumer service project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#consumer_network SqlDatabaseInstance#consumer_network}
-        :param consumer_service_project_id: The project ID of consumer service project of this consumer endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#consumer_service_project_id SqlDatabaseInstance#consumer_service_project_id}
+        :param consumer_network: The consumer network of this consumer endpoint. This must be a resource path that includes both the host project and the network name. The consumer host project of this network might be different from the consumer service project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#consumer_network SqlDatabaseInstance#consumer_network}
+        :param consumer_service_project_id: The project ID of consumer service project of this consumer endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#consumer_service_project_id SqlDatabaseInstance#consumer_service_project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78dd6a3278c35476a3466c406b9ca8140188e51ec399a9135c90120bd08e8816)
@@ -5705,7 +5861,7 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfigPscAutoConnections:
 
         This must be a resource path that includes both the host project and the network name. The consumer host project of this network might be different from the consumer service project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#consumer_network SqlDatabaseInstance#consumer_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#consumer_network SqlDatabaseInstance#consumer_network}
         '''
         result = self._values.get("consumer_network")
         assert result is not None, "Required property 'consumer_network' is missing"
@@ -5715,7 +5871,7 @@ class SqlDatabaseInstanceSettingsIpConfigurationPscConfigPscAutoConnections:
     def consumer_service_project_id(self) -> typing.Optional[builtins.str]:
         '''The project ID of consumer service project of this consumer endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#consumer_service_project_id SqlDatabaseInstance#consumer_service_project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#consumer_service_project_id SqlDatabaseInstance#consumer_service_project_id}
         '''
         result = self._values.get("consumer_service_project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5925,9 +6081,9 @@ class SqlDatabaseInstanceSettingsLocationPreference:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param follow_gae_application: A Google App Engine application whose zone to remain in. Must be in the same region as this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
-        :param secondary_zone: The preferred Compute Engine zone for the secondary/failover. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
-        :param zone: The preferred compute engine zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
+        :param follow_gae_application: A Google App Engine application whose zone to remain in. Must be in the same region as this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
+        :param secondary_zone: The preferred Compute Engine zone for the secondary/failover. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
+        :param zone: The preferred compute engine zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5f86be3317e2511982cd4c025d816333e595012721bc8f24f35490d49f9dab4)
@@ -5946,7 +6102,7 @@ class SqlDatabaseInstanceSettingsLocationPreference:
     def follow_gae_application(self) -> typing.Optional[builtins.str]:
         '''A Google App Engine application whose zone to remain in. Must be in the same region as this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
         '''
         result = self._values.get("follow_gae_application")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5955,7 +6111,7 @@ class SqlDatabaseInstanceSettingsLocationPreference:
     def secondary_zone(self) -> typing.Optional[builtins.str]:
         '''The preferred Compute Engine zone for the secondary/failover.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
         '''
         result = self._values.get("secondary_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5964,7 +6120,7 @@ class SqlDatabaseInstanceSettingsLocationPreference:
     def zone(self) -> typing.Optional[builtins.str]:
         '''The preferred compute engine zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6096,9 +6252,9 @@ class SqlDatabaseInstanceSettingsMaintenanceWindow:
         update_track: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param day: Day of week (1-7), starting on Monday. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
-        :param hour: Hour of day (0-23), ignored if day not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
-        :param update_track: Receive updates after one week (canary) or after two weeks (stable) or after five weeks (week5) of notification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
+        :param day: Day of week (1-7), starting on Monday. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
+        :param hour: Hour of day (0-23), ignored if day not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
+        :param update_track: Receive updates after one week (canary) or after two weeks (stable) or after five weeks (week5) of notification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d35185ac41cef3cc2bfa393b2082488a90e3829b756b23b10389d840d041b14)
@@ -6117,7 +6273,7 @@ class SqlDatabaseInstanceSettingsMaintenanceWindow:
     def day(self) -> typing.Optional[jsii.Number]:
         '''Day of week (1-7), starting on Monday.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6126,7 +6282,7 @@ class SqlDatabaseInstanceSettingsMaintenanceWindow:
     def hour(self) -> typing.Optional[jsii.Number]:
         '''Hour of day (0-23), ignored if day not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
         '''
         result = self._values.get("hour")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6135,7 +6291,7 @@ class SqlDatabaseInstanceSettingsMaintenanceWindow:
     def update_track(self) -> typing.Optional[builtins.str]:
         '''Receive updates after one week (canary) or after two weeks (stable) or after five weeks (week5) of notification.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
         '''
         result = self._values.get("update_track")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6276,7 +6432,7 @@ class SqlDatabaseInstanceSettingsOutputReference(
     @jsii.member(jsii_name="putActiveDirectoryConfig")
     def put_active_directory_config(self, *, domain: builtins.str) -> None:
         '''
-        :param domain: Domain name of the Active Directory for SQL Server (e.g., mydomain.com). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
+        :param domain: Domain name of the Active Directory for SQL Server (e.g., mydomain.com). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#domain SqlDatabaseInstance#domain}
         '''
         value = SqlDatabaseInstanceSettingsActiveDirectoryConfig(domain=domain)
 
@@ -6289,7 +6445,7 @@ class SqlDatabaseInstanceSettingsOutputReference(
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. Can be 1 or 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
+        :param threads_per_core: The number of threads per physical core. Can be 1 or 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#threads_per_core SqlDatabaseInstance#threads_per_core}
         '''
         value = SqlDatabaseInstanceSettingsAdvancedMachineFeatures(
             threads_per_core=threads_per_core
@@ -6310,13 +6466,13 @@ class SqlDatabaseInstanceSettingsOutputReference(
         transaction_log_retention_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_retention_settings: backup_retention_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
-        :param binary_log_enabled: True if binary logging is enabled. If settings.backup_configuration.enabled is false, this must be as well. Can only be used with MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
-        :param enabled: True if backup configuration is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
-        :param location: Location of the backup configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
-        :param point_in_time_recovery_enabled: True if Point-in-time recovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
-        :param start_time: HH:MM format time indicating when backup configuration starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
-        :param transaction_log_retention_days: The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
+        :param backup_retention_settings: backup_retention_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#backup_retention_settings SqlDatabaseInstance#backup_retention_settings}
+        :param binary_log_enabled: True if binary logging is enabled. If settings.backup_configuration.enabled is false, this must be as well. Can only be used with MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#binary_log_enabled SqlDatabaseInstance#binary_log_enabled}
+        :param enabled: True if backup configuration is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enabled SqlDatabaseInstance#enabled}
+        :param location: Location of the backup configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#location SqlDatabaseInstance#location}
+        :param point_in_time_recovery_enabled: True if Point-in-time recovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#point_in_time_recovery_enabled SqlDatabaseInstance#point_in_time_recovery_enabled}
+        :param start_time: HH:MM format time indicating when backup configuration starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_time SqlDatabaseInstance#start_time}
+        :param transaction_log_retention_days: The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#transaction_log_retention_days SqlDatabaseInstance#transaction_log_retention_days}
         '''
         value = SqlDatabaseInstanceSettingsBackupConfiguration(
             backup_retention_settings=backup_retention_settings,
@@ -6350,7 +6506,7 @@ class SqlDatabaseInstanceSettingsOutputReference(
         data_cache_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param data_cache_enabled: Whether data cache is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
+        :param data_cache_enabled: Whether data cache is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#data_cache_enabled SqlDatabaseInstance#data_cache_enabled}
         '''
         value = SqlDatabaseInstanceSettingsDataCacheConfig(
             data_cache_enabled=data_cache_enabled
@@ -6367,9 +6523,9 @@ class SqlDatabaseInstanceSettingsOutputReference(
         time: builtins.str,
     ) -> None:
         '''
-        :param end_date: End date before which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
-        :param start_date: Start date after which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
-        :param time: Time in UTC when the "deny maintenance period" starts on start_date and ends on end_date. The time is in format: HH:mm:SS, i.e., 00:00:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
+        :param end_date: End date before which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#end_date SqlDatabaseInstance#end_date}
+        :param start_date: Start date after which maintenance will not take place. The date is in format yyyy-mm-dd i.e., 2020-11-01, or mm-dd, i.e., 11-01 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#start_date SqlDatabaseInstance#start_date}
+        :param time: Time in UTC when the "deny maintenance period" starts on start_date and ends on end_date. The time is in format: HH:mm:SS, i.e., 00:00:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#time SqlDatabaseInstance#time}
         '''
         value = SqlDatabaseInstanceSettingsDenyMaintenancePeriod(
             end_date=end_date, start_date=start_date, time=time
@@ -6388,11 +6544,11 @@ class SqlDatabaseInstanceSettingsOutputReference(
         record_client_address: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query_insights_enabled: True if Query Insights feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. Between 0 and 20. Default to 5. For Enterprise Plus instances, from 0 to 200. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
-        :param query_string_length: Maximum query length stored in bytes. Between 256 and 4500. Default to 1024. For Enterprise Plus instances, from 1 to 1048576. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
-        :param record_application_tags: True if Query Insights will record application tags from query when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
-        :param record_client_address: True if Query Insights will record client address when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
+        :param query_insights_enabled: True if Query Insights feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_insights_enabled SqlDatabaseInstance#query_insights_enabled}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. Between 0 and 20. Default to 5. For Enterprise Plus instances, from 0 to 200. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_plans_per_minute SqlDatabaseInstance#query_plans_per_minute}
+        :param query_string_length: Maximum query length stored in bytes. Between 256 and 4500. Default to 1024. For Enterprise Plus instances, from 1 to 1048576. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#query_string_length SqlDatabaseInstance#query_string_length}
+        :param record_application_tags: True if Query Insights will record application tags from query when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_application_tags SqlDatabaseInstance#record_application_tags}
+        :param record_client_address: True if Query Insights will record client address when enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#record_client_address SqlDatabaseInstance#record_client_address}
         '''
         value = SqlDatabaseInstanceSettingsInsightsConfig(
             query_insights_enabled=query_insights_enabled,
@@ -6420,16 +6576,16 @@ class SqlDatabaseInstanceSettingsOutputReference(
         ssl_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the instance ip will be created in the allocated range. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
-        :param authorized_networks: authorized_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
-        :param custom_subject_alternative_names: The custom subject alternative names for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
-        :param enable_private_path_for_google_cloud_services: Whether Google Cloud services such as BigQuery are allowed to access data in this Cloud SQL instance over a private IP connection. SQLSERVER database type is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
-        :param ipv4_enabled: Whether this Cloud SQL instance should be assigned a public IPV4 address. At least ipv4_enabled must be enabled or a private_network must be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
-        :param private_network: The VPC network from which the Cloud SQL instance is accessible for private IP. For example, projects/myProject/global/networks/default. Specifying a network enables private IP. At least ipv4_enabled must be enabled or a private_network must be configured. This setting can be updated, but it cannot be removed after it is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
-        :param server_ca_mode: Specify how the server certificate's Certificate Authority is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
-        :param server_ca_pool: The resource name of the server CA pool for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
-        :param ssl_mode: Specify how SSL connection should be enforced in DB connections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
+        :param allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the instance ip will be created in the allocated range. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#allocated_ip_range SqlDatabaseInstance#allocated_ip_range}
+        :param authorized_networks: authorized_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#authorized_networks SqlDatabaseInstance#authorized_networks}
+        :param custom_subject_alternative_names: The custom subject alternative names for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#custom_subject_alternative_names SqlDatabaseInstance#custom_subject_alternative_names}
+        :param enable_private_path_for_google_cloud_services: Whether Google Cloud services such as BigQuery are allowed to access data in this Cloud SQL instance over a private IP connection. SQLSERVER database type is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_private_path_for_google_cloud_services SqlDatabaseInstance#enable_private_path_for_google_cloud_services}
+        :param ipv4_enabled: Whether this Cloud SQL instance should be assigned a public IPV4 address. At least ipv4_enabled must be enabled or a private_network must be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ipv4_enabled SqlDatabaseInstance#ipv4_enabled}
+        :param private_network: The VPC network from which the Cloud SQL instance is accessible for private IP. For example, projects/myProject/global/networks/default. Specifying a network enables private IP. At least ipv4_enabled must be enabled or a private_network must be configured. This setting can be updated, but it cannot be removed after it is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#private_network SqlDatabaseInstance#private_network}
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#psc_config SqlDatabaseInstance#psc_config}
+        :param server_ca_mode: Specify how the server certificate's Certificate Authority is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_mode SqlDatabaseInstance#server_ca_mode}
+        :param server_ca_pool: The resource name of the server CA pool for an instance with "CUSTOMER_MANAGED_CAS_CA" as the "server_ca_mode". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#server_ca_pool SqlDatabaseInstance#server_ca_pool}
+        :param ssl_mode: Specify how SSL connection should be enforced in DB connections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#ssl_mode SqlDatabaseInstance#ssl_mode}
         '''
         value = SqlDatabaseInstanceSettingsIpConfiguration(
             allocated_ip_range=allocated_ip_range,
@@ -6455,9 +6611,9 @@ class SqlDatabaseInstanceSettingsOutputReference(
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param follow_gae_application: A Google App Engine application whose zone to remain in. Must be in the same region as this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
-        :param secondary_zone: The preferred Compute Engine zone for the secondary/failover. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
-        :param zone: The preferred compute engine zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
+        :param follow_gae_application: A Google App Engine application whose zone to remain in. Must be in the same region as this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#follow_gae_application SqlDatabaseInstance#follow_gae_application}
+        :param secondary_zone: The preferred Compute Engine zone for the secondary/failover. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#secondary_zone SqlDatabaseInstance#secondary_zone}
+        :param zone: The preferred compute engine zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#zone SqlDatabaseInstance#zone}
         '''
         value = SqlDatabaseInstanceSettingsLocationPreference(
             follow_gae_application=follow_gae_application,
@@ -6476,9 +6632,9 @@ class SqlDatabaseInstanceSettingsOutputReference(
         update_track: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param day: Day of week (1-7), starting on Monday. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
-        :param hour: Hour of day (0-23), ignored if day not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
-        :param update_track: Receive updates after one week (canary) or after two weeks (stable) or after five weeks (week5) of notification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
+        :param day: Day of week (1-7), starting on Monday. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#day SqlDatabaseInstance#day}
+        :param hour: Hour of day (0-23), ignored if day not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#hour SqlDatabaseInstance#hour}
+        :param update_track: Receive updates after one week (canary) or after two weeks (stable) or after five weeks (week5) of notification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update_track SqlDatabaseInstance#update_track}
         '''
         value = SqlDatabaseInstanceSettingsMaintenanceWindow(
             day=day, hour=hour, update_track=update_track
@@ -6498,12 +6654,12 @@ class SqlDatabaseInstanceSettingsOutputReference(
         reuse_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enable_password_policy: Whether the password policy is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
-        :param complexity: Password complexity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
-        :param disallow_username_substring: Disallow username as a part of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
-        :param min_length: Minimum number of characters allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
-        :param password_change_interval: Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
-        :param reuse_interval: Number of previous passwords that cannot be reused. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
+        :param enable_password_policy: Whether the password policy is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
+        :param complexity: Password complexity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
+        :param disallow_username_substring: Disallow username as a part of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
+        :param min_length: Minimum number of characters allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
+        :param password_change_interval: Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
+        :param reuse_interval: Number of previous passwords that cannot be reused. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
         '''
         value = SqlDatabaseInstanceSettingsPasswordValidationPolicy(
             enable_password_policy=enable_password_policy,
@@ -6525,9 +6681,9 @@ class SqlDatabaseInstanceSettingsOutputReference(
         upload_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The name of the destination bucket (e.g., gs://mybucket). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
-        :param retention_interval: How long to keep generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
-        :param upload_interval: How often to upload generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
+        :param bucket: The name of the destination bucket (e.g., gs://mybucket). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
+        :param retention_interval: How long to keep generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
+        :param upload_interval: How often to upload generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
         '''
         value = SqlDatabaseInstanceSettingsSqlServerAuditConfig(
             bucket=bucket,
@@ -7186,12 +7342,12 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
         reuse_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enable_password_policy: Whether the password policy is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
-        :param complexity: Password complexity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
-        :param disallow_username_substring: Disallow username as a part of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
-        :param min_length: Minimum number of characters allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
-        :param password_change_interval: Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
-        :param reuse_interval: Number of previous passwords that cannot be reused. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
+        :param enable_password_policy: Whether the password policy is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
+        :param complexity: Password complexity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
+        :param disallow_username_substring: Disallow username as a part of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
+        :param min_length: Minimum number of characters allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
+        :param password_change_interval: Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
+        :param reuse_interval: Number of previous passwords that cannot be reused. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28436dec1d60e5f9f162e49cc6b33a6185162fa967411e897985df6c246ff42f)
@@ -7221,7 +7377,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the password policy is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#enable_password_policy SqlDatabaseInstance#enable_password_policy}
         '''
         result = self._values.get("enable_password_policy")
         assert result is not None, "Required property 'enable_password_policy' is missing"
@@ -7231,7 +7387,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     def complexity(self) -> typing.Optional[builtins.str]:
         '''Password complexity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#complexity SqlDatabaseInstance#complexity}
         '''
         result = self._values.get("complexity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7242,7 +7398,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disallow username as a part of the password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#disallow_username_substring SqlDatabaseInstance#disallow_username_substring}
         '''
         result = self._values.get("disallow_username_substring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7251,7 +7407,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     def min_length(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of characters allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#min_length SqlDatabaseInstance#min_length}
         '''
         result = self._values.get("min_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7260,7 +7416,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     def password_change_interval(self) -> typing.Optional[builtins.str]:
         '''Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#password_change_interval SqlDatabaseInstance#password_change_interval}
         '''
         result = self._values.get("password_change_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7269,7 +7425,7 @@ class SqlDatabaseInstanceSettingsPasswordValidationPolicy:
     def reuse_interval(self) -> typing.Optional[jsii.Number]:
         '''Number of previous passwords that cannot be reused.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#reuse_interval SqlDatabaseInstance#reuse_interval}
         '''
         result = self._values.get("reuse_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7478,9 +7634,9 @@ class SqlDatabaseInstanceSettingsSqlServerAuditConfig:
         upload_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The name of the destination bucket (e.g., gs://mybucket). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
-        :param retention_interval: How long to keep generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
-        :param upload_interval: How often to upload generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
+        :param bucket: The name of the destination bucket (e.g., gs://mybucket). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
+        :param retention_interval: How long to keep generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
+        :param upload_interval: How often to upload generated audit files. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f686c7c43a1fb76874801d8098be57364ca5bb30e5949d71798b54882810543f)
@@ -7499,7 +7655,7 @@ class SqlDatabaseInstanceSettingsSqlServerAuditConfig:
     def bucket(self) -> typing.Optional[builtins.str]:
         '''The name of the destination bucket (e.g., gs://mybucket).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#bucket SqlDatabaseInstance#bucket}
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7510,7 +7666,7 @@ class SqlDatabaseInstanceSettingsSqlServerAuditConfig:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s"..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#retention_interval SqlDatabaseInstance#retention_interval}
         '''
         result = self._values.get("retention_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7521,7 +7677,7 @@ class SqlDatabaseInstanceSettingsSqlServerAuditConfig:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#upload_interval SqlDatabaseInstance#upload_interval}
         '''
         result = self._values.get("upload_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7653,9 +7809,9 @@ class SqlDatabaseInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a24a64a305fcb158dc6d64df2c3fe6537f65d81e49b17b621e8712c723b86b12)
@@ -7672,19 +7828,19 @@ class SqlDatabaseInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#create SqlDatabaseInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#delete SqlDatabaseInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_database_instance#update SqlDatabaseInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7806,6 +7962,9 @@ __all__ = [
     "SqlDatabaseInstanceClone",
     "SqlDatabaseInstanceCloneOutputReference",
     "SqlDatabaseInstanceConfig",
+    "SqlDatabaseInstanceDnsNames",
+    "SqlDatabaseInstanceDnsNamesList",
+    "SqlDatabaseInstanceDnsNamesOutputReference",
     "SqlDatabaseInstanceIpAddress",
     "SqlDatabaseInstanceIpAddressList",
     "SqlDatabaseInstanceIpAddressOutputReference",
@@ -8057,6 +8216,53 @@ def _typecheckingstub__04a7f54ffbe15d288113dab684fed8c4d7fcdca6badf25301c7d20f34
     root_password: typing.Optional[builtins.str] = None,
     settings: typing.Optional[typing.Union[SqlDatabaseInstanceSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[SqlDatabaseInstanceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__139daea944be9c4bd0953561e8d0bae628262b8bdaa79d34cc166e0f0b8c46a9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5e0f6b5399fc73fd1ec61917a78b370e82054b671d729bc430676f85fceb74a(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4d5c9677c75191ff048b758b1f1efc8ec1a0931bdaf7ae27a7fee9c429a69a1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c05831baa7c4022dcfed135fc3cad020d46514179eda6e79cf2282b96799d3b5(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__789338d26c566a516da2dd927195a690ed9bd0177218f6b7c0c5ad4ffc38e7a9(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__563e7470b3e27b667cf62054c998d19c1c384dc622cfec41833a59e84680b09e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcef201253e5e5380e0defb2a51c869703df2f21f0148a10911a554c14c87873(
+    value: typing.Optional[SqlDatabaseInstanceDnsNames],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -10674,8 +10674,8 @@ ProcessingOutputConfigUnionTypeDef = Union[
 
 class CreateProjectInputTypeDef(TypedDict):
     ProjectName: str
-    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetailsUnionTypeDef
     ProjectDescription: NotRequired[str]
+    ServiceCatalogProvisioningDetails: NotRequired[ServiceCatalogProvisioningDetailsUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class DescribeFlowDefinitionResponseTypeDef(TypedDict):

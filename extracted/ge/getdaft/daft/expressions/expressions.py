@@ -1629,7 +1629,155 @@ class Expression:
         return self._expr.name()
 
     def over(self, window: Window) -> Expression:
+        """Apply the expression as a window function.
+
+        Args:
+            window: The window specification (created using ``daft.Window``)
+                defining partitioning, ordering, and framing.
+
+        Examples:
+            >>> import daft
+            >>> from daft import Window, col
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "group": ["A", "A", "A", "B", "B", "B"],
+            ...         "date": ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05", "2020-01-06"],
+            ...         "value": [1, 2, 3, 4, 5, 6],
+            ...     }
+            ... )
+            >>> window_spec = Window().partition_by("group").order_by("date")
+            >>> df = df.with_column("cumulative_sum", col("value").sum().over(window_spec))
+            >>> df.sort(["group", "date"]).show()
+            ╭───────┬────────────┬───────┬────────────────╮
+            │ group ┆ date       ┆ value ┆ cumulative_sum │
+            │ ---   ┆ ---        ┆ ---   ┆ ---            │
+            │ Utf8  ┆ Utf8       ┆ Int64 ┆ Int64          │
+            ╞═══════╪════════════╪═══════╪════════════════╡
+            │ A     ┆ 2020-01-01 ┆ 1     ┆ 6              │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A     ┆ 2020-01-02 ┆ 2     ┆ 6              │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A     ┆ 2020-01-03 ┆ 3     ┆ 6              │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B     ┆ 2020-01-04 ┆ 4     ┆ 15             │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B     ┆ 2020-01-05 ┆ 5     ┆ 15             │
+            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B     ┆ 2020-01-06 ┆ 6     ┆ 15             │
+            ╰───────┴────────────┴───────┴────────────────╯
+            <BLANKLINE>
+            (Showing first 6 of 6 rows)
+
+        Returns:
+            Expression: The result of applying this expression as a window function.
+        """
         expr = self._expr.over(window._spec)
+        return Expression._from_pyexpr(expr)
+
+    def lag(self, offset: int = 1, default: Any | None = None) -> Expression:
+        """Get the value from a previous row within a window partition.
+
+        Args:
+            offset: The number of rows to shift backward. Must be >= 0.
+            default: Value to use when no previous row exists. Can be a column reference.
+
+        Returns:
+            Expression: Value from the row `offset` positions before the current row.
+
+        Examples:
+            >>> import daft
+            >>> from daft import Window, col
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "category": ["A", "A", "A", "B", "B", "B"],
+            ...         "value": [1, 2, 3, 4, 5, 6],
+            ...         "default_val": [10, 20, 30, 40, 50, 60],
+            ...     }
+            ... )
+            >>>
+            >>> # Simple lag with null default
+            >>> window = Window().partition_by("category").order_by("value")
+            >>> df = df.with_column("lagged", col("value").lag(1).over(window))
+            >>>
+            >>> # Lag with column reference as default
+            >>> df = df.with_column("lagged_with_default", col("value").lag(1, default=col("default_val")).over(window))
+            >>> df.sort(["category", "value"]).show()
+            ╭──────────┬───────┬─────────────┬────────┬─────────────────────╮
+            │ category ┆ value ┆ default_val ┆ lagged ┆ lagged_with_default │
+            │ ---      ┆ ---   ┆ ---         ┆ ---    ┆ ---                 │
+            │ Utf8     ┆ Int64 ┆ Int64       ┆ Int64  ┆ Int64               │
+            ╞══════════╪═══════╪═════════════╪════════╪═════════════════════╡
+            │ A        ┆ 1     ┆ 10          ┆ None   ┆ 10                  │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A        ┆ 2     ┆ 20          ┆ 1      ┆ 1                   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A        ┆ 3     ┆ 30          ┆ 2      ┆ 2                   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 4     ┆ 40          ┆ None   ┆ 40                  │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 5     ┆ 50          ┆ 4      ┆ 4                   │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 6     ┆ 60          ┆ 5      ┆ 5                   │
+            ╰──────────┴───────┴─────────────┴────────┴─────────────────────╯
+            <BLANKLINE>
+            (Showing first 6 of 6 rows)
+        """
+        if default is not None:
+            default = Expression._to_expression(default)
+        expr = self._expr.offset(-offset, default._expr if default is not None else None)
+        return Expression._from_pyexpr(expr)
+
+    def lead(self, offset: int = 1, default: Any | None = None) -> Expression:
+        """Get the value from a previous row within a window partition.
+
+        Args:
+            offset: The number of rows to shift forward. Must be >= 0.
+            default: Value to use when no previous row exists. Can be a column reference.
+
+        Returns:
+            Expression: Value from the row `offset` positions after the current row.
+
+        Examples:
+            >>> import daft
+            >>> from daft import Window, col
+            >>> df = daft.from_pydict(
+            ...     {
+            ...         "category": ["A", "A", "A", "B", "B", "B"],
+            ...         "value": [1, 2, 3, 4, 5, 6],
+            ...         "default_val": [10, 20, 30, 40, 50, 60],
+            ...     }
+            ... )
+            >>>
+            >>> # Simple lag with null default
+            >>> window = Window().partition_by("category").order_by("value")
+            >>> df = df.with_column("lead", col("value").lead(1).over(window))
+            >>>
+            >>> # Lead with column reference as default
+            >>> df = df.with_column("lead_with_default", col("value").lead(1, default=col("default_val")).over(window))
+            >>> df.sort(["category", "value"]).show()
+            ╭──────────┬───────┬─────────────┬───────┬───────────────────╮
+            │ category ┆ value ┆ default_val ┆ lead  ┆ lead_with_default │
+            │ ---      ┆ ---   ┆ ---         ┆ ---   ┆ ---               │
+            │ Utf8     ┆ Int64 ┆ Int64       ┆ Int64 ┆ Int64             │
+            ╞══════════╪═══════╪═════════════╪═══════╪═══════════════════╡
+            │ A        ┆ 1     ┆ 10          ┆ 2     ┆ 2                 │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A        ┆ 2     ┆ 20          ┆ 3     ┆ 3                 │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ A        ┆ 3     ┆ 30          ┆ None  ┆ 30                │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 4     ┆ 40          ┆ 5     ┆ 5                 │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 5     ┆ 50          ┆ 6     ┆ 6                 │
+            ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ B        ┆ 6     ┆ 60          ┆ None  ┆ 60                │
+            ╰──────────┴───────┴─────────────┴───────┴───────────────────╯
+            <BLANKLINE>
+            (Showing first 6 of 6 rows)
+        """
+        if default is not None:
+            default = Expression._to_expression(default)
+        expr = self._expr.offset(offset, default._expr if default is not None else None)
         return Expression._from_pyexpr(expr)
 
     def __repr__(self) -> builtins.str:

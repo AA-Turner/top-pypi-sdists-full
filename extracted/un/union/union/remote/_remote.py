@@ -62,7 +62,7 @@ from union.internal.imagebuilder import definition_pb2 as image_definition__pb2
 from union.internal.imagebuilder import payload_pb2 as image_payload__pb2
 from union.internal.imagebuilder import service_pb2_grpc as image_service_pb2_grpc
 from union.internal.secret.definition_pb2 import Secret
-from union.internal.secret.payload_pb2 import ListSecretsRequest, ListSecretsResponse
+from union.internal.secret.payload_pb2 import ListSecretsRequest
 from union.internal.secret.secret_pb2_grpc import SecretServiceStub
 from union.remote._app_template_factory import AppTemplate, HuggingFaceModelInfo, get_app_templates_for_model
 
@@ -537,19 +537,21 @@ class UnionRemote(FlyteRemote):
         if domain is None:
             domain = self.default_domain
 
+        # XXX: Querying all the secrets is expensive and slow
         # Go through all the scopes to get secrets. There are tenants that do not org scoped secrets, so we have
         # iterate through the different scopes.
-        secrets = (
-            self._get_secrets() + self._get_secrets(project=project) + self._get_secrets(project=project, domain=domain)
-        )
+        # secrets = (
+        #     self._get_secrets() + self._get_secrets(project=project) +
+        # self._get_secrets(project=project, domain=domain)
+        # )
 
-        if not self._secret_exists(secrets, hf_token_key, project, domain):
-            msg = f"Secret named: {hf_token_key} does not exist. Please create one with `union create secret`"
-            raise ValueError(msg)
+        # if not self._secret_exists(secrets, hf_token_key, project, domain):
+        #     msg = f"Secret named: {hf_token_key} does not exist. Please create one with `union create secret`"
+        #     raise ValueError(msg)
 
-        if not self._secret_exists(secrets, union_api_key, project, domain):
-            msg = f"Secret named: {union_api_key} does not exist. Please create one with `union create secret`"
-            raise ValueError(msg)
+        # if not self._secret_exists(secrets, union_api_key, project, domain):
+        #     msg = f"Secret named: {union_api_key} does not exist. Please create one with `union create secret`"
+        #     raise ValueError(msg)
 
         from union.remote._cache_model import create_hf_model_cache_workflow
 
@@ -610,8 +612,8 @@ class UnionRemote(FlyteRemote):
         return self._apps_service_client
 
     def _get_secrets(self, project: Optional[str] = None, domain: Optional[str] = None) -> List[Secret]:
-        next_token, has_next = "", True
-        org = _get_organization(self.config.platform, channel=self.sync_channel)
+        per_cluster_tokens, has_next = None, True
+        stub = self.secret_client
 
         secrets = []
 
@@ -619,16 +621,12 @@ class UnionRemote(FlyteRemote):
         # secrets in that scope
         with suppress(FlyteInvalidInputException):
             while has_next:
-                request = ListSecretsRequest(
-                    limit=100,
-                    organization=org,
-                    token=next_token,
-                    project=project,
-                    domain=domain,
-                )
-                response: ListSecretsResponse = self.secret_client.ListSecrets(request)
-                next_token = response.token
-                has_next = next_token != ""
+                request = ListSecretsRequest(domain=domain, project=project, limit=20)
+                if per_cluster_tokens:
+                    request.per_cluster_tokens.update(per_cluster_tokens)
+                response = stub.ListSecrets(request)
+                per_cluster_tokens = response.per_cluster_tokens
+                has_next = any(v for _, v in per_cluster_tokens.items() if v)
 
                 secrets.extend(response.secrets)
 

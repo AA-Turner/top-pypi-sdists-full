@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_target_server`
 
-Refer to the Terraform Registry for docs: [`google_apigee_target_server`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server).
+Refer to the Terraform Registry for docs: [`google_apigee_target_server`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeTargetServer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeTargetServer.ApigeeTargetServer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server google_apigee_target_server}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server google_apigee_target_server}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ApigeeTargetServer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server google_apigee_target_server} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server google_apigee_target_server} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
-        :param host: The host name this target connects to. Value must be a valid hostname as described by RFC-1123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
-        :param name: The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
-        :param port: The port number this target connects to on the given host. Value must be between 1 and 65535, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
-        :param description: A human-readable description of this TargetServer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_enabled: Enabling/disabling a TargetServer is useful when TargetServers are used in load balancing configurations, and one or more TargetServers need to taken out of rotation periodically. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
-        :param protocol: Immutable. The protocol used by this TargetServer. Possible values: ["HTTP", "HTTP2", "GRPC_TARGET", "GRPC", "EXTERNAL_CALLOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
-        :param s_sl_info: s_sl_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
+        :param host: The host name this target connects to. Value must be a valid hostname as described by RFC-1123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
+        :param name: The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
+        :param port: The port number this target connects to on the given host. Value must be between 1 and 65535, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
+        :param description: A human-readable description of this TargetServer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Enabling/disabling a TargetServer is useful when TargetServers are used in load balancing configurations, and one or more TargetServers need to taken out of rotation periodically. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
+        :param protocol: Immutable. The protocol used by this TargetServer. Possible values: ["HTTP", "HTTP2", "GRPC_TARGET", "GRPC", "EXTERNAL_CALLOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
+        :param s_sl_info: s_sl_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ApigeeTargetServer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeTargetServer to import.
-        :param import_from_id: The id of the existing ApigeeTargetServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeTargetServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeTargetServer to import is found.
         '''
         if __debug__:
@@ -156,15 +156,15 @@ class ApigeeTargetServer(
         trust_store: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Enables TLS. If false, neither one-way nor two-way TLS will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
-        :param ciphers: The SSL/TLS cipher suites to be used. For programmable proxies, it must be one of the cipher suite names listed in: http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites. For configurable proxies, it must follow the configuration specified in: https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration. This setting has no effect for configurable proxies when negotiating TLS 1.3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
-        :param client_auth_enabled: Enables two-way TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
-        :param common_name: common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
-        :param ignore_validation_errors: If true, Edge ignores TLS certificate errors. Valid when configuring TLS for target servers and target endpoints, and when configuring virtual hosts that use 2-way TLS. When used with a target endpoint/target server, if the backend system uses SNI and returns a cert with a subject Distinguished Name (DN) that does not match the hostname, there is no way to ignore the error and the connection fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
-        :param key_alias: Required if clientAuthEnabled is true. The resource ID for the alias containing the private key and cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
-        :param key_store: Required if clientAuthEnabled is true. The resource ID of the keystore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
-        :param protocols: The TLS versioins to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
-        :param trust_store: The resource ID of the truststore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
+        :param enabled: Enables TLS. If false, neither one-way nor two-way TLS will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
+        :param ciphers: The SSL/TLS cipher suites to be used. For programmable proxies, it must be one of the cipher suite names listed in: http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites. For configurable proxies, it must follow the configuration specified in: https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration. This setting has no effect for configurable proxies when negotiating TLS 1.3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
+        :param client_auth_enabled: Enables two-way TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
+        :param common_name: common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
+        :param ignore_validation_errors: If true, Edge ignores TLS certificate errors. Valid when configuring TLS for target servers and target endpoints, and when configuring virtual hosts that use 2-way TLS. When used with a target endpoint/target server, if the backend system uses SNI and returns a cert with a subject Distinguished Name (DN) that does not match the hostname, there is no way to ignore the error and the connection fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
+        :param key_alias: Required if clientAuthEnabled is true. The resource ID for the alias containing the private key and cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
+        :param key_store: Required if clientAuthEnabled is true. The resource ID of the keystore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
+        :param protocols: The TLS versioins to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
+        :param trust_store: The resource ID of the truststore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
         '''
         value = ApigeeTargetServerSSlInfo(
             enabled=enabled,
@@ -189,9 +189,9 @@ class ApigeeTargetServer(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.
         '''
         value = ApigeeTargetServerTimeouts(create=create, delete=delete, update=update)
 
@@ -451,16 +451,16 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
-        :param host: The host name this target connects to. Value must be a valid hostname as described by RFC-1123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
-        :param name: The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
-        :param port: The port number this target connects to on the given host. Value must be between 1 and 65535, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
-        :param description: A human-readable description of this TargetServer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_enabled: Enabling/disabling a TargetServer is useful when TargetServers are used in load balancing configurations, and one or more TargetServers need to taken out of rotation periodically. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
-        :param protocol: Immutable. The protocol used by this TargetServer. Possible values: ["HTTP", "HTTP2", "GRPC_TARGET", "GRPC", "EXTERNAL_CALLOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
-        :param s_sl_info: s_sl_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
+        :param host: The host name this target connects to. Value must be a valid hostname as described by RFC-1123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
+        :param name: The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
+        :param port: The port number this target connects to on the given host. Value must be between 1 and 65535, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
+        :param description: A human-readable description of this TargetServer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Enabling/disabling a TargetServer is useful when TargetServers are used in load balancing configurations, and one or more TargetServers need to taken out of rotation periodically. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
+        :param protocol: Immutable. The protocol used by this TargetServer. Possible values: ["HTTP", "HTTP2", "GRPC_TARGET", "GRPC", "EXTERNAL_CALLOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
+        :param s_sl_info: s_sl_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -588,7 +588,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def env_id(self) -> builtins.str:
         '''The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#env_id ApigeeTargetServer#env_id}
         '''
         result = self._values.get("env_id")
         assert result is not None, "Required property 'env_id' is missing"
@@ -598,7 +598,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def host(self) -> builtins.str:
         '''The host name this target connects to. Value must be a valid hostname as described by RFC-1123.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#host ApigeeTargetServer#host}
         '''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
@@ -608,7 +608,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource id of this reference. Values must match the regular expression [\\w\\s-.]+.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#name ApigeeTargetServer#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -618,7 +618,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def port(self) -> jsii.Number:
         '''The port number this target connects to on the given host. Value must be between 1 and 65535, inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#port ApigeeTargetServer#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -628,14 +628,14 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description of this TargetServer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#description ApigeeTargetServer#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#id ApigeeTargetServer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -651,7 +651,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#is_enabled ApigeeTargetServer#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -660,7 +660,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def protocol(self) -> typing.Optional[builtins.str]:
         '''Immutable. The protocol used by this TargetServer. Possible values: ["HTTP", "HTTP2", "GRPC_TARGET", "GRPC", "EXTERNAL_CALLOUT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocol ApigeeTargetServer#protocol}
         '''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -669,7 +669,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def s_sl_info(self) -> typing.Optional["ApigeeTargetServerSSlInfo"]:
         '''s_sl_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#s_sl_info ApigeeTargetServer#s_sl_info}
         '''
         result = self._values.get("s_sl_info")
         return typing.cast(typing.Optional["ApigeeTargetServerSSlInfo"], result)
@@ -678,7 +678,7 @@ class ApigeeTargetServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeTargetServerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#timeouts ApigeeTargetServer#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeTargetServerTimeouts"], result)
@@ -725,15 +725,15 @@ class ApigeeTargetServerSSlInfo:
         trust_store: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Enables TLS. If false, neither one-way nor two-way TLS will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
-        :param ciphers: The SSL/TLS cipher suites to be used. For programmable proxies, it must be one of the cipher suite names listed in: http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites. For configurable proxies, it must follow the configuration specified in: https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration. This setting has no effect for configurable proxies when negotiating TLS 1.3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
-        :param client_auth_enabled: Enables two-way TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
-        :param common_name: common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
-        :param ignore_validation_errors: If true, Edge ignores TLS certificate errors. Valid when configuring TLS for target servers and target endpoints, and when configuring virtual hosts that use 2-way TLS. When used with a target endpoint/target server, if the backend system uses SNI and returns a cert with a subject Distinguished Name (DN) that does not match the hostname, there is no way to ignore the error and the connection fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
-        :param key_alias: Required if clientAuthEnabled is true. The resource ID for the alias containing the private key and cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
-        :param key_store: Required if clientAuthEnabled is true. The resource ID of the keystore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
-        :param protocols: The TLS versioins to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
-        :param trust_store: The resource ID of the truststore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
+        :param enabled: Enables TLS. If false, neither one-way nor two-way TLS will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
+        :param ciphers: The SSL/TLS cipher suites to be used. For programmable proxies, it must be one of the cipher suite names listed in: http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites. For configurable proxies, it must follow the configuration specified in: https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration. This setting has no effect for configurable proxies when negotiating TLS 1.3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
+        :param client_auth_enabled: Enables two-way TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
+        :param common_name: common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
+        :param ignore_validation_errors: If true, Edge ignores TLS certificate errors. Valid when configuring TLS for target servers and target endpoints, and when configuring virtual hosts that use 2-way TLS. When used with a target endpoint/target server, if the backend system uses SNI and returns a cert with a subject Distinguished Name (DN) that does not match the hostname, there is no way to ignore the error and the connection fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
+        :param key_alias: Required if clientAuthEnabled is true. The resource ID for the alias containing the private key and cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
+        :param key_store: Required if clientAuthEnabled is true. The resource ID of the keystore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
+        :param protocols: The TLS versioins to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
+        :param trust_store: The resource ID of the truststore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
         '''
         if isinstance(common_name, dict):
             common_name = ApigeeTargetServerSSlInfoCommonName(**common_name)
@@ -772,7 +772,7 @@ class ApigeeTargetServerSSlInfo:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Enables TLS. If false, neither one-way nor two-way TLS will be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#enabled ApigeeTargetServer#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -784,7 +784,7 @@ class ApigeeTargetServerSSlInfo:
 
         For programmable proxies, it must be one of the cipher suite names listed in: http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites. For configurable proxies, it must follow the configuration specified in: https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration. This setting has no effect for configurable proxies when negotiating TLS 1.3.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ciphers ApigeeTargetServer#ciphers}
         '''
         result = self._values.get("ciphers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -795,7 +795,7 @@ class ApigeeTargetServerSSlInfo:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables two-way TLS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#client_auth_enabled ApigeeTargetServer#client_auth_enabled}
         '''
         result = self._values.get("client_auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -804,7 +804,7 @@ class ApigeeTargetServerSSlInfo:
     def common_name(self) -> typing.Optional["ApigeeTargetServerSSlInfoCommonName"]:
         '''common_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#common_name ApigeeTargetServer#common_name}
         '''
         result = self._values.get("common_name")
         return typing.cast(typing.Optional["ApigeeTargetServerSSlInfoCommonName"], result)
@@ -817,7 +817,7 @@ class ApigeeTargetServerSSlInfo:
 
         Valid when configuring TLS for target servers and target endpoints, and when configuring virtual hosts that use 2-way TLS. When used with a target endpoint/target server, if the backend system uses SNI and returns a cert with a subject Distinguished Name (DN) that does not match the hostname, there is no way to ignore the error and the connection fails.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#ignore_validation_errors ApigeeTargetServer#ignore_validation_errors}
         '''
         result = self._values.get("ignore_validation_errors")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -826,7 +826,7 @@ class ApigeeTargetServerSSlInfo:
     def key_alias(self) -> typing.Optional[builtins.str]:
         '''Required if clientAuthEnabled is true. The resource ID for the alias containing the private key and cert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_alias ApigeeTargetServer#key_alias}
         '''
         result = self._values.get("key_alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -835,7 +835,7 @@ class ApigeeTargetServerSSlInfo:
     def key_store(self) -> typing.Optional[builtins.str]:
         '''Required if clientAuthEnabled is true. The resource ID of the keystore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#key_store ApigeeTargetServer#key_store}
         '''
         result = self._values.get("key_store")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -844,7 +844,7 @@ class ApigeeTargetServerSSlInfo:
     def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The TLS versioins to be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#protocols ApigeeTargetServer#protocols}
         '''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -853,7 +853,7 @@ class ApigeeTargetServerSSlInfo:
     def trust_store(self) -> typing.Optional[builtins.str]:
         '''The resource ID of the truststore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#trust_store ApigeeTargetServer#trust_store}
         '''
         result = self._values.get("trust_store")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -883,8 +883,8 @@ class ApigeeTargetServerSSlInfoCommonName:
         wildcard_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param value: The TLS Common Name string of the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
-        :param wildcard_match: Indicates whether the cert should be matched against as a wildcard cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
+        :param value: The TLS Common Name string of the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
+        :param wildcard_match: Indicates whether the cert should be matched against as a wildcard cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ed169680f78b2cb1a14d0a23b1932f5bdb9f50908017f91495be8032b83792d)
@@ -900,7 +900,7 @@ class ApigeeTargetServerSSlInfoCommonName:
     def value(self) -> typing.Optional[builtins.str]:
         '''The TLS Common Name string of the certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -911,7 +911,7 @@ class ApigeeTargetServerSSlInfoCommonName:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the cert should be matched against as a wildcard cert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
         '''
         result = self._values.get("wildcard_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1041,8 +1041,8 @@ class ApigeeTargetServerSSlInfoOutputReference(
         wildcard_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param value: The TLS Common Name string of the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
-        :param wildcard_match: Indicates whether the cert should be matched against as a wildcard cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
+        :param value: The TLS Common Name string of the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#value ApigeeTargetServer#value}
+        :param wildcard_match: Indicates whether the cert should be matched against as a wildcard cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#wildcard_match ApigeeTargetServer#wildcard_match}
         '''
         value_ = ApigeeTargetServerSSlInfoCommonName(
             value=value, wildcard_match=wildcard_match
@@ -1274,9 +1274,9 @@ class ApigeeTargetServerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bec7325f52632d287ed2a8264de4f646f86c662be3fe408b3176daf2246c038)
@@ -1293,19 +1293,19 @@ class ApigeeTargetServerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#create ApigeeTargetServer#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#delete ApigeeTargetServer#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_target_server#update ApigeeTargetServer#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

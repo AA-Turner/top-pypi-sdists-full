@@ -1,7 +1,7 @@
 r'''
 # `google_gkeonprem_bare_metal_cluster`
 
-Refer to the Terraform Registry for docs: [`google_gkeonprem_bare_metal_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster).
+Refer to the Terraform Registry for docs: [`google_gkeonprem_bare_metal_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GkeonpremBareMetalCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.gkeonpremBareMetalCluster.GkeonpremBareMetalCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster google_gkeonprem_bare_metal_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster google_gkeonprem_bare_metal_cluster}.'''
 
     def __init__(
         self,
@@ -81,32 +81,32 @@ class GkeonpremBareMetalCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster google_gkeonprem_bare_metal_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster google_gkeonprem_bare_metal_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param admin_cluster_membership: The Admin Cluster this Bare Metal User Cluster belongs to. This is the full resource name of the Admin Cluster's hub membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
-        :param bare_metal_version: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
-        :param name: The bare metal cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
-        :param annotations: Annotations on the Bare Metal User Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
-        :param cluster_operations: cluster_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
-        :param description: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_config: maintenance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
-        :param node_access_config: node_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
-        :param os_environment_config: os_environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.
-        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
+        :param admin_cluster_membership: The Admin Cluster this Bare Metal User Cluster belongs to. This is the full resource name of the Admin Cluster's hub membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
+        :param bare_metal_version: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
+        :param name: The bare metal cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
+        :param annotations: Annotations on the Bare Metal User Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
+        :param cluster_operations: cluster_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
+        :param description: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_config: maintenance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
+        :param node_access_config: node_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
+        :param os_environment_config: os_environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.
+        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -166,7 +166,7 @@ class GkeonpremBareMetalCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GkeonpremBareMetalCluster to import.
-        :param import_from_id: The id of the existing GkeonpremBareMetalCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GkeonpremBareMetalCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GkeonpremBareMetalCluster to import is found.
         '''
         if __debug__:
@@ -184,7 +184,7 @@ class GkeonpremBareMetalCluster(
         evaluation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param evaluation_mode: Mode of operation for binauthz policy evaluation. If unspecified, defaults to DISABLED. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
+        :param evaluation_mode: Mode of operation for binauthz policy evaluation. If unspecified, defaults to DISABLED. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
         '''
         value = GkeonpremBareMetalClusterBinaryAuthorization(
             evaluation_mode=evaluation_mode
@@ -199,7 +199,7 @@ class GkeonpremBareMetalCluster(
         enable_application_logs: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_application_logs: Whether collection of application logs/metrics should be enabled (in addition to system logs/metrics). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
+        :param enable_application_logs: Whether collection of application logs/metrics should be enabled (in addition to system logs/metrics). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
         '''
         value = GkeonpremBareMetalClusterClusterOperations(
             enable_application_logs=enable_application_logs
@@ -215,8 +215,8 @@ class GkeonpremBareMetalCluster(
         api_server_args: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterControlPlaneApiServerArgs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param control_plane_node_pool_config: control_plane_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
-        :param api_server_args: api_server_args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
+        :param control_plane_node_pool_config: control_plane_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
+        :param api_server_args: api_server_args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
         '''
         value = GkeonpremBareMetalClusterControlPlane(
             control_plane_node_pool_config=control_plane_node_pool_config,
@@ -236,11 +236,11 @@ class GkeonpremBareMetalCluster(
         metal_lb_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerMetalLbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port_config: port_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
-        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
-        :param bgp_lb_config: bgp_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
-        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
-        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
+        :param port_config: port_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
+        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
+        :param bgp_lb_config: bgp_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
+        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
+        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
         '''
         value = GkeonpremBareMetalClusterLoadBalancer(
             port_config=port_config,
@@ -259,7 +259,7 @@ class GkeonpremBareMetalCluster(
         maintenance_address_cidr_blocks: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param maintenance_address_cidr_blocks: All IPv4 address from these ranges will be placed into maintenance mode. Nodes in maintenance mode will be cordoned and drained. When both of these are true, the "baremetal.cluster.gke.io/maintenance" annotation will be set on the node resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
+        :param maintenance_address_cidr_blocks: All IPv4 address from these ranges will be placed into maintenance mode. Nodes in maintenance mode will be cordoned and drained. When both of these are true, the "baremetal.cluster.gke.io/maintenance" annotation will be set on the node resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
         '''
         value = GkeonpremBareMetalClusterMaintenanceConfig(
             maintenance_address_cidr_blocks=maintenance_address_cidr_blocks
@@ -277,10 +277,10 @@ class GkeonpremBareMetalCluster(
         sr_iov_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterNetworkConfigSrIovConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_networking: Enables the use of advanced Anthos networking features, such as Bundled Load Balancing with BGP or the egress NAT gateway. Setting configuration for advanced networking features will automatically set this flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
-        :param island_mode_cidr: island_mode_cidr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
-        :param multiple_network_interfaces_config: multiple_network_interfaces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
-        :param sr_iov_config: sr_iov_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
+        :param advanced_networking: Enables the use of advanced Anthos networking features, such as Bundled Load Balancing with BGP or the egress NAT gateway. Setting configuration for advanced networking features will automatically set this flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
+        :param island_mode_cidr: island_mode_cidr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
+        :param multiple_network_interfaces_config: multiple_network_interfaces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
+        :param sr_iov_config: sr_iov_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
         '''
         value = GkeonpremBareMetalClusterNetworkConfig(
             advanced_networking=advanced_networking,
@@ -298,7 +298,7 @@ class GkeonpremBareMetalCluster(
         login_user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param login_user: LoginUser is the user name used to access node machines. It defaults to "root" if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
+        :param login_user: LoginUser is the user name used to access node machines. It defaults to "root" if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
         '''
         value = GkeonpremBareMetalClusterNodeAccessConfig(login_user=login_user)
 
@@ -312,8 +312,8 @@ class GkeonpremBareMetalCluster(
         max_pods_per_node: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param container_runtime: The available runtimes that can be used to run containers in a Bare Metal User Cluster. Possible values: ["CONTAINER_RUNTIME_UNSPECIFIED", "DOCKER", "CONTAINERD"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
-        :param max_pods_per_node: The maximum number of pods a node can run. The size of the CIDR range assigned to the node will be derived from this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
+        :param container_runtime: The available runtimes that can be used to run containers in a Bare Metal User Cluster. Possible values: ["CONTAINER_RUNTIME_UNSPECIFIED", "DOCKER", "CONTAINERD"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
+        :param max_pods_per_node: The maximum number of pods a node can run. The size of the CIDR range assigned to the node will be derived from this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
         '''
         value = GkeonpremBareMetalClusterNodeConfig(
             container_runtime=container_runtime, max_pods_per_node=max_pods_per_node
@@ -328,7 +328,7 @@ class GkeonpremBareMetalCluster(
         package_repo_excluded: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param package_repo_excluded: Whether the package repo should not be included when initializing bare metal machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
+        :param package_repo_excluded: Whether the package repo should not be included when initializing bare metal machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
         '''
         value = GkeonpremBareMetalClusterOsEnvironmentConfig(
             package_repo_excluded=package_repo_excluded
@@ -344,8 +344,8 @@ class GkeonpremBareMetalCluster(
         no_proxy: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param uri: Specifies the address of your proxy server. For example: http://domain WARNING: Do not provide credentials in the format of http://(username:password@)domain these will be rejected by the server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
-        :param no_proxy: A list of IPs, hostnames, and domains that should skip the proxy. For example ["127.0.0.1", "example.com", ".corp", "localhost"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
+        :param uri: Specifies the address of your proxy server. For example: http://domain WARNING: Do not provide credentials in the format of http://(username:password@)domain these will be rejected by the server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
+        :param no_proxy: A list of IPs, hostnames, and domains that should skip the proxy. For example ["127.0.0.1", "example.com", ".corp", "localhost"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
         '''
         value = GkeonpremBareMetalClusterProxy(uri=uri, no_proxy=no_proxy)
 
@@ -358,7 +358,7 @@ class GkeonpremBareMetalCluster(
         authorization: typing.Optional[typing.Union["GkeonpremBareMetalClusterSecurityConfigAuthorization", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
         '''
         value = GkeonpremBareMetalClusterSecurityConfig(authorization=authorization)
 
@@ -372,8 +372,8 @@ class GkeonpremBareMetalCluster(
         lvp_share_config: typing.Union["GkeonpremBareMetalClusterStorageLvpShareConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lvp_node_mounts_config: lvp_node_mounts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
-        :param lvp_share_config: lvp_share_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
+        :param lvp_node_mounts_config: lvp_node_mounts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
+        :param lvp_share_config: lvp_share_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
         '''
         value = GkeonpremBareMetalClusterStorage(
             lvp_node_mounts_config=lvp_node_mounts_config,
@@ -391,9 +391,9 @@ class GkeonpremBareMetalCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.
         '''
         value = GkeonpremBareMetalClusterTimeouts(
             create=create, delete=delete, update=update
@@ -408,7 +408,7 @@ class GkeonpremBareMetalCluster(
         policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param policy: Specifies which upgrade policy to use. Possible values: ["SERIAL", "CONCURRENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
+        :param policy: Specifies which upgrade policy to use. Possible values: ["SERIAL", "CONCURRENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
         '''
         value = GkeonpremBareMetalClusterUpgradePolicy(policy=policy)
 
@@ -875,7 +875,7 @@ class GkeonpremBareMetalClusterBinaryAuthorization:
         evaluation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param evaluation_mode: Mode of operation for binauthz policy evaluation. If unspecified, defaults to DISABLED. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
+        :param evaluation_mode: Mode of operation for binauthz policy evaluation. If unspecified, defaults to DISABLED. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00e634687f672871c9f4500f38b0f6628d553c14798da81869d7efc3907405ae)
@@ -888,7 +888,7 @@ class GkeonpremBareMetalClusterBinaryAuthorization:
     def evaluation_mode(self) -> typing.Optional[builtins.str]:
         '''Mode of operation for binauthz policy evaluation. If unspecified, defaults to DISABLED. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#evaluation_mode GkeonpremBareMetalCluster#evaluation_mode}
         '''
         result = self._values.get("evaluation_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -976,7 +976,7 @@ class GkeonpremBareMetalClusterClusterOperations:
         enable_application_logs: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_application_logs: Whether collection of application logs/metrics should be enabled (in addition to system logs/metrics). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
+        :param enable_application_logs: Whether collection of application logs/metrics should be enabled (in addition to system logs/metrics). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27f6b319b9bf532677fd1cf76993e6ebd68b57118ed8ece2d5511f40517feb4a)
@@ -991,7 +991,7 @@ class GkeonpremBareMetalClusterClusterOperations:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether collection of application logs/metrics should be enabled (in addition to system logs/metrics).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enable_application_logs GkeonpremBareMetalCluster#enable_application_logs}
         '''
         result = self._values.get("enable_application_logs")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1151,28 +1151,28 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param admin_cluster_membership: The Admin Cluster this Bare Metal User Cluster belongs to. This is the full resource name of the Admin Cluster's hub membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
-        :param bare_metal_version: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
-        :param name: The bare metal cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
-        :param annotations: Annotations on the Bare Metal User Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
-        :param cluster_operations: cluster_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
-        :param description: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_config: maintenance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
-        :param node_access_config: node_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
-        :param os_environment_config: os_environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.
-        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
+        :param admin_cluster_membership: The Admin Cluster this Bare Metal User Cluster belongs to. This is the full resource name of the Admin Cluster's hub membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
+        :param bare_metal_version: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
+        :param name: The bare metal cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
+        :param annotations: Annotations on the Bare Metal User Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
+        :param cluster_operations: cluster_operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
+        :param description: A human readable description of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_config: maintenance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
+        :param node_access_config: node_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
+        :param os_environment_config: os_environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.
+        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1358,7 +1358,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the full resource name of the Admin Cluster's hub membership.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_cluster_membership GkeonpremBareMetalCluster#admin_cluster_membership}
         '''
         result = self._values.get("admin_cluster_membership")
         assert result is not None, "Required property 'admin_cluster_membership' is missing"
@@ -1368,7 +1368,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bare_metal_version(self) -> builtins.str:
         '''A human readable description of this Bare Metal User Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bare_metal_version GkeonpremBareMetalCluster#bare_metal_version}
         '''
         result = self._values.get("bare_metal_version")
         assert result is not None, "Required property 'bare_metal_version' is missing"
@@ -1378,7 +1378,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def control_plane(self) -> "GkeonpremBareMetalClusterControlPlane":
         '''control_plane block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane GkeonpremBareMetalCluster#control_plane}
         '''
         result = self._values.get("control_plane")
         assert result is not None, "Required property 'control_plane' is missing"
@@ -1388,7 +1388,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def load_balancer(self) -> "GkeonpremBareMetalClusterLoadBalancer":
         '''load_balancer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer GkeonpremBareMetalCluster#load_balancer}
         '''
         result = self._values.get("load_balancer")
         assert result is not None, "Required property 'load_balancer' is missing"
@@ -1398,7 +1398,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#location GkeonpremBareMetalCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1408,7 +1408,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The bare metal cluster name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#name GkeonpremBareMetalCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1418,7 +1418,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> "GkeonpremBareMetalClusterNetworkConfig":
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#network_config GkeonpremBareMetalCluster#network_config}
         '''
         result = self._values.get("network_config")
         assert result is not None, "Required property 'network_config' is missing"
@@ -1428,7 +1428,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage(self) -> "GkeonpremBareMetalClusterStorage":
         '''storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage GkeonpremBareMetalCluster#storage}
         '''
         result = self._values.get("storage")
         assert result is not None, "Required property 'storage' is missing"
@@ -1451,7 +1451,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#annotations GkeonpremBareMetalCluster#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1462,7 +1462,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GkeonpremBareMetalClusterBinaryAuthorization]:
         '''binary_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#binary_authorization GkeonpremBareMetalCluster#binary_authorization}
         '''
         result = self._values.get("binary_authorization")
         return typing.cast(typing.Optional[GkeonpremBareMetalClusterBinaryAuthorization], result)
@@ -1473,7 +1473,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GkeonpremBareMetalClusterClusterOperations]:
         '''cluster_operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#cluster_operations GkeonpremBareMetalCluster#cluster_operations}
         '''
         result = self._values.get("cluster_operations")
         return typing.cast(typing.Optional[GkeonpremBareMetalClusterClusterOperations], result)
@@ -1482,14 +1482,14 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human readable description of this Bare Metal User Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#description GkeonpremBareMetalCluster#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#id GkeonpremBareMetalCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1503,7 +1503,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeonpremBareMetalClusterMaintenanceConfig"]:
         '''maintenance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_config GkeonpremBareMetalCluster#maintenance_config}
         '''
         result = self._values.get("maintenance_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterMaintenanceConfig"], result)
@@ -1514,7 +1514,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeonpremBareMetalClusterNodeAccessConfig"]:
         '''node_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_access_config GkeonpremBareMetalCluster#node_access_config}
         '''
         result = self._values.get("node_access_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterNodeAccessConfig"], result)
@@ -1523,7 +1523,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_config(self) -> typing.Optional["GkeonpremBareMetalClusterNodeConfig"]:
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_config GkeonpremBareMetalCluster#node_config}
         '''
         result = self._values.get("node_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterNodeConfig"], result)
@@ -1534,14 +1534,14 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeonpremBareMetalClusterOsEnvironmentConfig"]:
         '''os_environment_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#os_environment_config GkeonpremBareMetalCluster#os_environment_config}
         '''
         result = self._values.get("os_environment_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterOsEnvironmentConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#project GkeonpremBareMetalCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1549,7 +1549,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def proxy(self) -> typing.Optional["GkeonpremBareMetalClusterProxy"]:
         '''proxy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#proxy GkeonpremBareMetalCluster#proxy}
         '''
         result = self._values.get("proxy")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterProxy"], result)
@@ -1560,7 +1560,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeonpremBareMetalClusterSecurityConfig"]:
         '''security_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#security_config GkeonpremBareMetalCluster#security_config}
         '''
         result = self._values.get("security_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterSecurityConfig"], result)
@@ -1569,7 +1569,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GkeonpremBareMetalClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#timeouts GkeonpremBareMetalCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterTimeouts"], result)
@@ -1580,7 +1580,7 @@ class GkeonpremBareMetalClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeonpremBareMetalClusterUpgradePolicy"]:
         '''upgrade_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#upgrade_policy GkeonpremBareMetalCluster#upgrade_policy}
         '''
         result = self._values.get("upgrade_policy")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterUpgradePolicy"], result)
@@ -1613,8 +1613,8 @@ class GkeonpremBareMetalClusterControlPlane:
         api_server_args: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterControlPlaneApiServerArgs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param control_plane_node_pool_config: control_plane_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
-        :param api_server_args: api_server_args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
+        :param control_plane_node_pool_config: control_plane_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
+        :param api_server_args: api_server_args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
         '''
         if isinstance(control_plane_node_pool_config, dict):
             control_plane_node_pool_config = GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig(**control_plane_node_pool_config)
@@ -1634,7 +1634,7 @@ class GkeonpremBareMetalClusterControlPlane:
     ) -> "GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig":
         '''control_plane_node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_node_pool_config GkeonpremBareMetalCluster#control_plane_node_pool_config}
         '''
         result = self._values.get("control_plane_node_pool_config")
         assert result is not None, "Required property 'control_plane_node_pool_config' is missing"
@@ -1646,7 +1646,7 @@ class GkeonpremBareMetalClusterControlPlane:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneApiServerArgs"]]]:
         '''api_server_args block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#api_server_args GkeonpremBareMetalCluster#api_server_args}
         '''
         result = self._values.get("api_server_args")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneApiServerArgs"]]], result)
@@ -1671,8 +1671,8 @@ class GkeonpremBareMetalClusterControlPlane:
 class GkeonpremBareMetalClusterControlPlaneApiServerArgs:
     def __init__(self, *, argument: builtins.str, value: builtins.str) -> None:
         '''
-        :param argument: The argument name as it appears on the API Server command line please make sure to remove the leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#argument GkeonpremBareMetalCluster#argument}
-        :param value: The value of the arg as it will be passed to the API Server command line. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        :param argument: The argument name as it appears on the API Server command line please make sure to remove the leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#argument GkeonpremBareMetalCluster#argument}
+        :param value: The value of the arg as it will be passed to the API Server command line. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b82718ab650f538aedbff3b24071e95c221113a2eaf8b228af28ed7f607abf13)
@@ -1687,7 +1687,7 @@ class GkeonpremBareMetalClusterControlPlaneApiServerArgs:
     def argument(self) -> builtins.str:
         '''The argument name as it appears on the API Server command line please make sure to remove the leading dashes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#argument GkeonpremBareMetalCluster#argument}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#argument GkeonpremBareMetalCluster#argument}
         '''
         result = self._values.get("argument")
         assert result is not None, "Required property 'argument' is missing"
@@ -1697,7 +1697,7 @@ class GkeonpremBareMetalClusterControlPlaneApiServerArgs:
     def value(self) -> builtins.str:
         '''The value of the arg as it will be passed to the API Server command line.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1898,7 +1898,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig:
         node_pool_config: typing.Union["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         if isinstance(node_pool_config, dict):
             node_pool_config = GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig(**node_pool_config)
@@ -1915,7 +1915,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig:
     ) -> "GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig":
         '''node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         result = self._values.get("node_pool_config")
         assert result is not None, "Required property 'node_pool_config' is missing"
@@ -1953,10 +1953,10 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigTaints", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cd0f9fa3826d14eb55993f837085a59506d386622c5505cf796e522bc41f839)
@@ -1989,7 +1989,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
           An object containing a list of "key": value pairs.
           For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2000,7 +2000,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigNodeConfigs"]]]:
         '''node_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
         '''
         result = self._values.get("node_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigNodeConfigs"]]], result)
@@ -2009,7 +2009,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     def operating_system(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
         '''
         result = self._values.get("operating_system")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2020,7 +2020,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigTaints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigTaints"]]], result)
@@ -2050,8 +2050,8 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
         node_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__552d1190d1054d5bbde3fd0c502cc286b917498f5d9ca8d254e8f62478d8f0b8)
@@ -2078,7 +2078,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
           An object containing a list of "key": value pairs.
           Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2087,7 +2087,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     def node_ip(self) -> typing.Optional[builtins.str]:
         '''The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         result = self._values.get("node_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2443,9 +2443,9 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
-        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
-        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__115171690762f0e3a6ed020f7626ad7b684214f2a9439cc2a3e452d0ffa05df7)
@@ -2464,7 +2464,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     def effect(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
         '''
         result = self._values.get("effect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2473,7 +2473,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     def key(self) -> typing.Optional[builtins.str]:
         '''Key associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2482,7 +2482,7 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolCon
     def value(self) -> typing.Optional[builtins.str]:
         '''Value associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2729,10 +2729,10 @@ class GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigOutputRefer
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigTaints, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         value = GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig(
             labels=labels,
@@ -2815,7 +2815,7 @@ class GkeonpremBareMetalClusterControlPlaneOutputReference(
         node_pool_config: typing.Union[GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         value = GkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig(
             node_pool_config=node_pool_config
@@ -3035,11 +3035,11 @@ class GkeonpremBareMetalClusterLoadBalancer:
         metal_lb_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerMetalLbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port_config: port_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
-        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
-        :param bgp_lb_config: bgp_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
-        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
-        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
+        :param port_config: port_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
+        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
+        :param bgp_lb_config: bgp_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
+        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
+        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
         '''
         if isinstance(port_config, dict):
             port_config = GkeonpremBareMetalClusterLoadBalancerPortConfig(**port_config)
@@ -3073,7 +3073,7 @@ class GkeonpremBareMetalClusterLoadBalancer:
     def port_config(self) -> "GkeonpremBareMetalClusterLoadBalancerPortConfig":
         '''port_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#port_config GkeonpremBareMetalCluster#port_config}
         '''
         result = self._values.get("port_config")
         assert result is not None, "Required property 'port_config' is missing"
@@ -3083,7 +3083,7 @@ class GkeonpremBareMetalClusterLoadBalancer:
     def vip_config(self) -> "GkeonpremBareMetalClusterLoadBalancerVipConfig":
         '''vip_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#vip_config GkeonpremBareMetalCluster#vip_config}
         '''
         result = self._values.get("vip_config")
         assert result is not None, "Required property 'vip_config' is missing"
@@ -3095,7 +3095,7 @@ class GkeonpremBareMetalClusterLoadBalancer:
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfig"]:
         '''bgp_lb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_lb_config GkeonpremBareMetalCluster#bgp_lb_config}
         '''
         result = self._values.get("bgp_lb_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfig"], result)
@@ -3106,7 +3106,7 @@ class GkeonpremBareMetalClusterLoadBalancer:
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerManualLbConfig"]:
         '''manual_lb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_lb_config GkeonpremBareMetalCluster#manual_lb_config}
         '''
         result = self._values.get("manual_lb_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerManualLbConfig"], result)
@@ -3117,7 +3117,7 @@ class GkeonpremBareMetalClusterLoadBalancer:
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfig"]:
         '''metal_lb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#metal_lb_config GkeonpremBareMetalCluster#metal_lb_config}
         '''
         result = self._values.get("metal_lb_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfig"], result)
@@ -3154,10 +3154,10 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfig:
         load_balancer_node_pool_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
-        :param asn: BGP autonomous system number (ASN) of the cluster. This field can be updated after cluster creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
-        :param bgp_peer_configs: bgp_peer_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
-        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        :param asn: BGP autonomous system number (ASN) of the cluster. This field can be updated after cluster creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
+        :param bgp_peer_configs: bgp_peer_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
+        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         if isinstance(load_balancer_node_pool_config, dict):
             load_balancer_node_pool_config = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig(**load_balancer_node_pool_config)
@@ -3181,7 +3181,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools"]]:
         '''address_pools block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
         '''
         result = self._values.get("address_pools")
         assert result is not None, "Required property 'address_pools' is missing"
@@ -3191,7 +3191,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfig:
     def asn(self) -> jsii.Number:
         '''BGP autonomous system number (ASN) of the cluster. This field can be updated after cluster creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
         '''
         result = self._values.get("asn")
         assert result is not None, "Required property 'asn' is missing"
@@ -3203,7 +3203,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs"]]:
         '''bgp_peer_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
         '''
         result = self._values.get("bgp_peer_configs")
         assert result is not None, "Required property 'bgp_peer_configs' is missing"
@@ -3215,7 +3215,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig"]:
         '''load_balancer_node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         result = self._values.get("load_balancer_node_pool_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig"], result)
@@ -3252,10 +3252,10 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools:
         manual_assign: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param addresses: The addresses that are part of this pool. Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
-        :param pool: The name of the address pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
-        :param avoid_buggy_ips: If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
-        :param manual_assign: If true, prevent IP addresses from being automatically assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
+        :param addresses: The addresses that are part of this pool. Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
+        :param pool: The name of the address pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
+        :param avoid_buggy_ips: If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
+        :param manual_assign: If true, prevent IP addresses from being automatically assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__391f9512743e6f8bb5e06db2487cfffd7fe19c8244863492da28bbd6081691da)
@@ -3278,7 +3278,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools:
 
         Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
         '''
         result = self._values.get("addresses")
         assert result is not None, "Required property 'addresses' is missing"
@@ -3288,7 +3288,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools:
     def pool(self) -> builtins.str:
         '''The name of the address pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
         '''
         result = self._values.get("pool")
         assert result is not None, "Required property 'pool' is missing"
@@ -3300,7 +3300,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
         '''
         result = self._values.get("avoid_buggy_ips")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3309,7 +3309,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools:
     def manual_assign(self) -> typing.Optional[builtins.str]:
         '''If true, prevent IP addresses from being automatically assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
         '''
         result = self._values.get("manual_assign")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3564,9 +3564,9 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs:
         control_plane_nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param asn: BGP autonomous system number (ASN) for the network that contains the external peer device. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
-        :param ip_address: The IP address of the external peer device. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#ip_address GkeonpremBareMetalCluster#ip_address}
-        :param control_plane_nodes: The IP address of the control plane node that connects to the external peer. If you don't specify any control plane nodes, all control plane nodes can connect to the external peer. If you specify one or more IP addresses, only the nodes specified participate in peering sessions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_nodes GkeonpremBareMetalCluster#control_plane_nodes}
+        :param asn: BGP autonomous system number (ASN) for the network that contains the external peer device. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
+        :param ip_address: The IP address of the external peer device. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#ip_address GkeonpremBareMetalCluster#ip_address}
+        :param control_plane_nodes: The IP address of the control plane node that connects to the external peer. If you don't specify any control plane nodes, all control plane nodes can connect to the external peer. If you specify one or more IP addresses, only the nodes specified participate in peering sessions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_nodes GkeonpremBareMetalCluster#control_plane_nodes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1901dbd3f98933c6d29f4f8fda3638e168eede552a581654326f90a8f3b5cfc8)
@@ -3584,7 +3584,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs:
     def asn(self) -> jsii.Number:
         '''BGP autonomous system number (ASN) for the network that contains the external peer device.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
         '''
         result = self._values.get("asn")
         assert result is not None, "Required property 'asn' is missing"
@@ -3594,7 +3594,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs:
     def ip_address(self) -> builtins.str:
         '''The IP address of the external peer device.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#ip_address GkeonpremBareMetalCluster#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#ip_address GkeonpremBareMetalCluster#ip_address}
         '''
         result = self._values.get("ip_address")
         assert result is not None, "Required property 'ip_address' is missing"
@@ -3608,7 +3608,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs:
         can connect to the external peer. If you specify one or more IP addresses,
         only the nodes specified participate in peering sessions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_nodes GkeonpremBareMetalCluster#control_plane_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_nodes GkeonpremBareMetalCluster#control_plane_nodes}
         '''
         result = self._values.get("control_plane_nodes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3829,7 +3829,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         node_pool_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         if isinstance(node_pool_config, dict):
             node_pool_config = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig(**node_pool_config)
@@ -3846,7 +3846,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig"]:
         '''node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         result = self._values.get("node_pool_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig"], result)
@@ -3885,11 +3885,11 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         if isinstance(kubelet_config, dict):
             kubelet_config = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigKubeletConfig(**kubelet_config)
@@ -3918,7 +3918,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigKubeletConfig"]:
         '''kubelet_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
         '''
         result = self._values.get("kubelet_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigKubeletConfig"], result)
@@ -3938,7 +3938,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
           An object containing a list of "key": value pairs.
           For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3949,7 +3949,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs"]]]:
         '''node_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
         '''
         result = self._values.get("node_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs"]]], result)
@@ -3958,7 +3958,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     def operating_system(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
         '''
         result = self._values.get("operating_system")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3969,7 +3969,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints"]]], result)
@@ -4004,9 +4004,9 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         serialize_image_pulls_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param registry_burst: The maximum size of bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_pull_qps. The value must not be a negative number. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
-        :param registry_pull_qps: The limit of registry pulls per second. Setting this value to 0 means no limit. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
-        :param serialize_image_pulls_disabled: Prevents the Kubelet from pulling multiple images at a time. We recommend *not* changing the default value on nodes that run docker daemon with version < 1.9 or an Another Union File System (Aufs) storage backend. Issue https://github.com/kubernetes/kubernetes/issues/10959 has more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
+        :param registry_burst: The maximum size of bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_pull_qps. The value must not be a negative number. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
+        :param registry_pull_qps: The limit of registry pulls per second. Setting this value to 0 means no limit. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
+        :param serialize_image_pulls_disabled: Prevents the Kubelet from pulling multiple images at a time. We recommend *not* changing the default value on nodes that run docker daemon with version < 1.9 or an Another Union File System (Aufs) storage backend. Issue https://github.com/kubernetes/kubernetes/issues/10959 has more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37ec516c494a0e9bf6f091fe7c5cd2dc932462b9ca7c7cbeb4d1fef075e03af4)
@@ -4030,7 +4030,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         traffic produced by image pulls.
         Defaults to 10.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
         '''
         result = self._values.get("registry_burst")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4044,7 +4044,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         traffic produced by image pulls.
         Defaults to 5.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
         '''
         result = self._values.get("registry_pull_qps")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4060,7 +4060,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         backend. Issue https://github.com/kubernetes/kubernetes/issues/10959 has
         more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
         '''
         result = self._values.get("serialize_image_pulls_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4198,8 +4198,8 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         node_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf2d45773caded0c477a91f0e02c82c3da9e35823d3e2968beb5078b6a4f0429)
@@ -4226,7 +4226,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
           An object containing a list of "key": value pairs.
           For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -4235,7 +4235,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     def node_ip(self) -> typing.Optional[builtins.str]:
         '''The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         result = self._values.get("node_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4462,9 +4462,9 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         serialize_image_pulls_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param registry_burst: The maximum size of bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_pull_qps. The value must not be a negative number. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
-        :param registry_pull_qps: The limit of registry pulls per second. Setting this value to 0 means no limit. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
-        :param serialize_image_pulls_disabled: Prevents the Kubelet from pulling multiple images at a time. We recommend *not* changing the default value on nodes that run docker daemon with version < 1.9 or an Another Union File System (Aufs) storage backend. Issue https://github.com/kubernetes/kubernetes/issues/10959 has more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
+        :param registry_burst: The maximum size of bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_pull_qps. The value must not be a negative number. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 10. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_burst GkeonpremBareMetalCluster#registry_burst}
+        :param registry_pull_qps: The limit of registry pulls per second. Setting this value to 0 means no limit. Updating this field may impact scalability by changing the amount of traffic produced by image pulls. Defaults to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#registry_pull_qps GkeonpremBareMetalCluster#registry_pull_qps}
+        :param serialize_image_pulls_disabled: Prevents the Kubelet from pulling multiple images at a time. We recommend *not* changing the default value on nodes that run docker daemon with version < 1.9 or an Another Union File System (Aufs) storage backend. Issue https://github.com/kubernetes/kubernetes/issues/10959 has more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#serialize_image_pulls_disabled GkeonpremBareMetalCluster#serialize_image_pulls_disabled}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigKubeletConfig(
             registry_burst=registry_burst,
@@ -4630,9 +4630,9 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
-        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
-        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdb5fc700549a4ed85ad92f06dd402ad5752d13a8ba630c01be461121f2919ee)
@@ -4651,7 +4651,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     def effect(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
         '''
         result = self._values.get("effect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4660,7 +4660,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     def key(self) -> typing.Optional[builtins.str]:
         '''Key associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4669,7 +4669,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
     def value(self) -> typing.Optional[builtins.str]:
         '''Value associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4917,11 +4917,11 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#kubelet_config GkeonpremBareMetalCluster#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig(
             kubelet_config=kubelet_config,
@@ -5022,7 +5022,7 @@ class GkeonpremBareMetalClusterLoadBalancerBgpLbConfigOutputReference(
         node_pool_config: typing.Optional[typing.Union[GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig(
             node_pool_config=node_pool_config
@@ -5123,7 +5123,7 @@ class GkeonpremBareMetalClusterLoadBalancerManualLbConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether manual load balancing is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether manual load balancing is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7e663463f51bcb9858cc888900d593183511e20538bb75237f2a73e541905fc)
@@ -5136,7 +5136,7 @@ class GkeonpremBareMetalClusterLoadBalancerManualLbConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether manual load balancing is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5230,8 +5230,8 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfig:
         load_balancer_node_pool_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
-        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         if isinstance(load_balancer_node_pool_config, dict):
             load_balancer_node_pool_config = GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig(**load_balancer_node_pool_config)
@@ -5251,7 +5251,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools"]]:
         '''address_pools block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
         '''
         result = self._values.get("address_pools")
         assert result is not None, "Required property 'address_pools' is missing"
@@ -5263,7 +5263,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig"]:
         '''load_balancer_node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         result = self._values.get("load_balancer_node_pool_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig"], result)
@@ -5300,10 +5300,10 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools:
         manual_assign: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param addresses: The addresses that are part of this pool. Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
-        :param pool: The name of the address pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
-        :param avoid_buggy_ips: If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
-        :param manual_assign: If true, prevent IP addresses from being automatically assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
+        :param addresses: The addresses that are part of this pool. Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
+        :param pool: The name of the address pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
+        :param avoid_buggy_ips: If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
+        :param manual_assign: If true, prevent IP addresses from being automatically assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__edc60ba5a8c9ff08503241de995b75dd2d5453a4cc1f440a2dde1c99737a2990)
@@ -5326,7 +5326,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools:
 
         Each address must be either in the CIDR form (1.2.3.0/24) or range form (1.2.3.1-1.2.3.5).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#addresses GkeonpremBareMetalCluster#addresses}
         '''
         result = self._values.get("addresses")
         assert result is not None, "Required property 'addresses' is missing"
@@ -5336,7 +5336,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools:
     def pool(self) -> builtins.str:
         '''The name of the address pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pool GkeonpremBareMetalCluster#pool}
         '''
         result = self._values.get("pool")
         assert result is not None, "Required property 'pool' is missing"
@@ -5348,7 +5348,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, avoid using IPs ending in .0 or .255. This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#avoid_buggy_ips GkeonpremBareMetalCluster#avoid_buggy_ips}
         '''
         result = self._values.get("avoid_buggy_ips")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5359,7 +5359,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, prevent IP addresses from being automatically assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#manual_assign GkeonpremBareMetalCluster#manual_assign}
         '''
         result = self._values.get("manual_assign")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5613,7 +5613,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
         node_pool_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         if isinstance(node_pool_config, dict):
             node_pool_config = GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig(**node_pool_config)
@@ -5630,7 +5630,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     ) -> typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig"]:
         '''node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         result = self._values.get("node_pool_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig"], result)
@@ -5667,10 +5667,10 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eeca46ab3fecd5cf5139de22702b6de74052e9a3ed98a9f211b24edbcc18dd2c)
@@ -5703,7 +5703,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
           An object containing a list of "key": value pairs.
           For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5714,7 +5714,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs"]]]:
         '''node_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
         '''
         result = self._values.get("node_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs"]]], result)
@@ -5723,7 +5723,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     def operating_system(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
         '''
         result = self._values.get("operating_system")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5734,7 +5734,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints"]]], result)
@@ -5764,8 +5764,8 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
         node_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_ip: The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7931f8f5aea6f29ac45a09a21c20d11489e1c77c493884e34105beb90516c066)
@@ -5792,7 +5792,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
           An object containing a list of "key": value pairs.
           For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5801,7 +5801,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     def node_ip(self) -> typing.Optional[builtins.str]:
         '''The default IPv4 address for SSH access and Kubernetes node. Example: 192.168.0.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_ip GkeonpremBareMetalCluster#node_ip}
         '''
         result = self._values.get("node_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6157,9 +6157,9 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
-        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
-        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        :param effect: Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        :param key: Key associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        :param value: Value associated with the effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1161e2d406cb86151341a307a92bfff1d07bf37a083110e53219dacbba6cf4aa)
@@ -6178,7 +6178,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     def effect(self) -> typing.Optional[builtins.str]:
         '''Specifies the nodes operating system (default: LINUX). Possible values: ["EFFECT_UNSPECIFIED", "PREFER_NO_SCHEDULE", "NO_EXECUTE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#effect GkeonpremBareMetalCluster#effect}
         '''
         result = self._values.get("effect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6187,7 +6187,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     def key(self) -> typing.Optional[builtins.str]:
         '''Key associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#key GkeonpremBareMetalCluster#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6196,7 +6196,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
     def value(self) -> typing.Optional[builtins.str]:
         '''Value associated with the effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#value GkeonpremBareMetalCluster#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6443,10 +6443,10 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConf
         taints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
-        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
-        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. In case of conflict in label keys, the applied set may differ depending on the Kubernetes version -- it's best to assume the behavior is undefined and conflicts should be avoided. For more information, including usage and the valid values, see: - http://kubernetes.io/v1.1/docs/user-guide/labels.html An object containing a list of "key": value pairs. For example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#labels GkeonpremBareMetalCluster#labels}
+        :param node_configs: node_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_configs GkeonpremBareMetalCluster#node_configs}
+        :param operating_system: Specifies the nodes operating system (default: LINUX). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#operating_system GkeonpremBareMetalCluster#operating_system}
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#taints GkeonpremBareMetalCluster#taints}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig(
             labels=labels,
@@ -6533,7 +6533,7 @@ class GkeonpremBareMetalClusterLoadBalancerMetalLbConfigOutputReference(
         node_pool_config: typing.Optional[typing.Union[GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#node_pool_config GkeonpremBareMetalCluster#node_pool_config}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig(
             node_pool_config=node_pool_config
@@ -6621,10 +6621,10 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
         load_balancer_node_pool_config: typing.Optional[typing.Union[GkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
-        :param asn: BGP autonomous system number (ASN) of the cluster. This field can be updated after cluster creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
-        :param bgp_peer_configs: bgp_peer_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
-        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        :param asn: BGP autonomous system number (ASN) of the cluster. This field can be updated after cluster creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#asn GkeonpremBareMetalCluster#asn}
+        :param bgp_peer_configs: bgp_peer_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#bgp_peer_configs GkeonpremBareMetalCluster#bgp_peer_configs}
+        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerBgpLbConfig(
             address_pools=address_pools,
@@ -6642,7 +6642,7 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether manual load balancing is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether manual load balancing is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerManualLbConfig(enabled=enabled)
 
@@ -6656,8 +6656,8 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
         load_balancer_node_pool_config: typing.Optional[typing.Union[GkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
-        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
+        :param address_pools: address_pools block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#address_pools GkeonpremBareMetalCluster#address_pools}
+        :param load_balancer_node_pool_config: load_balancer_node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#load_balancer_node_pool_config GkeonpremBareMetalCluster#load_balancer_node_pool_config}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerMetalLbConfig(
             address_pools=address_pools,
@@ -6669,7 +6669,7 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
     @jsii.member(jsii_name="putPortConfig")
     def put_port_config(self, *, control_plane_load_balancer_port: jsii.Number) -> None:
         '''
-        :param control_plane_load_balancer_port: The port that control plane hosted load balancers will listen on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
+        :param control_plane_load_balancer_port: The port that control plane hosted load balancers will listen on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerPortConfig(
             control_plane_load_balancer_port=control_plane_load_balancer_port
@@ -6685,8 +6685,8 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
         ingress_vip: builtins.str,
     ) -> None:
         '''
-        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
-        :param ingress_vip: The VIP which you previously set aside for ingress traffic into this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
+        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
+        :param ingress_vip: The VIP which you previously set aside for ingress traffic into this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
         '''
         value = GkeonpremBareMetalClusterLoadBalancerVipConfig(
             control_plane_vip=control_plane_vip, ingress_vip=ingress_vip
@@ -6800,7 +6800,7 @@ class GkeonpremBareMetalClusterLoadBalancerOutputReference(
 class GkeonpremBareMetalClusterLoadBalancerPortConfig:
     def __init__(self, *, control_plane_load_balancer_port: jsii.Number) -> None:
         '''
-        :param control_plane_load_balancer_port: The port that control plane hosted load balancers will listen on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
+        :param control_plane_load_balancer_port: The port that control plane hosted load balancers will listen on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__312e6a9ee18617a01ca16fca8b4de3c86d386290c677f3793d2d47358970102b)
@@ -6813,7 +6813,7 @@ class GkeonpremBareMetalClusterLoadBalancerPortConfig:
     def control_plane_load_balancer_port(self) -> jsii.Number:
         '''The port that control plane hosted load balancers will listen on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_load_balancer_port GkeonpremBareMetalCluster#control_plane_load_balancer_port}
         '''
         result = self._values.get("control_plane_load_balancer_port")
         assert result is not None, "Required property 'control_plane_load_balancer_port' is missing"
@@ -6899,8 +6899,8 @@ class GkeonpremBareMetalClusterLoadBalancerVipConfig:
         ingress_vip: builtins.str,
     ) -> None:
         '''
-        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
-        :param ingress_vip: The VIP which you previously set aside for ingress traffic into this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
+        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
+        :param ingress_vip: The VIP which you previously set aside for ingress traffic into this Bare Metal User Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e7da560f21d74b93a60a91f697e10add218d82ab2296d90164570b209d7dd91)
@@ -6915,7 +6915,7 @@ class GkeonpremBareMetalClusterLoadBalancerVipConfig:
     def control_plane_vip(self) -> builtins.str:
         '''The VIP which you previously set aside for the Kubernetes API of this Bare Metal User Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#control_plane_vip GkeonpremBareMetalCluster#control_plane_vip}
         '''
         result = self._values.get("control_plane_vip")
         assert result is not None, "Required property 'control_plane_vip' is missing"
@@ -6925,7 +6925,7 @@ class GkeonpremBareMetalClusterLoadBalancerVipConfig:
     def ingress_vip(self) -> builtins.str:
         '''The VIP which you previously set aside for ingress traffic into this Bare Metal User Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#ingress_vip GkeonpremBareMetalCluster#ingress_vip}
         '''
         result = self._values.get("ingress_vip")
         assert result is not None, "Required property 'ingress_vip' is missing"
@@ -7027,7 +7027,7 @@ class GkeonpremBareMetalClusterMaintenanceConfig:
         maintenance_address_cidr_blocks: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param maintenance_address_cidr_blocks: All IPv4 address from these ranges will be placed into maintenance mode. Nodes in maintenance mode will be cordoned and drained. When both of these are true, the "baremetal.cluster.gke.io/maintenance" annotation will be set on the node resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
+        :param maintenance_address_cidr_blocks: All IPv4 address from these ranges will be placed into maintenance mode. Nodes in maintenance mode will be cordoned and drained. When both of these are true, the "baremetal.cluster.gke.io/maintenance" annotation will be set on the node resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1871e97979320770d73508ced0c667d9634ded5ff38da39c1b2d8ad1e4191da)
@@ -7044,7 +7044,7 @@ class GkeonpremBareMetalClusterMaintenanceConfig:
         are true, the "baremetal.cluster.gke.io/maintenance" annotation will be set
         on the node resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#maintenance_address_cidr_blocks GkeonpremBareMetalCluster#maintenance_address_cidr_blocks}
         '''
         result = self._values.get("maintenance_address_cidr_blocks")
         assert result is not None, "Required property 'maintenance_address_cidr_blocks' is missing"
@@ -7139,10 +7139,10 @@ class GkeonpremBareMetalClusterNetworkConfig:
         sr_iov_config: typing.Optional[typing.Union["GkeonpremBareMetalClusterNetworkConfigSrIovConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_networking: Enables the use of advanced Anthos networking features, such as Bundled Load Balancing with BGP or the egress NAT gateway. Setting configuration for advanced networking features will automatically set this flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
-        :param island_mode_cidr: island_mode_cidr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
-        :param multiple_network_interfaces_config: multiple_network_interfaces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
-        :param sr_iov_config: sr_iov_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
+        :param advanced_networking: Enables the use of advanced Anthos networking features, such as Bundled Load Balancing with BGP or the egress NAT gateway. Setting configuration for advanced networking features will automatically set this flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
+        :param island_mode_cidr: island_mode_cidr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
+        :param multiple_network_interfaces_config: multiple_network_interfaces_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
+        :param sr_iov_config: sr_iov_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
         '''
         if isinstance(island_mode_cidr, dict):
             island_mode_cidr = GkeonpremBareMetalClusterNetworkConfigIslandModeCidr(**island_mode_cidr)
@@ -7175,7 +7175,7 @@ class GkeonpremBareMetalClusterNetworkConfig:
         Setting configuration for advanced networking features will automatically
         set this flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#advanced_networking GkeonpremBareMetalCluster#advanced_networking}
         '''
         result = self._values.get("advanced_networking")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7186,7 +7186,7 @@ class GkeonpremBareMetalClusterNetworkConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterNetworkConfigIslandModeCidr"]:
         '''island_mode_cidr block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#island_mode_cidr GkeonpremBareMetalCluster#island_mode_cidr}
         '''
         result = self._values.get("island_mode_cidr")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterNetworkConfigIslandModeCidr"], result)
@@ -7197,7 +7197,7 @@ class GkeonpremBareMetalClusterNetworkConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig"]:
         '''multiple_network_interfaces_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#multiple_network_interfaces_config GkeonpremBareMetalCluster#multiple_network_interfaces_config}
         '''
         result = self._values.get("multiple_network_interfaces_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig"], result)
@@ -7208,7 +7208,7 @@ class GkeonpremBareMetalClusterNetworkConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterNetworkConfigSrIovConfig"]:
         '''sr_iov_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#sr_iov_config GkeonpremBareMetalCluster#sr_iov_config}
         '''
         result = self._values.get("sr_iov_config")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterNetworkConfigSrIovConfig"], result)
@@ -7241,8 +7241,8 @@ class GkeonpremBareMetalClusterNetworkConfigIslandModeCidr:
         service_address_cidr_blocks: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
+        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da5f430b6b2e4da26687c1be6775b5ce6cee97bb23e820a8f9cde6d61b3a0fbb)
@@ -7259,7 +7259,7 @@ class GkeonpremBareMetalClusterNetworkConfigIslandModeCidr:
 
         This field cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
         '''
         result = self._values.get("pod_address_cidr_blocks")
         assert result is not None, "Required property 'pod_address_cidr_blocks' is missing"
@@ -7271,7 +7271,7 @@ class GkeonpremBareMetalClusterNetworkConfigIslandModeCidr:
 
         This field cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
         '''
         result = self._values.get("service_address_cidr_blocks")
         assert result is not None, "Required property 'service_address_cidr_blocks' is missing"
@@ -7377,7 +7377,7 @@ class GkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether to enable multiple network interfaces for your pods. When set network_config.advanced_networking is automatically set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether to enable multiple network interfaces for your pods. When set network_config.advanced_networking is automatically set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73a803de835364cb01d06fcff9ca3436fc7287898c6137500575f801be873f16)
@@ -7392,7 +7392,7 @@ class GkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to enable multiple network interfaces for your pods. When set network_config.advanced_networking is automatically set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7501,8 +7501,8 @@ class GkeonpremBareMetalClusterNetworkConfigOutputReference(
         service_address_cidr_blocks: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
+        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#pod_address_cidr_blocks GkeonpremBareMetalCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#service_address_cidr_blocks GkeonpremBareMetalCluster#service_address_cidr_blocks}
         '''
         value = GkeonpremBareMetalClusterNetworkConfigIslandModeCidr(
             pod_address_cidr_blocks=pod_address_cidr_blocks,
@@ -7518,7 +7518,7 @@ class GkeonpremBareMetalClusterNetworkConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether to enable multiple network interfaces for your pods. When set network_config.advanced_networking is automatically set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether to enable multiple network interfaces for your pods. When set network_config.advanced_networking is automatically set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         value = GkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig(
             enabled=enabled
@@ -7533,7 +7533,7 @@ class GkeonpremBareMetalClusterNetworkConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether to install the SR-IOV operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether to install the SR-IOV operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         value = GkeonpremBareMetalClusterNetworkConfigSrIovConfig(enabled=enabled)
 
@@ -7649,7 +7649,7 @@ class GkeonpremBareMetalClusterNetworkConfigSrIovConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether to install the SR-IOV operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        :param enabled: Whether to install the SR-IOV operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ad8ab5df0e1d36992d407b1e4382d2e4ea7186b90f37917d278c6c20e4d13fe)
@@ -7664,7 +7664,7 @@ class GkeonpremBareMetalClusterNetworkConfigSrIovConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to install the SR-IOV operator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#enabled GkeonpremBareMetalCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7753,7 +7753,7 @@ class GkeonpremBareMetalClusterNetworkConfigSrIovConfigOutputReference(
 class GkeonpremBareMetalClusterNodeAccessConfig:
     def __init__(self, *, login_user: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param login_user: LoginUser is the user name used to access node machines. It defaults to "root" if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
+        :param login_user: LoginUser is the user name used to access node machines. It defaults to "root" if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f99eb7bfb41ddaf0e59a57034aed967252d7afb90a7b7bdc2ca613eed88c30b)
@@ -7766,7 +7766,7 @@ class GkeonpremBareMetalClusterNodeAccessConfig:
     def login_user(self) -> typing.Optional[builtins.str]:
         '''LoginUser is the user name used to access node machines. It defaults to "root" if not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#login_user GkeonpremBareMetalCluster#login_user}
         '''
         result = self._values.get("login_user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7858,8 +7858,8 @@ class GkeonpremBareMetalClusterNodeConfig:
         max_pods_per_node: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param container_runtime: The available runtimes that can be used to run containers in a Bare Metal User Cluster. Possible values: ["CONTAINER_RUNTIME_UNSPECIFIED", "DOCKER", "CONTAINERD"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
-        :param max_pods_per_node: The maximum number of pods a node can run. The size of the CIDR range assigned to the node will be derived from this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
+        :param container_runtime: The available runtimes that can be used to run containers in a Bare Metal User Cluster. Possible values: ["CONTAINER_RUNTIME_UNSPECIFIED", "DOCKER", "CONTAINERD"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
+        :param max_pods_per_node: The maximum number of pods a node can run. The size of the CIDR range assigned to the node will be derived from this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1333b9d5e1a67abbb7ff29e77451339f73bdaf3ec4368ff71fa5cf660e3e7964)
@@ -7877,7 +7877,7 @@ class GkeonpremBareMetalClusterNodeConfig:
 
         Possible values: ["CONTAINER_RUNTIME_UNSPECIFIED", "DOCKER", "CONTAINERD"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#container_runtime GkeonpremBareMetalCluster#container_runtime}
         '''
         result = self._values.get("container_runtime")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7889,7 +7889,7 @@ class GkeonpremBareMetalClusterNodeConfig:
         The size of the CIDR range
         assigned to the node will be derived from this parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#max_pods_per_node GkeonpremBareMetalCluster#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7996,7 +7996,7 @@ class GkeonpremBareMetalClusterOsEnvironmentConfig:
         package_repo_excluded: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param package_repo_excluded: Whether the package repo should not be included when initializing bare metal machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
+        :param package_repo_excluded: Whether the package repo should not be included when initializing bare metal machines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7742ff5e3fd4e6b0bf02c199ba4cc6d3e1708572d0a977c770d9098f8703b2dc)
@@ -8011,7 +8011,7 @@ class GkeonpremBareMetalClusterOsEnvironmentConfig:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the package repo should not be included when initializing bare metal machines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#package_repo_excluded GkeonpremBareMetalCluster#package_repo_excluded}
         '''
         result = self._values.get("package_repo_excluded")
         assert result is not None, "Required property 'package_repo_excluded' is missing"
@@ -8104,8 +8104,8 @@ class GkeonpremBareMetalClusterProxy:
         no_proxy: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param uri: Specifies the address of your proxy server. For example: http://domain WARNING: Do not provide credentials in the format of http://(username:password@)domain these will be rejected by the server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
-        :param no_proxy: A list of IPs, hostnames, and domains that should skip the proxy. For example ["127.0.0.1", "example.com", ".corp", "localhost"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
+        :param uri: Specifies the address of your proxy server. For example: http://domain WARNING: Do not provide credentials in the format of http://(username:password@)domain these will be rejected by the server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
+        :param no_proxy: A list of IPs, hostnames, and domains that should skip the proxy. For example ["127.0.0.1", "example.com", ".corp", "localhost"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb4e308b038ed571246d1c5becbeae8270581938cb000c87e50dcb8e4c5564ce)
@@ -8125,7 +8125,7 @@ class GkeonpremBareMetalClusterProxy:
         WARNING: Do not provide credentials in the format
         of http://(username:password@)domain these will be rejected by the server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#uri GkeonpremBareMetalCluster#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -8135,7 +8135,7 @@ class GkeonpremBareMetalClusterProxy:
     def no_proxy(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of IPs, hostnames, and domains that should skip the proxy. For example ["127.0.0.1", "example.com", ".corp", "localhost"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#no_proxy GkeonpremBareMetalCluster#no_proxy}
         '''
         result = self._values.get("no_proxy")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8238,7 +8238,7 @@ class GkeonpremBareMetalClusterSecurityConfig:
         authorization: typing.Optional[typing.Union["GkeonpremBareMetalClusterSecurityConfigAuthorization", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
         '''
         if isinstance(authorization, dict):
             authorization = GkeonpremBareMetalClusterSecurityConfigAuthorization(**authorization)
@@ -8255,7 +8255,7 @@ class GkeonpremBareMetalClusterSecurityConfig:
     ) -> typing.Optional["GkeonpremBareMetalClusterSecurityConfigAuthorization"]:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#authorization GkeonpremBareMetalCluster#authorization}
         '''
         result = self._values.get("authorization")
         return typing.cast(typing.Optional["GkeonpremBareMetalClusterSecurityConfigAuthorization"], result)
@@ -8284,7 +8284,7 @@ class GkeonpremBareMetalClusterSecurityConfigAuthorization:
         admin_users: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc21d2f85c2aeeec04c703eea36a5a6dbd7f60174261bbe41250cf92295b0708)
@@ -8299,7 +8299,7 @@ class GkeonpremBareMetalClusterSecurityConfigAuthorization:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers"]]:
         '''admin_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
         '''
         result = self._values.get("admin_users")
         assert result is not None, "Required property 'admin_users' is missing"
@@ -8325,7 +8325,7 @@ class GkeonpremBareMetalClusterSecurityConfigAuthorization:
 class GkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers:
     def __init__(self, *, username: builtins.str) -> None:
         '''
-        :param username: The name of the user, e.g. 'my-gcp-id@gmail.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#username GkeonpremBareMetalCluster#username}
+        :param username: The name of the user, e.g. 'my-gcp-id@gmail.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#username GkeonpremBareMetalCluster#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ee27aeff052ed5876cbee012d798b09affbc3db14ca4a72ffc005d8abf6a1cf)
@@ -8338,7 +8338,7 @@ class GkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers:
     def username(self) -> builtins.str:
         '''The name of the user, e.g. 'my-gcp-id@gmail.com'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#username GkeonpremBareMetalCluster#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#username GkeonpremBareMetalCluster#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -8602,7 +8602,7 @@ class GkeonpremBareMetalClusterSecurityConfigOutputReference(
         admin_users: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#admin_users GkeonpremBareMetalCluster#admin_users}
         '''
         value = GkeonpremBareMetalClusterSecurityConfigAuthorization(
             admin_users=admin_users
@@ -8977,8 +8977,8 @@ class GkeonpremBareMetalClusterStorage:
         lvp_share_config: typing.Union["GkeonpremBareMetalClusterStorageLvpShareConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lvp_node_mounts_config: lvp_node_mounts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
-        :param lvp_share_config: lvp_share_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
+        :param lvp_node_mounts_config: lvp_node_mounts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
+        :param lvp_share_config: lvp_share_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
         '''
         if isinstance(lvp_node_mounts_config, dict):
             lvp_node_mounts_config = GkeonpremBareMetalClusterStorageLvpNodeMountsConfig(**lvp_node_mounts_config)
@@ -8999,7 +8999,7 @@ class GkeonpremBareMetalClusterStorage:
     ) -> "GkeonpremBareMetalClusterStorageLvpNodeMountsConfig":
         '''lvp_node_mounts_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_node_mounts_config GkeonpremBareMetalCluster#lvp_node_mounts_config}
         '''
         result = self._values.get("lvp_node_mounts_config")
         assert result is not None, "Required property 'lvp_node_mounts_config' is missing"
@@ -9009,7 +9009,7 @@ class GkeonpremBareMetalClusterStorage:
     def lvp_share_config(self) -> "GkeonpremBareMetalClusterStorageLvpShareConfig":
         '''lvp_share_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_share_config GkeonpremBareMetalCluster#lvp_share_config}
         '''
         result = self._values.get("lvp_share_config")
         assert result is not None, "Required property 'lvp_share_config' is missing"
@@ -9035,8 +9035,8 @@ class GkeonpremBareMetalClusterStorage:
 class GkeonpremBareMetalClusterStorageLvpNodeMountsConfig:
     def __init__(self, *, path: builtins.str, storage_class: builtins.str) -> None:
         '''
-        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
-        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f76a8e911934a00023b332986a5873f340d95fcbef05221dffffbf6a55ead24)
@@ -9051,7 +9051,7 @@ class GkeonpremBareMetalClusterStorageLvpNodeMountsConfig:
     def path(self) -> builtins.str:
         '''The host machine path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -9061,7 +9061,7 @@ class GkeonpremBareMetalClusterStorageLvpNodeMountsConfig:
     def storage_class(self) -> builtins.str:
         '''The StorageClass name that PVs will be created with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
@@ -9167,8 +9167,8 @@ class GkeonpremBareMetalClusterStorageLvpShareConfig:
         shared_path_pv_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param lvp_config: lvp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
-        :param shared_path_pv_count: The number of subdirectories to create under path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
+        :param lvp_config: lvp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
+        :param shared_path_pv_count: The number of subdirectories to create under path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
         '''
         if isinstance(lvp_config, dict):
             lvp_config = GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig(**lvp_config)
@@ -9186,7 +9186,7 @@ class GkeonpremBareMetalClusterStorageLvpShareConfig:
     def lvp_config(self) -> "GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig":
         '''lvp_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
         '''
         result = self._values.get("lvp_config")
         assert result is not None, "Required property 'lvp_config' is missing"
@@ -9196,7 +9196,7 @@ class GkeonpremBareMetalClusterStorageLvpShareConfig:
     def shared_path_pv_count(self) -> typing.Optional[jsii.Number]:
         '''The number of subdirectories to create under path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
         '''
         result = self._values.get("shared_path_pv_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9221,8 +9221,8 @@ class GkeonpremBareMetalClusterStorageLvpShareConfig:
 class GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig:
     def __init__(self, *, path: builtins.str, storage_class: builtins.str) -> None:
         '''
-        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
-        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb7d58022569387950c09f5fb638dc047ebdc59be9e180840a73279435295f1a)
@@ -9237,7 +9237,7 @@ class GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig:
     def path(self) -> builtins.str:
         '''The host machine path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -9247,7 +9247,7 @@ class GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig:
     def storage_class(self) -> builtins.str:
         '''The StorageClass name that PVs will be created with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
@@ -9365,8 +9365,8 @@ class GkeonpremBareMetalClusterStorageLvpShareConfigOutputReference(
         storage_class: builtins.str,
     ) -> None:
         '''
-        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
-        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         value = GkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig(
             path=path, storage_class=storage_class
@@ -9455,8 +9455,8 @@ class GkeonpremBareMetalClusterStorageOutputReference(
         storage_class: builtins.str,
     ) -> None:
         '''
-        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
-        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
+        :param path: The host machine path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#path GkeonpremBareMetalCluster#path}
+        :param storage_class: The StorageClass name that PVs will be created with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#storage_class GkeonpremBareMetalCluster#storage_class}
         '''
         value = GkeonpremBareMetalClusterStorageLvpNodeMountsConfig(
             path=path, storage_class=storage_class
@@ -9472,8 +9472,8 @@ class GkeonpremBareMetalClusterStorageOutputReference(
         shared_path_pv_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param lvp_config: lvp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
-        :param shared_path_pv_count: The number of subdirectories to create under path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
+        :param lvp_config: lvp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#lvp_config GkeonpremBareMetalCluster#lvp_config}
+        :param shared_path_pv_count: The number of subdirectories to create under path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#shared_path_pv_count GkeonpremBareMetalCluster#shared_path_pv_count}
         '''
         value = GkeonpremBareMetalClusterStorageLvpShareConfig(
             lvp_config=lvp_config, shared_path_pv_count=shared_path_pv_count
@@ -9539,9 +9539,9 @@ class GkeonpremBareMetalClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dddc46f8e09db9c26861399c2985c3a8041417bc2cd6b31adf415d6443dbc051)
@@ -9558,19 +9558,19 @@ class GkeonpremBareMetalClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#create GkeonpremBareMetalCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#delete GkeonpremBareMetalCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#update GkeonpremBareMetalCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9695,7 +9695,7 @@ class GkeonpremBareMetalClusterTimeoutsOutputReference(
 class GkeonpremBareMetalClusterUpgradePolicy:
     def __init__(self, *, policy: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param policy: Specifies which upgrade policy to use. Possible values: ["SERIAL", "CONCURRENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
+        :param policy: Specifies which upgrade policy to use. Possible values: ["SERIAL", "CONCURRENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7028f6a470bd951cd2dc4ce5fe3232c58fec3249ad412a7348b0c867cbde7cd)
@@ -9708,7 +9708,7 @@ class GkeonpremBareMetalClusterUpgradePolicy:
     def policy(self) -> typing.Optional[builtins.str]:
         '''Specifies which upgrade policy to use. Possible values: ["SERIAL", "CONCURRENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gkeonprem_bare_metal_cluster#policy GkeonpremBareMetalCluster#policy}
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: wmill
-Version: 1.485.1
+Version: 1.485.3
 Summary: A client library for accessing Windmill server wrapping the Windmill client API
 Home-page: https://windmill.dev
 License: Apache-2.0

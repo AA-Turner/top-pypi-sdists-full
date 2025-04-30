@@ -1,7 +1,7 @@
 r'''
 # `google_billing_project_info`
 
-Refer to the Terraform Registry for docs: [`google_billing_project_info`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info).
+Refer to the Terraform Registry for docs: [`google_billing_project_info`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BillingProjectInfo(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.billingProjectInfo.BillingProjectInfo",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info google_billing_project_info}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info google_billing_project_info}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class BillingProjectInfo(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info google_billing_project_info} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info google_billing_project_info} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing_account: The ID of the billing account associated with the project, if any. Set to empty string to disable billing for the project. For example, '"012345-567890-ABCDEF"' or '""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#id BillingProjectInfo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
+        :param billing_account: The ID of the billing account associated with the project, if any. Set to empty string to disable billing for the project. For example, '"012345-567890-ABCDEF"' or '""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#id BillingProjectInfo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class BillingProjectInfo(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BillingProjectInfo to import.
-        :param import_from_id: The id of the existing BillingProjectInfo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BillingProjectInfo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BillingProjectInfo to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class BillingProjectInfo(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.
         '''
         value = BillingProjectInfoTimeouts(create=create, delete=delete, update=update)
 
@@ -270,10 +270,10 @@ class BillingProjectInfoConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing_account: The ID of the billing account associated with the project, if any. Set to empty string to disable billing for the project. For example, '"012345-567890-ABCDEF"' or '""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#id BillingProjectInfo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
+        :param billing_account: The ID of the billing account associated with the project, if any. Set to empty string to disable billing for the project. For example, '"012345-567890-ABCDEF"' or '""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#id BillingProjectInfo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -387,7 +387,7 @@ class BillingProjectInfoConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Set to empty string to disable billing for the project.
         For example, '"012345-567890-ABCDEF"' or '""'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#billing_account BillingProjectInfo#billing_account}
         '''
         result = self._values.get("billing_account")
         assert result is not None, "Required property 'billing_account' is missing"
@@ -395,7 +395,7 @@ class BillingProjectInfoConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#id BillingProjectInfo#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#id BillingProjectInfo#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -405,7 +405,7 @@ class BillingProjectInfoConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#project BillingProjectInfo#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -413,7 +413,7 @@ class BillingProjectInfoConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BillingProjectInfoTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#timeouts BillingProjectInfo#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BillingProjectInfoTimeouts"], result)
@@ -444,9 +444,9 @@ class BillingProjectInfoTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f28416f0885bfad2252288b1d3f246a9a406cfde26386a526bf05af60866697)
@@ -463,19 +463,19 @@ class BillingProjectInfoTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#create BillingProjectInfo#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#delete BillingProjectInfo#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/billing_project_info#update BillingProjectInfo#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

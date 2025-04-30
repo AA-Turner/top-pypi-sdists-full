@@ -40,50 +40,25 @@ console = Console()
 emsys = EMSys()
 
 
-@repeat(times=10, delay=5)
-async def wait_until_window_close(app):
-    await worker_sleep(3)
-    max_attempts = 500
-    for _ in range(max_attempts):
-        if "Aguarde" not in app.top_window().window_text():
-            await worker_sleep(3)
-            if "Aguarde" not in app.top_window().window_text():
-                break
-        await worker_sleep(3)
+@repeat(times=5, delay=2)
+async def wait_aguarde_window_closed(timeout=300):
+    console.print("Esperando janela 'Aguarde...' fechar")
+    start_time = time.time()
 
+    while time.time() - start_time < timeout:
+        await worker_sleep(4)
+        all_windows = Desktop(backend="uia").windows()
+        aguarde_aberta = any("aguarde" in w.window_text().lower() for w in all_windows)
 
-@repeat(times=10, delay=5)
-async def wait_aguarde_window_closed():
-    sucesso = False
-    while not sucesso:
-        desktop = Desktop(backend="uia")
-        # Tenta localizar a janela com o título que contém "Aguarde"
-        window = desktop.window(title_re=".*Aguarde.*")
-        # Se a janela existe, continua monitorando
-        if window.exists():
-            console.print(f"Janela 'Aguarde...' ainda aberta", style="bold yellow")
-            logger.info(f"Janela 'Aguarde...' ainda aberta")
+        if aguarde_aberta:
+            console.print("Janela 'Aguarde...' ainda aberta", style="bold yellow")
             await worker_sleep(10)
-            continue
         else:
-            try:
-                desktop_second = Desktop(backend="uia")
-                window_aguarde = desktop.window(title_re=".*Aguarde.*")
-                if not window_aguarde.exists():
-                    sucesso = True
-                    break
-                else:
-                    console.print(
-                        f"Janela 'Aguarde...' ainda aberta. Seguindo para próxima tentativa",
-                        style="bold yellow",
-                    )
-                    continue
-            except:
-                console.print(
-                    f"Janela 'Aguarde...' não existe mais.", style="bold green"
-                )
-                await worker_sleep(10)
-                break
+            console.print("Janela 'Aguarde...' fechou", style="bold green")
+            await worker_sleep(2)
+            return
+
+    console.log("Timeout esperando a janela 'Aguarde...' fechar.")
 
 
 def click_desconfirmar():
@@ -200,7 +175,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Esperando janela aguarde
             console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_until_window_close(app)
+            await wait_aguarde_window_closed()
             await worker_sleep(15)
 
             console.print("Fechando possivel janela de aviso...")
@@ -208,14 +183,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(5)
 
             # Esperando janela aguarde registro de entrada
-            console.print("Aguardando tela de gerando registro de entrada")
             await wait_aguarde_window_closed()
-            await worker_sleep(2)
-
-            # Esperando janela aguarde registro de saida
-            console.print("Aguardando tela de gerando registro de saida")
-            await wait_aguarde_window_closed()
-            await worker_sleep(8)
 
             # Fechando possivel tela de aviso após sumir o aguarde
             console.print("Fechando possivel janela de aviso...")
@@ -236,7 +204,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Esperando janela aguarde
             console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_until_window_close(app)
+            await wait_aguarde_window_closed()
             await worker_sleep(30)
 
             app.top_window().set_focus()

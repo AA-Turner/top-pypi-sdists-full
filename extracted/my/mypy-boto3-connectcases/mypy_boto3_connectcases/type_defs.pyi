@@ -204,6 +204,7 @@ class AuditEventFieldValueUnionTypeDef(TypedDict):
     userArnValue: NotRequired[str]
 
 class UserUnionTypeDef(TypedDict):
+    customEntity: NotRequired[str]
     userArn: NotRequired[str]
 
 CaseRuleIdentifierTypeDef = TypedDict(

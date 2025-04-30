@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.32.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.33.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.32.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.33.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -259,6 +259,8 @@ __all__ = [
     "bigtable_instance_iam_binding",
     "bigtable_instance_iam_member",
     "bigtable_instance_iam_policy",
+    "bigtable_logical_view",
+    "bigtable_materialized_view",
     "bigtable_table",
     "bigtable_table_iam_binding",
     "bigtable_table_iam_member",
@@ -443,6 +445,8 @@ __all__ = [
     "compute_region_network_firewall_policy_association",
     "compute_region_network_firewall_policy_rule",
     "compute_region_per_instance_config",
+    "compute_region_security_policy",
+    "compute_region_security_policy_rule",
     "compute_region_ssl_certificate",
     "compute_region_ssl_policy",
     "compute_region_target_http_proxy",
@@ -752,6 +756,7 @@ __all__ = [
     "data_google_logging_project_cmek_settings",
     "data_google_logging_project_settings",
     "data_google_logging_sink",
+    "data_google_memcache_instance",
     "data_google_memorystore_instance",
     "data_google_monitoring_app_engine_service",
     "data_google_monitoring_cluster_istio_service",
@@ -1296,6 +1301,7 @@ __all__ = [
     "os_config_os_policy_assignment",
     "os_config_patch_deployment",
     "os_config_v2_policy_orchestrator",
+    "os_config_v2_policy_orchestrator_for_folder",
     "os_config_v2_policy_orchestrator_for_organization",
     "os_login_ssh_public_key",
     "parallelstore_instance",
@@ -1637,6 +1643,8 @@ from . import bigtable_instance
 from . import bigtable_instance_iam_binding
 from . import bigtable_instance_iam_member
 from . import bigtable_instance_iam_policy
+from . import bigtable_logical_view
+from . import bigtable_materialized_view
 from . import bigtable_table
 from . import bigtable_table_iam_binding
 from . import bigtable_table_iam_member
@@ -1821,6 +1829,8 @@ from . import compute_region_network_firewall_policy
 from . import compute_region_network_firewall_policy_association
 from . import compute_region_network_firewall_policy_rule
 from . import compute_region_per_instance_config
+from . import compute_region_security_policy
+from . import compute_region_security_policy_rule
 from . import compute_region_ssl_certificate
 from . import compute_region_ssl_policy
 from . import compute_region_target_http_proxy
@@ -2130,6 +2140,7 @@ from . import data_google_logging_organization_settings
 from . import data_google_logging_project_cmek_settings
 from . import data_google_logging_project_settings
 from . import data_google_logging_sink
+from . import data_google_memcache_instance
 from . import data_google_memorystore_instance
 from . import data_google_monitoring_app_engine_service
 from . import data_google_monitoring_cluster_istio_service
@@ -2674,6 +2685,7 @@ from . import organization_policy
 from . import os_config_os_policy_assignment
 from . import os_config_patch_deployment
 from . import os_config_v2_policy_orchestrator
+from . import os_config_v2_policy_orchestrator_for_folder
 from . import os_config_v2_policy_orchestrator_for_organization
 from . import os_login_ssh_public_key
 from . import parallelstore_instance

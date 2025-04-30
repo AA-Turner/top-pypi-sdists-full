@@ -401,6 +401,7 @@ from types_boto3_sqs.client import SQSClient
 from types_boto3_sqs.service_resource import SQSServiceResource
 from types_boto3_ssm.client import SSMClient
 from types_boto3_ssm_contacts.client import SSMContactsClient
+from types_boto3_ssm_guiconnect.client import SSMGUIConnectClient
 from types_boto3_ssm_incidents.client import SSMIncidentsClient
 from types_boto3_ssm_quicksetup.client import SystemsManagerQuickSetupClient
 from types_boto3_ssm_sap.client import SsmSapClient
@@ -7415,6 +7416,25 @@ class Session:
     ) -> SSMContactsClient:
         """
         Create client for SSMContacts service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["ssm-guiconnect"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> SSMGUIConnectClient:
+        """
+        Create client for SSMGUIConnect service.
         """
 
     @overload

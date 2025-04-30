@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pepperize.cdk-apigateway-swagger-ui
-Version: 0.0.1267
+Version: 0.0.1271
 Summary: Add SwaggerUI to your AWS Apigateway RestApi
 Home-page: https://github.com/pepperize/cdk-apigateway-swagger-ui.git
 Author: Patrick Florek<patrick.florek@gmail.com>

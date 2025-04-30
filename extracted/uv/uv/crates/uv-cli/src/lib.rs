@@ -74,9 +74,8 @@ const STYLES: Styles = Styles::styled()
     .placeholder(AnsiColor::Cyan.on_default());
 
 #[derive(Parser)]
-#[command(name = "uv", author, long_version = crate::version::version())]
+#[command(name = "uv", author, long_version = crate::version::uv_self_version())]
 #[command(about = "An extremely fast Python package manager.")]
-#[command(propagate_version = true)]
 #[command(
     after_help = "Use `uv help` for more details.",
     after_long_help = "",
@@ -127,7 +126,7 @@ pub struct TopLevelArgs {
     help: Option<bool>,
 
     /// Display the uv version.
-    #[arg(global = true, short = 'V', long, action = clap::ArgAction::Version, help_heading = "Global options")]
+    #[arg(short = 'V', long, action = clap::ArgAction::Version)]
     version: Option<bool>,
 }
 
@@ -494,11 +493,8 @@ pub enum Commands {
     /// Clear the cache, removing all entries or those linked to specific packages.
     #[command(hide = true)]
     Clean(CleanArgs),
-    /// Display uv's version
-    Version {
-        #[arg(long, value_enum, default_value = "text")]
-        output_format: VersionFormat,
-    },
+    /// Read or update the project's version.
+    Version(VersionArgs),
     /// Generate shell completion
     #[command(alias = "--generate-shell-completion", hide = true)]
     GenerateShellCompletion(GenerateShellCompletionArgs),
@@ -529,6 +525,41 @@ pub struct HelpArgs {
     pub command: Option<Vec<String>>,
 }
 
+#[derive(Args, Debug)]
+#[command(group = clap::ArgGroup::new("operation"))]
+pub struct VersionArgs {
+    /// Set the project version to this value
+    ///
+    /// To update the project using semantic versioning components instead, use `--bump`.
+    #[arg(group = "operation")]
+    pub value: Option<String>,
+    /// Update the project version using the given semantics
+    #[arg(group = "operation", long)]
+    pub bump: Option<VersionBump>,
+    /// Don't write a new version to the `pyproject.toml`
+    ///
+    /// Instead, the version will be displayed.
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Only show the version
+    ///
+    /// By default, uv will show the project name before the version.
+    #[arg(long)]
+    pub short: bool,
+    #[arg(long, value_enum, default_value = "text")]
+    pub output_format: VersionFormat,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, clap::ValueEnum)]
+pub enum VersionBump {
+    /// Increase the major version (1.2.3 => 2.0.0)
+    Major,
+    /// Increase the minor version (1.2.3 => 1.3.0)
+    Minor,
+    /// Increase the patch version (1.2.3 => 1.2.4)
+    Patch,
+}
+
 #[derive(Args)]
 pub struct SelfNamespace {
     #[command(subcommand)]
@@ -539,6 +570,14 @@ pub struct SelfNamespace {
 pub enum SelfCommand {
     /// Update uv.
     Update(SelfUpdateArgs),
+    /// Display uv's version
+    Version {
+        /// Only print the version
+        #[arg(long)]
+        short: bool,
+        #[arg(long, value_enum, default_value = "text")]
+        output_format: VersionFormat,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -618,21 +657,22 @@ pub struct PipNamespace {
 
 #[derive(Subcommand)]
 pub enum PipCommand {
-    /// Compile a `requirements.in` file to a `requirements.txt` file.
+    /// Compile a `requirements.in` file to a `requirements.txt` or `pylock.toml` file.
     #[command(
         after_help = "Use `uv help pip compile` for more details.",
         after_long_help = ""
     )]
     Compile(PipCompileArgs),
-    /// Sync an environment with a `requirements.txt` file.
+    /// Sync an environment with a `requirements.txt` or `pylock.toml` file.
     ///
-    /// When syncing an environment, any packages not listed in the `requirements.txt` file will
-    /// be removed. To retain extraneous packages, use `uv pip install` instead.
+    /// When syncing an environment, any packages not listed in the `requirements.txt` or
+    /// `pylock.toml` file will be removed. To retain extraneous packages, use `uv pip install`
+    /// instead.
     ///
-    /// The `requirements.txt` file is presumed to be the output of a `pip compile` or `uv export`
-    /// operation, in which it will include all transitive dependencies. If transitive dependencies
-    /// are not present in the file, they will not be installed. Use `--strict` to warn if any
-    /// transitive dependencies are missing.
+    /// The input file is presumed to be the output of a `pip compile` or `uv export` operation,
+    /// in which it will include all transitive dependencies. If transitive dependencies are not
+    /// present in the file, they will not be installed. Use `--strict` to warn if any transitive
+    /// dependencies are missing.
     #[command(
         after_help = "Use `uv help pip sync` for more details.",
         after_long_help = ""
@@ -815,7 +855,7 @@ pub enum ProjectCommand {
     Lock(LockArgs),
     /// Export the project's lockfile to an alternate format.
     ///
-    /// At present, only `requirements-txt` is supported.
+    /// At present, both `requirements.txt` and `pylock.toml` (PEP 751) formats are supported.
     ///
     /// The project is re-locked before exporting unless the `--locked` or `--frozen` flag is
     /// provided.
@@ -1605,7 +1645,7 @@ pub struct PipInstallArgs {
     #[arg(group = "sources")]
     pub package: Vec<String>,
 
-    /// Install all packages listed in the given `requirements.txt` files.
+    /// Install all packages listed in the given `requirements.txt` or `pylock.toml` files.
     ///
     /// If a `pyproject.toml`, `setup.py`, or `setup.cfg` file is provided, uv will extract the
     /// requirements for the relevant project.
@@ -2983,7 +3023,7 @@ pub struct RunArgs {
     /// source of truth. If the lockfile is missing, uv will exit with an error. If the
     /// `pyproject.toml` includes changes to dependencies that have not been included in the
     /// lockfile yet, they will not be present in the environment.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     /// Run the given path as a Python script.
@@ -3231,7 +3271,7 @@ pub struct SyncArgs {
     /// source of truth. If the lockfile is missing, uv will exit with an error. If the
     /// `pyproject.toml` includes changes to dependencies that have not been included in the
     /// lockfile yet, they will not be present in the environment.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     /// Perform a dry run, without writing the lockfile or modifying the project environment.
@@ -3485,7 +3525,7 @@ pub struct AddArgs {
     /// Add dependencies without re-locking the project.
     ///
     /// The project environment will not be synced.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     /// Prefer the active virtual environment over the project's virtual environment.
@@ -3590,7 +3630,7 @@ pub struct RemoveArgs {
     /// Remove dependencies without re-locking the project.
     ///
     /// The project environment will not be synced.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     #[command(flatten)]
@@ -3712,7 +3752,7 @@ pub struct TreeArgs {
     /// Display the requirements without locking the project.
     ///
     /// If the lockfile is missing, uv will exit with an error.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     #[command(flatten)]
@@ -3942,7 +3982,7 @@ pub struct ExportArgs {
     /// Do not update the `uv.lock` before exporting.
     ///
     /// If a `uv.lock` does not exist, uv will exit with an error.
-    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with = "locked")]
+    #[arg(long, env = EnvVars::UV_FROZEN, value_parser = clap::builder::BoolishValueParser::new(), conflicts_with_all = ["locked", "upgrade", "no_sources"])]
     pub frozen: bool,
 
     #[command(flatten)]
@@ -4022,9 +4062,11 @@ pub enum ToolCommand {
         override_usage = "uvx [OPTIONS] [COMMAND]",
         about = "Run a command provided by a Python package.",
         after_help = "Use `uv help tool run` for more details.",
-        after_long_help = ""
+        after_long_help = "",
+        display_name = "uvx",
+        long_version = crate::version::uv_self_version()
     )]
-    Uvx(ToolRunArgs),
+    Uvx(UvxArgs),
     /// Install commands provided by a Python package.
     ///
     /// Packages are installed into an isolated virtual environment in the uv tools directory. The
@@ -4180,6 +4222,16 @@ pub struct ToolRunArgs {
 
     #[arg(long, hide = true)]
     pub generate_shell_completion: Option<clap_complete_command::Shell>,
+}
+
+#[derive(Args)]
+pub struct UvxArgs {
+    #[command(flatten)]
+    pub tool_run: ToolRunArgs,
+
+    /// Display the uvx version.
+    #[arg(short = 'V', long, action = clap::ArgAction::Version)]
+    pub version: Option<bool>,
 }
 
 #[derive(Args)]

@@ -207,6 +207,7 @@ class AuditEventFieldValueUnionTypeDef(TypedDict):
 
 
 class UserUnionTypeDef(TypedDict):
+    customEntity: NotRequired[str]
     userArn: NotRequired[str]
 
 

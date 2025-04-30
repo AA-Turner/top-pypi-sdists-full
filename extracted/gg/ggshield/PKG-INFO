@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ggshield
-Version: 1.38.1
+Version: 1.39.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Keywords: cli,devsecops,secrets-detection,security-tools,gitguardian
 Author-Email: GitGuardian <support@gitguardian.com>
@@ -28,7 +28,7 @@ Requires-Dist: cryptography~=43.0.1
 Requires-Dist: marshmallow~=3.18.0
 Requires-Dist: marshmallow-dataclass~=8.5.8
 Requires-Dist: oauthlib~=3.2.1
-Requires-Dist: pygitguardian~=1.20.0
+Requires-Dist: pygitguardian~=1.21.0
 Requires-Dist: pyjwt~=2.6.0
 Requires-Dist: python-dotenv~=0.21.0
 Requires-Dist: pyyaml~=6.0.1

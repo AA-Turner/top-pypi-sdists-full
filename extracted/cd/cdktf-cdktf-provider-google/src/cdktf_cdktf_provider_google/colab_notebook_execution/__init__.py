@@ -1,7 +1,7 @@
 r'''
 # `google_colab_notebook_execution`
 
-Refer to the Terraform Registry for docs: [`google_colab_notebook_execution`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution).
+Refer to the Terraform Registry for docs: [`google_colab_notebook_execution`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ColabNotebookExecution(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.colabNotebookExecution.ColabNotebookExecution",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution google_colab_notebook_execution}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution google_colab_notebook_execution}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class ColabNotebookExecution(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution google_colab_notebook_execution} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution google_colab_notebook_execution} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
-        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
-        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
-        :param direct_notebook_source: direct_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
-        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
-        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
-        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notebook_execution_job_id: User specified ID for the Notebook Execution Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
-        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.
-        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
+        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
+        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
+        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
+        :param direct_notebook_source: direct_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
+        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
+        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
+        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notebook_execution_job_id: User specified ID for the Notebook Execution Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
+        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.
+        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class ColabNotebookExecution(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ColabNotebookExecution to import.
-        :param import_from_id: The id of the existing ColabNotebookExecution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ColabNotebookExecution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ColabNotebookExecution to import is found.
         '''
         if __debug__:
@@ -161,8 +161,8 @@ class ColabNotebookExecution(
         commit_sha: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
-        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
+        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
+        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
         '''
         value = ColabNotebookExecutionDataformRepositorySource(
             dataform_repository_resource_name=dataform_repository_resource_name,
@@ -174,7 +174,7 @@ class ColabNotebookExecution(
     @jsii.member(jsii_name="putDirectNotebookSource")
     def put_direct_notebook_source(self, *, content: builtins.str) -> None:
         '''
-        :param content: The base64-encoded contents of the input notebook file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
+        :param content: The base64-encoded contents of the input notebook file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
         '''
         value = ColabNotebookExecutionDirectNotebookSource(content=content)
 
@@ -188,8 +188,8 @@ class ColabNotebookExecution(
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The Cloud Storage uri pointing to the ipynb file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
-        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
+        :param uri: The Cloud Storage uri pointing to the ipynb file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
+        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
         '''
         value = ColabNotebookExecutionGcsNotebookSource(uri=uri, generation=generation)
 
@@ -203,8 +203,8 @@ class ColabNotebookExecution(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.
         '''
         value = ColabNotebookExecutionTimeouts(create=create, delete=delete)
 
@@ -555,20 +555,20 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
-        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
-        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
-        :param direct_notebook_source: direct_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
-        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
-        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
-        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notebook_execution_job_id: User specified ID for the Notebook Execution Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
-        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.
-        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
+        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
+        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
+        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
+        :param direct_notebook_source: direct_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
+        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
+        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
+        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notebook_execution_job_id: User specified ID for the Notebook Execution Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
+        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.
+        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -713,7 +713,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Required. The display name of the Notebook Execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#display_name ColabNotebookExecution#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -723,7 +723,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcs_output_uri(self) -> builtins.str:
         '''The Cloud Storage location to upload the result to. Format:'gs://bucket-name'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_output_uri ColabNotebookExecution#gcs_output_uri}
         '''
         result = self._values.get("gcs_output_uri")
         assert result is not None, "Required property 'gcs_output_uri' is missing"
@@ -733,7 +733,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource: https://cloud.google.com/colab/docs/locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#location ColabNotebookExecution#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -745,7 +745,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ColabNotebookExecutionDataformRepositorySource"]:
         '''dataform_repository_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_source ColabNotebookExecution#dataform_repository_source}
         '''
         result = self._values.get("dataform_repository_source")
         return typing.cast(typing.Optional["ColabNotebookExecutionDataformRepositorySource"], result)
@@ -756,7 +756,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ColabNotebookExecutionDirectNotebookSource"]:
         '''direct_notebook_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#direct_notebook_source ColabNotebookExecution#direct_notebook_source}
         '''
         result = self._values.get("direct_notebook_source")
         return typing.cast(typing.Optional["ColabNotebookExecutionDirectNotebookSource"], result)
@@ -765,7 +765,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def execution_timeout(self) -> typing.Optional[builtins.str]:
         '''Max running time of the execution job in seconds (default 86400s / 24 hrs).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_timeout ColabNotebookExecution#execution_timeout}
         '''
         result = self._values.get("execution_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -774,7 +774,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def execution_user(self) -> typing.Optional[builtins.str]:
         '''The user email to run the execution as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#execution_user ColabNotebookExecution#execution_user}
         '''
         result = self._values.get("execution_user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -785,14 +785,14 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ColabNotebookExecutionGcsNotebookSource"]:
         '''gcs_notebook_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#gcs_notebook_source ColabNotebookExecution#gcs_notebook_source}
         '''
         result = self._values.get("gcs_notebook_source")
         return typing.cast(typing.Optional["ColabNotebookExecutionGcsNotebookSource"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#id ColabNotebookExecution#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -804,7 +804,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notebook_execution_job_id(self) -> typing.Optional[builtins.str]:
         '''User specified ID for the Notebook Execution Job.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_execution_job_id ColabNotebookExecution#notebook_execution_job_id}
         '''
         result = self._values.get("notebook_execution_job_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -813,14 +813,14 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notebook_runtime_template_resource_name(self) -> typing.Optional[builtins.str]:
         '''The NotebookRuntimeTemplate to source compute configuration from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#notebook_runtime_template_resource_name ColabNotebookExecution#notebook_runtime_template_resource_name}
         '''
         result = self._values.get("notebook_runtime_template_resource_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#project ColabNotebookExecution#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -828,7 +828,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The service account to run the execution as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#service_account ColabNotebookExecution#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -837,7 +837,7 @@ class ColabNotebookExecutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ColabNotebookExecutionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#timeouts ColabNotebookExecution#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ColabNotebookExecutionTimeouts"], result)
@@ -870,8 +870,8 @@ class ColabNotebookExecutionDataformRepositorySource:
         commit_sha: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
-        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
+        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
+        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2e3861fbbaf48396eb1e1b682d6bf11892af3a7bfde1ae6b4758f14f1a9c772)
@@ -887,7 +887,7 @@ class ColabNotebookExecutionDataformRepositorySource:
     def dataform_repository_resource_name(self) -> builtins.str:
         '''The resource name of the Dataform Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#dataform_repository_resource_name ColabNotebookExecution#dataform_repository_resource_name}
         '''
         result = self._values.get("dataform_repository_resource_name")
         assert result is not None, "Required property 'dataform_repository_resource_name' is missing"
@@ -897,7 +897,7 @@ class ColabNotebookExecutionDataformRepositorySource:
     def commit_sha(self) -> typing.Optional[builtins.str]:
         '''The commit SHA to read repository with. If unset, the file will be read at HEAD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#commit_sha ColabNotebookExecution#commit_sha}
         '''
         result = self._values.get("commit_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -998,7 +998,7 @@ class ColabNotebookExecutionDataformRepositorySourceOutputReference(
 class ColabNotebookExecutionDirectNotebookSource:
     def __init__(self, *, content: builtins.str) -> None:
         '''
-        :param content: The base64-encoded contents of the input notebook file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
+        :param content: The base64-encoded contents of the input notebook file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__334d9ed4742a35125b26f44a82d8af471e20ab7a99749cd25123ca296eb2ee19)
@@ -1011,7 +1011,7 @@ class ColabNotebookExecutionDirectNotebookSource:
     def content(self) -> builtins.str:
         '''The base64-encoded contents of the input notebook file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#content ColabNotebookExecution#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -1097,8 +1097,8 @@ class ColabNotebookExecutionGcsNotebookSource:
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The Cloud Storage uri pointing to the ipynb file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
-        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
+        :param uri: The Cloud Storage uri pointing to the ipynb file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
+        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd11ce3c5674d964247134857bcae79130cff8ba2698d2ceba686813cea8e708)
@@ -1114,7 +1114,7 @@ class ColabNotebookExecutionGcsNotebookSource:
     def uri(self) -> builtins.str:
         '''The Cloud Storage uri pointing to the ipynb file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#uri ColabNotebookExecution#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1126,7 +1126,7 @@ class ColabNotebookExecutionGcsNotebookSource:
 
         If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#generation ColabNotebookExecution#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1232,8 +1232,8 @@ class ColabNotebookExecutionTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a369f85acea3d899542cc12ecd494d4925b5da2109fd9cfef4793f681c25046a)
@@ -1247,13 +1247,13 @@ class ColabNotebookExecutionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#create ColabNotebookExecution#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_notebook_execution#delete ColabNotebookExecution#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

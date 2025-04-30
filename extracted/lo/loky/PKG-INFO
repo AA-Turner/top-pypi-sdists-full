@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loky
-Version: 3.5.2
+Version: 3.5.3
 Summary: A robust implementation of concurrent.futures.ProcessPoolExecutor
 Author-email: Thomas Moreau <thomas.moreau.2010@gmail.com>
 License: BSD 3-Clause License

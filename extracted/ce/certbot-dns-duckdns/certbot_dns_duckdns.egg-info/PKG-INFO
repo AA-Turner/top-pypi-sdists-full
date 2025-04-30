@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: certbot_dns_duckdns
-Version: 1.5
+Version: 1.6
 Summary: Obtain certificates using a DNS TXT record for DuckDNS domains
 Home-page: https://github.com/infinityofspace/certbot_dns_duckdns
 Author: infinityofspace
@@ -19,9 +19,18 @@ Classifier: Topic :: Utilities
 Classifier: Topic :: System :: Systems Administration
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: certbot<4.0,>=1.18.0
+Requires-Dist: certbot<5.0,>=1.18.0
 Requires-Dist: requests<3.0,>=2.20.0
 Requires-Dist: dnspython<3.0,>=2.0.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Certbot DNS DuckDNS Plugin
 
@@ -423,7 +432,7 @@ Obtain certificates using a DNS TXT record for DuckDNS domains
 
 ### FAQ
 
-You can the FAQ in the [wiki](https://github.com/infinityofspace/certbot_dns_duckdns/wiki/FAQ).
+You can read the FAQ in the [wiki](https://github.com/infinityofspace/certbot_dns_duckdns/wiki/FAQ).
 
 ### Development
 

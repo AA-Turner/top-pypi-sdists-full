@@ -144,7 +144,7 @@ class CertificatesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/certificates/get_ca_bundle.py.html>`__ to see an example of how to use get_ca_bundle API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/certificates/get_ca_bundle.py.html>`__ to see an example of how to use get_ca_bundle API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['caBundleId']
@@ -253,7 +253,7 @@ class CertificatesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/certificates/get_certificate_authority_bundle.py.html>`__ to see an example of how to use get_certificate_authority_bundle API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/certificates/get_certificate_authority_bundle.py.html>`__ to see an example of how to use get_certificate_authority_bundle API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['certificateAuthorityId']
@@ -389,7 +389,7 @@ class CertificatesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/certificates/get_certificate_bundle.py.html>`__ to see an example of how to use get_certificate_bundle API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/certificates/get_certificate_bundle.py.html>`__ to see an example of how to use get_certificate_bundle API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['certificateId']
@@ -525,7 +525,7 @@ class CertificatesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/certificates/list_certificate_authority_bundle_versions.py.html>`__ to see an example of how to use list_certificate_authority_bundle_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/certificates/list_certificate_authority_bundle_versions.py.html>`__ to see an example of how to use list_certificate_authority_bundle_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['certificateAuthorityId']
@@ -657,7 +657,7 @@ class CertificatesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/certificates/list_certificate_bundle_versions.py.html>`__ to see an example of how to use list_certificate_bundle_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/certificates/list_certificate_bundle_versions.py.html>`__ to see an example of how to use list_certificate_bundle_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['certificateId']

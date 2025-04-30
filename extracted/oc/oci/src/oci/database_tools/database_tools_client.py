@@ -154,7 +154,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/add_database_tools_connection_lock.py.html>`__ to see an example of how to use add_database_tools_connection_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/add_database_tools_connection_lock.py.html>`__ to see an example of how to use add_database_tools_connection_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -265,7 +265,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/add_database_tools_private_endpoint_lock.py.html>`__ to see an example of how to use add_database_tools_private_endpoint_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/add_database_tools_private_endpoint_lock.py.html>`__ to see an example of how to use add_database_tools_private_endpoint_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -384,7 +384,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/change_database_tools_connection_compartment.py.html>`__ to see an example of how to use change_database_tools_connection_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/change_database_tools_connection_compartment.py.html>`__ to see an example of how to use change_database_tools_connection_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -509,7 +509,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/change_database_tools_private_endpoint_compartment.py.html>`__ to see an example of how to use change_database_tools_private_endpoint_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/change_database_tools_private_endpoint_compartment.py.html>`__ to see an example of how to use change_database_tools_private_endpoint_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -624,7 +624,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/create_database_tools_connection.py.html>`__ to see an example of how to use create_database_tools_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/create_database_tools_connection.py.html>`__ to see an example of how to use create_database_tools_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -724,7 +724,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/create_database_tools_private_endpoint.py.html>`__ to see an example of how to use create_database_tools_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/create_database_tools_private_endpoint.py.html>`__ to see an example of how to use create_database_tools_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -827,7 +827,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/delete_database_tools_connection.py.html>`__ to see an example of how to use delete_database_tools_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/delete_database_tools_connection.py.html>`__ to see an example of how to use delete_database_tools_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -943,7 +943,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/delete_database_tools_private_endpoint.py.html>`__ to see an example of how to use delete_database_tools_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/delete_database_tools_private_endpoint.py.html>`__ to see an example of how to use delete_database_tools_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -1049,7 +1049,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/get_database_tools_connection.py.html>`__ to see an example of how to use get_database_tools_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/get_database_tools_connection.py.html>`__ to see an example of how to use get_database_tools_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -1149,7 +1149,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/get_database_tools_endpoint_service.py.html>`__ to see an example of how to use get_database_tools_endpoint_service API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/get_database_tools_endpoint_service.py.html>`__ to see an example of how to use get_database_tools_endpoint_service API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsEndpointServiceId']
@@ -1249,7 +1249,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/get_database_tools_private_endpoint.py.html>`__ to see an example of how to use get_database_tools_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/get_database_tools_private_endpoint.py.html>`__ to see an example of how to use get_database_tools_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -1347,7 +1347,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1482,7 +1482,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_database_tools_connections.py.html>`__ to see an example of how to use list_database_tools_connections API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_database_tools_connections.py.html>`__ to see an example of how to use list_database_tools_connections API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1657,7 +1657,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_database_tools_endpoint_services.py.html>`__ to see an example of how to use list_database_tools_endpoint_services API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_database_tools_endpoint_services.py.html>`__ to see an example of how to use list_database_tools_endpoint_services API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1815,7 +1815,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_database_tools_private_endpoints.py.html>`__ to see an example of how to use list_database_tools_private_endpoints API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_database_tools_private_endpoints.py.html>`__ to see an example of how to use list_database_tools_private_endpoints API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1961,7 +1961,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2103,7 +2103,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2250,7 +2250,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2378,7 +2378,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/remove_database_tools_connection_lock.py.html>`__ to see an example of how to use remove_database_tools_connection_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/remove_database_tools_connection_lock.py.html>`__ to see an example of how to use remove_database_tools_connection_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -2489,7 +2489,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/remove_database_tools_private_endpoint_lock.py.html>`__ to see an example of how to use remove_database_tools_private_endpoint_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/remove_database_tools_private_endpoint_lock.py.html>`__ to see an example of how to use remove_database_tools_private_endpoint_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -2604,7 +2604,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/update_database_tools_connection.py.html>`__ to see an example of how to use update_database_tools_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/update_database_tools_connection.py.html>`__ to see an example of how to use update_database_tools_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']
@@ -2725,7 +2725,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/update_database_tools_private_endpoint.py.html>`__ to see an example of how to use update_database_tools_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/update_database_tools_private_endpoint.py.html>`__ to see an example of how to use update_database_tools_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsPrivateEndpointId']
@@ -2843,7 +2843,7 @@ class DatabaseToolsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/databasetools/validate_database_tools_connection.py.html>`__ to see an example of how to use validate_database_tools_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/databasetools/validate_database_tools_connection.py.html>`__ to see an example of how to use validate_database_tools_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseToolsConnectionId']

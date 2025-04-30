@@ -1,7 +1,7 @@
 r'''
 # `google_dns_managed_zone`
 
-Refer to the Terraform Registry for docs: [`google_dns_managed_zone`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone).
+Refer to the Terraform Registry for docs: [`google_dns_managed_zone`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DnsManagedZone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dnsManagedZone.DnsManagedZone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone google_dns_managed_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone google_dns_managed_zone}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class DnsManagedZone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone google_dns_managed_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone google_dns_managed_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dns_name: The DNS name of this managed zone, for instance "example.com.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
-        :param name: User assigned name for this resource. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
-        :param cloud_logging_config: cloud_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
-        :param description: A textual description field. Defaults to 'Managed by Terraform'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
-        :param dnssec_config: dnssec_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
-        :param force_destroy: Set this true to delete all records in the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
-        :param forwarding_config: forwarding_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to this ManagedZone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
-        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
-        :param private_visibility_config: private_visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
-        :param visibility: The zone's visibility: public zones are exposed to the Internet, while private zones are visible only to Virtual Private Cloud resources. Default value: "public" Possible values: ["private", "public"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
+        :param dns_name: The DNS name of this managed zone, for instance "example.com.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
+        :param name: User assigned name for this resource. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
+        :param cloud_logging_config: cloud_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
+        :param description: A textual description field. Defaults to 'Managed by Terraform'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
+        :param dnssec_config: dnssec_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
+        :param force_destroy: Set this true to delete all records in the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
+        :param forwarding_config: forwarding_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to this ManagedZone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
+        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
+        :param private_visibility_config: private_visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
+        :param visibility: The zone's visibility: public zones are exposed to the Internet, while private zones are visible only to Virtual Private Cloud resources. Default value: "public" Possible values: ["private", "public"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class DnsManagedZone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DnsManagedZone to import.
-        :param import_from_id: The id of the existing DnsManagedZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DnsManagedZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DnsManagedZone to import is found.
         '''
         if __debug__:
@@ -160,7 +160,7 @@ class DnsManagedZone(
         enable_logging: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_logging: If set, enable query logging for this ManagedZone. False by default, making logging opt-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
+        :param enable_logging: If set, enable query logging for this ManagedZone. False by default, making logging opt-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
         '''
         value = DnsManagedZoneCloudLoggingConfig(enable_logging=enable_logging)
 
@@ -176,10 +176,10 @@ class DnsManagedZone(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_key_specs: default_key_specs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
-        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
-        :param non_existence: Specifies the mechanism used to provide authenticated denial-of-existence responses. non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
-        :param state: Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
+        :param default_key_specs: default_key_specs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
+        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
+        :param non_existence: Specifies the mechanism used to provide authenticated denial-of-existence responses. non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
+        :param state: Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
         '''
         value = DnsManagedZoneDnssecConfig(
             default_key_specs=default_key_specs,
@@ -197,7 +197,7 @@ class DnsManagedZone(
         target_name_servers: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsManagedZoneForwardingConfigTargetNameServers", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param target_name_servers: target_name_servers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
+        :param target_name_servers: target_name_servers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
         '''
         value = DnsManagedZoneForwardingConfig(target_name_servers=target_name_servers)
 
@@ -210,7 +210,7 @@ class DnsManagedZone(
         target_network: typing.Union["DnsManagedZonePeeringConfigTargetNetwork", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param target_network: target_network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
+        :param target_network: target_network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
         '''
         value = DnsManagedZonePeeringConfig(target_network=target_network)
 
@@ -224,8 +224,8 @@ class DnsManagedZone(
         networks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsManagedZonePrivateVisibilityConfigNetworks", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
+        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
         '''
         value = DnsManagedZonePrivateVisibilityConfig(
             gke_clusters=gke_clusters, networks=networks
@@ -242,9 +242,9 @@ class DnsManagedZone(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.
         '''
         value = DnsManagedZoneTimeouts(create=create, delete=delete, update=update)
 
@@ -562,7 +562,7 @@ class DnsManagedZoneCloudLoggingConfig:
         enable_logging: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_logging: If set, enable query logging for this ManagedZone. False by default, making logging opt-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
+        :param enable_logging: If set, enable query logging for this ManagedZone. False by default, making logging opt-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e60f1aa42226533e4eb5532cafb11507125f712eef5dab08ac5b8d00adc21b34)
@@ -577,7 +577,7 @@ class DnsManagedZoneCloudLoggingConfig:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If set, enable query logging for this ManagedZone. False by default, making logging opt-in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#enable_logging DnsManagedZone#enable_logging}
         '''
         result = self._values.get("enable_logging")
         assert result is not None, "Required property 'enable_logging' is missing"
@@ -716,20 +716,20 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dns_name: The DNS name of this managed zone, for instance "example.com.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
-        :param name: User assigned name for this resource. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
-        :param cloud_logging_config: cloud_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
-        :param description: A textual description field. Defaults to 'Managed by Terraform'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
-        :param dnssec_config: dnssec_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
-        :param force_destroy: Set this true to delete all records in the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
-        :param forwarding_config: forwarding_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to this ManagedZone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
-        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
-        :param private_visibility_config: private_visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
-        :param visibility: The zone's visibility: public zones are exposed to the Internet, while private zones are visible only to Virtual Private Cloud resources. Default value: "public" Possible values: ["private", "public"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
+        :param dns_name: The DNS name of this managed zone, for instance "example.com.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
+        :param name: User assigned name for this resource. Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
+        :param cloud_logging_config: cloud_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
+        :param description: A textual description field. Defaults to 'Managed by Terraform'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
+        :param dnssec_config: dnssec_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
+        :param force_destroy: Set this true to delete all records in the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
+        :param forwarding_config: forwarding_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to this ManagedZone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
+        :param peering_config: peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
+        :param private_visibility_config: private_visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
+        :param visibility: The zone's visibility: public zones are exposed to the Internet, while private zones are visible only to Virtual Private Cloud resources. Default value: "public" Possible values: ["private", "public"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -879,7 +879,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns_name(self) -> builtins.str:
         '''The DNS name of this managed zone, for instance "example.com.".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dns_name DnsManagedZone#dns_name}
         '''
         result = self._values.get("dns_name")
         assert result is not None, "Required property 'dns_name' is missing"
@@ -889,7 +889,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''User assigned name for this resource. Must be unique within the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#name DnsManagedZone#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -899,7 +899,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_logging_config(self) -> typing.Optional[DnsManagedZoneCloudLoggingConfig]:
         '''cloud_logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#cloud_logging_config DnsManagedZone#cloud_logging_config}
         '''
         result = self._values.get("cloud_logging_config")
         return typing.cast(typing.Optional[DnsManagedZoneCloudLoggingConfig], result)
@@ -908,7 +908,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A textual description field. Defaults to 'Managed by Terraform'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#description DnsManagedZone#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -917,7 +917,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dnssec_config(self) -> typing.Optional["DnsManagedZoneDnssecConfig"]:
         '''dnssec_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#dnssec_config DnsManagedZone#dnssec_config}
         '''
         result = self._values.get("dnssec_config")
         return typing.cast(typing.Optional["DnsManagedZoneDnssecConfig"], result)
@@ -928,7 +928,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set this true to delete all records in the zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#force_destroy DnsManagedZone#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -937,14 +937,14 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def forwarding_config(self) -> typing.Optional["DnsManagedZoneForwardingConfig"]:
         '''forwarding_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#forwarding_config DnsManagedZone#forwarding_config}
         '''
         result = self._values.get("forwarding_config")
         return typing.cast(typing.Optional["DnsManagedZoneForwardingConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#id DnsManagedZone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -959,7 +959,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#labels DnsManagedZone#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -968,7 +968,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peering_config(self) -> typing.Optional["DnsManagedZonePeeringConfig"]:
         '''peering_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#peering_config DnsManagedZone#peering_config}
         '''
         result = self._values.get("peering_config")
         return typing.cast(typing.Optional["DnsManagedZonePeeringConfig"], result)
@@ -979,14 +979,14 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DnsManagedZonePrivateVisibilityConfig"]:
         '''private_visibility_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#private_visibility_config DnsManagedZone#private_visibility_config}
         '''
         result = self._values.get("private_visibility_config")
         return typing.cast(typing.Optional["DnsManagedZonePrivateVisibilityConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#project DnsManagedZone#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -994,7 +994,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DnsManagedZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#timeouts DnsManagedZone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DnsManagedZoneTimeouts"], result)
@@ -1005,7 +1005,7 @@ class DnsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Default value: "public" Possible values: ["private", "public"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#visibility DnsManagedZone#visibility}
         '''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1042,10 +1042,10 @@ class DnsManagedZoneDnssecConfig:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_key_specs: default_key_specs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
-        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
-        :param non_existence: Specifies the mechanism used to provide authenticated denial-of-existence responses. non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
-        :param state: Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
+        :param default_key_specs: default_key_specs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
+        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
+        :param non_existence: Specifies the mechanism used to provide authenticated denial-of-existence responses. non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
+        :param state: Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45926a3339633e062ca5a052aa6e397fca4ebd0ea84d7ccb8c07d8483bea7c5a)
@@ -1069,7 +1069,7 @@ class DnsManagedZoneDnssecConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZoneDnssecConfigDefaultKeySpecs"]]]:
         '''default_key_specs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#default_key_specs DnsManagedZone#default_key_specs}
         '''
         result = self._values.get("default_key_specs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZoneDnssecConfigDefaultKeySpecs"]]], result)
@@ -1078,7 +1078,7 @@ class DnsManagedZoneDnssecConfig:
     def kind(self) -> typing.Optional[builtins.str]:
         '''Identifies what kind of resource this is.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
         '''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1089,7 +1089,7 @@ class DnsManagedZoneDnssecConfig:
 
         non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#non_existence DnsManagedZone#non_existence}
         '''
         result = self._values.get("non_existence")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1098,7 +1098,7 @@ class DnsManagedZoneDnssecConfig:
     def state(self) -> typing.Optional[builtins.str]:
         '''Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#state DnsManagedZone#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1135,10 +1135,10 @@ class DnsManagedZoneDnssecConfigDefaultKeySpecs:
         kind: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param algorithm: String mnemonic specifying the DNSSEC algorithm of this key Possible values: ["ecdsap256sha256", "ecdsap384sha384", "rsasha1", "rsasha256", "rsasha512"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#algorithm DnsManagedZone#algorithm}
-        :param key_length: Length of the keys in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#key_length DnsManagedZone#key_length}
-        :param key_type: Specifies whether this is a key signing key (KSK) or a zone signing key (ZSK). Key signing keys have the Secure Entry Point flag set and, when active, will only be used to sign resource record sets of type DNSKEY. Zone signing keys do not have the Secure Entry Point flag set and will be used to sign all other types of resource record sets. Possible values: ["keySigning", "zoneSigning"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#key_type DnsManagedZone#key_type}
-        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
+        :param algorithm: String mnemonic specifying the DNSSEC algorithm of this key Possible values: ["ecdsap256sha256", "ecdsap384sha384", "rsasha1", "rsasha256", "rsasha512"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#algorithm DnsManagedZone#algorithm}
+        :param key_length: Length of the keys in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#key_length DnsManagedZone#key_length}
+        :param key_type: Specifies whether this is a key signing key (KSK) or a zone signing key (ZSK). Key signing keys have the Secure Entry Point flag set and, when active, will only be used to sign resource record sets of type DNSKEY. Zone signing keys do not have the Secure Entry Point flag set and will be used to sign all other types of resource record sets. Possible values: ["keySigning", "zoneSigning"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#key_type DnsManagedZone#key_type}
+        :param kind: Identifies what kind of resource this is. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6bd0d4afe2836e3de53e859d3d9f664bf1a26f8aabb46c220f81741c8c9863c)
@@ -1160,7 +1160,7 @@ class DnsManagedZoneDnssecConfigDefaultKeySpecs:
     def algorithm(self) -> typing.Optional[builtins.str]:
         '''String mnemonic specifying the DNSSEC algorithm of this key Possible values: ["ecdsap256sha256", "ecdsap384sha384", "rsasha1", "rsasha256", "rsasha512"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#algorithm DnsManagedZone#algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#algorithm DnsManagedZone#algorithm}
         '''
         result = self._values.get("algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1169,7 +1169,7 @@ class DnsManagedZoneDnssecConfigDefaultKeySpecs:
     def key_length(self) -> typing.Optional[jsii.Number]:
         '''Length of the keys in bits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#key_length DnsManagedZone#key_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#key_length DnsManagedZone#key_length}
         '''
         result = self._values.get("key_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1184,7 +1184,7 @@ class DnsManagedZoneDnssecConfigDefaultKeySpecs:
         not have the Secure Entry Point flag set and will be used
         to sign all other types of resource record sets. Possible values: ["keySigning", "zoneSigning"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#key_type DnsManagedZone#key_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#key_type DnsManagedZone#key_type}
         '''
         result = self._values.get("key_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1193,7 +1193,7 @@ class DnsManagedZoneDnssecConfigDefaultKeySpecs:
     def kind(self) -> typing.Optional[builtins.str]:
         '''Identifies what kind of resource this is.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#kind DnsManagedZone#kind}
         '''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1571,7 +1571,7 @@ class DnsManagedZoneForwardingConfig:
         target_name_servers: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsManagedZoneForwardingConfigTargetNameServers", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param target_name_servers: target_name_servers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
+        :param target_name_servers: target_name_servers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f124430e7ef0dcf69b273c0b0e708bb6ba2fa9ea55652d57fb2eea7605eaa78d)
@@ -1586,7 +1586,7 @@ class DnsManagedZoneForwardingConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZoneForwardingConfigTargetNameServers"]]:
         '''target_name_servers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_name_servers DnsManagedZone#target_name_servers}
         '''
         result = self._values.get("target_name_servers")
         assert result is not None, "Required property 'target_name_servers' is missing"
@@ -1670,38 +1670,28 @@ class DnsManagedZoneForwardingConfigOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-google.dnsManagedZone.DnsManagedZoneForwardingConfigTargetNameServers",
     jsii_struct_bases=[],
-    name_mapping={"ipv4_address": "ipv4Address", "forwarding_path": "forwardingPath"},
+    name_mapping={"forwarding_path": "forwardingPath", "ipv4_address": "ipv4Address"},
 )
 class DnsManagedZoneForwardingConfigTargetNameServers:
     def __init__(
         self,
         *,
-        ipv4_address: builtins.str,
         forwarding_path: typing.Optional[builtins.str] = None,
+        ipv4_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ipv4_address: IPv4 address of a target name server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#ipv4_address DnsManagedZone#ipv4_address}
-        :param forwarding_path: Forwarding path for this TargetNameServer. If unset or 'default' Cloud DNS will make forwarding decision based on address ranges, i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go to the Internet. When set to 'private', Cloud DNS will always send queries through VPC for this target Possible values: ["default", "private"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#forwarding_path DnsManagedZone#forwarding_path}
+        :param forwarding_path: Forwarding path for this TargetNameServer. If unset or 'default' Cloud DNS will make forwarding decision based on address ranges, i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go to the Internet. When set to 'private', Cloud DNS will always send queries through VPC for this target Possible values: ["default", "private"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#forwarding_path DnsManagedZone#forwarding_path}
+        :param ipv4_address: IPv4 address of a target name server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#ipv4_address DnsManagedZone#ipv4_address}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e84e52b2e964cfb854c1bb4217b98a5238ae6706e8b2e0a5f6d98785b821b94)
-            check_type(argname="argument ipv4_address", value=ipv4_address, expected_type=type_hints["ipv4_address"])
             check_type(argname="argument forwarding_path", value=forwarding_path, expected_type=type_hints["forwarding_path"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ipv4_address": ipv4_address,
-        }
+            check_type(argname="argument ipv4_address", value=ipv4_address, expected_type=type_hints["ipv4_address"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if forwarding_path is not None:
             self._values["forwarding_path"] = forwarding_path
-
-    @builtins.property
-    def ipv4_address(self) -> builtins.str:
-        '''IPv4 address of a target name server.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#ipv4_address DnsManagedZone#ipv4_address}
-        '''
-        result = self._values.get("ipv4_address")
-        assert result is not None, "Required property 'ipv4_address' is missing"
-        return typing.cast(builtins.str, result)
+        if ipv4_address is not None:
+            self._values["ipv4_address"] = ipv4_address
 
     @builtins.property
     def forwarding_path(self) -> typing.Optional[builtins.str]:
@@ -1711,9 +1701,18 @@ class DnsManagedZoneForwardingConfigTargetNameServers:
         decision based on address ranges, i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go
         to the Internet. When set to 'private', Cloud DNS will always send queries through VPC for this target Possible values: ["default", "private"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#forwarding_path DnsManagedZone#forwarding_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#forwarding_path DnsManagedZone#forwarding_path}
         '''
         result = self._values.get("forwarding_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ipv4_address(self) -> typing.Optional[builtins.str]:
+        '''IPv4 address of a target name server.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#ipv4_address DnsManagedZone#ipv4_address}
+        '''
+        result = self._values.get("ipv4_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1851,6 +1850,10 @@ class DnsManagedZoneForwardingConfigTargetNameServersOutputReference(
     def reset_forwarding_path(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetForwardingPath", []))
 
+    @jsii.member(jsii_name="resetIpv4Address")
+    def reset_ipv4_address(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIpv4Address", []))
+
     @builtins.property
     @jsii.member(jsii_name="forwardingPathInput")
     def forwarding_path_input(self) -> typing.Optional[builtins.str]:
@@ -1915,7 +1918,7 @@ class DnsManagedZonePeeringConfig:
         target_network: typing.Union["DnsManagedZonePeeringConfigTargetNetwork", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param target_network: target_network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
+        :param target_network: target_network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
         '''
         if isinstance(target_network, dict):
             target_network = DnsManagedZonePeeringConfigTargetNetwork(**target_network)
@@ -1930,7 +1933,7 @@ class DnsManagedZonePeeringConfig:
     def target_network(self) -> "DnsManagedZonePeeringConfigTargetNetwork":
         '''target_network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#target_network DnsManagedZone#target_network}
         '''
         result = self._values.get("target_network")
         assert result is not None, "Required property 'target_network' is missing"
@@ -1971,7 +1974,7 @@ class DnsManagedZonePeeringConfigOutputReference(
     @jsii.member(jsii_name="putTargetNetwork")
     def put_target_network(self, *, network_url: builtins.str) -> None:
         '''
-        :param network_url: The id or fully qualified URL of the VPC network to forward queries to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
+        :param network_url: The id or fully qualified URL of the VPC network to forward queries to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
         '''
         value = DnsManagedZonePeeringConfigTargetNetwork(network_url=network_url)
 
@@ -2015,7 +2018,7 @@ class DnsManagedZonePeeringConfigOutputReference(
 class DnsManagedZonePeeringConfigTargetNetwork:
     def __init__(self, *, network_url: builtins.str) -> None:
         '''
-        :param network_url: The id or fully qualified URL of the VPC network to forward queries to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
+        :param network_url: The id or fully qualified URL of the VPC network to forward queries to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8665a2078d9e19e765c2921558c91c2069ff907d60e0d097d6627f821a2171c8)
@@ -2031,7 +2034,7 @@ class DnsManagedZonePeeringConfigTargetNetwork:
         This should be formatted like 'projects/{project}/global/networks/{network}' or
         'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -2117,8 +2120,8 @@ class DnsManagedZonePrivateVisibilityConfig:
         networks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsManagedZonePrivateVisibilityConfigNetworks", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
+        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0fba69ff2bdb5d816ce2d21c0dc6b5bb357c6e55ca28e43436797195838549e)
@@ -2136,7 +2139,7 @@ class DnsManagedZonePrivateVisibilityConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZonePrivateVisibilityConfigGkeClusters"]]]:
         '''gke_clusters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#gke_clusters DnsManagedZone#gke_clusters}
         '''
         result = self._values.get("gke_clusters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZonePrivateVisibilityConfigGkeClusters"]]], result)
@@ -2147,7 +2150,7 @@ class DnsManagedZonePrivateVisibilityConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZonePrivateVisibilityConfigNetworks"]]]:
         '''networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#networks DnsManagedZone#networks}
         '''
         result = self._values.get("networks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsManagedZonePrivateVisibilityConfigNetworks"]]], result)
@@ -2172,7 +2175,7 @@ class DnsManagedZonePrivateVisibilityConfig:
 class DnsManagedZonePrivateVisibilityConfigGkeClusters:
     def __init__(self, *, gke_cluster_name: builtins.str) -> None:
         '''
-        :param gke_cluster_name: The resource name of the cluster to bind this ManagedZone to. This should be specified in the format like 'projects/* /locations/* /clusters/*' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#gke_cluster_name DnsManagedZone#gke_cluster_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param gke_cluster_name: The resource name of the cluster to bind this ManagedZone to. This should be specified in the format like 'projects/* /locations/* /clusters/*' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#gke_cluster_name DnsManagedZone#gke_cluster_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bef682efd048dfec5d04994f4030aef2c2bdac4a619429a8725642a58cf1725)
@@ -2188,7 +2191,7 @@ class DnsManagedZonePrivateVisibilityConfigGkeClusters:
         This should be specified in the format like
         'projects/* /locations/* /clusters/*'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#gke_cluster_name DnsManagedZone#gke_cluster_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#gke_cluster_name DnsManagedZone#gke_cluster_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -2370,7 +2373,7 @@ class DnsManagedZonePrivateVisibilityConfigGkeClustersOutputReference(
 class DnsManagedZonePrivateVisibilityConfigNetworks:
     def __init__(self, *, network_url: builtins.str) -> None:
         '''
-        :param network_url: The id or fully qualified URL of the VPC network to bind to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
+        :param network_url: The id or fully qualified URL of the VPC network to bind to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a9a120e344dbf07eb1d18c5c4dfbb4074d6a4089edf27f64c9afbe4d894a159)
@@ -2383,7 +2386,7 @@ class DnsManagedZonePrivateVisibilityConfigNetworks:
     def network_url(self) -> builtins.str:
         '''The id or fully qualified URL of the VPC network to bind to. This should be formatted like 'projects/{project}/global/networks/{network}' or 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#network_url DnsManagedZone#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -2663,9 +2666,9 @@ class DnsManagedZoneTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abcbe8485d22ee9a4813510670107810d06d19da9c282d62d25e3435606f9896)
@@ -2682,19 +2685,19 @@ class DnsManagedZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#create DnsManagedZone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#delete DnsManagedZone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_managed_zone#update DnsManagedZone#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3145,8 +3148,8 @@ def _typecheckingstub__55894e2da55461ed78c5f9630152ccd3e5d148c92a595a921505f59a6
 
 def _typecheckingstub__0e84e52b2e964cfb854c1bb4217b98a5238ae6706e8b2e0a5f6d98785b821b94(
     *,
-    ipv4_address: builtins.str,
     forwarding_path: typing.Optional[builtins.str] = None,
+    ipv4_address: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

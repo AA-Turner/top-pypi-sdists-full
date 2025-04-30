@@ -1,7 +1,7 @@
 r'''
 # `google_sql_user`
 
-Refer to the Terraform Registry for docs: [`google_sql_user`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user).
+Refer to the Terraform Registry for docs: [`google_sql_user`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SqlUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.sqlUser.SqlUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user google_sql_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user google_sql_user}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class SqlUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user google_sql_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user google_sql_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The name of the Cloud SQL instance. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#instance SqlUser#instance}
-        :param name: The name of the user. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#name SqlUser#name}
-        :param deletion_policy: The deletion policy for the user. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where users cannot be deleted from the API if they have been granted SQL roles. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
-        :param host: The host the user can connect from. This is only supported for MySQL instances. Don't set this field for PostgreSQL instances. Can be an IP address. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#host SqlUser#host}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#id SqlUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password SqlUser#password}
-        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
-        :param password_wo: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
-        :param password_wo_version: The version of the password_wo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#project SqlUser#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
-        :param type: The user type. It determines the method to authenticate the user during login. The default is the database's built-in user type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#type SqlUser#type}
+        :param instance: The name of the Cloud SQL instance. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#instance SqlUser#instance}
+        :param name: The name of the user. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#name SqlUser#name}
+        :param deletion_policy: The deletion policy for the user. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where users cannot be deleted from the API if they have been granted SQL roles. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
+        :param host: The host the user can connect from. This is only supported for MySQL instances. Don't set this field for PostgreSQL instances. Can be an IP address. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#host SqlUser#host}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#id SqlUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password SqlUser#password}
+        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
+        :param password_wo: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
+        :param password_wo_version: The version of the password_wo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#project SqlUser#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
+        :param type: The user type. It determines the method to authenticate the user during login. The default is the database's built-in user type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#type SqlUser#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class SqlUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SqlUser to import.
-        :param import_from_id: The id of the existing SqlUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SqlUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SqlUser to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class SqlUser(
         password_expiration_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_failed_attempts: Number of failed attempts allowed before the user get locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
-        :param enable_failed_attempts_check: If true, the check that will lock user after too many failed login attempts will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
-        :param enable_password_verification: If true, the user must specify the current password before changing the password. This flag is supported only for MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
-        :param password_expiration_duration: Password expiration duration with one week grace period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
+        :param allowed_failed_attempts: Number of failed attempts allowed before the user get locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
+        :param enable_failed_attempts_check: If true, the check that will lock user after too many failed login attempts will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
+        :param enable_password_verification: If true, the user must specify the current password before changing the password. This flag is supported only for MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
+        :param password_expiration_duration: Password expiration duration with one week grace period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
         '''
         value = SqlUserPasswordPolicy(
             allowed_failed_attempts=allowed_failed_attempts,
@@ -180,9 +180,9 @@ class SqlUser(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#create SqlUser#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#delete SqlUser#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#update SqlUser#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#create SqlUser#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#delete SqlUser#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#update SqlUser#update}.
         '''
         value = SqlUserTimeouts(create=create, delete=delete, update=update)
 
@@ -496,18 +496,18 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The name of the Cloud SQL instance. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#instance SqlUser#instance}
-        :param name: The name of the user. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#name SqlUser#name}
-        :param deletion_policy: The deletion policy for the user. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where users cannot be deleted from the API if they have been granted SQL roles. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
-        :param host: The host the user can connect from. This is only supported for MySQL instances. Don't set this field for PostgreSQL instances. Can be an IP address. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#host SqlUser#host}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#id SqlUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password SqlUser#password}
-        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
-        :param password_wo: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
-        :param password_wo_version: The version of the password_wo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#project SqlUser#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
-        :param type: The user type. It determines the method to authenticate the user during login. The default is the database's built-in user type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#type SqlUser#type}
+        :param instance: The name of the Cloud SQL instance. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#instance SqlUser#instance}
+        :param name: The name of the user. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#name SqlUser#name}
+        :param deletion_policy: The deletion policy for the user. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for Postgres, where users cannot be deleted from the API if they have been granted SQL roles. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
+        :param host: The host the user can connect from. This is only supported for MySQL instances. Don't set this field for PostgreSQL instances. Can be an IP address. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#host SqlUser#host}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#id SqlUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password SqlUser#password}
+        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
+        :param password_wo: The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
+        :param password_wo_version: The version of the password_wo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#project SqlUser#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
+        :param type: The user type. It determines the method to authenticate the user during login. The default is the database's built-in user type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#type SqlUser#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -643,7 +643,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The name of the Cloud SQL instance. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#instance SqlUser#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#instance SqlUser#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -653,7 +653,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the user. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#name SqlUser#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#name SqlUser#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -667,7 +667,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         to be abandoned rather than deleted. This is useful for Postgres, where users cannot be deleted from the API if they
         have been granted SQL roles. Possible values are: "ABANDON".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#deletion_policy SqlUser#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -678,14 +678,14 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is only supported for MySQL instances. Don't set this field for PostgreSQL instances. Can be an IP address. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#host SqlUser#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#host SqlUser#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#id SqlUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#id SqlUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -700,7 +700,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Can be updated. For Postgres instances this is a Required field, unless type is set to
         either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password SqlUser#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password SqlUser#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -709,7 +709,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def password_policy(self) -> typing.Optional["SqlUserPasswordPolicy"]:
         '''password_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_policy SqlUser#password_policy}
         '''
         result = self._values.get("password_policy")
         return typing.cast(typing.Optional["SqlUserPasswordPolicy"], result)
@@ -721,7 +721,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Can be updated. For Postgres instances this is a Required field, unless type is set to
         either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo SqlUser#password_wo}
         '''
         result = self._values.get("password_wo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -730,7 +730,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def password_wo_version(self) -> typing.Optional[jsii.Number]:
         '''The version of the password_wo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_wo_version SqlUser#password_wo_version}
         '''
         result = self._values.get("password_wo_version")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -741,7 +741,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#project SqlUser#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#project SqlUser#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -750,7 +750,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SqlUserTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#timeouts SqlUser#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SqlUserTimeouts"], result)
@@ -762,7 +762,7 @@ class SqlUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         It determines the method to authenticate the user during login.
         The default is the database's built-in user type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#type SqlUser#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#type SqlUser#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -799,10 +799,10 @@ class SqlUserPasswordPolicy:
         password_expiration_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_failed_attempts: Number of failed attempts allowed before the user get locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
-        :param enable_failed_attempts_check: If true, the check that will lock user after too many failed login attempts will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
-        :param enable_password_verification: If true, the user must specify the current password before changing the password. This flag is supported only for MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
-        :param password_expiration_duration: Password expiration duration with one week grace period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
+        :param allowed_failed_attempts: Number of failed attempts allowed before the user get locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
+        :param enable_failed_attempts_check: If true, the check that will lock user after too many failed login attempts will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
+        :param enable_password_verification: If true, the user must specify the current password before changing the password. This flag is supported only for MySQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
+        :param password_expiration_duration: Password expiration duration with one week grace period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__100e5b4d5ab44fbfe09d86b6dda0b5d82a75d16dec3de6f19b1481702a726f7f)
@@ -824,7 +824,7 @@ class SqlUserPasswordPolicy:
     def allowed_failed_attempts(self) -> typing.Optional[jsii.Number]:
         '''Number of failed attempts allowed before the user get locked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#allowed_failed_attempts SqlUser#allowed_failed_attempts}
         '''
         result = self._values.get("allowed_failed_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -835,7 +835,7 @@ class SqlUserPasswordPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the check that will lock user after too many failed login attempts will be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_failed_attempts_check SqlUser#enable_failed_attempts_check}
         '''
         result = self._values.get("enable_failed_attempts_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -848,7 +848,7 @@ class SqlUserPasswordPolicy:
 
         This flag is supported only for MySQL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#enable_password_verification SqlUser#enable_password_verification}
         '''
         result = self._values.get("enable_password_verification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -857,7 +857,7 @@ class SqlUserPasswordPolicy:
     def password_expiration_duration(self) -> typing.Optional[builtins.str]:
         '''Password expiration duration with one week grace period.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#password_expiration_duration SqlUser#password_expiration_duration}
         '''
         result = self._values.get("password_expiration_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1316,9 +1316,9 @@ class SqlUserTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#create SqlUser#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#delete SqlUser#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#update SqlUser#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#create SqlUser#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#delete SqlUser#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#update SqlUser#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39516109854b94b5322ad7a01740962c12ea139ce2090e249709dbdbb912a9fd)
@@ -1335,19 +1335,19 @@ class SqlUserTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#create SqlUser#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#create SqlUser#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#delete SqlUser#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#delete SqlUser#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/sql_user#update SqlUser#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/sql_user#update SqlUser#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

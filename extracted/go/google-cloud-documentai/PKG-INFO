@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-cloud-documentai
-Version: 3.4.0
+Version: 3.5.0
 Summary: Google Cloud Documentai API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-documentai
 Author: Google LLC

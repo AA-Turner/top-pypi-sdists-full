@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-api-doc-tools
-Version: 2.0.0
+Version: 2.1.0
 Summary: Tools for writing and generating API documentation for edX REST APIs
 Home-page: https://github.com/openedx/api-doc-tools
 Author: Open edX Project
@@ -10,6 +10,7 @@ Keywords: Django edx
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
@@ -138,6 +139,10 @@ Change Log
 
 Unreleased
 ----------
+
+2.1.0 - 2025-04-18
+---------------------
+* Added Support for ``django 5.2``.
 
 2.0.0 --- 2024-09-09
 --------------------

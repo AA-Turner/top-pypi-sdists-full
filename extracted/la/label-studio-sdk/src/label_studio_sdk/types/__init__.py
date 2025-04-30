@@ -2,6 +2,7 @@
 
 from .access_token_response import AccessTokenResponse
 from .annotation import Annotation
+from .annotation_completed_by import AnnotationCompletedBy
 from .annotation_filter_options import AnnotationFilterOptions
 from .annotation_last_action import AnnotationLastAction
 from .annotations_dm_field import AnnotationsDmField
@@ -84,6 +85,7 @@ from .redis_import_storage import RedisImportStorage
 from .redis_import_storage_status import RedisImportStorageStatus
 from .refined_prompt_response import RefinedPromptResponse
 from .refined_prompt_response_refinement_status import RefinedPromptResponseRefinementStatus
+from .rotate_token_response import RotateTokenResponse
 from .s3export_storage import S3ExportStorage
 from .s3export_storage_status import S3ExportStorageStatus
 from .s3import_storage import S3ImportStorage
@@ -108,6 +110,7 @@ from .workspace import Workspace
 __all__ = [
     "AccessTokenResponse",
     "Annotation",
+    "AnnotationCompletedBy",
     "AnnotationFilterOptions",
     "AnnotationLastAction",
     "AnnotationsDmField",
@@ -190,6 +193,7 @@ __all__ = [
     "RedisImportStorageStatus",
     "RefinedPromptResponse",
     "RefinedPromptResponseRefinementStatus",
+    "RotateTokenResponse",
     "S3ExportStorage",
     "S3ExportStorageStatus",
     "S3ImportStorage",

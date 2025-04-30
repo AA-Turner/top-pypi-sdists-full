@@ -118,23 +118,24 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None):
     if request.user == 'proxy':
         http_client = httpx.AsyncClient(proxy=await get_one_proxy(), timeout=60)
 
-    client = AsyncOpenAI(base_url=BASE_URL, api_key=api_key, http_client=http_client)
+    client = AsyncOpenAI(base_url=BASE_URL, api_key=api_key, http_client=http_client, timeout=60)
     response = await client.images.generate(**data)
     response.model = ""
     # logger.debug(response)
 
-    # response.data[0].url = unquote(response.data[0].url or "")
+    # response.data[0].url = response.data[0].url.replace(r'\u0026', '&')
+    send_message(f"request: {request.model}\n{request.prompt}\nresponse: {response.data[0].url}",)
+
     response.data[0].url = await to_url(response.data[0].url, content_type="image/png")
     if request.response_format == "b64_json":
         b64_json = await to_base64(response.data[0].url)
 
         response.data[0].url = None
         response.data[0].b64_json = b64_json
-
-
-    # response = await client.images.edit(**data)
-
-    return response
+    if response.data[0].url:
+        return response
+    else:
+        raise ValueError("no image")
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 2.0.1
+Version: 2.0.2
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
 Keywords: airflow-provider,fab,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -36,8 +36,8 @@ Requires-Dist: werkzeug>=2.2,<4
 Requires-Dist: wtforms>=3.0,<4
 Requires-Dist: kerberos>=1.3.0 ; extra == "kerberos"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -69,7 +69,7 @@ Provides-Extra: kerberos
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``2.0.1``
+Release: ``2.0.2``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -82,7 +82,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.2/>`_.
 
 Installation
 ------------
@@ -133,5 +133,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.0.2/changelog.html>`_.
 

@@ -8307,6 +8307,27 @@ class Futures(System.Object):
         EURO_STOXX_50: str = "FESX"
         """Euro Stoxx 50 Index Futures"""
 
+        DAX: str = "FDAX"
+        """DAX Futures"""
+
+        DAX_50: str = "FSDX"
+        """DAX50 Futures"""
+
+        DIV_DAX: str = "FDIV"
+        """Div DAX futureFutures"""
+
+        DAX_MICRO: str = "FDXS"
+        """Micro DAX Futures"""
+
+        DAX_MINI: str = "FDXM"
+        """Mini DAX Futures"""
+
+        MDAX_MINI: str = "FSMX"
+        """Mini MDAX Futures"""
+
+        TEC_DAX: str = "FTDX"
+        """TecDAX Futures"""
+
     class Forestry(System.Object):
         """Forestry group"""
 

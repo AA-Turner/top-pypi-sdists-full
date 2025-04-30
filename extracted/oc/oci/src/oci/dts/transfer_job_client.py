@@ -158,7 +158,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/change_transfer_job_compartment.py.html>`__ to see an example of how to use change_transfer_job_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/change_transfer_job_compartment.py.html>`__ to see an example of how to use change_transfer_job_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transferJobId']
@@ -267,7 +267,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/create_transfer_job.py.html>`__ to see an example of how to use create_transfer_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/create_transfer_job.py.html>`__ to see an example of how to use create_transfer_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -364,7 +364,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/delete_transfer_job.py.html>`__ to see an example of how to use delete_transfer_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/delete_transfer_job.py.html>`__ to see an example of how to use delete_transfer_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -462,7 +462,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/get_transfer_job.py.html>`__ to see an example of how to use get_transfer_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/get_transfer_job.py.html>`__ to see an example of how to use get_transfer_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -583,7 +583,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/list_transfer_jobs.py.html>`__ to see an example of how to use list_transfer_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/list_transfer_jobs.py.html>`__ to see an example of how to use list_transfer_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -697,7 +697,7 @@ class TransferJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/dts/update_transfer_job.py.html>`__ to see an example of how to use update_transfer_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/update_transfer_job.py.html>`__ to see an example of how to use update_transfer_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']

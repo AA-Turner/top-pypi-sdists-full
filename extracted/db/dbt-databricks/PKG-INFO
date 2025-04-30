@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-databricks
-Version: 1.10.0
+Version: 1.10.1
 Summary: The Databricks adapter plugin for dbt
 Project-URL: homepage, https://github.com/databricks/dbt-databricks
 Project-URL: changelog, https://github.com/databricks/dbt-databricks/blob/main/CHANGELOG.md

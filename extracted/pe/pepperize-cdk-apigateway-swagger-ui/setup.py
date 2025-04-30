@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "pepperize.cdk-apigateway-swagger-ui",
-    "version": "0.0.1267",
+    "version": "0.0.1271",
     "description": "Add SwaggerUI to your AWS Apigateway RestApi",
     "license": "MIT",
     "url": "https://github.com/pepperize/cdk-apigateway-swagger-ui.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "pepperize_cdk_apigateway_swagger_ui._jsii": [
-            "cdk-apigateway-swagger-ui@0.0.1267.jsii.tgz"
+            "cdk-apigateway-swagger-ui@0.0.1271.jsii.tgz"
         ],
         "pepperize_cdk_apigateway_swagger_ui": [
             "py.typed"

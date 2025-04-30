@@ -106,7 +106,7 @@ def clsstring(cls):
         return f"{origin.__name__}[{args}]"
     else:
         r = repr(cls)
-        if r.startswith("<class "):
+        if r.startswith("<class ") or r.startswith("<enum "):
             return cls.__name__
         else:
             return r
@@ -160,7 +160,7 @@ class NameDatabase:
         return name
 
     def get(self, value, suggested_name=None):
-        if isinstance(value, (int, float, str)):
+        if type(value) in (int, float, str):
             return repr(value)
         if id(value) in self.names:
             return self.names[id(value)]

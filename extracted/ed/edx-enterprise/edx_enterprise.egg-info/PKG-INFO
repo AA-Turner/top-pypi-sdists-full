@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-enterprise
-Version: 5.12.9
+Version: 5.12.10
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -108,6 +108,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[5.12.10]
+---------
+* fix: fixes datetime attribute error
 
 [5.12.9]
 --------

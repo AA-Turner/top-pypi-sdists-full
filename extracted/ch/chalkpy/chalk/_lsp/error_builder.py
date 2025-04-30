@@ -155,15 +155,17 @@ class LSPErrorBuilder:
             i += 1
         if frame is None:
             return
-        try:
-            node = Source.executing(frame).node
-        except Exception:
-            return
-        if node is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        node_map_key = (wrapper, item)
+        if node_map_key not in cls._node_map:
             try:
-                cls._node_map[(wrapper, item)] = (node, frame)
-            except:
-                pass
+                node = Source.executing(frame).node
+            except Exception:
+                return
+            if node is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                try:
+                    cls._node_map[(wrapper, item)] = (node, frame)
+                except:
+                    pass
 
     @classmethod
     def get_node(cls, wrapper: FeatureWrapper, item: str) -> tuple[ast.AST, types.FrameType] | None:

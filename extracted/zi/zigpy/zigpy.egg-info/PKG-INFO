@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy
-Version: 0.78.1
+Version: 0.79.0
 Summary: Library implementing a Zigbee stack
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0

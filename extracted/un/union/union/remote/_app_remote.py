@@ -148,7 +148,7 @@ class AppRemote:
 
     def start(self, name: str, project: Optional[str] = None, domain: Optional[str] = None) -> AppIDL:
         app_idl = self.get(name, project=project, domain=domain)
-        app_idl.spec.desired_state = Spec.DesiredState.DESIRED_STATE_STARTED
+        app_idl.spec.desired_state = Spec.DesiredState.DESIRED_STATE_ACTIVE
 
         def run_request():
             update_request = UpdateRequest(app=app_idl)
@@ -170,7 +170,7 @@ class AppRemote:
             project=project or self.default_project,
             domain=domain or self.default_domain,
             additional_distribution=additional_distribution,
-            desired_state=Spec.DesiredState.DESIRED_STATE_STARTED,
+            desired_state=Spec.DesiredState.DESIRED_STATE_ACTIVE,
             materialized_inputs=materialized_input_values,
             is_serverless=_is_serverless_endpoint(self.config.platform.endpoint),
         )
@@ -203,7 +203,7 @@ class AppRemote:
             project=project or self.default_project,
             domain=domain or self.default_domain,
             additional_distribution=additional_distribution,
-            desired_state=Spec.DesiredState.DESIRED_STATE_STARTED,
+            desired_state=Spec.DesiredState.DESIRED_STATE_ACTIVE,
             materialized_inputs=materialized_input_values,
             is_serverless=_is_serverless_endpoint(self.config.platform.endpoint),
         )
@@ -265,7 +265,8 @@ class AppRemote:
                 deployment_status = latest_condition.deployment_status
                 status_str = Status.DeploymentStatus.Name(deployment_status).split("_")[-1].title()
                 if latest_condition.message != latest_message:
-                    console.print(f"[bold]\\[Status][/] [italic]{status_str}:[/] {latest_condition.message}")
+                    escaped_message = latest_condition.message.replace("[", "\\[")
+                    console.print(f"[bold]\\[Status][/] [italic]{status_str}:[/] {escaped_message}")
                     latest_message = latest_condition.message
 
                 if deployment_status in (
@@ -276,7 +277,10 @@ class AppRemote:
                     raise ClickException("Application failed to deploy")
                 elif deployment_status == Status.DEPLOYMENT_STATUS_UNASSIGNED:
                     raise ClickException("Application was unassigned")
-                elif deployment_status == Status.DeploymentStatus.DEPLOYMENT_STATUS_STARTED:
+                elif (
+                    deployment_status == Status.DeploymentStatus.DEPLOYMENT_STATUS_ACTIVE
+                    or deployment_status == Status.DeploymentStatus.DEPLOYMENT_STATUS_STARTED
+                ):
                     yield True
 
         async def watch(console):
@@ -488,6 +492,12 @@ class AppRemote:
     @staticmethod
     def desired_state(app_idl: AppIDL) -> str:
         return Spec.DesiredState.Name(app_idl.spec.desired_state).split("_")[-1].title()
+
+    @staticmethod
+    def get_message(app_idl: AppIDL) -> str:
+        if len(app_idl.status.conditions) == 0:
+            return "Unknown"
+        return app_idl.status.conditions[-1].message
 
     @staticmethod
     def get_limits(app_idl: AppIDL) -> dict:

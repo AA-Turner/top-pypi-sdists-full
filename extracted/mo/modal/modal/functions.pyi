@@ -91,6 +91,7 @@ class Function(
         is_auto_snapshot: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
+        restrict_modal_access: bool = False,
         i6pn_enabled: bool = False,
         cluster_size: typing.Optional[int] = None,
         max_inputs: typing.Optional[int] = None,

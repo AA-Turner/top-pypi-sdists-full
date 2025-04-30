@@ -95,6 +95,8 @@ __all__ = (
     "ListStreamsInputPaginateTypeDef",
     "ListStreamsInputTypeDef",
     "ListStreamsOutputTypeDef",
+    "ListTagsForResourceInputTypeDef",
+    "ListTagsForResourceOutputTypeDef",
     "ListTagsForStreamInputTypeDef",
     "ListTagsForStreamOutputTypeDef",
     "MergeShardsInputTypeDef",
@@ -128,8 +130,10 @@ __all__ = (
     "SubscribeToShardEventTypeDef",
     "SubscribeToShardInputTypeDef",
     "SubscribeToShardOutputTypeDef",
+    "TagResourceInputTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
+    "UntagResourceInputTypeDef",
     "UpdateShardCountInputTypeDef",
     "UpdateShardCountOutputTypeDef",
     "UpdateStreamModeInputTypeDef",
@@ -306,16 +310,20 @@ class ListStreamsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ListTagsForStreamInputTypeDef(TypedDict):
-    StreamName: NotRequired[str]
-    ExclusiveStartTagKey: NotRequired[str]
-    Limit: NotRequired[int]
-    StreamARN: NotRequired[str]
+class ListTagsForResourceInputTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
     Key: str
     Value: NotRequired[str]
+
+
+class ListTagsForStreamInputTypeDef(TypedDict):
+    StreamName: NotRequired[str]
+    ExclusiveStartTagKey: NotRequired[str]
+    Limit: NotRequired[int]
+    StreamARN: NotRequired[str]
 
 
 class MergeShardsInputTypeDef(TypedDict):
@@ -340,6 +348,7 @@ class PutResourcePolicyInputTypeDef(TypedDict):
 class RegisterStreamConsumerInputTypeDef(TypedDict):
     StreamARN: str
     ConsumerName: str
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class RemoveTagsFromStreamInputTypeDef(TypedDict):
@@ -380,6 +389,16 @@ class StopStreamEncryptionInputTypeDef(TypedDict):
     KeyId: str
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+
+
+class TagResourceInputTypeDef(TypedDict):
+    Tags: Mapping[str, str]
+    ResourceARN: NotRequired[str]
+
+
+class UntagResourceInputTypeDef(TypedDict):
+    TagKeys: Sequence[str]
+    ResourceARN: NotRequired[str]
 
 
 class UpdateShardCountInputTypeDef(TypedDict):
@@ -570,6 +589,11 @@ StartingPositionTypeDef = TypedDict(
         "Timestamp": NotRequired[TimestampTypeDef],
     },
 )
+
+
+class ListTagsForResourceOutputTypeDef(TypedDict):
+    Tags: List[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForStreamOutputTypeDef(TypedDict):

@@ -1,7 +1,7 @@
 r'''
 # `google_secure_source_manager_repository`
 
-Refer to the Terraform Registry for docs: [`google_secure_source_manager_repository`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository).
+Refer to the Terraform Registry for docs: [`google_secure_source_manager_repository`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecureSourceManagerRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.secureSourceManagerRepository.SecureSourceManagerRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository google_secure_source_manager_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository google_secure_source_manager_repository}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SecureSourceManagerRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository google_secure_source_manager_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository google_secure_source_manager_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The name of the instance in which the repository is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
-        :param location: The location for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
-        :param repository_id: The ID for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
-        :param description: Description of the repository, which cannot exceed 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_config: initial_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
+        :param instance: The name of the instance in which the repository is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
+        :param location: The location for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
+        :param repository_id: The ID for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
+        :param description: Description of the repository, which cannot exceed 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_config: initial_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SecureSourceManagerRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecureSourceManagerRepository to import.
-        :param import_from_id: The id of the existing SecureSourceManagerRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecureSourceManagerRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecureSourceManagerRepository to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class SecureSourceManagerRepository(
         readme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_branch: Default branch name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
-        :param gitignores: List of gitignore template names user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
-        :param license: License template name user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
-        :param readme: README template name. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
+        :param default_branch: Default branch name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
+        :param gitignores: List of gitignore template names user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
+        :param license: License template name user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
+        :param readme: README template name. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
         '''
         value = SecureSourceManagerRepositoryInitialConfig(
             default_branch=default_branch,
@@ -167,8 +167,8 @@ class SecureSourceManagerRepository(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.
         '''
         value = SecureSourceManagerRepositoryTimeouts(create=create, delete=delete)
 
@@ -410,14 +410,14 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The name of the instance in which the repository is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
-        :param location: The location for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
-        :param repository_id: The ID for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
-        :param description: Description of the repository, which cannot exceed 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_config: initial_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
+        :param instance: The name of the instance in which the repository is hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
+        :param location: The location for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
+        :param repository_id: The ID for the Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
+        :param description: Description of the repository, which cannot exceed 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_config: initial_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -540,7 +540,7 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def instance(self) -> builtins.str:
         '''The name of the instance in which the repository is hosted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#instance SecureSourceManagerRepository#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -550,7 +550,7 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def location(self) -> builtins.str:
         '''The location for the Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#location SecureSourceManagerRepository#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -560,7 +560,7 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def repository_id(self) -> builtins.str:
         '''The ID for the Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#repository_id SecureSourceManagerRepository#repository_id}
         '''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
@@ -570,14 +570,14 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the repository, which cannot exceed 500 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#description SecureSourceManagerRepository#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#id SecureSourceManagerRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -591,14 +591,14 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["SecureSourceManagerRepositoryInitialConfig"]:
         '''initial_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#initial_config SecureSourceManagerRepository#initial_config}
         '''
         result = self._values.get("initial_config")
         return typing.cast(typing.Optional["SecureSourceManagerRepositoryInitialConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#project SecureSourceManagerRepository#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -606,7 +606,7 @@ class SecureSourceManagerRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["SecureSourceManagerRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#timeouts SecureSourceManagerRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecureSourceManagerRepositoryTimeouts"], result)
@@ -643,10 +643,10 @@ class SecureSourceManagerRepositoryInitialConfig:
         readme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_branch: Default branch name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
-        :param gitignores: List of gitignore template names user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
-        :param license: License template name user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
-        :param readme: README template name. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
+        :param default_branch: Default branch name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
+        :param gitignores: List of gitignore template names user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
+        :param license: License template name user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
+        :param readme: README template name. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae8b198582ee9c2a7dc887bef01572cd0b6e5b3499b33a0ed9d0f9a18ac02417)
@@ -668,7 +668,7 @@ class SecureSourceManagerRepositoryInitialConfig:
     def default_branch(self) -> typing.Optional[builtins.str]:
         '''Default branch name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#default_branch SecureSourceManagerRepository#default_branch}
         '''
         result = self._values.get("default_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -677,7 +677,7 @@ class SecureSourceManagerRepositoryInitialConfig:
     def gitignores(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of gitignore template names user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#gitignores SecureSourceManagerRepository#gitignores}
         '''
         result = self._values.get("gitignores")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -686,7 +686,7 @@ class SecureSourceManagerRepositoryInitialConfig:
     def license(self) -> typing.Optional[builtins.str]:
         '''License template name user can choose from. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#license SecureSourceManagerRepository#license}
         '''
         result = self._values.get("license")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -695,7 +695,7 @@ class SecureSourceManagerRepositoryInitialConfig:
     def readme(self) -> typing.Optional[builtins.str]:
         '''README template name. Valid values can be viewed at https://cloud.google.com/secure-source-manager/docs/reference/rest/v1/projects.locations.repositories#initialconfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#readme SecureSourceManagerRepository#readme}
         '''
         result = self._values.get("readme")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -847,8 +847,8 @@ class SecureSourceManagerRepositoryTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68866aeb15953e8c60bf6ef53e2de8a4a9068d178a7f478c960576f871cd35f0)
@@ -862,13 +862,13 @@ class SecureSourceManagerRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#create SecureSourceManagerRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/secure_source_manager_repository#delete SecureSourceManagerRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

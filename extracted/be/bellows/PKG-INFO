@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bellows
-Version: 0.44.2
+Version: 0.45.0
 Summary: Library implementing EZSP
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0
@@ -12,7 +12,7 @@ License-File: COPYING
 Requires-Dist: click
 Requires-Dist: click-log>=0.2.1
 Requires-Dist: voluptuous
-Requires-Dist: zigpy>=0.78.0
+Requires-Dist: zigpy>=0.79.0
 Requires-Dist: async-timeout; python_version < "3.11"
 Provides-Extra: testing
 Requires-Dist: pytest>=7.1.2; extra == "testing"

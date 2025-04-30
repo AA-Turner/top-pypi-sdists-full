@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17079",
+    version="17083",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -35,6 +35,9 @@ setup(
     packages=[
         "AlgorithmImports",
         "clr",
+        "Common",
+        "Common.Data",
+        "Common.Data.Consolidators",
         "exports",
         "Internal",
         "Internal.Runtime",
@@ -244,6 +247,9 @@ setup(
     package_data={
         "AlgorithmImports": ["*.py", "*.pyi", "py.typed"],
         "clr": ["*.py", "*.pyi", "py.typed"],
+        "Common": ["*.py", "*.pyi", "py.typed"],
+        "Common.Data": ["*.py", "*.pyi", "py.typed"],
+        "Common.Data.Consolidators": ["*.py", "*.pyi", "py.typed"],
         "exports": ["*.py", "*.pyi", "py.typed"],
         "Internal": ["*.py", "*.pyi", "py.typed"],
         "Internal.Runtime": ["*.py", "*.pyi", "py.typed"],

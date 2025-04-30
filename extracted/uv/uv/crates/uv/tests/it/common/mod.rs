@@ -851,6 +851,20 @@ impl TestContext {
         command
     }
 
+    pub fn version(&self) -> Command {
+        let mut command = self.new_command();
+        command.arg("version");
+        self.add_shared_options(&mut command, false);
+        command
+    }
+
+    pub fn self_version(&self) -> Command {
+        let mut command = self.new_command();
+        command.arg("self").arg("version");
+        self.add_shared_options(&mut command, false);
+        command
+    }
+
     /// Create a `uv publish` command with options shared across scenarios.
     pub fn publish(&self) -> Command {
         let mut command = self.new_command();
@@ -1605,8 +1619,7 @@ pub async fn download_to_disk(url: &str, path: &Path) {
         .allow_insecure_host(trusted_hosts)
         .build();
     let url: reqwest::Url = url.parse().unwrap();
-    let client = client.for_host(&url);
-    let response = client.request(http::Method::GET, url).send().await.unwrap();
+    let response = client.for_host(&url).get(url).send().await.unwrap();
 
     let mut file = tokio::fs::File::create(path).await.unwrap();
     let mut stream = response.bytes_stream();

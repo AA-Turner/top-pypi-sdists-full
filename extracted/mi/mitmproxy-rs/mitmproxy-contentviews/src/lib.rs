@@ -2,15 +2,19 @@ mod hex_dump;
 mod hex_stream;
 mod msgpack;
 mod protobuf;
+mod test_inspect_metadata;
 
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
 pub use protobuf::GRPC;
+pub use test_inspect_metadata::TestInspectMetadata;
 
 use anyhow::Result;
 use mitmproxy_highlight::Language;
+
+use serde::Serialize;
 use std::path::Path;
 
 pub trait Metadata {
@@ -55,7 +59,7 @@ pub trait Prettify: Send + Sync {
 
     /// Render priority - typically a float between 0 and 1 for builtin views.
     #[allow(unused_variables)]
-    fn render_priority(&self, data: &[u8], metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, data: &[u8], metadata: &dyn Metadata) -> f32 {
         0.0
     }
 }
@@ -66,10 +70,9 @@ pub trait Reencode: Send + Sync {
 
 // no cfg(test) gate because it's used in benchmarks as well
 pub mod test {
-    use crate::Metadata;
-    use std::path::Path;
+    use super::*;
 
-    #[derive(Default)]
+    #[derive(Default, Serialize)]
     pub struct TestMetadata {
         pub content_type: Option<String>,
         pub headers: std::collections::HashMap<String, String>,

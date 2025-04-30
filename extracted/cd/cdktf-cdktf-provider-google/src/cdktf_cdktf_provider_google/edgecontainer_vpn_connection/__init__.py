@@ -1,7 +1,7 @@
 r'''
 # `google_edgecontainer_vpn_connection`
 
-Refer to the Terraform Registry for docs: [`google_edgecontainer_vpn_connection`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection).
+Refer to the Terraform Registry for docs: [`google_edgecontainer_vpn_connection`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EdgecontainerVpnConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.edgecontainerVpnConnection.EdgecontainerVpnConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection google_edgecontainer_vpn_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection google_edgecontainer_vpn_connection}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class EdgecontainerVpnConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection google_edgecontainer_vpn_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection google_edgecontainer_vpn_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: The canonical Cluster name to connect to. It is in the form of projects/{project}/locations/{location}/clusters/{cluster}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
-        :param location: Google Cloud Platform location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
-        :param name: The resource name of VPN connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
-        :param enable_high_availability: Whether this VPN connection has HA enabled on cluster side. If enabled, when creating VPN connection we will attempt to use 2 ANG floating IPs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
-        :param nat_gateway_ip: NAT gateway IP, or WAN IP address. If a customer has multiple NAT IPs, the customer needs to configure NAT such that only one external IP maps to the GMEC Anthos cluster. This is empty if NAT is not used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.
-        :param router: The VPN connection Cloud Router name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
-        :param vpc: The network ID of VPC to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
-        :param vpc_project: vpc_project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
+        :param cluster: The canonical Cluster name to connect to. It is in the form of projects/{project}/locations/{location}/clusters/{cluster}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
+        :param location: Google Cloud Platform location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
+        :param name: The resource name of VPN connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
+        :param enable_high_availability: Whether this VPN connection has HA enabled on cluster side. If enabled, when creating VPN connection we will attempt to use 2 ANG floating IPs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
+        :param nat_gateway_ip: NAT gateway IP, or WAN IP address. If a customer has multiple NAT IPs, the customer needs to configure NAT such that only one external IP maps to the GMEC Anthos cluster. This is empty if NAT is not used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.
+        :param router: The VPN connection Cloud Router name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
+        :param vpc: The network ID of VPC to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
+        :param vpc_project: vpc_project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class EdgecontainerVpnConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EdgecontainerVpnConnection to import.
-        :param import_from_id: The id of the existing EdgecontainerVpnConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EdgecontainerVpnConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EdgecontainerVpnConnection to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class EdgecontainerVpnConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.
         '''
         value = EdgecontainerVpnConnectionTimeouts(
             create=create, delete=delete, update=update
@@ -173,7 +173,7 @@ class EdgecontainerVpnConnection(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_id: The project of the VPC to connect to. If not specified, it is the same as the cluster project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
+        :param project_id: The project of the VPC to connect to. If not specified, it is the same as the cluster project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
         '''
         value = EdgecontainerVpnConnectionVpcProject(project_id=project_id)
 
@@ -514,18 +514,18 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: The canonical Cluster name to connect to. It is in the form of projects/{project}/locations/{location}/clusters/{cluster}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
-        :param location: Google Cloud Platform location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
-        :param name: The resource name of VPN connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
-        :param enable_high_availability: Whether this VPN connection has HA enabled on cluster side. If enabled, when creating VPN connection we will attempt to use 2 ANG floating IPs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
-        :param nat_gateway_ip: NAT gateway IP, or WAN IP address. If a customer has multiple NAT IPs, the customer needs to configure NAT such that only one external IP maps to the GMEC Anthos cluster. This is empty if NAT is not used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.
-        :param router: The VPN connection Cloud Router name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
-        :param vpc: The network ID of VPC to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
-        :param vpc_project: vpc_project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
+        :param cluster: The canonical Cluster name to connect to. It is in the form of projects/{project}/locations/{location}/clusters/{cluster}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
+        :param location: Google Cloud Platform location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
+        :param name: The resource name of VPN connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
+        :param enable_high_availability: Whether this VPN connection has HA enabled on cluster side. If enabled, when creating VPN connection we will attempt to use 2 ANG floating IPs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
+        :param nat_gateway_ip: NAT gateway IP, or WAN IP address. If a customer has multiple NAT IPs, the customer needs to configure NAT such that only one external IP maps to the GMEC Anthos cluster. This is empty if NAT is not used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.
+        :param router: The VPN connection Cloud Router name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
+        :param vpc: The network ID of VPC to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
+        :param vpc_project: vpc_project block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -660,7 +660,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The canonical Cluster name to connect to. It is in the form of projects/{project}/locations/{location}/clusters/{cluster}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#cluster EdgecontainerVpnConnection#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -670,7 +670,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Google Cloud Platform location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#location EdgecontainerVpnConnection#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -680,7 +680,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of VPN connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#name EdgecontainerVpnConnection#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -694,14 +694,14 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If enabled, when creating VPN connection we will attempt to use 2 ANG floating IPs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#enable_high_availability EdgecontainerVpnConnection#enable_high_availability}
         '''
         result = self._values.get("enable_high_availability")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#id EdgecontainerVpnConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -716,7 +716,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#labels EdgecontainerVpnConnection#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -728,14 +728,14 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If a customer has multiple NAT IPs, the customer needs to configure NAT such that only one external IP maps to the GMEC Anthos cluster.
         This is empty if NAT is not used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#nat_gateway_ip EdgecontainerVpnConnection#nat_gateway_ip}
         '''
         result = self._values.get("nat_gateway_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project EdgecontainerVpnConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -743,7 +743,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router(self) -> typing.Optional[builtins.str]:
         '''The VPN connection Cloud Router name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#router EdgecontainerVpnConnection#router}
         '''
         result = self._values.get("router")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -752,7 +752,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EdgecontainerVpnConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#timeouts EdgecontainerVpnConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EdgecontainerVpnConnectionTimeouts"], result)
@@ -761,7 +761,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc(self) -> typing.Optional[builtins.str]:
         '''The network ID of VPC to connect to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc EdgecontainerVpnConnection#vpc}
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -770,7 +770,7 @@ class EdgecontainerVpnConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_project(self) -> typing.Optional["EdgecontainerVpnConnectionVpcProject"]:
         '''vpc_project block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#vpc_project EdgecontainerVpnConnection#vpc_project}
         '''
         result = self._values.get("vpc_project")
         return typing.cast(typing.Optional["EdgecontainerVpnConnectionVpcProject"], result)
@@ -1252,9 +1252,9 @@ class EdgecontainerVpnConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e00972696ee750afbe6b60744b6ae7b4a6347f160cb9d9acf3235f895fba8912)
@@ -1271,19 +1271,19 @@ class EdgecontainerVpnConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#create EdgecontainerVpnConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#delete EdgecontainerVpnConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#update EdgecontainerVpnConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1408,7 +1408,7 @@ class EdgecontainerVpnConnectionTimeoutsOutputReference(
 class EdgecontainerVpnConnectionVpcProject:
     def __init__(self, *, project_id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param project_id: The project of the VPC to connect to. If not specified, it is the same as the cluster project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
+        :param project_id: The project of the VPC to connect to. If not specified, it is the same as the cluster project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb7535f014a80568f463c44f163dabd2497b4a75e73b739c993736403c2bb621)
@@ -1421,7 +1421,7 @@ class EdgecontainerVpnConnectionVpcProject:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The project of the VPC to connect to. If not specified, it is the same as the cluster project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/edgecontainer_vpn_connection#project_id EdgecontainerVpnConnection#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)

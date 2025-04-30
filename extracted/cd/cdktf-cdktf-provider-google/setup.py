@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "14.31.0",
+    "version": "14.32.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -156,6 +156,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.bigtable_instance_iam_binding",
         "cdktf_cdktf_provider_google.bigtable_instance_iam_member",
         "cdktf_cdktf_provider_google.bigtable_instance_iam_policy",
+        "cdktf_cdktf_provider_google.bigtable_logical_view",
+        "cdktf_cdktf_provider_google.bigtable_materialized_view",
         "cdktf_cdktf_provider_google.bigtable_table",
         "cdktf_cdktf_provider_google.bigtable_table_iam_binding",
         "cdktf_cdktf_provider_google.bigtable_table_iam_member",
@@ -340,6 +342,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.compute_region_network_firewall_policy_association",
         "cdktf_cdktf_provider_google.compute_region_network_firewall_policy_rule",
         "cdktf_cdktf_provider_google.compute_region_per_instance_config",
+        "cdktf_cdktf_provider_google.compute_region_security_policy",
+        "cdktf_cdktf_provider_google.compute_region_security_policy_rule",
         "cdktf_cdktf_provider_google.compute_region_ssl_certificate",
         "cdktf_cdktf_provider_google.compute_region_ssl_policy",
         "cdktf_cdktf_provider_google.compute_region_target_http_proxy",
@@ -649,6 +653,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_logging_project_cmek_settings",
         "cdktf_cdktf_provider_google.data_google_logging_project_settings",
         "cdktf_cdktf_provider_google.data_google_logging_sink",
+        "cdktf_cdktf_provider_google.data_google_memcache_instance",
         "cdktf_cdktf_provider_google.data_google_memorystore_instance",
         "cdktf_cdktf_provider_google.data_google_monitoring_app_engine_service",
         "cdktf_cdktf_provider_google.data_google_monitoring_cluster_istio_service",
@@ -1193,6 +1198,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.os_config_os_policy_assignment",
         "cdktf_cdktf_provider_google.os_config_patch_deployment",
         "cdktf_cdktf_provider_google.os_config_v2_policy_orchestrator",
+        "cdktf_cdktf_provider_google.os_config_v2_policy_orchestrator_for_folder",
         "cdktf_cdktf_provider_google.os_config_v2_policy_orchestrator_for_organization",
         "cdktf_cdktf_provider_google.os_login_ssh_public_key",
         "cdktf_cdktf_provider_google.parallelstore_instance",
@@ -1399,7 +1405,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@14.31.0.jsii.tgz"
+            "provider-google@14.32.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

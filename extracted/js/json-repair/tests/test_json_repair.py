@@ -166,7 +166,7 @@ def test_object_edge_cases():
     assert repair_json('{ "key": { "key2": "value2" // comment }, "key3": "value3" }') == '{"key": {"key2": "value2"}, "key3": "value3"}'
     assert repair_json('{ "key": { "key2": "value2" # comment }, "key3": "value3" }') == '{"key": {"key2": "value2"}, "key3": "value3"}'
     assert repair_json('{ "key": { "key2": "value2" /* comment */ }, "key3": "value3" }') == '{"key": {"key2": "value2"}, "key3": "value3"}'
-    assert repair_json('{ "key": ["arrayvalue"], ["arrayvalue1"], "key3": "value3" }') == '{"key": ["arrayvalue", "arrayvalue1"], "key3": "value3"}'
+    assert repair_json('{ "key": ["arrayvalue"], ["arrayvalue1"], ["arrayvalue2"], "key3": "value3" }') == '{"key": ["arrayvalue", "arrayvalue1", "arrayvalue2"], "key3": "value3"}'
     assert repair_json('{ "key": ["arrayvalue"], "key3": "value3", ["arrayvalue1"] }') == '{"key": ["arrayvalue"], "key3": "value3", "arrayvalue1": ""}'
 
 def test_number_edge_cases():
@@ -298,6 +298,20 @@ def test_repair_json_from_file():
 def test_ensure_ascii():
     assert repair_json("{'test_中国人_ascii':'统一码'}", ensure_ascii=False) == '{"test_中国人_ascii": "统一码"}'
 
+
+def test_stream_stable():
+    # default: stream_stable = False
+    # When the json to be repaired is the accumulation of streaming json at a certain moment.
+    # The default repair result is unstable.
+    assert repair_json('{"key": "val\\', stream_stable=False) == '{"key": "val\\\\"}'
+    assert repair_json('{"key": "val\\n', stream_stable=False) == '{"key": "val"}'
+    assert repair_json('{"key": "val\\n123,`key2:value2', stream_stable=False) == '{"key": "val\\n123", "key2": "value2"}'
+    assert repair_json('{"key": "val\\n123,`key2:value2`"}', stream_stable=True) == '{"key": "val\\n123,`key2:value2`"}'
+    # stream_stable = True
+    assert repair_json('{"key": "val\\', stream_stable=True) == '{"key": "val"}'
+    assert repair_json('{"key": "val\\n', stream_stable=True) == '{"key": "val\\n"}'
+    assert repair_json('{"key": "val\\n123,`key2:value2', stream_stable=True) == '{"key": "val\\n123,`key2:value2"}'
+    assert repair_json('{"key": "val\\n123,`key2:value2`"}', stream_stable=True) == '{"key": "val\\n123,`key2:value2`"}'
 
 
 def test_cli(capsys):

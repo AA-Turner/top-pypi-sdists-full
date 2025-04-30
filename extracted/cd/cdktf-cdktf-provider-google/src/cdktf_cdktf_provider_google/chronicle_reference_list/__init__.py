@@ -1,7 +1,7 @@
 r'''
 # `google_chronicle_reference_list`
 
-Refer to the Terraform Registry for docs: [`google_chronicle_reference_list`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list).
+Refer to the Terraform Registry for docs: [`google_chronicle_reference_list`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ChronicleReferenceList(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.chronicleReferenceList.ChronicleReferenceList",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list google_chronicle_reference_list}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list google_chronicle_reference_list}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ChronicleReferenceList(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list google_chronicle_reference_list} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list google_chronicle_reference_list} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Required. A user-provided description of the reference list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
-        :param reference_list_id: Required. The ID to use for the reference list. This is also the display name for the reference list. It must satisfy the following requirements: - Starts with letter. - Contains only letters, numbers and underscore. - Has length < 256. - Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
-        :param syntax_type: Possible values: REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING REFERENCE_LIST_SYNTAX_TYPE_REGEX REFERENCE_LIST_SYNTAX_TYPE_CIDR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
+        :param description: Required. A user-provided description of the reference list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
+        :param reference_list_id: Required. The ID to use for the reference list. This is also the display name for the reference list. It must satisfy the following requirements: - Starts with letter. - Contains only letters, numbers and underscore. - Has length < 256. - Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
+        :param syntax_type: Possible values: REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING REFERENCE_LIST_SYNTAX_TYPE_REGEX REFERENCE_LIST_SYNTAX_TYPE_CIDR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ChronicleReferenceList(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ChronicleReferenceList to import.
-        :param import_from_id: The id of the existing ChronicleReferenceList that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ChronicleReferenceList that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ChronicleReferenceList to import is found.
         '''
         if __debug__:
@@ -160,9 +160,9 @@ class ChronicleReferenceList(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.
         '''
         value = ChronicleReferenceListTimeouts(
             create=create, delete=delete, update=update
@@ -420,15 +420,15 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Required. A user-provided description of the reference list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
-        :param reference_list_id: Required. The ID to use for the reference list. This is also the display name for the reference list. It must satisfy the following requirements: - Starts with letter. - Contains only letters, numbers and underscore. - Has length < 256. - Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
-        :param syntax_type: Possible values: REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING REFERENCE_LIST_SYNTAX_TYPE_REGEX REFERENCE_LIST_SYNTAX_TYPE_CIDR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
+        :param description: Required. A user-provided description of the reference list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
+        :param reference_list_id: Required. The ID to use for the reference list. This is also the display name for the reference list. It must satisfy the following requirements: - Starts with letter. - Contains only letters, numbers and underscore. - Has length < 256. - Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
+        :param syntax_type: Possible values: REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING REFERENCE_LIST_SYNTAX_TYPE_REGEX REFERENCE_LIST_SYNTAX_TYPE_CIDR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -549,7 +549,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''Required. A user-provided description of the reference list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#description ChronicleReferenceList#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -561,7 +561,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChronicleReferenceListEntries"]]:
         '''entries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#entries ChronicleReferenceList#entries}
         '''
         result = self._values.get("entries")
         assert result is not None, "Required property 'entries' is missing"
@@ -571,7 +571,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The unique identifier for the Chronicle instance, which is the same as the customer ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#instance ChronicleReferenceList#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -583,7 +583,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#location ChronicleReferenceList#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -601,7 +601,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - Has length < 256.
         - Must be unique.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#reference_list_id ChronicleReferenceList#reference_list_id}
         '''
         result = self._values.get("reference_list_id")
         assert result is not None, "Required property 'reference_list_id' is missing"
@@ -611,7 +611,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def syntax_type(self) -> builtins.str:
         '''Possible values: REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING REFERENCE_LIST_SYNTAX_TYPE_REGEX REFERENCE_LIST_SYNTAX_TYPE_CIDR.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#syntax_type ChronicleReferenceList#syntax_type}
         '''
         result = self._values.get("syntax_type")
         assert result is not None, "Required property 'syntax_type' is missing"
@@ -619,7 +619,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#id ChronicleReferenceList#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -629,7 +629,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#project ChronicleReferenceList#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -637,7 +637,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ChronicleReferenceListTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#timeouts ChronicleReferenceList#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ChronicleReferenceListTimeouts"], result)
@@ -662,7 +662,7 @@ class ChronicleReferenceListConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ChronicleReferenceListEntries:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Required. The value of the entry. Maximum length is 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#value ChronicleReferenceList#value}
+        :param value: Required. The value of the entry. Maximum length is 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#value ChronicleReferenceList#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dad173112742218f3a9b6a1ffb50d0d4ba82881ef4efdb09fa9fba3a1eeee504)
@@ -675,7 +675,7 @@ class ChronicleReferenceListEntries:
     def value(self) -> builtins.str:
         '''Required. The value of the entry. Maximum length is 512 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#value ChronicleReferenceList#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#value ChronicleReferenceList#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1150,9 +1150,9 @@ class ChronicleReferenceListTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__190787f6a3ce92aa2f937438348e775adf4cb0d1e1cb0e7f9d4f01e4ff47e715)
@@ -1169,19 +1169,19 @@ class ChronicleReferenceListTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#create ChronicleReferenceList#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#delete ChronicleReferenceList#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_reference_list#update ChronicleReferenceList#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

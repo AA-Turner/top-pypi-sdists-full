@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pytest-durations
-Version: 1.5.1
+Version: 1.5.2
 Summary: Pytest plugin reporting fixtures and test functions execution time.
 License: MIT
 Author: Oleg Blednov
@@ -108,6 +108,10 @@ $ pytest tests
 ```
 
 ## Change Log
+
+### 1.5.2 (Apr 29, 2025)
+
+* Fix a time-machine time.monotonic() unpatching glitch by using time.time() instead (#19)
 
 ### 1.5.1 (Apr 27, 2025)
 

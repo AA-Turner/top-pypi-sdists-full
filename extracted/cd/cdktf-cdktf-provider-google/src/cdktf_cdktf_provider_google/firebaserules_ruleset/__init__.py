@@ -1,7 +1,7 @@
 r'''
 # `google_firebaserules_ruleset`
 
-Refer to the Terraform Registry for docs: [`google_firebaserules_ruleset`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset).
+Refer to the Terraform Registry for docs: [`google_firebaserules_ruleset`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirebaserulesRuleset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firebaserulesRuleset.FirebaserulesRuleset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset google_firebaserules_ruleset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset google_firebaserules_ruleset}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class FirebaserulesRuleset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset google_firebaserules_ruleset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset google_firebaserules_ruleset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class FirebaserulesRuleset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirebaserulesRuleset to import.
-        :param import_from_id: The id of the existing FirebaserulesRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirebaserulesRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirebaserulesRuleset to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class FirebaserulesRuleset(
         language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
-        :param language: ``Language`` of the ``Source`` bundle. If unspecified, the language will default to ``FIREBASE_RULES``. Possible values: LANGUAGE_UNSPECIFIED, FIREBASE_RULES, EVENT_FLOW_TRIGGERS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
+        :param language: ``Language`` of the ``Source`` bundle. If unspecified, the language will default to ``FIREBASE_RULES``. Possible values: LANGUAGE_UNSPECIFIED, FIREBASE_RULES, EVENT_FLOW_TRIGGERS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
         '''
         value = FirebaserulesRulesetSource(files=files, language=language)
 
@@ -146,8 +146,8 @@ class FirebaserulesRuleset(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.
         '''
         value = FirebaserulesRulesetTimeouts(create=create, delete=delete)
 
@@ -291,10 +291,10 @@ class FirebaserulesRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -407,7 +407,7 @@ class FirebaserulesRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "FirebaserulesRulesetSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#source FirebaserulesRuleset#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -415,7 +415,7 @@ class FirebaserulesRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#id FirebaserulesRuleset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -427,7 +427,7 @@ class FirebaserulesRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#project FirebaserulesRuleset#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -436,7 +436,7 @@ class FirebaserulesRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirebaserulesRulesetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#timeouts FirebaserulesRuleset#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirebaserulesRulesetTimeouts"], result)
@@ -607,8 +607,8 @@ class FirebaserulesRulesetSource:
         language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
-        :param language: ``Language`` of the ``Source`` bundle. If unspecified, the language will default to ``FIREBASE_RULES``. Possible values: LANGUAGE_UNSPECIFIED, FIREBASE_RULES, EVENT_FLOW_TRIGGERS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
+        :param language: ``Language`` of the ``Source`` bundle. If unspecified, the language will default to ``FIREBASE_RULES``. Possible values: LANGUAGE_UNSPECIFIED, FIREBASE_RULES, EVENT_FLOW_TRIGGERS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0326f8a8af034173b7763ee8d6a260b9c5e94d68e6e1832fee2d4882774c415c)
@@ -626,7 +626,7 @@ class FirebaserulesRulesetSource:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirebaserulesRulesetSourceFiles"]]:
         '''files block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#files FirebaserulesRuleset#files}
         '''
         result = self._values.get("files")
         assert result is not None, "Required property 'files' is missing"
@@ -636,7 +636,7 @@ class FirebaserulesRulesetSource:
     def language(self) -> typing.Optional[builtins.str]:
         '''``Language`` of the ``Source`` bundle. If unspecified, the language will default to ``FIREBASE_RULES``. Possible values: LANGUAGE_UNSPECIFIED, FIREBASE_RULES, EVENT_FLOW_TRIGGERS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#language FirebaserulesRuleset#language}
         '''
         result = self._values.get("language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -667,9 +667,9 @@ class FirebaserulesRulesetSourceFiles:
         fingerprint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Textual Content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#content FirebaserulesRuleset#content}
-        :param name: File name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#name FirebaserulesRuleset#name}
-        :param fingerprint: Fingerprint (e.g. github sha) associated with the ``File``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#fingerprint FirebaserulesRuleset#fingerprint}
+        :param content: Textual Content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#content FirebaserulesRuleset#content}
+        :param name: File name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#name FirebaserulesRuleset#name}
+        :param fingerprint: Fingerprint (e.g. github sha) associated with the ``File``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#fingerprint FirebaserulesRuleset#fingerprint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c20dd321c73a8250bd1156d97e8ed1a3cb693a5fb896ca4212cd76a63f39eb72)
@@ -687,7 +687,7 @@ class FirebaserulesRulesetSourceFiles:
     def content(self) -> builtins.str:
         '''Textual Content.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#content FirebaserulesRuleset#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#content FirebaserulesRuleset#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -697,7 +697,7 @@ class FirebaserulesRulesetSourceFiles:
     def name(self) -> builtins.str:
         '''File name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#name FirebaserulesRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#name FirebaserulesRuleset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -707,7 +707,7 @@ class FirebaserulesRulesetSourceFiles:
     def fingerprint(self) -> typing.Optional[builtins.str]:
         '''Fingerprint (e.g. github sha) associated with the ``File``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#fingerprint FirebaserulesRuleset#fingerprint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#fingerprint FirebaserulesRuleset#fingerprint}
         '''
         result = self._values.get("fingerprint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1011,8 +1011,8 @@ class FirebaserulesRulesetTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14d3be985c956ba904b049ecc5f9f94e73f7dfe34e0e44fde502f8c2ac252536)
@@ -1026,13 +1026,13 @@ class FirebaserulesRulesetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#create FirebaserulesRuleset#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_ruleset#delete FirebaserulesRuleset#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

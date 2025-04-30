@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uv
-Version: 0.6.17
+Version: 0.7.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -37,9 +37,9 @@ Project-URL: Discord, https://discord.gg/astral-sh
 # uv
 
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![image](https://img.shields.io/pypi/v/uv/0.6.17.svg)](https://pypi.python.org/pypi/uv)
-[![image](https://img.shields.io/pypi/l/uv/0.6.17.svg)](https://pypi.python.org/pypi/uv)
-[![image](https://img.shields.io/pypi/pyversions/uv/0.6.17.svg)](https://pypi.python.org/pypi/uv)
+[![image](https://img.shields.io/pypi/v/uv/0.7.0.svg)](https://pypi.python.org/pypi/uv)
+[![image](https://img.shields.io/pypi/l/uv/0.7.0.svg)](https://pypi.python.org/pypi/uv)
+[![image](https://img.shields.io/pypi/pyversions/uv/0.7.0.svg)](https://pypi.python.org/pypi/uv)
 [![Actions status](https://github.com/astral-sh/uv/actions/workflows/ci.yml/badge.svg)](https://github.com/astral-sh/uv/actions)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/astral-sh)
 
@@ -58,13 +58,13 @@ An extremely fast Python package and project manager, written in Rust.
 - 🚀 A single tool to replace `pip`, `pip-tools`, `pipx`, `poetry`, `pyenv`, `twine`, `virtualenv`,
   and more.
 - ⚡️ [10-100x faster](https://github.com/astral-sh/uv/blob/main/BENCHMARKS.md) than `pip`.
-- 🗂️ Provides [comprehensive project management](https://github.com/astral-sh/uv/blob/0.6.17/README.md#projects), with a
+- 🗂️ Provides [comprehensive project management](https://github.com/astral-sh/uv/blob/0.7.0/README.md#projects), with a
   [universal lockfile](https://docs.astral.sh/uv/concepts/projects/layout#the-lockfile).
-- ❇️ [Runs scripts](https://github.com/astral-sh/uv/blob/0.6.17/README.md#scripts), with support for
+- ❇️ [Runs scripts](https://github.com/astral-sh/uv/blob/0.7.0/README.md#scripts), with support for
   [inline dependency metadata](https://docs.astral.sh/uv/guides/scripts#declaring-script-dependencies).
-- 🐍 [Installs and manages](https://github.com/astral-sh/uv/blob/0.6.17/README.md#python-versions) Python versions.
-- 🛠️ [Runs and installs](https://github.com/astral-sh/uv/blob/0.6.17/README.md#tools) tools published as Python packages.
-- 🔩 Includes a [pip-compatible interface](https://github.com/astral-sh/uv/blob/0.6.17/README.md#the-pip-interface) for a performance boost with a
+- 🐍 [Installs and manages](https://github.com/astral-sh/uv/blob/0.7.0/README.md#python-versions) Python versions.
+- 🛠️ [Runs and installs](https://github.com/astral-sh/uv/blob/0.7.0/README.md#tools) tools published as Python packages.
+- 🔩 Includes a [pip-compatible interface](https://github.com/astral-sh/uv/blob/0.7.0/README.md#the-pip-interface) for a performance boost with a
   familiar CLI.
 - 🏢 Supports Cargo-style [workspaces](https://docs.astral.sh/uv/concepts/projects/workspaces) for
   scalable projects.
@@ -334,9 +334,9 @@ for Windows support.
 
 uv is licensed under either of
 
-- Apache License, Version 2.0, ([LICENSE-APACHE](https://github.com/astral-sh/uv/blob/0.6.17/LICENSE-APACHE) or
+- Apache License, Version 2.0, ([LICENSE-APACHE](https://github.com/astral-sh/uv/blob/0.7.0/LICENSE-APACHE) or
   <https://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](https://github.com/astral-sh/uv/blob/0.6.17/LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+- MIT license ([LICENSE-MIT](https://github.com/astral-sh/uv/blob/0.7.0/LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 at your option.
 

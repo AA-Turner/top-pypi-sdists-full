@@ -153,7 +153,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/add_catalog_lock.py.html>`__ to see an example of how to use add_catalog_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/add_catalog_lock.py.html>`__ to see an example of how to use add_catalog_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -262,7 +262,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/add_catalog_private_endpoint_lock.py.html>`__ to see an example of how to use add_catalog_private_endpoint_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/add_catalog_private_endpoint_lock.py.html>`__ to see an example of how to use add_catalog_private_endpoint_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -382,7 +382,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/add_data_selector_patterns.py.html>`__ to see an example of how to use add_data_selector_patterns API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/add_data_selector_patterns.py.html>`__ to see an example of how to use add_data_selector_patterns API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -495,7 +495,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/add_metastore_lock.py.html>`__ to see an example of how to use add_metastore_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/add_metastore_lock.py.html>`__ to see an example of how to use add_metastore_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -615,7 +615,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/associate_custom_property.py.html>`__ to see an example of how to use associate_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/associate_custom_property.py.html>`__ to see an example of how to use associate_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'typeKey']
@@ -737,7 +737,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/asynchronous_export_data_asset.py.html>`__ to see an example of how to use asynchronous_export_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/asynchronous_export_data_asset.py.html>`__ to see an example of how to use asynchronous_export_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'exportType']
@@ -866,7 +866,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/asynchronous_export_glossary.py.html>`__ to see an example of how to use asynchronous_export_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/asynchronous_export_glossary.py.html>`__ to see an example of how to use asynchronous_export_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -988,7 +988,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/attach_catalog_private_endpoint.py.html>`__ to see an example of how to use attach_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/attach_catalog_private_endpoint.py.html>`__ to see an example of how to use attach_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -1110,7 +1110,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/change_catalog_compartment.py.html>`__ to see an example of how to use change_catalog_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/change_catalog_compartment.py.html>`__ to see an example of how to use change_catalog_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -1229,7 +1229,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/change_catalog_private_endpoint_compartment.py.html>`__ to see an example of how to use change_catalog_private_endpoint_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/change_catalog_private_endpoint_compartment.py.html>`__ to see an example of how to use change_catalog_private_endpoint_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -1348,7 +1348,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/change_metastore_compartment.py.html>`__ to see an example of how to use change_metastore_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/change_metastore_compartment.py.html>`__ to see an example of how to use change_metastore_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -1470,7 +1470,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_attribute.py.html>`__ to see an example of how to use create_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_attribute.py.html>`__ to see an example of how to use create_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -1592,7 +1592,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_attribute_tag.py.html>`__ to see an example of how to use create_attribute_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_attribute_tag.py.html>`__ to see an example of how to use create_attribute_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey']
@@ -1704,7 +1704,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_catalog.py.html>`__ to see an example of how to use create_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_catalog.py.html>`__ to see an example of how to use create_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1798,7 +1798,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_catalog_private_endpoint.py.html>`__ to see an example of how to use create_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_catalog_private_endpoint.py.html>`__ to see an example of how to use create_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1898,7 +1898,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_connection.py.html>`__ to see an example of how to use create_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_connection.py.html>`__ to see an example of how to use create_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -2013,7 +2013,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_custom_property.py.html>`__ to see an example of how to use create_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_custom_property.py.html>`__ to see an example of how to use create_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId']
@@ -2125,7 +2125,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_data_asset.py.html>`__ to see an example of how to use create_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_data_asset.py.html>`__ to see an example of how to use create_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -2239,7 +2239,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_data_asset_tag.py.html>`__ to see an example of how to use create_data_asset_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_data_asset_tag.py.html>`__ to see an example of how to use create_data_asset_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -2354,7 +2354,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_entity.py.html>`__ to see an example of how to use create_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_entity.py.html>`__ to see an example of how to use create_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -2472,7 +2472,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_entity_tag.py.html>`__ to see an example of how to use create_entity_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_entity_tag.py.html>`__ to see an example of how to use create_entity_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -2588,7 +2588,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_folder.py.html>`__ to see an example of how to use create_folder API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_folder.py.html>`__ to see an example of how to use create_folder API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -2706,7 +2706,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_folder_tag.py.html>`__ to see an example of how to use create_folder_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_folder_tag.py.html>`__ to see an example of how to use create_folder_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey']
@@ -2819,7 +2819,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_glossary.py.html>`__ to see an example of how to use create_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_glossary.py.html>`__ to see an example of how to use create_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -2930,7 +2930,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_job.py.html>`__ to see an example of how to use create_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_job.py.html>`__ to see an example of how to use create_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -3041,7 +3041,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_job_definition.py.html>`__ to see an example of how to use create_job_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_job_definition.py.html>`__ to see an example of how to use create_job_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -3155,7 +3155,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_job_execution.py.html>`__ to see an example of how to use create_job_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_job_execution.py.html>`__ to see an example of how to use create_job_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey']
@@ -3264,7 +3264,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_metastore.py.html>`__ to see an example of how to use create_metastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_metastore.py.html>`__ to see an example of how to use create_metastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3361,7 +3361,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_namespace.py.html>`__ to see an example of how to use create_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_namespace.py.html>`__ to see an example of how to use create_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -3472,7 +3472,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_pattern.py.html>`__ to see an example of how to use create_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_pattern.py.html>`__ to see an example of how to use create_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -3586,7 +3586,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_term.py.html>`__ to see an example of how to use create_term API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_term.py.html>`__ to see an example of how to use create_term API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -3704,7 +3704,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/create_term_relationship.py.html>`__ to see an example of how to use create_term_relationship API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/create_term_relationship.py.html>`__ to see an example of how to use create_term_relationship API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey']
@@ -3823,7 +3823,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_attribute.py.html>`__ to see an example of how to use delete_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_attribute.py.html>`__ to see an example of how to use delete_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey']
@@ -3941,7 +3941,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_attribute_tag.py.html>`__ to see an example of how to use delete_attribute_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_attribute_tag.py.html>`__ to see an example of how to use delete_attribute_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey', 'tagKey']
@@ -4051,7 +4051,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_catalog.py.html>`__ to see an example of how to use delete_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_catalog.py.html>`__ to see an example of how to use delete_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -4165,7 +4165,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_catalog_private_endpoint.py.html>`__ to see an example of how to use delete_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_catalog_private_endpoint.py.html>`__ to see an example of how to use delete_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -4282,7 +4282,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_connection.py.html>`__ to see an example of how to use delete_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_connection.py.html>`__ to see an example of how to use delete_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'connectionKey']
@@ -4393,7 +4393,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_custom_property.py.html>`__ to see an example of how to use delete_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_custom_property.py.html>`__ to see an example of how to use delete_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId', 'customPropertyKey']
@@ -4501,7 +4501,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_data_asset.py.html>`__ to see an example of how to use delete_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_data_asset.py.html>`__ to see an example of how to use delete_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -4611,7 +4611,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_data_asset_tag.py.html>`__ to see an example of how to use delete_data_asset_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_data_asset_tag.py.html>`__ to see an example of how to use delete_data_asset_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'tagKey']
@@ -4722,7 +4722,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_entity.py.html>`__ to see an example of how to use delete_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_entity.py.html>`__ to see an example of how to use delete_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -4836,7 +4836,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_entity_tag.py.html>`__ to see an example of how to use delete_entity_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_entity_tag.py.html>`__ to see an example of how to use delete_entity_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'tagKey']
@@ -4948,7 +4948,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_folder.py.html>`__ to see an example of how to use delete_folder API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_folder.py.html>`__ to see an example of how to use delete_folder API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey']
@@ -5062,7 +5062,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_folder_tag.py.html>`__ to see an example of how to use delete_folder_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_folder_tag.py.html>`__ to see an example of how to use delete_folder_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey', 'tagKey']
@@ -5171,7 +5171,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_glossary.py.html>`__ to see an example of how to use delete_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_glossary.py.html>`__ to see an example of how to use delete_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -5278,7 +5278,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_job.py.html>`__ to see an example of how to use delete_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_job.py.html>`__ to see an example of how to use delete_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey']
@@ -5385,7 +5385,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_job_definition.py.html>`__ to see an example of how to use delete_job_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_job_definition.py.html>`__ to see an example of how to use delete_job_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobDefinitionKey']
@@ -5492,7 +5492,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_metastore.py.html>`__ to see an example of how to use delete_metastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_metastore.py.html>`__ to see an example of how to use delete_metastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -5606,7 +5606,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_namespace.py.html>`__ to see an example of how to use delete_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_namespace.py.html>`__ to see an example of how to use delete_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId']
@@ -5713,7 +5713,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_pattern.py.html>`__ to see an example of how to use delete_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_pattern.py.html>`__ to see an example of how to use delete_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'patternKey']
@@ -5823,7 +5823,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_term.py.html>`__ to see an example of how to use delete_term API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_term.py.html>`__ to see an example of how to use delete_term API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey']
@@ -5937,7 +5937,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/delete_term_relationship.py.html>`__ to see an example of how to use delete_term_relationship API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/delete_term_relationship.py.html>`__ to see an example of how to use delete_term_relationship API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey', 'termRelationshipKey']
@@ -6049,7 +6049,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/detach_catalog_private_endpoint.py.html>`__ to see an example of how to use detach_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/detach_catalog_private_endpoint.py.html>`__ to see an example of how to use detach_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -6175,7 +6175,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/disassociate_custom_property.py.html>`__ to see an example of how to use disassociate_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/disassociate_custom_property.py.html>`__ to see an example of how to use disassociate_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'typeKey']
@@ -6289,7 +6289,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/expand_tree_for_glossary.py.html>`__ to see an example of how to use expand_tree_for_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/expand_tree_for_glossary.py.html>`__ to see an example of how to use expand_tree_for_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -6404,7 +6404,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/export_glossary.py.html>`__ to see an example of how to use export_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/export_glossary.py.html>`__ to see an example of how to use export_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -6534,7 +6534,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/fetch_entity_lineage.py.html>`__ to see an example of how to use fetch_entity_lineage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/fetch_entity_lineage.py.html>`__ to see an example of how to use fetch_entity_lineage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -6665,7 +6665,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_attribute.py.html>`__ to see an example of how to use get_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_attribute.py.html>`__ to see an example of how to use get_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey']
@@ -6801,7 +6801,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_attribute_tag.py.html>`__ to see an example of how to use get_attribute_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_attribute_tag.py.html>`__ to see an example of how to use get_attribute_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey', 'tagKey']
@@ -6919,7 +6919,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_catalog.py.html>`__ to see an example of how to use get_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_catalog.py.html>`__ to see an example of how to use get_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -7017,7 +7017,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_catalog_private_endpoint.py.html>`__ to see an example of how to use get_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_catalog_private_endpoint.py.html>`__ to see an example of how to use get_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -7126,7 +7126,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_connection.py.html>`__ to see an example of how to use get_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_connection.py.html>`__ to see an example of how to use get_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'connectionKey']
@@ -7253,7 +7253,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_custom_property.py.html>`__ to see an example of how to use get_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_custom_property.py.html>`__ to see an example of how to use get_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId', 'customPropertyKey']
@@ -7377,7 +7377,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_data_asset.py.html>`__ to see an example of how to use get_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_data_asset.py.html>`__ to see an example of how to use get_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -7503,7 +7503,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_data_asset_tag.py.html>`__ to see an example of how to use get_data_asset_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_data_asset_tag.py.html>`__ to see an example of how to use get_data_asset_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'tagKey']
@@ -7633,7 +7633,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_entity.py.html>`__ to see an example of how to use get_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_entity.py.html>`__ to see an example of how to use get_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -7765,7 +7765,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_entity_tag.py.html>`__ to see an example of how to use get_entity_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_entity_tag.py.html>`__ to see an example of how to use get_entity_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'tagKey']
@@ -7896,7 +7896,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_folder.py.html>`__ to see an example of how to use get_folder API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_folder.py.html>`__ to see an example of how to use get_folder API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey']
@@ -8028,7 +8028,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_folder_tag.py.html>`__ to see an example of how to use get_folder_tag API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_folder_tag.py.html>`__ to see an example of how to use get_folder_tag API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey', 'tagKey']
@@ -8153,7 +8153,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_glossary.py.html>`__ to see an example of how to use get_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_glossary.py.html>`__ to see an example of how to use get_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -8276,7 +8276,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_job.py.html>`__ to see an example of how to use get_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_job.py.html>`__ to see an example of how to use get_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey']
@@ -8399,7 +8399,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_job_definition.py.html>`__ to see an example of how to use get_job_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_job_definition.py.html>`__ to see an example of how to use get_job_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobDefinitionKey']
@@ -8525,7 +8525,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_job_execution.py.html>`__ to see an example of how to use get_job_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_job_execution.py.html>`__ to see an example of how to use get_job_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey', 'jobExecutionKey']
@@ -8655,7 +8655,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_job_log.py.html>`__ to see an example of how to use get_job_log API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_job_log.py.html>`__ to see an example of how to use get_job_log API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey', 'jobExecutionKey', 'jobLogKey']
@@ -8786,7 +8786,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_job_metrics.py.html>`__ to see an example of how to use get_job_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_job_metrics.py.html>`__ to see an example of how to use get_job_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey', 'jobExecutionKey', 'jobMetricsKey']
@@ -8903,7 +8903,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_metastore.py.html>`__ to see an example of how to use get_metastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_metastore.py.html>`__ to see an example of how to use get_metastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -9009,7 +9009,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_namespace.py.html>`__ to see an example of how to use get_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_namespace.py.html>`__ to see an example of how to use get_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId']
@@ -9132,7 +9132,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_pattern.py.html>`__ to see an example of how to use get_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_pattern.py.html>`__ to see an example of how to use get_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'patternKey']
@@ -9258,7 +9258,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_term.py.html>`__ to see an example of how to use get_term API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_term.py.html>`__ to see an example of how to use get_term API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey']
@@ -9388,7 +9388,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_term_relationship.py.html>`__ to see an example of how to use get_term_relationship API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_term_relationship.py.html>`__ to see an example of how to use get_term_relationship API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey', 'termRelationshipKey']
@@ -9513,7 +9513,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_type.py.html>`__ to see an example of how to use get_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_type.py.html>`__ to see an example of how to use get_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'typeKey']
@@ -9628,7 +9628,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -9746,7 +9746,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/import_connection.py.html>`__ to see an example of how to use import_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/import_connection.py.html>`__ to see an example of how to use import_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -9871,7 +9871,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/import_data_asset.py.html>`__ to see an example of how to use import_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/import_data_asset.py.html>`__ to see an example of how to use import_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'importType']
@@ -10005,7 +10005,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/import_glossary.py.html>`__ to see an example of how to use import_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/import_glossary.py.html>`__ to see an example of how to use import_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -10126,7 +10126,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/import_lineage.py.html>`__ to see an example of how to use import_lineage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/import_lineage.py.html>`__ to see an example of how to use import_lineage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -10265,7 +10265,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_aggregated_physical_entities.py.html>`__ to see an example of how to use list_aggregated_physical_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_aggregated_physical_entities.py.html>`__ to see an example of how to use list_aggregated_physical_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -10459,7 +10459,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_attribute_tags.py.html>`__ to see an example of how to use list_attribute_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_attribute_tags.py.html>`__ to see an example of how to use list_attribute_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey']
@@ -10709,7 +10709,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_attributes.py.html>`__ to see an example of how to use list_attributes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_attributes.py.html>`__ to see an example of how to use list_attributes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -10914,7 +10914,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_catalog_private_endpoints.py.html>`__ to see an example of how to use list_catalog_private_endpoints API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_catalog_private_endpoints.py.html>`__ to see an example of how to use list_catalog_private_endpoints API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -11064,7 +11064,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_catalogs.py.html>`__ to see an example of how to use list_catalogs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_catalogs.py.html>`__ to see an example of how to use list_catalogs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -11254,7 +11254,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_connections.py.html>`__ to see an example of how to use list_connections API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_connections.py.html>`__ to see an example of how to use list_connections API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -11481,7 +11481,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_custom_properties.py.html>`__ to see an example of how to use list_custom_properties API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_custom_properties.py.html>`__ to see an example of how to use list_custom_properties API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId']
@@ -11705,7 +11705,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_data_asset_tags.py.html>`__ to see an example of how to use list_data_asset_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_data_asset_tags.py.html>`__ to see an example of how to use list_data_asset_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -11917,7 +11917,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_data_assets.py.html>`__ to see an example of how to use list_data_assets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_data_assets.py.html>`__ to see an example of how to use list_data_assets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -12116,7 +12116,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_derived_logical_entities.py.html>`__ to see an example of how to use list_derived_logical_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_derived_logical_entities.py.html>`__ to see an example of how to use list_derived_logical_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'patternKey']
@@ -12352,7 +12352,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_entities.py.html>`__ to see an example of how to use list_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_entities.py.html>`__ to see an example of how to use list_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -12594,7 +12594,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_entity_tags.py.html>`__ to see an example of how to use list_entity_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_entity_tags.py.html>`__ to see an example of how to use list_entity_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -12800,7 +12800,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_folder_tags.py.html>`__ to see an example of how to use list_folder_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_folder_tags.py.html>`__ to see an example of how to use list_folder_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey']
@@ -13039,7 +13039,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_folders.py.html>`__ to see an example of how to use list_folders API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_folders.py.html>`__ to see an example of how to use list_folders API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -13270,7 +13270,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_glossaries.py.html>`__ to see an example of how to use list_glossaries API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_glossaries.py.html>`__ to see an example of how to use list_glossaries API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -13502,7 +13502,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_job_definitions.py.html>`__ to see an example of how to use list_job_definitions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_job_definitions.py.html>`__ to see an example of how to use list_job_definitions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -13773,7 +13773,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_job_executions.py.html>`__ to see an example of how to use list_job_executions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_job_executions.py.html>`__ to see an example of how to use list_job_executions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey']
@@ -14007,7 +14007,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_job_logs.py.html>`__ to see an example of how to use list_job_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_job_logs.py.html>`__ to see an example of how to use list_job_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey', 'jobExecutionKey']
@@ -14236,7 +14236,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_job_metrics.py.html>`__ to see an example of how to use list_job_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_job_metrics.py.html>`__ to see an example of how to use list_job_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey', 'jobExecutionKey']
@@ -14494,7 +14494,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_jobs.py.html>`__ to see an example of how to use list_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_jobs.py.html>`__ to see an example of how to use list_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -14711,7 +14711,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_metastores.py.html>`__ to see an example of how to use list_metastores API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_metastores.py.html>`__ to see an example of how to use list_metastores API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -14887,7 +14887,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -15094,7 +15094,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_patterns.py.html>`__ to see an example of how to use list_patterns API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_patterns.py.html>`__ to see an example of how to use list_patterns API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -15320,7 +15320,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_rules.py.html>`__ to see an example of how to use list_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_rules.py.html>`__ to see an example of how to use list_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -15533,7 +15533,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_tags.py.html>`__ to see an example of how to use list_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_tags.py.html>`__ to see an example of how to use list_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -15722,7 +15722,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_term_relationships.py.html>`__ to see an example of how to use list_term_relationships API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_term_relationships.py.html>`__ to see an example of how to use list_term_relationships API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey']
@@ -15924,7 +15924,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_terms.py.html>`__ to see an example of how to use list_terms API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_terms.py.html>`__ to see an example of how to use list_terms API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -16133,7 +16133,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_types.py.html>`__ to see an example of how to use list_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_types.py.html>`__ to see an example of how to use list_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -16306,7 +16306,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -16448,7 +16448,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -16580,7 +16580,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -16693,7 +16693,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/object_stats.py.html>`__ to see an example of how to use object_stats API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/object_stats.py.html>`__ to see an example of how to use object_stats API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -16835,7 +16835,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/parse_connection.py.html>`__ to see an example of how to use parse_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/parse_connection.py.html>`__ to see an example of how to use parse_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -16956,7 +16956,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/process_recommendation.py.html>`__ to see an example of how to use process_recommendation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/process_recommendation.py.html>`__ to see an example of how to use process_recommendation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -17076,7 +17076,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/recommendations.py.html>`__ to see an example of how to use recommendations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/recommendations.py.html>`__ to see an example of how to use recommendations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'recommendationType', 'sourceObjectKey', 'sourceObjectType']
@@ -17212,7 +17212,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/remove_catalog_lock.py.html>`__ to see an example of how to use remove_catalog_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/remove_catalog_lock.py.html>`__ to see an example of how to use remove_catalog_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -17321,7 +17321,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/remove_catalog_private_endpoint_lock.py.html>`__ to see an example of how to use remove_catalog_private_endpoint_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/remove_catalog_private_endpoint_lock.py.html>`__ to see an example of how to use remove_catalog_private_endpoint_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -17441,7 +17441,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/remove_data_selector_patterns.py.html>`__ to see an example of how to use remove_data_selector_patterns API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/remove_data_selector_patterns.py.html>`__ to see an example of how to use remove_data_selector_patterns API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -17554,7 +17554,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/remove_metastore_lock.py.html>`__ to see an example of how to use remove_metastore_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/remove_metastore_lock.py.html>`__ to see an example of how to use remove_metastore_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -17689,7 +17689,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/search_criteria.py.html>`__ to see an example of how to use search_criteria API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/search_criteria.py.html>`__ to see an example of how to use search_criteria API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -17844,7 +17844,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/suggest_matches.py.html>`__ to see an example of how to use suggest_matches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/suggest_matches.py.html>`__ to see an example of how to use suggest_matches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'inputText']
@@ -17971,7 +17971,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/synchronous_export_data_asset.py.html>`__ to see an example of how to use synchronous_export_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/synchronous_export_data_asset.py.html>`__ to see an example of how to use synchronous_export_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'exportType']
@@ -18100,7 +18100,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/test_connection.py.html>`__ to see an example of how to use test_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/test_connection.py.html>`__ to see an example of how to use test_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'connectionKey']
@@ -18222,7 +18222,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_attribute.py.html>`__ to see an example of how to use update_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_attribute.py.html>`__ to see an example of how to use update_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey', 'attributeKey']
@@ -18338,7 +18338,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_catalog.py.html>`__ to see an example of how to use update_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_catalog.py.html>`__ to see an example of how to use update_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -18459,7 +18459,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_catalog_private_endpoint.py.html>`__ to see an example of how to use update_catalog_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_catalog_private_endpoint.py.html>`__ to see an example of how to use update_catalog_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogPrivateEndpointId']
@@ -18581,7 +18581,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_connection.py.html>`__ to see an example of how to use update_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_connection.py.html>`__ to see an example of how to use update_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'connectionKey']
@@ -18699,7 +18699,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_custom_property.py.html>`__ to see an example of how to use update_custom_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_custom_property.py.html>`__ to see an example of how to use update_custom_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId', 'customPropertyKey']
@@ -18814,7 +18814,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_data_asset.py.html>`__ to see an example of how to use update_data_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_data_asset.py.html>`__ to see an example of how to use update_data_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -18931,7 +18931,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_entity.py.html>`__ to see an example of how to use update_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_entity.py.html>`__ to see an example of how to use update_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'entityKey']
@@ -19049,7 +19049,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_folder.py.html>`__ to see an example of how to use update_folder API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_folder.py.html>`__ to see an example of how to use update_folder API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'folderKey']
@@ -19164,7 +19164,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_glossary.py.html>`__ to see an example of how to use update_glossary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_glossary.py.html>`__ to see an example of how to use update_glossary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey']
@@ -19278,7 +19278,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_job.py.html>`__ to see an example of how to use update_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_job.py.html>`__ to see an example of how to use update_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobKey']
@@ -19392,7 +19392,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_job_definition.py.html>`__ to see an example of how to use update_job_definition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_job_definition.py.html>`__ to see an example of how to use update_job_definition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'jobDefinitionKey']
@@ -19506,7 +19506,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_metastore.py.html>`__ to see an example of how to use update_metastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_metastore.py.html>`__ to see an example of how to use update_metastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metastoreId']
@@ -19627,7 +19627,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_namespace.py.html>`__ to see an example of how to use update_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_namespace.py.html>`__ to see an example of how to use update_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'namespaceId']
@@ -19741,7 +19741,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_pattern.py.html>`__ to see an example of how to use update_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_pattern.py.html>`__ to see an example of how to use update_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'patternKey']
@@ -19858,7 +19858,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_term.py.html>`__ to see an example of how to use update_term API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_term.py.html>`__ to see an example of how to use update_term API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey']
@@ -19979,7 +19979,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/update_term_relationship.py.html>`__ to see an example of how to use update_term_relationship API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/update_term_relationship.py.html>`__ to see an example of how to use update_term_relationship API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'glossaryKey', 'termKey', 'termRelationshipKey']
@@ -20105,7 +20105,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/upload_credentials.py.html>`__ to see an example of how to use upload_credentials API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/upload_credentials.py.html>`__ to see an example of how to use upload_credentials API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey', 'connectionKey']
@@ -20226,7 +20226,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/users.py.html>`__ to see an example of how to use users API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/users.py.html>`__ to see an example of how to use users API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId']
@@ -20365,7 +20365,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/validate_connection.py.html>`__ to see an example of how to use validate_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/validate_connection.py.html>`__ to see an example of how to use validate_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'dataAssetKey']
@@ -20482,7 +20482,7 @@ class DataCatalogClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.2/datacatalog/validate_pattern.py.html>`__ to see an example of how to use validate_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/datacatalog/validate_pattern.py.html>`__ to see an example of how to use validate_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['catalogId', 'patternKey']

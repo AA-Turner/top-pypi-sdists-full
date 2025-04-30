@@ -1,7 +1,7 @@
 r'''
 # `google_biglake_database`
 
-Refer to the Terraform Registry for docs: [`google_biglake_database`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database).
+Refer to the Terraform Registry for docs: [`google_biglake_database`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BiglakeDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.biglakeDatabase.BiglakeDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database google_biglake_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database google_biglake_database}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class BiglakeDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database google_biglake_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database google_biglake_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param catalog: The parent catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
-        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
-        :param name: The name of the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#name BiglakeDatabase#name}
-        :param type: The database type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#type BiglakeDatabase#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#id BiglakeDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
+        :param catalog: The parent catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
+        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
+        :param name: The name of the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#name BiglakeDatabase#name}
+        :param type: The database type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#type BiglakeDatabase#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#id BiglakeDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class BiglakeDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BiglakeDatabase to import.
-        :param import_from_id: The id of the existing BiglakeDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BiglakeDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BiglakeDatabase to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class BiglakeDatabase(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param location_uri: Cloud Storage folder URI where the database data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
-        :param parameters: Stores user supplied Hive database parameters. An object containing a list of"key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
+        :param location_uri: Cloud Storage folder URI where the database data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
+        :param parameters: Stores user supplied Hive database parameters. An object containing a list of"key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
         '''
         value = BiglakeDatabaseHiveOptions(
             location_uri=location_uri, parameters=parameters
@@ -155,9 +155,9 @@ class BiglakeDatabase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#create BiglakeDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#update BiglakeDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#create BiglakeDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#update BiglakeDatabase#update}.
         '''
         value = BiglakeDatabaseTimeouts(create=create, delete=delete, update=update)
 
@@ -340,12 +340,12 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param catalog: The parent catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
-        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
-        :param name: The name of the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#name BiglakeDatabase#name}
-        :param type: The database type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#type BiglakeDatabase#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#id BiglakeDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
+        :param catalog: The parent catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
+        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
+        :param name: The name of the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#name BiglakeDatabase#name}
+        :param type: The database type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#type BiglakeDatabase#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#id BiglakeDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catalog(self) -> builtins.str:
         '''The parent catalog.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#catalog BiglakeDatabase#catalog}
         '''
         result = self._values.get("catalog")
         assert result is not None, "Required property 'catalog' is missing"
@@ -471,7 +471,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hive_options(self) -> "BiglakeDatabaseHiveOptions":
         '''hive_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#hive_options BiglakeDatabase#hive_options}
         '''
         result = self._values.get("hive_options")
         assert result is not None, "Required property 'hive_options' is missing"
@@ -481,7 +481,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#name BiglakeDatabase#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#name BiglakeDatabase#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -491,7 +491,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The database type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#type BiglakeDatabase#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#type BiglakeDatabase#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -499,7 +499,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#id BiglakeDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#id BiglakeDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -511,7 +511,7 @@ class BiglakeDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BiglakeDatabaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#timeouts BiglakeDatabase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BiglakeDatabaseTimeouts"], result)
@@ -541,8 +541,8 @@ class BiglakeDatabaseHiveOptions:
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param location_uri: Cloud Storage folder URI where the database data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
-        :param parameters: Stores user supplied Hive database parameters. An object containing a list of"key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
+        :param location_uri: Cloud Storage folder URI where the database data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
+        :param parameters: Stores user supplied Hive database parameters. An object containing a list of"key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41e2a313d6e4913a43bfcb269ebe8a6496320d186b6f0028666c51b6cab46b2c)
@@ -558,7 +558,7 @@ class BiglakeDatabaseHiveOptions:
     def location_uri(self) -> typing.Optional[builtins.str]:
         '''Cloud Storage folder URI where the database data is stored, starting with "gs://".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#location_uri BiglakeDatabase#location_uri}
         '''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -571,7 +571,7 @@ class BiglakeDatabaseHiveOptions:
         list of"key": value pairs.
         Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#parameters BiglakeDatabase#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -682,9 +682,9 @@ class BiglakeDatabaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#create BiglakeDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#update BiglakeDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#create BiglakeDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#update BiglakeDatabase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1fae5e0bf76e7b1b96e623f4b06402250c893af6f47bac41aa86e194ce1a004)
@@ -701,19 +701,19 @@ class BiglakeDatabaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#create BiglakeDatabase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#create BiglakeDatabase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#delete BiglakeDatabase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/biglake_database#update BiglakeDatabase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/biglake_database#update BiglakeDatabase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

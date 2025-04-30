@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pygitguardian
-Version: 1.20.0
+Version: 1.21.0
 Summary: Python Wrapper for GitGuardian's API -- Scan security policy breaks everywhere
 Keywords: api-client devsecops secrets-detection security-tools library gitguardian
 Author-Email: GitGuardian <support@gitguardian.com>

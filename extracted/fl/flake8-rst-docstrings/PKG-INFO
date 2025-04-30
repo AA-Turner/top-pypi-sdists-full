@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-rst-docstrings
-Version: 0.3.0
+Version: 0.3.1
 Summary: Python docstring reStructuredText (RST) validator for flake8
 Author: Peter J. A. Cock
 Maintainer-email: "Peter J. A. Cock" <p.j.a.cock@googlemail.com>
@@ -20,10 +20,16 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
-Provides-Extra: develop
 License-File: LICENSE.rst
+Requires-Dist: flake8>=3
+Requires-Dist: restructuredtext_lint
+Requires-Dist: pygments
+Provides-Extra: develop
+Requires-Dist: build; extra == "develop"
+Requires-Dist: twine; extra == "develop"
+Dynamic: license-file
 
 flake8-rst-docstrings
 =====================
@@ -37,7 +43,7 @@ flake8-rst-docstrings
 .. image:: https://results.pre-commit.ci/badge/github/peterjc/flake8-rst-docstrings/master.svg
    :target: https://results.pre-commit.ci/latest/github/peterjc/flake8-rst-docstrings/master
    :alt: pre-commit.ci status
-.. image:: https://img.shields.io/github/workflow/status/peterjc/flake8-rst-docstrings/test?logo=github-actions
+.. image:: https://img.shields.io/github/actions/workflow/status/peterjc/flake8-rst-docstrings/test.yml?logo=github-actions
    :alt: GitHub workflow status
    :target: https://github.com/peterjc/flake8-rst-docstrings/actions
 .. image:: https://img.shields.io/pypi/dm/flake8-rst-docstrings.svg
@@ -136,6 +142,7 @@ RST216 Multiple roles in interpreted text (both prefix and suffix present; only 
 RST217 Mismatch: both interpreted text role suffix and reference suffix.
 RST218 Literal block expected; none found.
 RST219 Inline substitution_reference start-string without end-string.
+RST220 
 RST299 Previously unseen warning, not yet assigned a unique code.
 ====== =======================================================================
 
@@ -154,7 +161,7 @@ RST307 Error in "XXX" directive:
 RST399 Previously unseen major error, not yet assigned a unique code.
 ====== =======================================================================
 
-Severe or critial error codes:
+Severe or critical error codes:
 
 ====== =======================================================================
 Code   Description
@@ -185,7 +192,7 @@ RST903 Failed to lint docstring
 Installation and usage
 ----------------------
 
-Python 3.7 or later now required. Earlier versions did support Python 2.7, use
+Python 3.8 or later now required. Earlier versions did support Python 2.7, use
 v0.0.14 if required.
 
 We recommend installing the plugin using pip, which handles the dependencies::
@@ -196,11 +203,6 @@ Alternatively, if you are using the Anaconda packaging system, the following
 command will install the plugin with its dependencies::
 
     $ conda install -c conda-forge flake8-rst-docstrings
-
-Developers may install the plugin from the git repository with optional
-dependencies::
-
-    $ pip install -e .[develop]
 
 The new validator should be automatically included when using ``flake8`` which
 may now report additional validation codes starting with ``RST`` (as defined
@@ -277,6 +279,8 @@ Version History
 ======= ========== ===========================================================
 Version Released   Changes
 ------- ---------- -----------------------------------------------------------
+v0.3.1  2025-04-29 - Adds ``RST220`` for redefined anonymous links.
+                   - Requires Python 3.8 or later (no code changes).
 v0.3.0  2022-11-16 - Replaced ``setup.py`` with ``pyproject.toml``.
 v0.2.7  2022-07-15 - Fix where function signature occurred in docstring body.
 v0.2.6  2022-06-07 - Configuration option to define additional substitutions
@@ -332,6 +336,16 @@ Developers
 ----------
 
 This plugin is on GitHub at https://github.com/peterjc/flake8-rst-docstrings
+
+Developers may install the plugin from the git repository with optional build
+dependencies::
+
+    $ pip install -e .[develop]
+
+For testing install `pytest` and run::
+
+    $ flake8 --select RST setup.py flake8_rst_docstrings.py
+    $ pytest --verbose
 
 To make a new release once tested locally and on TravisCI::
 

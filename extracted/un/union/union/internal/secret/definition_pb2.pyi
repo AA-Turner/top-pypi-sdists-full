@@ -9,6 +9,11 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SecretType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []
+    SECRET_TYPE_GENERIC: _ClassVar[SecretType]
+    SECRET_TYPE_IMAGE_PULL_SECRET: _ClassVar[SecretType]
+
 class OverallStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []
     UNSPECIFIED: _ClassVar[OverallStatus]
@@ -21,6 +26,8 @@ class SecretPresenceStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     UNKNOWN: _ClassVar[SecretPresenceStatus]
     MISSING: _ClassVar[SecretPresenceStatus]
     PRESENT: _ClassVar[SecretPresenceStatus]
+SECRET_TYPE_GENERIC: SecretType
+SECRET_TYPE_IMAGE_PULL_SECRET: SecretType
 UNSPECIFIED: OverallStatus
 PARTIALLY_PRESENT: OverallStatus
 FULLY_PRESENT: OverallStatus
@@ -30,12 +37,14 @@ MISSING: SecretPresenceStatus
 PRESENT: SecretPresenceStatus
 
 class SecretSpec(_message.Message):
-    __slots__ = ["string_value", "binary_value"]
+    __slots__ = ["string_value", "binary_value", "type"]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     BINARY_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
     string_value: str
     binary_value: bytes
-    def __init__(self, string_value: _Optional[str] = ..., binary_value: _Optional[bytes] = ...) -> None: ...
+    type: SecretType
+    def __init__(self, string_value: _Optional[str] = ..., binary_value: _Optional[bytes] = ..., type: _Optional[_Union[SecretType, str]] = ...) -> None: ...
 
 class SecretIdentifier(_message.Message):
     __slots__ = ["name", "organization", "domain", "project"]
@@ -50,12 +59,14 @@ class SecretIdentifier(_message.Message):
     def __init__(self, name: _Optional[str] = ..., organization: _Optional[str] = ..., domain: _Optional[str] = ..., project: _Optional[str] = ...) -> None: ...
 
 class SecretMetadata(_message.Message):
-    __slots__ = ["created_time", "secret_status"]
+    __slots__ = ["created_time", "secret_status", "type"]
     CREATED_TIME_FIELD_NUMBER: _ClassVar[int]
     SECRET_STATUS_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
     created_time: _timestamp_pb2.Timestamp
     secret_status: SecretStatus
-    def __init__(self, created_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., secret_status: _Optional[_Union[SecretStatus, _Mapping]] = ...) -> None: ...
+    type: SecretType
+    def __init__(self, created_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., secret_status: _Optional[_Union[SecretStatus, _Mapping]] = ..., type: _Optional[_Union[SecretType, str]] = ...) -> None: ...
 
 class SecretStatus(_message.Message):
     __slots__ = ["overall_status", "cluster_status"]

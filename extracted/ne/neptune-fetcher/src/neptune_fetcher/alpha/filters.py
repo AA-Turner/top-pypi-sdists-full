@@ -31,6 +31,12 @@ from neptune_fetcher.alpha.internal.retrieval import attribute_types as types
 __all__ = ["Filter", "AttributeFilter", "Attribute"]
 
 
+ATTRIBUTE_LITERAL = Literal[
+    "float", "int", "string", "bool", "datetime", "float_series", "string_set", "string_series", "file"
+]
+AGGREGATION_LITERAL = Literal["last", "min", "max", "average", "variance"]
+
+
 class BaseAttributeFilter(ABC):
     def __or__(self, other: "BaseAttributeFilter") -> "BaseAttributeFilter":
         return BaseAttributeFilter.any(self, other)
@@ -48,7 +54,8 @@ class AttributeFilter(BaseAttributeFilter):
     Args:
         name_eq (Union[str, list[str], None]): An attribute name or list of names to match exactly.
             If `None`, this filter is not applied.
-        type_in (list[Literal["float", "int", "string", "bool", "datetime", "float_series", "string_set"]]):
+        type_in (list[Literal["float", "int", "string", "bool", "datetime", "float_series", "string_set",
+        "string_series", "file"]]):
             A list of allowed attribute types. Defaults to all available types.
             For a reference, see: https://docs-beta.neptune.ai/attribute_types
         name_matches_all (Union[str, list[str], None]): A regular expression or list of expressions that the attribute
@@ -56,8 +63,9 @@ class AttributeFilter(BaseAttributeFilter):
         name_matches_none (Union[str, list[str], None]): A regular expression or list of expressions that the attribute
             names mustn't match. Attributes matching any of the regexes are excluded.
             If `None`, this filter is not applied.
-        aggregations (list[Literal["last", "min", "max", "average", "variance"]]): List of aggregation functions
-            to apply when fetching metrics of type FloatSeries. Defaults to ["last"].
+        aggregations (list[Literal["last", "min", "max", "average", "variance"]]): List of
+            aggregation functions to apply when fetching metrics of type FloatSeries or StringSeries.
+            Defaults to ["last"].
 
     Example:
 
@@ -77,12 +85,10 @@ class AttributeFilter(BaseAttributeFilter):
     """
 
     name_eq: Union[str, list[str], None] = None
-    type_in: list[Literal["float", "int", "string", "bool", "datetime", "float_series", "string_set"]] = field(
-        default_factory=lambda: list(types.ALL_TYPES)  # type: ignore
-    )
+    type_in: list[ATTRIBUTE_LITERAL] = field(default_factory=lambda: list(types.ALL_TYPES))  # type: ignore
     name_matches_all: Union[str, list[str], None] = None
     name_matches_none: Union[str, list[str], None] = None
-    aggregations: list[Literal["last", "min", "max", "average", "variance"]] = field(default_factory=lambda: ["last"])
+    aggregations: list[AGGREGATION_LITERAL] = field(default_factory=lambda: ["last"])
 
     def __post_init__(self) -> None:
         _validate_string_or_string_list(self.name_eq, "name_eq")
@@ -138,8 +144,8 @@ class Attribute:
     """
 
     name: str
-    aggregation: Optional[Literal["last", "min", "max", "average", "variance"]] = None
-    type: Optional[Literal["bool", "int", "float", "string", "datetime", "float_series", "string_set"]] = None
+    aggregation: Optional[AGGREGATION_LITERAL] = None
+    type: Optional[ATTRIBUTE_LITERAL] = None
 
     def __post_init__(self) -> None:
         _validate_allowed_value(self.aggregation, types.ALL_AGGREGATIONS, "aggregation")

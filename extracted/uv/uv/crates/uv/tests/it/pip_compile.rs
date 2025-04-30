@@ -16263,6 +16263,32 @@ fn compile_invalid_output_file() -> Result<()> {
 }
 
 #[test]
+fn pep_751_filename() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str("iniconfig")?;
+
+    uv_snapshot!(context.filters(), context
+        .pip_compile()
+        .arg("requirements.txt")
+        .arg("--universal")
+        .arg("--format")
+        .arg("pylock.toml")
+        .arg("-o")
+        .arg("test.toml"), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Expected the output filename to start with `pylock.` and end with `.toml` (e.g., `pylock.toml`, `pylock.dev.toml`); `test.toml` won't be recognized as a `pylock.toml` file in subsequent commands
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn pep_751_compile_registry_wheel() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -17296,6 +17322,40 @@ async fn index_has_no_requires_python() -> Result<()> {
 
     ----- stderr -----
     Resolved 1 package in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Disallow resolving to multiple different PyTorch indexes.
+#[test]
+fn incompatible_cuda() -> Result<()> {
+    let context = TestContext::new("3.11");
+    let requirements_in = context.temp_dir.child("requirements.in");
+    requirements_in.write_str(indoc! {r"
+        torch==2.6.0+cu126
+        torchvision==0.16.0+cu121
+    "})?;
+
+    uv_snapshot!(context
+        .pip_compile()
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER)
+        .env(EnvVars::UV_TORCH_BACKEND, "auto")
+        .env(EnvVars::UV_CUDA_DRIVER_VERSION, "525.60.13")
+        .arg("--preview")
+        .arg("requirements.in")
+        .arg("--python-platform")
+        .arg("x86_64-manylinux_2_28")
+        .arg("--python-version")
+        .arg("3.11"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because torchvision==0.16.0+cu121 depends on system:cuda==12.1 and torch==2.6.0+cu126 depends on system:cuda==12.6, we can conclude that torch==2.6.0+cu126 and torchvision==0.16.0+cu121 are incompatible.
+          And because you require torch==2.6.0+cu126 and torchvision==0.16.0+cu121, we can conclude that your requirements are unsatisfiable.
     ");
 
     Ok(())

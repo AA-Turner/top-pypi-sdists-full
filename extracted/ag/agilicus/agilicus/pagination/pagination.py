@@ -3,6 +3,14 @@ import inspect
 from typing import Callable
 
 
+def _make_empty_callback(page_callback):
+    return lambda page: page_callback()
+
+
+def _make_callback_with_page(page_callback):
+    return lambda page: page_callback(page)
+
+
 def get_many_entries(
     api_func: Callable,
     response_list_key,
@@ -27,16 +35,19 @@ def get_many_entries(
         kwargs[page_key] = ""
 
     retval = []
+    page_callback_wrapper = None
+    if page_callback:
+        page_callback_wrapper = _make_empty_callback(page_callback)
+
+        args = inspect.getfullargspec(page_callback)
+        if "page" in args.args or "page" in args.kwonlyargs:
+            page_callback_wrapper = _make_callback_with_page(page_callback)
 
     def apply_page(page):
         retval.extend(page)
-        if not page_callback:
-            return
-        if len(inspect.getfullargspec(page_callback).args) > 0:
-            page_callback(page=page)
-            return
 
-        page_callback()
+        if page_callback_wrapper:
+            page_callback_wrapper(page)
 
     list_resp = api_func(**kwargs)
     page_items = list_resp.get(response_list_key) or []

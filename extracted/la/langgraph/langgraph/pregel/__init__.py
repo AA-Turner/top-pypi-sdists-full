@@ -103,6 +103,7 @@ from langgraph.store.base import BaseStore
 from langgraph.types import (
     All,
     Checkpointer,
+    Interrupt,
     LoopProtocol,
     StateSnapshot,
     StateUpdate,
@@ -852,6 +853,7 @@ class Pregel(PregelProtocol):
                 created_at=None,
                 parent_config=None,
                 tasks=(),
+                interrupts=(),
             )
 
         # migrate checkpoint if needed
@@ -936,6 +938,12 @@ class Pregel(PregelProtocol):
                     next_tasks[tid].writes.append((k, v))
                 if tasks := [t for t in next_tasks.values() if t.writes]:
                     apply_writes(saved.checkpoint, channels, tasks, None)
+            tasks_with_writes = tasks_w_writes(
+                next_tasks.values(),
+                saved.pending_writes,
+                task_states,
+                self.stream_channels_asis,
+            )
             # assemble the state snapshot
             return StateSnapshot(
                 read_channels(channels, self.stream_channels_asis),
@@ -944,12 +952,8 @@ class Pregel(PregelProtocol):
                 saved.metadata,
                 saved.checkpoint["ts"],
                 patch_checkpoint_map(saved.parent_config, saved.metadata),
-                tasks_w_writes(
-                    next_tasks.values(),
-                    saved.pending_writes,
-                    task_states,
-                    self.stream_channels_asis,
-                ),
+                tasks_with_writes,
+                tuple([i for task in tasks_with_writes for i in task.interrupts]),
             )
 
     async def _aprepare_state_snapshot(
@@ -968,6 +972,7 @@ class Pregel(PregelProtocol):
                 created_at=None,
                 parent_config=None,
                 tasks=(),
+                interrupts=(),
             )
 
         # migrate checkpoint if needed
@@ -1055,6 +1060,13 @@ class Pregel(PregelProtocol):
                     next_tasks[tid].writes.append((k, v))
                 if tasks := [t for t in next_tasks.values() if t.writes]:
                     apply_writes(saved.checkpoint, channels, tasks, None)
+
+            tasks_with_writes = tasks_w_writes(
+                next_tasks.values(),
+                saved.pending_writes,
+                task_states,
+                self.stream_channels_asis,
+            )
             # assemble the state snapshot
             return StateSnapshot(
                 read_channels(channels, self.stream_channels_asis),
@@ -1063,12 +1075,8 @@ class Pregel(PregelProtocol):
                 saved.metadata,
                 saved.checkpoint["ts"],
                 patch_checkpoint_map(saved.parent_config, saved.metadata),
-                tasks_w_writes(
-                    next_tasks.values(),
-                    saved.pending_writes,
-                    task_states,
-                    self.stream_channels_asis,
-                ),
+                tasks_with_writes,
+                tuple([i for task in tasks_with_writes for i in task.interrupts]),
             )
 
     def get_state(
@@ -2191,7 +2199,7 @@ class Pregel(PregelProtocol):
             stream_mode: The mode to stream output, defaults to self.stream_mode.
                 Options are:
 
-                - `"values"`: Emit all values in the state after each step.
+                - `"values"`: Emit all values in the state after each step, including interrupts.
                     When used with functional API, values are emitted once at the end of the workflow.
                 - `"updates"`: Emit only the node or task names and updates returned by the nodes or tasks after each step.
                     If multiple updates are made in the same step (e.g. multiple nodes are run) then those updates are emitted separately.
@@ -2478,7 +2486,7 @@ class Pregel(PregelProtocol):
             stream_mode: The mode to stream output, defaults to self.stream_mode.
                 Options are:
 
-                - `"values"`: Emit all values in the state after each step.
+                - `"values"`: Emit all values in the state after each step, including interrupts.
                     When used with functional API, values are emitted once at the end of the workflow.
                 - `"updates"`: Emit only the node or task names and updates returned by the nodes or tasks after each step.
                     If multiple updates are made in the same step (e.g. multiple nodes are run) then those updates are emitted separately.
@@ -2788,10 +2796,11 @@ class Pregel(PregelProtocol):
             If stream_mode is not "values", it returns a list of output chunks.
         """
         output_keys = output_keys if output_keys is not None else self.output_channels
-        if stream_mode == "values":
-            latest: dict[str, Any] | Any = None
-        else:
-            chunks = []
+
+        latest: Union[dict[str, Any], Any] = None
+        chunks: list[Union[dict[str, Any], Any]] = []
+        interrupts: list[Interrupt] = []
+
         for chunk in self.stream(
             input,
             config,
@@ -2804,10 +2813,23 @@ class Pregel(PregelProtocol):
             **kwargs,
         ):
             if stream_mode == "values":
-                latest = chunk
+                if (
+                    isinstance(chunk, dict)
+                    and (ints := chunk.get(INTERRUPT)) is not None
+                ):
+                    interrupts.extend(ints)
+                else:
+                    latest = chunk
             else:
                 chunks.append(chunk)
+
         if stream_mode == "values":
+            if interrupts:
+                return (
+                    {**latest, INTERRUPT: interrupts}
+                    if isinstance(latest, dict)
+                    else {INTERRUPT: interrupts}
+                )
             return latest
         else:
             return chunks
@@ -2843,10 +2865,11 @@ class Pregel(PregelProtocol):
         """
 
         output_keys = output_keys if output_keys is not None else self.output_channels
-        if stream_mode == "values":
-            latest: dict[str, Any] | Any = None
-        else:
-            chunks = []
+
+        latest: Union[dict[str, Any], Any] = None
+        chunks: list[Union[dict[str, Any], Any]] = []
+        interrupts: list[Interrupt] = []
+
         async for chunk in self.astream(
             input,
             config,
@@ -2859,10 +2882,23 @@ class Pregel(PregelProtocol):
             **kwargs,
         ):
             if stream_mode == "values":
-                latest = chunk
+                if (
+                    isinstance(chunk, dict)
+                    and (ints := chunk.get(INTERRUPT)) is not None
+                ):
+                    interrupts.extend(ints)
+                else:
+                    latest = chunk
             else:
                 chunks.append(chunk)
+
         if stream_mode == "values":
+            if interrupts:
+                return (
+                    {**latest, INTERRUPT: interrupts}
+                    if isinstance(latest, dict)
+                    else {INTERRUPT: interrupts}
+                )
             return latest
         else:
             return chunks

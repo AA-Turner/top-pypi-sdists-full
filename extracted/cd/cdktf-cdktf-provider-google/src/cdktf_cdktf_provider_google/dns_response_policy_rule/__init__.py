@@ -1,7 +1,7 @@
 r'''
 # `google_dns_response_policy_rule`
 
-Refer to the Terraform Registry for docs: [`google_dns_response_policy_rule`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule).
+Refer to the Terraform Registry for docs: [`google_dns_response_policy_rule`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DnsResponsePolicyRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dnsResponsePolicyRule.DnsResponsePolicyRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule google_dns_response_policy_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule google_dns_response_policy_rule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DnsResponsePolicyRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule google_dns_response_policy_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule google_dns_response_policy_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
-        :param response_policy: Identifies the response policy addressed by this request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
-        :param rule_name: An identifier for this rule. Must be unique with the ResponsePolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param local_data: local_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
+        :param dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
+        :param response_policy: Identifies the response policy addressed by this request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
+        :param rule_name: An identifier for this rule. Must be unique with the ResponsePolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param local_data: local_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DnsResponsePolicyRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DnsResponsePolicyRule to import.
-        :param import_from_id: The id of the existing DnsResponsePolicyRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DnsResponsePolicyRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DnsResponsePolicyRule to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class DnsResponsePolicyRule(
         local_datas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsResponsePolicyRuleLocalDataLocalDatas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param local_datas: local_datas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
+        :param local_datas: local_datas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
         '''
         value = DnsResponsePolicyRuleLocalData(local_datas=local_datas)
 
@@ -154,9 +154,9 @@ class DnsResponsePolicyRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.
         '''
         value = DnsResponsePolicyRuleTimeouts(
             create=create, delete=delete, update=update
@@ -348,13 +348,13 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
-        :param response_policy: Identifies the response policy addressed by this request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
-        :param rule_name: An identifier for this rule. Must be unique with the ResponsePolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param local_data: local_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
+        :param dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
+        :param response_policy: Identifies the response policy addressed by this request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
+        :param rule_name: An identifier for this rule. Must be unique with the ResponsePolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param local_data: local_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -474,7 +474,7 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns_name(self) -> builtins.str:
         '''The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#dns_name DnsResponsePolicyRule#dns_name}
         '''
         result = self._values.get("dns_name")
         assert result is not None, "Required property 'dns_name' is missing"
@@ -484,7 +484,7 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def response_policy(self) -> builtins.str:
         '''Identifies the response policy addressed by this request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#response_policy DnsResponsePolicyRule#response_policy}
         '''
         result = self._values.get("response_policy")
         assert result is not None, "Required property 'response_policy' is missing"
@@ -494,7 +494,7 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rule_name(self) -> builtins.str:
         '''An identifier for this rule. Must be unique with the ResponsePolicy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#rule_name DnsResponsePolicyRule#rule_name}
         '''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
@@ -502,7 +502,7 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#id DnsResponsePolicyRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -514,14 +514,14 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_data(self) -> typing.Optional["DnsResponsePolicyRuleLocalData"]:
         '''local_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_data DnsResponsePolicyRule#local_data}
         '''
         result = self._values.get("local_data")
         return typing.cast(typing.Optional["DnsResponsePolicyRuleLocalData"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#project DnsResponsePolicyRule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -529,7 +529,7 @@ class DnsResponsePolicyRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DnsResponsePolicyRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#timeouts DnsResponsePolicyRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DnsResponsePolicyRuleTimeouts"], result)
@@ -558,7 +558,7 @@ class DnsResponsePolicyRuleLocalData:
         local_datas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsResponsePolicyRuleLocalDataLocalDatas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param local_datas: local_datas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
+        :param local_datas: local_datas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21670a0bb8c2f4fd9b0413ed526478945dcb1a100f6f02120a339c45077debcd)
@@ -573,7 +573,7 @@ class DnsResponsePolicyRuleLocalData:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsResponsePolicyRuleLocalDataLocalDatas"]]:
         '''local_datas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#local_datas DnsResponsePolicyRule#local_datas}
         '''
         result = self._values.get("local_datas")
         assert result is not None, "Required property 'local_datas' is missing"
@@ -606,10 +606,10 @@ class DnsResponsePolicyRuleLocalDataLocalDatas:
         ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: For example, www.example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#name DnsResponsePolicyRule#name}
-        :param type: One of valid DNS resource types. Possible values: ["A", "AAAA", "CAA", "CNAME", "DNSKEY", "DS", "HTTPS", "IPSECVPNKEY", "MX", "NAPTR", "NS", "PTR", "SOA", "SPF", "SRV", "SSHFP", "SVCB", "TLSA", "TXT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#type DnsResponsePolicyRule#type}
-        :param rrdatas: As defined in RFC 1035 (section 5) and RFC 1034 (section 3.6.1). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#rrdatas DnsResponsePolicyRule#rrdatas}
-        :param ttl: Number of seconds that this ResourceRecordSet can be cached by resolvers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#ttl DnsResponsePolicyRule#ttl}
+        :param name: For example, www.example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#name DnsResponsePolicyRule#name}
+        :param type: One of valid DNS resource types. Possible values: ["A", "AAAA", "CAA", "CNAME", "DNSKEY", "DS", "HTTPS", "IPSECVPNKEY", "MX", "NAPTR", "NS", "PTR", "SOA", "SPF", "SRV", "SSHFP", "SVCB", "TLSA", "TXT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#type DnsResponsePolicyRule#type}
+        :param rrdatas: As defined in RFC 1035 (section 5) and RFC 1034 (section 3.6.1). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#rrdatas DnsResponsePolicyRule#rrdatas}
+        :param ttl: Number of seconds that this ResourceRecordSet can be cached by resolvers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#ttl DnsResponsePolicyRule#ttl}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd9477d3ce2343e86b79aa3c0a820613279c38a874ddadf1d45b114a3890738e)
@@ -630,7 +630,7 @@ class DnsResponsePolicyRuleLocalDataLocalDatas:
     def name(self) -> builtins.str:
         '''For example, www.example.com.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#name DnsResponsePolicyRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#name DnsResponsePolicyRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -642,7 +642,7 @@ class DnsResponsePolicyRuleLocalDataLocalDatas:
 
         Possible values: ["A", "AAAA", "CAA", "CNAME", "DNSKEY", "DS", "HTTPS", "IPSECVPNKEY", "MX", "NAPTR", "NS", "PTR", "SOA", "SPF", "SRV", "SSHFP", "SVCB", "TLSA", "TXT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#type DnsResponsePolicyRule#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#type DnsResponsePolicyRule#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -652,7 +652,7 @@ class DnsResponsePolicyRuleLocalDataLocalDatas:
     def rrdatas(self) -> typing.Optional[typing.List[builtins.str]]:
         '''As defined in RFC 1035 (section 5) and RFC 1034 (section 3.6.1).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#rrdatas DnsResponsePolicyRule#rrdatas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#rrdatas DnsResponsePolicyRule#rrdatas}
         '''
         result = self._values.get("rrdatas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -661,7 +661,7 @@ class DnsResponsePolicyRuleLocalDataLocalDatas:
     def ttl(self) -> typing.Optional[jsii.Number]:
         '''Number of seconds that this ResourceRecordSet can be cached by resolvers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#ttl DnsResponsePolicyRule#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#ttl DnsResponsePolicyRule#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -966,9 +966,9 @@ class DnsResponsePolicyRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__790935f8d5056f9260d4fbeff6111570ce2962ab9f29a7cfef9bce21c3260331)
@@ -985,19 +985,19 @@ class DnsResponsePolicyRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#create DnsResponsePolicyRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#delete DnsResponsePolicyRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_response_policy_rule#update DnsResponsePolicyRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

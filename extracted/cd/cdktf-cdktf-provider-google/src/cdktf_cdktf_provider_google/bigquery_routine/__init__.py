@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_routine`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_routine`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine).
+Refer to the Terraform Registry for docs: [`google_bigquery_routine`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigqueryRoutine(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigqueryRoutine.BigqueryRoutine",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine google_bigquery_routine}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine google_bigquery_routine}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class BigqueryRoutine(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine google_bigquery_routine} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine google_bigquery_routine} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset_id: The ID of the dataset containing this routine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
-        :param definition_body: The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
-        :param routine_id: The ID of the the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
-        :param routine_type: The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
-        :param arguments: arguments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
-        :param data_governance_type: If set to DATA_MASKING, the function is validated and made available as a masking function. For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask Possible values: ["DATA_MASKING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
-        :param description: The description of the routine if defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
-        :param determinism_level: The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param imported_libraries: Optional. If language = "JAVASCRIPT", this field stores the path of the imported JAVASCRIPT libraries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
-        :param language: The language of the routine. Possible values: ["SQL", "JAVASCRIPT", "PYTHON", "JAVA", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.
-        :param remote_function_options: remote_function_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
-        :param return_table_type: Optional. Can be set only if routineType = "TABLE_VALUED_FUNCTION". If absent, the return table type is inferred from definitionBody at query time in each query that references this routine. If present, then the columns in the evaluated table result will be cast to match the column types specificed in return table type, at query time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
-        :param return_type: A JSON schema for the return type. Optional if language = "SQL"; required otherwise. If absent, the return type is inferred from definitionBody at query time in each query that references this routine. If present, then the evaluated result will be cast to the specified returned type at query time. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switche d the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
-        :param spark_options: spark_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
+        :param dataset_id: The ID of the dataset containing this routine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
+        :param definition_body: The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
+        :param routine_id: The ID of the the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
+        :param routine_type: The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
+        :param arguments: arguments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
+        :param data_governance_type: If set to DATA_MASKING, the function is validated and made available as a masking function. For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask Possible values: ["DATA_MASKING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
+        :param description: The description of the routine if defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
+        :param determinism_level: The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param imported_libraries: Optional. If language = "JAVASCRIPT", this field stores the path of the imported JAVASCRIPT libraries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
+        :param language: The language of the routine. Possible values: ["SQL", "JAVASCRIPT", "PYTHON", "JAVA", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.
+        :param remote_function_options: remote_function_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
+        :param return_table_type: Optional. Can be set only if routineType = "TABLE_VALUED_FUNCTION". If absent, the return table type is inferred from definitionBody at query time in each query that references this routine. If present, then the columns in the evaluated table result will be cast to match the column types specificed in return table type, at query time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
+        :param return_type: A JSON schema for the return type. Optional if language = "SQL"; required otherwise. If absent, the return type is inferred from definitionBody at query time in each query that references this routine. If present, then the evaluated result will be cast to the specified returned type at query time. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switche d the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
+        :param spark_options: spark_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class BigqueryRoutine(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigqueryRoutine to import.
-        :param import_from_id: The id of the existing BigqueryRoutine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigqueryRoutine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigqueryRoutine to import is found.
         '''
         if __debug__:
@@ -185,10 +185,10 @@ class BigqueryRoutine(
         user_defined_context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param connection: Fully qualified name of the user-provided connection object which holds the authentication information to send requests to the remote service. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
-        :param endpoint: Endpoint of the user-provided remote service, e.g. 'https://us-east1-my_gcf_project.cloudfunctions.net/remote_add'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
-        :param max_batching_rows: Max number of rows in each batch sent to the remote service. If absent or if 0, BigQuery dynamically decides the number of rows in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
-        :param user_defined_context: User-defined context as a set of key/value pairs, which will be sent as function invocation context together with batched arguments in the requests to the remote service. The total number of bytes of keys and values must be less than 8KB. An object containing a list of "key": value pairs. Example: '{ "name": "wrench", "mass": "1.3kg", "count": "3" }'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
+        :param connection: Fully qualified name of the user-provided connection object which holds the authentication information to send requests to the remote service. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        :param endpoint: Endpoint of the user-provided remote service, e.g. 'https://us-east1-my_gcf_project.cloudfunctions.net/remote_add'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
+        :param max_batching_rows: Max number of rows in each batch sent to the remote service. If absent or if 0, BigQuery dynamically decides the number of rows in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
+        :param user_defined_context: User-defined context as a set of key/value pairs, which will be sent as function invocation context together with batched arguments in the requests to the remote service. The total number of bytes of keys and values must be less than 8KB. An object containing a list of "key": value pairs. Example: '{ "name": "wrench", "mass": "1.3kg", "count": "3" }'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
         '''
         value = BigqueryRoutineRemoteFunctionOptions(
             connection=connection,
@@ -215,16 +215,16 @@ class BigqueryRoutine(
         runtime_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: Archive files to be extracted into the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
-        :param connection: Fully qualified name of the user-provided Spark connection object. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
-        :param container_image: Custom container image for the runtime environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
-        :param file_uris: Files to be placed in the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
-        :param jar_uris: JARs to include on the driver and executor CLASSPATH. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
-        :param main_class: The fully qualified name of a class in jarUris, for example, com.example.wordcount. Exactly one of mainClass and main_jar_uri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
-        :param main_file_uri: The main file/jar URI of the Spark application. Exactly one of the definitionBody field and the mainFileUri field must be set for Python. Exactly one of mainClass and mainFileUri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
-        :param properties: Configuration properties as a set of key/value pairs, which will be passed on to the Spark application. For more information, see Apache Spark and the procedure option list. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
-        :param py_file_uris: Python files to be placed on the PYTHONPATH for PySpark application. Supported file types: .py, .egg, and .zip. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
-        :param runtime_version: Runtime version. If not specified, the default runtime version is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
+        :param archive_uris: Archive files to be extracted into the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
+        :param connection: Fully qualified name of the user-provided Spark connection object. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        :param container_image: Custom container image for the runtime environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
+        :param file_uris: Files to be placed in the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
+        :param jar_uris: JARs to include on the driver and executor CLASSPATH. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
+        :param main_class: The fully qualified name of a class in jarUris, for example, com.example.wordcount. Exactly one of mainClass and main_jar_uri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
+        :param main_file_uri: The main file/jar URI of the Spark application. Exactly one of the definitionBody field and the mainFileUri field must be set for Python. Exactly one of mainClass and mainFileUri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
+        :param properties: Configuration properties as a set of key/value pairs, which will be passed on to the Spark application. For more information, see Apache Spark and the procedure option list. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
+        :param py_file_uris: Python files to be placed on the PYTHONPATH for PySpark application. Supported file types: .py, .egg, and .zip. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
+        :param runtime_version: Runtime version. If not specified, the default runtime version is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
         '''
         value = BigqueryRoutineSparkOptions(
             archive_uris=archive_uris,
@@ -250,9 +250,9 @@ class BigqueryRoutine(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.
         '''
         value = BigqueryRoutineTimeouts(create=create, delete=delete, update=update)
 
@@ -623,10 +623,10 @@ class BigqueryRoutineArguments:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param argument_kind: Defaults to FIXED_TYPE. Default value: "FIXED_TYPE" Possible values: ["FIXED_TYPE", "ANY_TYPE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#argument_kind BigqueryRoutine#argument_kind}
-        :param data_type: A JSON schema for the data type. Required unless argumentKind = ANY_TYPE. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switched the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#data_type BigqueryRoutine#data_type}
-        :param mode: Specifies whether the argument is input or output. Can be set for procedures only. Possible values: ["IN", "OUT", "INOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#mode BigqueryRoutine#mode}
-        :param name: The name of this argument. Can be absent for function return argument. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#name BigqueryRoutine#name}
+        :param argument_kind: Defaults to FIXED_TYPE. Default value: "FIXED_TYPE" Possible values: ["FIXED_TYPE", "ANY_TYPE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#argument_kind BigqueryRoutine#argument_kind}
+        :param data_type: A JSON schema for the data type. Required unless argumentKind = ANY_TYPE. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switched the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#data_type BigqueryRoutine#data_type}
+        :param mode: Specifies whether the argument is input or output. Can be set for procedures only. Possible values: ["IN", "OUT", "INOUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#mode BigqueryRoutine#mode}
+        :param name: The name of this argument. Can be absent for function return argument. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#name BigqueryRoutine#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4093181fcf2153183e3c0bb280c5a75c627cf219dbf5a94805810747de6b863)
@@ -648,7 +648,7 @@ class BigqueryRoutineArguments:
     def argument_kind(self) -> typing.Optional[builtins.str]:
         '''Defaults to FIXED_TYPE. Default value: "FIXED_TYPE" Possible values: ["FIXED_TYPE", "ANY_TYPE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#argument_kind BigqueryRoutine#argument_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#argument_kind BigqueryRoutine#argument_kind}
         '''
         result = self._values.get("argument_kind")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -665,7 +665,7 @@ class BigqueryRoutineArguments:
         suppress the recurring diff this causes. As a workaround, we recommend using
         the schema as returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#data_type BigqueryRoutine#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#data_type BigqueryRoutine#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -674,7 +674,7 @@ class BigqueryRoutineArguments:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Specifies whether the argument is input or output. Can be set for procedures only. Possible values: ["IN", "OUT", "INOUT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#mode BigqueryRoutine#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#mode BigqueryRoutine#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -683,7 +683,7 @@ class BigqueryRoutineArguments:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of this argument. Can be absent for function return argument.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#name BigqueryRoutine#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#name BigqueryRoutine#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -985,23 +985,23 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset_id: The ID of the dataset containing this routine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
-        :param definition_body: The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
-        :param routine_id: The ID of the the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
-        :param routine_type: The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
-        :param arguments: arguments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
-        :param data_governance_type: If set to DATA_MASKING, the function is validated and made available as a masking function. For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask Possible values: ["DATA_MASKING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
-        :param description: The description of the routine if defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
-        :param determinism_level: The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param imported_libraries: Optional. If language = "JAVASCRIPT", this field stores the path of the imported JAVASCRIPT libraries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
-        :param language: The language of the routine. Possible values: ["SQL", "JAVASCRIPT", "PYTHON", "JAVA", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.
-        :param remote_function_options: remote_function_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
-        :param return_table_type: Optional. Can be set only if routineType = "TABLE_VALUED_FUNCTION". If absent, the return table type is inferred from definitionBody at query time in each query that references this routine. If present, then the columns in the evaluated table result will be cast to match the column types specificed in return table type, at query time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
-        :param return_type: A JSON schema for the return type. Optional if language = "SQL"; required otherwise. If absent, the return type is inferred from definitionBody at query time in each query that references this routine. If present, then the evaluated result will be cast to the specified returned type at query time. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switche d the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
-        :param spark_options: spark_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
+        :param dataset_id: The ID of the dataset containing this routine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
+        :param definition_body: The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
+        :param routine_id: The ID of the the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
+        :param routine_type: The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
+        :param arguments: arguments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
+        :param data_governance_type: If set to DATA_MASKING, the function is validated and made available as a masking function. For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask Possible values: ["DATA_MASKING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
+        :param description: The description of the routine if defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
+        :param determinism_level: The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param imported_libraries: Optional. If language = "JAVASCRIPT", this field stores the path of the imported JAVASCRIPT libraries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
+        :param language: The language of the routine. Possible values: ["SQL", "JAVASCRIPT", "PYTHON", "JAVA", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.
+        :param remote_function_options: remote_function_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
+        :param return_table_type: Optional. Can be set only if routineType = "TABLE_VALUED_FUNCTION". If absent, the return table type is inferred from definitionBody at query time in each query that references this routine. If present, then the columns in the evaluated table result will be cast to match the column types specificed in return table type, at query time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
+        :param return_type: A JSON schema for the return type. Optional if language = "SQL"; required otherwise. If absent, the return type is inferred from definitionBody at query time in each query that references this routine. If present, then the evaluated result will be cast to the specified returned type at query time. ~>**NOTE**: Because this field expects a JSON string, any changes to the string will create a diff, even if the JSON itself hasn't changed. If the API returns a different value for the same schema, e.g. it switche d the order of values or replaced STRUCT field type with RECORD field type, we currently cannot suppress the recurring diff this causes. As a workaround, we recommend using the schema as returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
+        :param spark_options: spark_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1152,7 +1152,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this routine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#dataset_id BigqueryRoutine#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1165,7 +1165,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For functions, this is the expression in the AS clause.
         If language=SQL, it is the substring inside (but excluding) the parentheses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#definition_body BigqueryRoutine#definition_body}
         '''
         result = self._values.get("definition_body")
         assert result is not None, "Required property 'definition_body' is missing"
@@ -1177,7 +1177,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_id BigqueryRoutine#routine_id}
         '''
         result = self._values.get("routine_id")
         assert result is not None, "Required property 'routine_id' is missing"
@@ -1187,7 +1187,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routine_type(self) -> builtins.str:
         '''The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#routine_type BigqueryRoutine#routine_type}
         '''
         result = self._values.get("routine_type")
         assert result is not None, "Required property 'routine_type' is missing"
@@ -1199,7 +1199,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigqueryRoutineArguments]]]:
         '''arguments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#arguments BigqueryRoutine#arguments}
         '''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigqueryRoutineArguments]]], result)
@@ -1210,7 +1210,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask Possible values: ["DATA_MASKING"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#data_governance_type BigqueryRoutine#data_governance_type}
         '''
         result = self._values.get("data_governance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1219,7 +1219,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the routine if defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#description BigqueryRoutine#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1228,14 +1228,14 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def determinism_level(self) -> typing.Optional[builtins.str]:
         '''The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#determinism_level BigqueryRoutine#determinism_level}
         '''
         result = self._values.get("determinism_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#id BigqueryRoutine#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1247,7 +1247,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def imported_libraries(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. If language = "JAVASCRIPT", this field stores the path of the imported JAVASCRIPT libraries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#imported_libraries BigqueryRoutine#imported_libraries}
         '''
         result = self._values.get("imported_libraries")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1256,14 +1256,14 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def language(self) -> typing.Optional[builtins.str]:
         '''The language of the routine. Possible values: ["SQL", "JAVASCRIPT", "PYTHON", "JAVA", "SCALA"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#language BigqueryRoutine#language}
         '''
         result = self._values.get("language")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#project BigqueryRoutine#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1273,7 +1273,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BigqueryRoutineRemoteFunctionOptions"]:
         '''remote_function_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#remote_function_options BigqueryRoutine#remote_function_options}
         '''
         result = self._values.get("remote_function_options")
         return typing.cast(typing.Optional["BigqueryRoutineRemoteFunctionOptions"], result)
@@ -1286,7 +1286,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         that references this routine. If present, then the columns in the evaluated table result will
         be cast to match the column types specificed in return table type, at query time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_table_type BigqueryRoutine#return_table_type}
         '''
         result = self._values.get("return_table_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1305,7 +1305,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         cannot suppress the recurring diff this causes. As a workaround, we recommend using
         the schema as returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#return_type BigqueryRoutine#return_type}
         '''
         result = self._values.get("return_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1314,7 +1314,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_options(self) -> typing.Optional["BigqueryRoutineSparkOptions"]:
         '''spark_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#spark_options BigqueryRoutine#spark_options}
         '''
         result = self._values.get("spark_options")
         return typing.cast(typing.Optional["BigqueryRoutineSparkOptions"], result)
@@ -1323,7 +1323,7 @@ class BigqueryRoutineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigqueryRoutineTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#timeouts BigqueryRoutine#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigqueryRoutineTimeouts"], result)
@@ -1360,10 +1360,10 @@ class BigqueryRoutineRemoteFunctionOptions:
         user_defined_context: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param connection: Fully qualified name of the user-provided connection object which holds the authentication information to send requests to the remote service. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
-        :param endpoint: Endpoint of the user-provided remote service, e.g. 'https://us-east1-my_gcf_project.cloudfunctions.net/remote_add'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
-        :param max_batching_rows: Max number of rows in each batch sent to the remote service. If absent or if 0, BigQuery dynamically decides the number of rows in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
-        :param user_defined_context: User-defined context as a set of key/value pairs, which will be sent as function invocation context together with batched arguments in the requests to the remote service. The total number of bytes of keys and values must be less than 8KB. An object containing a list of "key": value pairs. Example: '{ "name": "wrench", "mass": "1.3kg", "count": "3" }'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
+        :param connection: Fully qualified name of the user-provided connection object which holds the authentication information to send requests to the remote service. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        :param endpoint: Endpoint of the user-provided remote service, e.g. 'https://us-east1-my_gcf_project.cloudfunctions.net/remote_add'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
+        :param max_batching_rows: Max number of rows in each batch sent to the remote service. If absent or if 0, BigQuery dynamically decides the number of rows in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
+        :param user_defined_context: User-defined context as a set of key/value pairs, which will be sent as function invocation context together with batched arguments in the requests to the remote service. The total number of bytes of keys and values must be less than 8KB. An object containing a list of "key": value pairs. Example: '{ "name": "wrench", "mass": "1.3kg", "count": "3" }'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a5aa719c5a74b8831bb094e730d9f0b031b660c573a5419fba687eed274316c)
@@ -1387,7 +1387,7 @@ class BigqueryRoutineRemoteFunctionOptions:
 
         Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
         '''
         result = self._values.get("connection")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1396,7 +1396,7 @@ class BigqueryRoutineRemoteFunctionOptions:
     def endpoint(self) -> typing.Optional[builtins.str]:
         '''Endpoint of the user-provided remote service, e.g. 'https://us-east1-my_gcf_project.cloudfunctions.net/remote_add'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#endpoint BigqueryRoutine#endpoint}
         '''
         result = self._values.get("endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1408,7 +1408,7 @@ class BigqueryRoutineRemoteFunctionOptions:
         If absent or if 0,
         BigQuery dynamically decides the number of rows in a batch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#max_batching_rows BigqueryRoutine#max_batching_rows}
         '''
         result = self._values.get("max_batching_rows")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1424,7 +1424,7 @@ class BigqueryRoutineRemoteFunctionOptions:
         An object containing a list of "key": value pairs. Example:
         '{ "name": "wrench", "mass": "1.3kg", "count": "3" }'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#user_defined_context BigqueryRoutine#user_defined_context}
         '''
         result = self._values.get("user_defined_context")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1598,16 +1598,16 @@ class BigqueryRoutineSparkOptions:
         runtime_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: Archive files to be extracted into the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
-        :param connection: Fully qualified name of the user-provided Spark connection object. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
-        :param container_image: Custom container image for the runtime environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
-        :param file_uris: Files to be placed in the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
-        :param jar_uris: JARs to include on the driver and executor CLASSPATH. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
-        :param main_class: The fully qualified name of a class in jarUris, for example, com.example.wordcount. Exactly one of mainClass and main_jar_uri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
-        :param main_file_uri: The main file/jar URI of the Spark application. Exactly one of the definitionBody field and the mainFileUri field must be set for Python. Exactly one of mainClass and mainFileUri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
-        :param properties: Configuration properties as a set of key/value pairs, which will be passed on to the Spark application. For more information, see Apache Spark and the procedure option list. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
-        :param py_file_uris: Python files to be placed on the PYTHONPATH for PySpark application. Supported file types: .py, .egg, and .zip. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
-        :param runtime_version: Runtime version. If not specified, the default runtime version is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
+        :param archive_uris: Archive files to be extracted into the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
+        :param connection: Fully qualified name of the user-provided Spark connection object. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        :param container_image: Custom container image for the runtime environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
+        :param file_uris: Files to be placed in the working directory of each executor. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
+        :param jar_uris: JARs to include on the driver and executor CLASSPATH. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
+        :param main_class: The fully qualified name of a class in jarUris, for example, com.example.wordcount. Exactly one of mainClass and main_jar_uri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
+        :param main_file_uri: The main file/jar URI of the Spark application. Exactly one of the definitionBody field and the mainFileUri field must be set for Python. Exactly one of mainClass and mainFileUri field should be set for Java/Scala language type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
+        :param properties: Configuration properties as a set of key/value pairs, which will be passed on to the Spark application. For more information, see Apache Spark and the procedure option list. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
+        :param py_file_uris: Python files to be placed on the PYTHONPATH for PySpark application. Supported file types: .py, .egg, and .zip. For more information about Apache Spark, see Apache Spark. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
+        :param runtime_version: Runtime version. If not specified, the default runtime version is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b97d571d0bf6779e8d3ee4f1aee65931607c05686ede411c09f05b67e5ed0b7a)
@@ -1649,7 +1649,7 @@ class BigqueryRoutineSparkOptions:
 
         For more information about Apache Spark, see Apache Spark.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#archive_uris BigqueryRoutine#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1658,7 +1658,7 @@ class BigqueryRoutineSparkOptions:
     def connection(self) -> typing.Optional[builtins.str]:
         '''Fully qualified name of the user-provided Spark connection object. Format: "projects/{projectId}/locations/{locationId}/connections/{connectionId}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#connection BigqueryRoutine#connection}
         '''
         result = self._values.get("connection")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1667,7 +1667,7 @@ class BigqueryRoutineSparkOptions:
     def container_image(self) -> typing.Optional[builtins.str]:
         '''Custom container image for the runtime environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#container_image BigqueryRoutine#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1678,7 +1678,7 @@ class BigqueryRoutineSparkOptions:
 
         For more information about Apache Spark, see Apache Spark.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#file_uris BigqueryRoutine#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1687,7 +1687,7 @@ class BigqueryRoutineSparkOptions:
     def jar_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''JARs to include on the driver and executor CLASSPATH. For more information about Apache Spark, see Apache Spark.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#jar_uris BigqueryRoutine#jar_uris}
         '''
         result = self._values.get("jar_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1696,7 +1696,7 @@ class BigqueryRoutineSparkOptions:
     def main_class(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of a class in jarUris, for example, com.example.wordcount. Exactly one of mainClass and main_jar_uri field should be set for Java/Scala language type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_class BigqueryRoutine#main_class}
         '''
         result = self._values.get("main_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1708,7 +1708,7 @@ class BigqueryRoutineSparkOptions:
         Exactly one of the definitionBody field and the mainFileUri field must be set for Python.
         Exactly one of mainClass and mainFileUri field should be set for Java/Scala language type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#main_file_uri BigqueryRoutine#main_file_uri}
         '''
         result = self._values.get("main_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1720,7 +1720,7 @@ class BigqueryRoutineSparkOptions:
         For more information, see Apache Spark and the procedure option list.
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#properties BigqueryRoutine#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1731,7 +1731,7 @@ class BigqueryRoutineSparkOptions:
 
         Supported file types: .py, .egg, and .zip. For more information about Apache Spark, see Apache Spark.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#py_file_uris BigqueryRoutine#py_file_uris}
         '''
         result = self._values.get("py_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1740,7 +1740,7 @@ class BigqueryRoutineSparkOptions:
     def runtime_version(self) -> typing.Optional[builtins.str]:
         '''Runtime version. If not specified, the default runtime version is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#runtime_version BigqueryRoutine#runtime_version}
         '''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2019,9 +2019,9 @@ class BigqueryRoutineTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e618f69c17f3c34395c5961a6bb52fe58f02eb8a4f6aa4e15914d9aab1126b36)
@@ -2038,19 +2038,19 @@ class BigqueryRoutineTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#create BigqueryRoutine#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#delete BigqueryRoutine#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_routine#update BigqueryRoutine#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

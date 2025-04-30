@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2025.4.1
+Version: 2025.4.3
 Summary: 2-5X faster LLM finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: unsloth_zoo>=2025.4.1
+Requires-Dist: unsloth_zoo>=2025.4.2
 Requires-Dist: torch>=2.4.0
 Requires-Dist: xformers>=0.0.27.post2
 Requires-Dist: bitsandbytes
@@ -38,7 +38,7 @@ Requires-Dist: hf_transfer
 Requires-Dist: diffusers
 Requires-Dist: torchvision
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2025.4.1; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2025.4.2; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: tyro; extra == "huggingface"
 Requires-Dist: transformers!=4.47.0,>=4.46.1; extra == "huggingface"
@@ -216,7 +216,7 @@ Requires-Dist: bitsandbytes>=0.43.3; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2025.4.1; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2025.4.2; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.47.0,>=4.46.1; extra == "colab-new"
@@ -357,7 +357,7 @@ Dynamic: license-file
 <a href="https://discord.com/invite/unsloth"><img src="https://raw.githubusercontent.com/unslothai/unsloth/main/images/Discord button.png" height="48"></a>
 <a href="https://docs.unsloth.ai"><img src="https://raw.githubusercontent.com/unslothai/unsloth/refs/heads/main/images/Documentation%20Button.png" height="48"></a>
 
-### Finetune Llama 4, Gemma 3, Phi-4, Qwen 2.5 & Mistral 2x faster with 80% less VRAM!
+### Finetune Qwen3, Llama 4, Gemma 3, Phi-4 & Mistral 2x faster with 80% less VRAM!
 
 ![](https://i.ibb.co/sJ7RhGG/image-41.png)
 

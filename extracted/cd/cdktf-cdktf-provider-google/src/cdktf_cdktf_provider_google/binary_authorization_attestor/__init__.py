@@ -1,7 +1,7 @@
 r'''
 # `google_binary_authorization_attestor`
 
-Refer to the Terraform Registry for docs: [`google_binary_authorization_attestor`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor).
+Refer to the Terraform Registry for docs: [`google_binary_authorization_attestor`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BinaryAuthorizationAttestor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.binaryAuthorizationAttestor.BinaryAuthorizationAttestor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor google_binary_authorization_attestor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor google_binary_authorization_attestor}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class BinaryAuthorizationAttestor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor google_binary_authorization_attestor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor google_binary_authorization_attestor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param attestation_authority_note: attestation_authority_note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
-        :param name: The resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
-        :param description: A descriptive comment. This field may be updated. The field may be displayed in chooser dialogs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
+        :param attestation_authority_note: attestation_authority_note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
+        :param name: The resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
+        :param description: A descriptive comment. This field may be updated. The field may be displayed in chooser dialogs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class BinaryAuthorizationAttestor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BinaryAuthorizationAttestor to import.
-        :param import_from_id: The id of the existing BinaryAuthorizationAttestor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BinaryAuthorizationAttestor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BinaryAuthorizationAttestor to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class BinaryAuthorizationAttestor(
         public_keys: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param note_reference: The resource name of a ATTESTATION_AUTHORITY Note, created by the user. If the Note is in a different project from the Attestor, it should be specified in the format 'projects/* /notes/*' (or the legacy 'providers/* /notes/*'). This field may not be updated. An attestation by this attestor is stored as a Container Analysis ATTESTATION_AUTHORITY Occurrence that names a container image and that links to this Note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param public_keys: public_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
+        :param note_reference: The resource name of a ATTESTATION_AUTHORITY Note, created by the user. If the Note is in a different project from the Attestor, it should be specified in the format 'projects/* /notes/*' (or the legacy 'providers/* /notes/*'). This field may not be updated. An attestation by this attestor is stored as a Container Analysis ATTESTATION_AUTHORITY Occurrence that names a container image and that links to this Note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param public_keys: public_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
         '''
         value = BinaryAuthorizationAttestorAttestationAuthorityNote(
             note_reference=note_reference, public_keys=public_keys
@@ -155,9 +155,9 @@ class BinaryAuthorizationAttestor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.
         '''
         value = BinaryAuthorizationAttestorTimeouts(
             create=create, delete=delete, update=update
@@ -302,8 +302,8 @@ class BinaryAuthorizationAttestorAttestationAuthorityNote:
         public_keys: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param note_reference: The resource name of a ATTESTATION_AUTHORITY Note, created by the user. If the Note is in a different project from the Attestor, it should be specified in the format 'projects/* /notes/*' (or the legacy 'providers/* /notes/*'). This field may not be updated. An attestation by this attestor is stored as a Container Analysis ATTESTATION_AUTHORITY Occurrence that names a container image and that links to this Note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param public_keys: public_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
+        :param note_reference: The resource name of a ATTESTATION_AUTHORITY Note, created by the user. If the Note is in a different project from the Attestor, it should be specified in the format 'projects/* /notes/*' (or the legacy 'providers/* /notes/*'). This field may not be updated. An attestation by this attestor is stored as a Container Analysis ATTESTATION_AUTHORITY Occurrence that names a container image and that links to this Note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param public_keys: public_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41433a8229313046fa8a947407db85a03f371778a6e9482a5e00ce2e72347729)
@@ -326,7 +326,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNote:
         ATTESTATION_AUTHORITY Occurrence that names a container image
         and that links to this Note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#note_reference BinaryAuthorizationAttestor#note_reference}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -340,7 +340,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNote:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys"]]]:
         '''public_keys block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_keys BinaryAuthorizationAttestor#public_keys}
         '''
         result = self._values.get("public_keys")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys"]]], result)
@@ -468,10 +468,10 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys:
         pkix_public_key: typing.Optional[typing.Union["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ascii_armored_pgp_public_key: ASCII-armored representation of a PGP public key, as the entire output by the command 'gpg --export --armor foo@example.com' (either LF or CRLF line endings). When using this field, id should be left blank. The BinAuthz API handlers will calculate the ID and fill it in automatically. BinAuthz computes this ID as the OpenPGP RFC4880 V4 fingerprint, represented as upper-case hex. If id is provided by the caller, it will be overwritten by the API-calculated ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#ascii_armored_pgp_public_key BinaryAuthorizationAttestor#ascii_armored_pgp_public_key}
-        :param comment: A descriptive comment. This field may be updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#comment BinaryAuthorizationAttestor#comment}
-        :param id: The ID of this public key. Signatures verified by BinAuthz must include the ID of the public key that can be used to verify them, and that ID must match the contents of this field exactly. Additional restrictions on this field can be imposed based on which public key type is encapsulated. See the documentation on publicKey cases below for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pkix_public_key: pkix_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#pkix_public_key BinaryAuthorizationAttestor#pkix_public_key}
+        :param ascii_armored_pgp_public_key: ASCII-armored representation of a PGP public key, as the entire output by the command 'gpg --export --armor foo@example.com' (either LF or CRLF line endings). When using this field, id should be left blank. The BinAuthz API handlers will calculate the ID and fill it in automatically. BinAuthz computes this ID as the OpenPGP RFC4880 V4 fingerprint, represented as upper-case hex. If id is provided by the caller, it will be overwritten by the API-calculated ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#ascii_armored_pgp_public_key BinaryAuthorizationAttestor#ascii_armored_pgp_public_key}
+        :param comment: A descriptive comment. This field may be updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#comment BinaryAuthorizationAttestor#comment}
+        :param id: The ID of this public key. Signatures verified by BinAuthz must include the ID of the public key that can be used to verify them, and that ID must match the contents of this field exactly. Additional restrictions on this field can be imposed based on which public key type is encapsulated. See the documentation on publicKey cases below for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pkix_public_key: pkix_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#pkix_public_key BinaryAuthorizationAttestor#pkix_public_key}
         '''
         if isinstance(pkix_public_key, dict):
             pkix_public_key = BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey(**pkix_public_key)
@@ -495,7 +495,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys:
     def ascii_armored_pgp_public_key(self) -> typing.Optional[builtins.str]:
         '''ASCII-armored representation of a PGP public key, as the entire output by the command 'gpg --export --armor foo@example.com' (either LF or CRLF line endings). When using this field, id should be left blank. The BinAuthz API handlers will calculate the ID and fill it in automatically. BinAuthz computes this ID as the OpenPGP RFC4880 V4 fingerprint, represented as upper-case hex. If id is provided by the caller, it will be overwritten by the API-calculated ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#ascii_armored_pgp_public_key BinaryAuthorizationAttestor#ascii_armored_pgp_public_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#ascii_armored_pgp_public_key BinaryAuthorizationAttestor#ascii_armored_pgp_public_key}
         '''
         result = self._values.get("ascii_armored_pgp_public_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -504,7 +504,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys:
     def comment(self) -> typing.Optional[builtins.str]:
         '''A descriptive comment. This field may be updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#comment BinaryAuthorizationAttestor#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#comment BinaryAuthorizationAttestor#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -520,7 +520,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys:
         be imposed based on which public key type is encapsulated.
         See the documentation on publicKey cases below for details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -534,7 +534,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeys:
     ) -> typing.Optional["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey"]:
         '''pkix_public_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#pkix_public_key BinaryAuthorizationAttestor#pkix_public_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#pkix_public_key BinaryAuthorizationAttestor#pkix_public_key}
         '''
         result = self._values.get("pkix_public_key")
         return typing.cast(typing.Optional["BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey"], result)
@@ -678,8 +678,8 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysOutputReferen
         signature_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param public_key_pem: A PEM-encoded public key, as described in 'https://tools.ietf.org/html/rfc7468#section-13'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
-        :param signature_algorithm: The signature algorithm used to verify a message against a signature using this key. These signature algorithm must match the structure and any object identifiers encoded in publicKeyPem (i.e. this algorithm must match that of the public key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
+        :param public_key_pem: A PEM-encoded public key, as described in 'https://tools.ietf.org/html/rfc7468#section-13'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
+        :param signature_algorithm: The signature algorithm used to verify a message against a signature using this key. These signature algorithm must match the structure and any object identifiers encoded in publicKeyPem (i.e. this algorithm must match that of the public key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
         '''
         value = BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey(
             public_key_pem=public_key_pem, signature_algorithm=signature_algorithm
@@ -802,8 +802,8 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey
         signature_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param public_key_pem: A PEM-encoded public key, as described in 'https://tools.ietf.org/html/rfc7468#section-13'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
-        :param signature_algorithm: The signature algorithm used to verify a message against a signature using this key. These signature algorithm must match the structure and any object identifiers encoded in publicKeyPem (i.e. this algorithm must match that of the public key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
+        :param public_key_pem: A PEM-encoded public key, as described in 'https://tools.ietf.org/html/rfc7468#section-13'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
+        :param signature_algorithm: The signature algorithm used to verify a message against a signature using this key. These signature algorithm must match the structure and any object identifiers encoded in publicKeyPem (i.e. this algorithm must match that of the public key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae325955736f1711b3154cd3fb68bb7f8d3296324a6f0afa6d96fc95d979b451)
@@ -819,7 +819,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey
     def public_key_pem(self) -> typing.Optional[builtins.str]:
         '''A PEM-encoded public key, as described in 'https://tools.ietf.org/html/rfc7468#section-13'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#public_key_pem BinaryAuthorizationAttestor#public_key_pem}
         '''
         result = self._values.get("public_key_pem")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -833,7 +833,7 @@ class BinaryAuthorizationAttestorAttestationAuthorityNotePublicKeysPkixPublicKey
         publicKeyPem (i.e. this algorithm must match that of the
         public key).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#signature_algorithm BinaryAuthorizationAttestor#signature_algorithm}
         '''
         result = self._values.get("signature_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -975,12 +975,12 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param attestation_authority_note: attestation_authority_note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
-        :param name: The resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
-        :param description: A descriptive comment. This field may be updated. The field may be displayed in chooser dialogs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
+        :param attestation_authority_note: attestation_authority_note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
+        :param name: The resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
+        :param description: A descriptive comment. This field may be updated. The field may be displayed in chooser dialogs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1100,7 +1100,7 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> BinaryAuthorizationAttestorAttestationAuthorityNote:
         '''attestation_authority_note block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#attestation_authority_note BinaryAuthorizationAttestor#attestation_authority_note}
         '''
         result = self._values.get("attestation_authority_note")
         assert result is not None, "Required property 'attestation_authority_note' is missing"
@@ -1110,7 +1110,7 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#name BinaryAuthorizationAttestor#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1120,14 +1120,14 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A descriptive comment. This field may be updated. The field may be displayed in chooser dialogs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#description BinaryAuthorizationAttestor#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#id BinaryAuthorizationAttestor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1137,7 +1137,7 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#project BinaryAuthorizationAttestor#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1145,7 +1145,7 @@ class BinaryAuthorizationAttestorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BinaryAuthorizationAttestorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#timeouts BinaryAuthorizationAttestor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BinaryAuthorizationAttestorTimeouts"], result)
@@ -1176,9 +1176,9 @@ class BinaryAuthorizationAttestorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aba9bcaf8c63e9473aceae7724ae341a2b0768477eaa29919a4c52a9e66a9b34)
@@ -1195,19 +1195,19 @@ class BinaryAuthorizationAttestorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#create BinaryAuthorizationAttestor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#delete BinaryAuthorizationAttestor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor#update BinaryAuthorizationAttestor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

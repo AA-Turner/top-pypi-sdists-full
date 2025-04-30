@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`google`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs).
+Refer to the Terraform Registry for docs: [`google`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.provider.GoogleProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs google}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs google}.'''
 
     def __init__(
         self,
@@ -230,188 +230,188 @@ class GoogleProvider(
         workflows_custom_endpoint: typing.Optional[builtins.str] = None,
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs google} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs google} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_approval_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.
-        :param access_context_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_token GoogleProvider#access_token}.
-        :param active_directory_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.
-        :param add_terraform_attribution_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alias GoogleProvider#alias}
-        :param alloydb_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.
-        :param apigee_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.
-        :param apihub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.
-        :param apikeys_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.
-        :param app_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.
-        :param apphub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.
-        :param artifact_registry_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.
-        :param assured_workloads_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.
-        :param backup_dr_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.
-        :param batching: batching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#batching GoogleProvider#batching}
-        :param beyondcorp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.
-        :param biglake_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.
-        :param bigquery_analytics_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.
-        :param bigquery_connection_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.
-        :param big_query_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.
-        :param bigquery_datapolicy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.
-        :param bigquery_data_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.
-        :param bigquery_reservation_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.
-        :param bigtable_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.
-        :param billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.
-        :param billing_project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_project GoogleProvider#billing_project}.
-        :param binary_authorization_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.
-        :param blockchain_node_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.
-        :param certificate_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.
-        :param chronicle_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.
-        :param cloud_asset_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.
-        :param cloud_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.
-        :param cloud_build_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.
-        :param cloudbuildv2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.
-        :param cloud_build_worker_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.
-        :param clouddeploy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.
-        :param clouddomains_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.
-        :param cloudfunctions2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.
-        :param cloud_functions_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.
-        :param cloud_identity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.
-        :param cloud_ids_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.
-        :param cloud_quotas_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.
-        :param cloud_resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.
-        :param cloud_run_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.
-        :param cloud_run_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.
-        :param cloud_scheduler_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.
-        :param cloud_tasks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.
-        :param colab_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.
-        :param composer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.
-        :param compute_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.
-        :param container_analysis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.
-        :param container_attached_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.
-        :param container_aws_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.
-        :param container_azure_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.
-        :param container_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.
-        :param core_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.
-        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#credentials GoogleProvider#credentials}.
-        :param database_migration_service_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.
-        :param data_catalog_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.
-        :param dataflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.
-        :param data_fusion_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.
-        :param data_loss_prevention_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.
-        :param data_pipeline_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.
-        :param dataplex_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.
-        :param dataproc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.
-        :param dataproc_gdc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.
-        :param dataproc_metastore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.
-        :param datastream_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.
-        :param default_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#default_labels GoogleProvider#default_labels}.
-        :param deployment_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.
-        :param developer_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.
-        :param dialogflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.
-        :param dialogflow_cx_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.
-        :param discovery_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.
-        :param dns_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.
-        :param document_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.
-        :param document_ai_warehouse_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.
-        :param edgecontainer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.
-        :param edgenetwork_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.
-        :param essential_contacts_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.
-        :param eventarc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.
-        :param external_credentials: external_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#external_credentials GoogleProvider#external_credentials}
-        :param filestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.
-        :param firebase_app_check_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.
-        :param firebase_app_hosting_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.
-        :param firebase_data_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.
-        :param firebaserules_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.
-        :param firestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.
-        :param gemini_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.
-        :param gke_backup_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.
-        :param gke_hub2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.
-        :param gke_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.
-        :param gkehub_feature_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.
-        :param gkeonprem_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.
-        :param healthcare_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.
-        :param iam2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.
-        :param iam3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.
-        :param iam_beta_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.
-        :param iam_credentials_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.
-        :param iam_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.
-        :param iam_workforce_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.
-        :param iap_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.
-        :param identity_platform_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.
-        :param impersonate_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.
-        :param impersonate_service_account_delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.
-        :param integration_connectors_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.
-        :param integrations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.
-        :param kms_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.
-        :param logging_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.
-        :param looker_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.
-        :param lustre_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.
-        :param managed_kafka_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.
-        :param memcache_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.
-        :param memorystore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.
-        :param migration_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.
-        :param ml_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.
-        :param monitoring_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.
-        :param netapp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.
-        :param network_connectivity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.
-        :param network_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.
-        :param network_security_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.
-        :param network_services_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.
-        :param notebooks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.
-        :param oracle_database_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.
-        :param org_policy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.
-        :param os_config_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.
-        :param os_config_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.
-        :param os_login_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.
-        :param parallelstore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.
-        :param parameter_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.
-        :param parameter_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.
-        :param privateca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.
-        :param privileged_access_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#project GoogleProvider#project}.
-        :param public_ca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.
-        :param pubsub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.
-        :param pubsub_lite_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.
-        :param recaptcha_enterprise_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.
-        :param redis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#region GoogleProvider#region}.
-        :param request_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_reason GoogleProvider#request_reason}.
-        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_timeout GoogleProvider#request_timeout}.
-        :param resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.
-        :param resource_manager_v3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#scopes GoogleProvider#scopes}.
-        :param secret_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.
-        :param secret_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.
-        :param secure_source_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.
-        :param security_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.
-        :param security_center_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.
-        :param security_center_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.
-        :param securityposture_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.
-        :param service_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.
-        :param service_networking_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.
-        :param service_usage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.
-        :param site_verification_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.
-        :param source_repo_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.
-        :param spanner_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.
-        :param sql_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.
-        :param storage_batch_operations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.
-        :param storage_control_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.
-        :param storage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.
-        :param storage_insights_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.
-        :param storage_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.
-        :param tags_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.
-        :param tags_location_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.
-        :param terraform_attribution_label_addition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.
-        :param tpu_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.
-        :param transcoder_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.
-        :param universe_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#universe_domain GoogleProvider#universe_domain}.
-        :param user_project_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#user_project_override GoogleProvider#user_project_override}.
-        :param vertex_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.
-        :param vmwareengine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.
-        :param vpc_access_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.
-        :param workbench_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.
-        :param workflows_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.
-        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#zone GoogleProvider#zone}.
+        :param access_approval_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.
+        :param access_context_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_token GoogleProvider#access_token}.
+        :param active_directory_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.
+        :param add_terraform_attribution_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alias GoogleProvider#alias}
+        :param alloydb_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.
+        :param apigee_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.
+        :param apihub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.
+        :param apikeys_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.
+        :param app_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.
+        :param apphub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.
+        :param artifact_registry_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.
+        :param assured_workloads_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.
+        :param backup_dr_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.
+        :param batching: batching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#batching GoogleProvider#batching}
+        :param beyondcorp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.
+        :param biglake_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.
+        :param bigquery_analytics_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.
+        :param bigquery_connection_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.
+        :param big_query_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.
+        :param bigquery_datapolicy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.
+        :param bigquery_data_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.
+        :param bigquery_reservation_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.
+        :param bigtable_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.
+        :param billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.
+        :param billing_project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_project GoogleProvider#billing_project}.
+        :param binary_authorization_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.
+        :param blockchain_node_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.
+        :param certificate_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.
+        :param chronicle_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.
+        :param cloud_asset_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.
+        :param cloud_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.
+        :param cloud_build_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.
+        :param cloudbuildv2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.
+        :param cloud_build_worker_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.
+        :param clouddeploy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.
+        :param clouddomains_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.
+        :param cloudfunctions2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.
+        :param cloud_functions_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.
+        :param cloud_identity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.
+        :param cloud_ids_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.
+        :param cloud_quotas_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.
+        :param cloud_resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.
+        :param cloud_run_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.
+        :param cloud_run_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.
+        :param cloud_scheduler_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.
+        :param cloud_tasks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.
+        :param colab_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.
+        :param composer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.
+        :param compute_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.
+        :param container_analysis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.
+        :param container_attached_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.
+        :param container_aws_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.
+        :param container_azure_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.
+        :param container_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.
+        :param core_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.
+        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#credentials GoogleProvider#credentials}.
+        :param database_migration_service_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.
+        :param data_catalog_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.
+        :param dataflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.
+        :param data_fusion_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.
+        :param data_loss_prevention_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.
+        :param data_pipeline_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.
+        :param dataplex_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.
+        :param dataproc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.
+        :param dataproc_gdc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.
+        :param dataproc_metastore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.
+        :param datastream_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.
+        :param default_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#default_labels GoogleProvider#default_labels}.
+        :param deployment_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.
+        :param developer_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.
+        :param dialogflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.
+        :param dialogflow_cx_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.
+        :param discovery_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.
+        :param dns_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.
+        :param document_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.
+        :param document_ai_warehouse_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.
+        :param edgecontainer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.
+        :param edgenetwork_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.
+        :param essential_contacts_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.
+        :param eventarc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.
+        :param external_credentials: external_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#external_credentials GoogleProvider#external_credentials}
+        :param filestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.
+        :param firebase_app_check_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.
+        :param firebase_app_hosting_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.
+        :param firebase_data_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.
+        :param firebaserules_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.
+        :param firestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.
+        :param gemini_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.
+        :param gke_backup_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.
+        :param gke_hub2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.
+        :param gke_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.
+        :param gkehub_feature_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.
+        :param gkeonprem_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.
+        :param healthcare_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.
+        :param iam2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.
+        :param iam3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.
+        :param iam_beta_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.
+        :param iam_credentials_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.
+        :param iam_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.
+        :param iam_workforce_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.
+        :param iap_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.
+        :param identity_platform_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.
+        :param impersonate_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.
+        :param impersonate_service_account_delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.
+        :param integration_connectors_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.
+        :param integrations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.
+        :param kms_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.
+        :param logging_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.
+        :param looker_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.
+        :param lustre_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.
+        :param managed_kafka_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.
+        :param memcache_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.
+        :param memorystore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.
+        :param migration_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.
+        :param ml_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.
+        :param monitoring_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.
+        :param netapp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.
+        :param network_connectivity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.
+        :param network_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.
+        :param network_security_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.
+        :param network_services_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.
+        :param notebooks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.
+        :param oracle_database_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.
+        :param org_policy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.
+        :param os_config_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.
+        :param os_config_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.
+        :param os_login_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.
+        :param parallelstore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.
+        :param parameter_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.
+        :param parameter_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.
+        :param privateca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.
+        :param privileged_access_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#project GoogleProvider#project}.
+        :param public_ca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.
+        :param pubsub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.
+        :param pubsub_lite_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.
+        :param recaptcha_enterprise_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.
+        :param redis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#region GoogleProvider#region}.
+        :param request_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_reason GoogleProvider#request_reason}.
+        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_timeout GoogleProvider#request_timeout}.
+        :param resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.
+        :param resource_manager_v3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#scopes GoogleProvider#scopes}.
+        :param secret_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.
+        :param secret_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.
+        :param secure_source_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.
+        :param security_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.
+        :param security_center_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.
+        :param security_center_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.
+        :param securityposture_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.
+        :param service_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.
+        :param service_networking_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.
+        :param service_usage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.
+        :param site_verification_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.
+        :param source_repo_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.
+        :param spanner_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.
+        :param sql_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.
+        :param storage_batch_operations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.
+        :param storage_control_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.
+        :param storage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.
+        :param storage_insights_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.
+        :param storage_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.
+        :param tags_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.
+        :param tags_location_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.
+        :param terraform_attribution_label_addition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.
+        :param tpu_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.
+        :param transcoder_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.
+        :param universe_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#universe_domain GoogleProvider#universe_domain}.
+        :param user_project_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#user_project_override GoogleProvider#user_project_override}.
+        :param vertex_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.
+        :param vmwareengine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.
+        :param vpc_access_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.
+        :param workbench_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.
+        :param workflows_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.
+        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#zone GoogleProvider#zone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b9c9a462b0aa745ad035967b873d8ce6f7e44eb4d193e40fd943d1eb67b81e4)
@@ -613,7 +613,7 @@ class GoogleProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleProvider to import.
-        :param import_from_id: The id of the existing GoogleProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleProvider to import is found.
         '''
         if __debug__:
@@ -4750,8 +4750,8 @@ class GoogleProviderBatching:
         send_after: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_batching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#enable_batching GoogleProvider#enable_batching}.
-        :param send_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#send_after GoogleProvider#send_after}.
+        :param enable_batching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#enable_batching GoogleProvider#enable_batching}.
+        :param send_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#send_after GoogleProvider#send_after}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3956bddf410c41cab7d5dc93225b07c0b6a12cc9a13b463c21d4d2453de874f)
@@ -4767,13 +4767,13 @@ class GoogleProviderBatching:
     def enable_batching(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#enable_batching GoogleProvider#enable_batching}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#enable_batching GoogleProvider#enable_batching}.'''
         result = self._values.get("enable_batching")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def send_after(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#send_after GoogleProvider#send_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#send_after GoogleProvider#send_after}.'''
         result = self._values.get("send_after")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5157,184 +5157,184 @@ class GoogleProviderConfig:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_approval_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.
-        :param access_context_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_token GoogleProvider#access_token}.
-        :param active_directory_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.
-        :param add_terraform_attribution_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alias GoogleProvider#alias}
-        :param alloydb_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.
-        :param apigee_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.
-        :param apihub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.
-        :param apikeys_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.
-        :param app_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.
-        :param apphub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.
-        :param artifact_registry_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.
-        :param assured_workloads_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.
-        :param backup_dr_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.
-        :param batching: batching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#batching GoogleProvider#batching}
-        :param beyondcorp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.
-        :param biglake_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.
-        :param bigquery_analytics_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.
-        :param bigquery_connection_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.
-        :param big_query_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.
-        :param bigquery_datapolicy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.
-        :param bigquery_data_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.
-        :param bigquery_reservation_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.
-        :param bigtable_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.
-        :param billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.
-        :param billing_project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_project GoogleProvider#billing_project}.
-        :param binary_authorization_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.
-        :param blockchain_node_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.
-        :param certificate_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.
-        :param chronicle_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.
-        :param cloud_asset_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.
-        :param cloud_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.
-        :param cloud_build_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.
-        :param cloudbuildv2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.
-        :param cloud_build_worker_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.
-        :param clouddeploy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.
-        :param clouddomains_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.
-        :param cloudfunctions2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.
-        :param cloud_functions_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.
-        :param cloud_identity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.
-        :param cloud_ids_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.
-        :param cloud_quotas_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.
-        :param cloud_resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.
-        :param cloud_run_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.
-        :param cloud_run_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.
-        :param cloud_scheduler_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.
-        :param cloud_tasks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.
-        :param colab_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.
-        :param composer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.
-        :param compute_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.
-        :param container_analysis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.
-        :param container_attached_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.
-        :param container_aws_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.
-        :param container_azure_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.
-        :param container_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.
-        :param core_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.
-        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#credentials GoogleProvider#credentials}.
-        :param database_migration_service_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.
-        :param data_catalog_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.
-        :param dataflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.
-        :param data_fusion_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.
-        :param data_loss_prevention_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.
-        :param data_pipeline_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.
-        :param dataplex_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.
-        :param dataproc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.
-        :param dataproc_gdc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.
-        :param dataproc_metastore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.
-        :param datastream_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.
-        :param default_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#default_labels GoogleProvider#default_labels}.
-        :param deployment_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.
-        :param developer_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.
-        :param dialogflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.
-        :param dialogflow_cx_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.
-        :param discovery_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.
-        :param dns_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.
-        :param document_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.
-        :param document_ai_warehouse_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.
-        :param edgecontainer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.
-        :param edgenetwork_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.
-        :param essential_contacts_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.
-        :param eventarc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.
-        :param external_credentials: external_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#external_credentials GoogleProvider#external_credentials}
-        :param filestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.
-        :param firebase_app_check_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.
-        :param firebase_app_hosting_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.
-        :param firebase_data_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.
-        :param firebaserules_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.
-        :param firestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.
-        :param gemini_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.
-        :param gke_backup_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.
-        :param gke_hub2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.
-        :param gke_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.
-        :param gkehub_feature_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.
-        :param gkeonprem_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.
-        :param healthcare_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.
-        :param iam2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.
-        :param iam3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.
-        :param iam_beta_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.
-        :param iam_credentials_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.
-        :param iam_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.
-        :param iam_workforce_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.
-        :param iap_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.
-        :param identity_platform_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.
-        :param impersonate_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.
-        :param impersonate_service_account_delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.
-        :param integration_connectors_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.
-        :param integrations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.
-        :param kms_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.
-        :param logging_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.
-        :param looker_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.
-        :param lustre_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.
-        :param managed_kafka_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.
-        :param memcache_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.
-        :param memorystore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.
-        :param migration_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.
-        :param ml_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.
-        :param monitoring_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.
-        :param netapp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.
-        :param network_connectivity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.
-        :param network_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.
-        :param network_security_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.
-        :param network_services_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.
-        :param notebooks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.
-        :param oracle_database_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.
-        :param org_policy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.
-        :param os_config_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.
-        :param os_config_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.
-        :param os_login_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.
-        :param parallelstore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.
-        :param parameter_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.
-        :param parameter_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.
-        :param privateca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.
-        :param privileged_access_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#project GoogleProvider#project}.
-        :param public_ca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.
-        :param pubsub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.
-        :param pubsub_lite_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.
-        :param recaptcha_enterprise_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.
-        :param redis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#region GoogleProvider#region}.
-        :param request_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_reason GoogleProvider#request_reason}.
-        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_timeout GoogleProvider#request_timeout}.
-        :param resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.
-        :param resource_manager_v3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#scopes GoogleProvider#scopes}.
-        :param secret_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.
-        :param secret_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.
-        :param secure_source_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.
-        :param security_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.
-        :param security_center_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.
-        :param security_center_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.
-        :param securityposture_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.
-        :param service_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.
-        :param service_networking_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.
-        :param service_usage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.
-        :param site_verification_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.
-        :param source_repo_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.
-        :param spanner_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.
-        :param sql_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.
-        :param storage_batch_operations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.
-        :param storage_control_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.
-        :param storage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.
-        :param storage_insights_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.
-        :param storage_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.
-        :param tags_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.
-        :param tags_location_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.
-        :param terraform_attribution_label_addition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.
-        :param tpu_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.
-        :param transcoder_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.
-        :param universe_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#universe_domain GoogleProvider#universe_domain}.
-        :param user_project_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#user_project_override GoogleProvider#user_project_override}.
-        :param vertex_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.
-        :param vmwareengine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.
-        :param vpc_access_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.
-        :param workbench_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.
-        :param workflows_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.
-        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#zone GoogleProvider#zone}.
+        :param access_approval_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.
+        :param access_context_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_token GoogleProvider#access_token}.
+        :param active_directory_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.
+        :param add_terraform_attribution_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alias GoogleProvider#alias}
+        :param alloydb_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.
+        :param apigee_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.
+        :param apihub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.
+        :param apikeys_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.
+        :param app_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.
+        :param apphub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.
+        :param artifact_registry_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.
+        :param assured_workloads_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.
+        :param backup_dr_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.
+        :param batching: batching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#batching GoogleProvider#batching}
+        :param beyondcorp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.
+        :param biglake_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.
+        :param bigquery_analytics_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.
+        :param bigquery_connection_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.
+        :param big_query_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.
+        :param bigquery_datapolicy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.
+        :param bigquery_data_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.
+        :param bigquery_reservation_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.
+        :param bigtable_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.
+        :param billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.
+        :param billing_project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_project GoogleProvider#billing_project}.
+        :param binary_authorization_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.
+        :param blockchain_node_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.
+        :param certificate_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.
+        :param chronicle_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.
+        :param cloud_asset_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.
+        :param cloud_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.
+        :param cloud_build_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.
+        :param cloudbuildv2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.
+        :param cloud_build_worker_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.
+        :param clouddeploy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.
+        :param clouddomains_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.
+        :param cloudfunctions2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.
+        :param cloud_functions_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.
+        :param cloud_identity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.
+        :param cloud_ids_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.
+        :param cloud_quotas_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.
+        :param cloud_resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.
+        :param cloud_run_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.
+        :param cloud_run_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.
+        :param cloud_scheduler_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.
+        :param cloud_tasks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.
+        :param colab_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.
+        :param composer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.
+        :param compute_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.
+        :param container_analysis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.
+        :param container_attached_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.
+        :param container_aws_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.
+        :param container_azure_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.
+        :param container_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.
+        :param core_billing_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.
+        :param credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#credentials GoogleProvider#credentials}.
+        :param database_migration_service_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.
+        :param data_catalog_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.
+        :param dataflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.
+        :param data_fusion_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.
+        :param data_loss_prevention_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.
+        :param data_pipeline_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.
+        :param dataplex_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.
+        :param dataproc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.
+        :param dataproc_gdc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.
+        :param dataproc_metastore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.
+        :param datastream_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.
+        :param default_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#default_labels GoogleProvider#default_labels}.
+        :param deployment_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.
+        :param developer_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.
+        :param dialogflow_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.
+        :param dialogflow_cx_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.
+        :param discovery_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.
+        :param dns_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.
+        :param document_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.
+        :param document_ai_warehouse_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.
+        :param edgecontainer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.
+        :param edgenetwork_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.
+        :param essential_contacts_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.
+        :param eventarc_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.
+        :param external_credentials: external_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#external_credentials GoogleProvider#external_credentials}
+        :param filestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.
+        :param firebase_app_check_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.
+        :param firebase_app_hosting_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.
+        :param firebase_data_connect_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.
+        :param firebaserules_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.
+        :param firestore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.
+        :param gemini_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.
+        :param gke_backup_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.
+        :param gke_hub2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.
+        :param gke_hub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.
+        :param gkehub_feature_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.
+        :param gkeonprem_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.
+        :param healthcare_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.
+        :param iam2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.
+        :param iam3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.
+        :param iam_beta_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.
+        :param iam_credentials_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.
+        :param iam_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.
+        :param iam_workforce_pool_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.
+        :param iap_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.
+        :param identity_platform_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.
+        :param impersonate_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.
+        :param impersonate_service_account_delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.
+        :param integration_connectors_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.
+        :param integrations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.
+        :param kms_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.
+        :param logging_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.
+        :param looker_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.
+        :param lustre_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.
+        :param managed_kafka_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.
+        :param memcache_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.
+        :param memorystore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.
+        :param migration_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.
+        :param ml_engine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.
+        :param monitoring_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.
+        :param netapp_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.
+        :param network_connectivity_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.
+        :param network_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.
+        :param network_security_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.
+        :param network_services_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.
+        :param notebooks_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.
+        :param oracle_database_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.
+        :param org_policy_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.
+        :param os_config_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.
+        :param os_config_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.
+        :param os_login_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.
+        :param parallelstore_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.
+        :param parameter_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.
+        :param parameter_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.
+        :param privateca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.
+        :param privileged_access_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#project GoogleProvider#project}.
+        :param public_ca_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.
+        :param pubsub_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.
+        :param pubsub_lite_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.
+        :param recaptcha_enterprise_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.
+        :param redis_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#region GoogleProvider#region}.
+        :param request_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_reason GoogleProvider#request_reason}.
+        :param request_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_timeout GoogleProvider#request_timeout}.
+        :param resource_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.
+        :param resource_manager_v3_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#scopes GoogleProvider#scopes}.
+        :param secret_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.
+        :param secret_manager_regional_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.
+        :param secure_source_manager_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.
+        :param security_center_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.
+        :param security_center_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.
+        :param security_center_v2_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.
+        :param securityposture_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.
+        :param service_management_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.
+        :param service_networking_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.
+        :param service_usage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.
+        :param site_verification_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.
+        :param source_repo_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.
+        :param spanner_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.
+        :param sql_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.
+        :param storage_batch_operations_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.
+        :param storage_control_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.
+        :param storage_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.
+        :param storage_insights_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.
+        :param storage_transfer_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.
+        :param tags_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.
+        :param tags_location_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.
+        :param terraform_attribution_label_addition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.
+        :param tpu_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.
+        :param transcoder_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.
+        :param universe_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#universe_domain GoogleProvider#universe_domain}.
+        :param user_project_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#user_project_override GoogleProvider#user_project_override}.
+        :param vertex_ai_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.
+        :param vmwareengine_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.
+        :param vpc_access_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.
+        :param workbench_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.
+        :param workflows_custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.
+        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#zone GoogleProvider#zone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9129c5feceef1a0d065989f96f621f2f6ce8c9a329998493f7b7a7b6ff4f6f0)
@@ -5876,25 +5876,25 @@ class GoogleProviderConfig:
 
     @builtins.property
     def access_approval_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_approval_custom_endpoint GoogleProvider#access_approval_custom_endpoint}.'''
         result = self._values.get("access_approval_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def access_context_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_context_manager_custom_endpoint GoogleProvider#access_context_manager_custom_endpoint}.'''
         result = self._values.get("access_context_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#access_token GoogleProvider#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#access_token GoogleProvider#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def active_directory_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#active_directory_custom_endpoint GoogleProvider#active_directory_custom_endpoint}.'''
         result = self._values.get("active_directory_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5902,7 +5902,7 @@ class GoogleProviderConfig:
     def add_terraform_attribution_label(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#add_terraform_attribution_label GoogleProvider#add_terraform_attribution_label}.'''
         result = self._values.get("add_terraform_attribution_label")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5910,62 +5910,62 @@ class GoogleProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alias GoogleProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alias GoogleProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def alloydb_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#alloydb_custom_endpoint GoogleProvider#alloydb_custom_endpoint}.'''
         result = self._values.get("alloydb_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def apigee_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apigee_custom_endpoint GoogleProvider#apigee_custom_endpoint}.'''
         result = self._values.get("apigee_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def apihub_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apihub_custom_endpoint GoogleProvider#apihub_custom_endpoint}.'''
         result = self._values.get("apihub_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def apikeys_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apikeys_custom_endpoint GoogleProvider#apikeys_custom_endpoint}.'''
         result = self._values.get("apikeys_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def app_engine_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#app_engine_custom_endpoint GoogleProvider#app_engine_custom_endpoint}.'''
         result = self._values.get("app_engine_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def apphub_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#apphub_custom_endpoint GoogleProvider#apphub_custom_endpoint}.'''
         result = self._values.get("apphub_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def artifact_registry_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#artifact_registry_custom_endpoint GoogleProvider#artifact_registry_custom_endpoint}.'''
         result = self._values.get("artifact_registry_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def assured_workloads_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#assured_workloads_custom_endpoint GoogleProvider#assured_workloads_custom_endpoint}.'''
         result = self._values.get("assured_workloads_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def backup_dr_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#backup_dr_custom_endpoint GoogleProvider#backup_dr_custom_endpoint}.'''
         result = self._values.get("backup_dr_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5975,260 +5975,260 @@ class GoogleProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleProviderBatching]]]:
         '''batching block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#batching GoogleProvider#batching}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#batching GoogleProvider#batching}
         '''
         result = self._values.get("batching")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleProviderBatching]]], result)
 
     @builtins.property
     def beyondcorp_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#beyondcorp_custom_endpoint GoogleProvider#beyondcorp_custom_endpoint}.'''
         result = self._values.get("beyondcorp_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def biglake_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#biglake_custom_endpoint GoogleProvider#biglake_custom_endpoint}.'''
         result = self._values.get("biglake_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigquery_analytics_hub_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_analytics_hub_custom_endpoint GoogleProvider#bigquery_analytics_hub_custom_endpoint}.'''
         result = self._values.get("bigquery_analytics_hub_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigquery_connection_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_connection_custom_endpoint GoogleProvider#bigquery_connection_custom_endpoint}.'''
         result = self._values.get("bigquery_connection_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def big_query_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#big_query_custom_endpoint GoogleProvider#big_query_custom_endpoint}.'''
         result = self._values.get("big_query_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigquery_datapolicy_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_datapolicy_custom_endpoint GoogleProvider#bigquery_datapolicy_custom_endpoint}.'''
         result = self._values.get("bigquery_datapolicy_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigquery_data_transfer_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_data_transfer_custom_endpoint GoogleProvider#bigquery_data_transfer_custom_endpoint}.'''
         result = self._values.get("bigquery_data_transfer_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigquery_reservation_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigquery_reservation_custom_endpoint GoogleProvider#bigquery_reservation_custom_endpoint}.'''
         result = self._values.get("bigquery_reservation_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bigtable_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#bigtable_custom_endpoint GoogleProvider#bigtable_custom_endpoint}.'''
         result = self._values.get("bigtable_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def billing_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_custom_endpoint GoogleProvider#billing_custom_endpoint}.'''
         result = self._values.get("billing_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def billing_project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#billing_project GoogleProvider#billing_project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#billing_project GoogleProvider#billing_project}.'''
         result = self._values.get("billing_project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def binary_authorization_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#binary_authorization_custom_endpoint GoogleProvider#binary_authorization_custom_endpoint}.'''
         result = self._values.get("binary_authorization_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def blockchain_node_engine_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#blockchain_node_engine_custom_endpoint GoogleProvider#blockchain_node_engine_custom_endpoint}.'''
         result = self._values.get("blockchain_node_engine_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def certificate_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#certificate_manager_custom_endpoint GoogleProvider#certificate_manager_custom_endpoint}.'''
         result = self._values.get("certificate_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def chronicle_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#chronicle_custom_endpoint GoogleProvider#chronicle_custom_endpoint}.'''
         result = self._values.get("chronicle_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_asset_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_asset_custom_endpoint GoogleProvider#cloud_asset_custom_endpoint}.'''
         result = self._values.get("cloud_asset_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_billing_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_billing_custom_endpoint GoogleProvider#cloud_billing_custom_endpoint}.'''
         result = self._values.get("cloud_billing_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_build_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_custom_endpoint GoogleProvider#cloud_build_custom_endpoint}.'''
         result = self._values.get("cloud_build_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloudbuildv2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudbuildv2_custom_endpoint GoogleProvider#cloudbuildv2_custom_endpoint}.'''
         result = self._values.get("cloudbuildv2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_build_worker_pool_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_build_worker_pool_custom_endpoint GoogleProvider#cloud_build_worker_pool_custom_endpoint}.'''
         result = self._values.get("cloud_build_worker_pool_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def clouddeploy_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddeploy_custom_endpoint GoogleProvider#clouddeploy_custom_endpoint}.'''
         result = self._values.get("clouddeploy_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def clouddomains_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#clouddomains_custom_endpoint GoogleProvider#clouddomains_custom_endpoint}.'''
         result = self._values.get("clouddomains_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloudfunctions2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloudfunctions2_custom_endpoint GoogleProvider#cloudfunctions2_custom_endpoint}.'''
         result = self._values.get("cloudfunctions2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_functions_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_functions_custom_endpoint GoogleProvider#cloud_functions_custom_endpoint}.'''
         result = self._values.get("cloud_functions_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_identity_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_identity_custom_endpoint GoogleProvider#cloud_identity_custom_endpoint}.'''
         result = self._values.get("cloud_identity_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_ids_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_ids_custom_endpoint GoogleProvider#cloud_ids_custom_endpoint}.'''
         result = self._values.get("cloud_ids_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_quotas_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_quotas_custom_endpoint GoogleProvider#cloud_quotas_custom_endpoint}.'''
         result = self._values.get("cloud_quotas_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_resource_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_resource_manager_custom_endpoint GoogleProvider#cloud_resource_manager_custom_endpoint}.'''
         result = self._values.get("cloud_resource_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_run_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_custom_endpoint GoogleProvider#cloud_run_custom_endpoint}.'''
         result = self._values.get("cloud_run_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_run_v2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_run_v2_custom_endpoint GoogleProvider#cloud_run_v2_custom_endpoint}.'''
         result = self._values.get("cloud_run_v2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_scheduler_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_scheduler_custom_endpoint GoogleProvider#cloud_scheduler_custom_endpoint}.'''
         result = self._values.get("cloud_scheduler_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_tasks_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#cloud_tasks_custom_endpoint GoogleProvider#cloud_tasks_custom_endpoint}.'''
         result = self._values.get("cloud_tasks_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def colab_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#colab_custom_endpoint GoogleProvider#colab_custom_endpoint}.'''
         result = self._values.get("colab_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def composer_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#composer_custom_endpoint GoogleProvider#composer_custom_endpoint}.'''
         result = self._values.get("composer_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def compute_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#compute_custom_endpoint GoogleProvider#compute_custom_endpoint}.'''
         result = self._values.get("compute_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_analysis_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_analysis_custom_endpoint GoogleProvider#container_analysis_custom_endpoint}.'''
         result = self._values.get("container_analysis_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_attached_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_attached_custom_endpoint GoogleProvider#container_attached_custom_endpoint}.'''
         result = self._values.get("container_attached_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_aws_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_aws_custom_endpoint GoogleProvider#container_aws_custom_endpoint}.'''
         result = self._values.get("container_aws_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_azure_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_azure_custom_endpoint GoogleProvider#container_azure_custom_endpoint}.'''
         result = self._values.get("container_azure_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#container_custom_endpoint GoogleProvider#container_custom_endpoint}.'''
         result = self._values.get("container_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def core_billing_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#core_billing_custom_endpoint GoogleProvider#core_billing_custom_endpoint}.'''
         result = self._values.get("core_billing_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def credentials(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#credentials GoogleProvider#credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#credentials GoogleProvider#credentials}.'''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6236,67 +6236,67 @@ class GoogleProviderConfig:
     def database_migration_service_custom_endpoint(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#database_migration_service_custom_endpoint GoogleProvider#database_migration_service_custom_endpoint}.'''
         result = self._values.get("database_migration_service_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_catalog_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_catalog_custom_endpoint GoogleProvider#data_catalog_custom_endpoint}.'''
         result = self._values.get("data_catalog_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataflow_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataflow_custom_endpoint GoogleProvider#dataflow_custom_endpoint}.'''
         result = self._values.get("dataflow_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_fusion_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_fusion_custom_endpoint GoogleProvider#data_fusion_custom_endpoint}.'''
         result = self._values.get("data_fusion_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_loss_prevention_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_loss_prevention_custom_endpoint GoogleProvider#data_loss_prevention_custom_endpoint}.'''
         result = self._values.get("data_loss_prevention_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_pipeline_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#data_pipeline_custom_endpoint GoogleProvider#data_pipeline_custom_endpoint}.'''
         result = self._values.get("data_pipeline_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataplex_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataplex_custom_endpoint GoogleProvider#dataplex_custom_endpoint}.'''
         result = self._values.get("dataplex_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataproc_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_custom_endpoint GoogleProvider#dataproc_custom_endpoint}.'''
         result = self._values.get("dataproc_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataproc_gdc_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_gdc_custom_endpoint GoogleProvider#dataproc_gdc_custom_endpoint}.'''
         result = self._values.get("dataproc_gdc_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataproc_metastore_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dataproc_metastore_custom_endpoint GoogleProvider#dataproc_metastore_custom_endpoint}.'''
         result = self._values.get("dataproc_metastore_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def datastream_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#datastream_custom_endpoint GoogleProvider#datastream_custom_endpoint}.'''
         result = self._values.get("datastream_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6304,79 +6304,79 @@ class GoogleProviderConfig:
     def default_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#default_labels GoogleProvider#default_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#default_labels GoogleProvider#default_labels}.'''
         result = self._values.get("default_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def deployment_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#deployment_manager_custom_endpoint GoogleProvider#deployment_manager_custom_endpoint}.'''
         result = self._values.get("deployment_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def developer_connect_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#developer_connect_custom_endpoint GoogleProvider#developer_connect_custom_endpoint}.'''
         result = self._values.get("developer_connect_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dialogflow_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_custom_endpoint GoogleProvider#dialogflow_custom_endpoint}.'''
         result = self._values.get("dialogflow_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dialogflow_cx_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dialogflow_cx_custom_endpoint GoogleProvider#dialogflow_cx_custom_endpoint}.'''
         result = self._values.get("dialogflow_cx_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def discovery_engine_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#discovery_engine_custom_endpoint GoogleProvider#discovery_engine_custom_endpoint}.'''
         result = self._values.get("discovery_engine_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dns_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#dns_custom_endpoint GoogleProvider#dns_custom_endpoint}.'''
         result = self._values.get("dns_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def document_ai_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_custom_endpoint GoogleProvider#document_ai_custom_endpoint}.'''
         result = self._values.get("document_ai_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def document_ai_warehouse_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#document_ai_warehouse_custom_endpoint GoogleProvider#document_ai_warehouse_custom_endpoint}.'''
         result = self._values.get("document_ai_warehouse_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def edgecontainer_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgecontainer_custom_endpoint GoogleProvider#edgecontainer_custom_endpoint}.'''
         result = self._values.get("edgecontainer_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def edgenetwork_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#edgenetwork_custom_endpoint GoogleProvider#edgenetwork_custom_endpoint}.'''
         result = self._values.get("edgenetwork_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def essential_contacts_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#essential_contacts_custom_endpoint GoogleProvider#essential_contacts_custom_endpoint}.'''
         result = self._values.get("essential_contacts_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def eventarc_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#eventarc_custom_endpoint GoogleProvider#eventarc_custom_endpoint}.'''
         result = self._values.get("eventarc_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6386,140 +6386,140 @@ class GoogleProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleProviderExternalCredentials"]]]:
         '''external_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#external_credentials GoogleProvider#external_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#external_credentials GoogleProvider#external_credentials}
         '''
         result = self._values.get("external_credentials")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleProviderExternalCredentials"]]], result)
 
     @builtins.property
     def filestore_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#filestore_custom_endpoint GoogleProvider#filestore_custom_endpoint}.'''
         result = self._values.get("filestore_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firebase_app_check_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_check_custom_endpoint GoogleProvider#firebase_app_check_custom_endpoint}.'''
         result = self._values.get("firebase_app_check_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firebase_app_hosting_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_app_hosting_custom_endpoint GoogleProvider#firebase_app_hosting_custom_endpoint}.'''
         result = self._values.get("firebase_app_hosting_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firebase_data_connect_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebase_data_connect_custom_endpoint GoogleProvider#firebase_data_connect_custom_endpoint}.'''
         result = self._values.get("firebase_data_connect_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firebaserules_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firebaserules_custom_endpoint GoogleProvider#firebaserules_custom_endpoint}.'''
         result = self._values.get("firebaserules_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def firestore_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#firestore_custom_endpoint GoogleProvider#firestore_custom_endpoint}.'''
         result = self._values.get("firestore_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gemini_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gemini_custom_endpoint GoogleProvider#gemini_custom_endpoint}.'''
         result = self._values.get("gemini_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gke_backup_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_backup_custom_endpoint GoogleProvider#gke_backup_custom_endpoint}.'''
         result = self._values.get("gke_backup_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gke_hub2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub2_custom_endpoint GoogleProvider#gke_hub2_custom_endpoint}.'''
         result = self._values.get("gke_hub2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gke_hub_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gke_hub_custom_endpoint GoogleProvider#gke_hub_custom_endpoint}.'''
         result = self._values.get("gke_hub_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gkehub_feature_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkehub_feature_custom_endpoint GoogleProvider#gkehub_feature_custom_endpoint}.'''
         result = self._values.get("gkehub_feature_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gkeonprem_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#gkeonprem_custom_endpoint GoogleProvider#gkeonprem_custom_endpoint}.'''
         result = self._values.get("gkeonprem_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def healthcare_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#healthcare_custom_endpoint GoogleProvider#healthcare_custom_endpoint}.'''
         result = self._values.get("healthcare_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam2_custom_endpoint GoogleProvider#iam2_custom_endpoint}.'''
         result = self._values.get("iam2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam3_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam3_custom_endpoint GoogleProvider#iam3_custom_endpoint}.'''
         result = self._values.get("iam3_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_beta_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_beta_custom_endpoint GoogleProvider#iam_beta_custom_endpoint}.'''
         result = self._values.get("iam_beta_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_credentials_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_credentials_custom_endpoint GoogleProvider#iam_credentials_custom_endpoint}.'''
         result = self._values.get("iam_credentials_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_custom_endpoint GoogleProvider#iam_custom_endpoint}.'''
         result = self._values.get("iam_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_workforce_pool_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iam_workforce_pool_custom_endpoint GoogleProvider#iam_workforce_pool_custom_endpoint}.'''
         result = self._values.get("iam_workforce_pool_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iap_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#iap_custom_endpoint GoogleProvider#iap_custom_endpoint}.'''
         result = self._values.get("iap_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def identity_platform_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#identity_platform_custom_endpoint GoogleProvider#identity_platform_custom_endpoint}.'''
         result = self._values.get("identity_platform_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def impersonate_service_account(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account GoogleProvider#impersonate_service_account}.'''
         result = self._values.get("impersonate_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6527,157 +6527,157 @@ class GoogleProviderConfig:
     def impersonate_service_account_delegates(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#impersonate_service_account_delegates GoogleProvider#impersonate_service_account_delegates}.'''
         result = self._values.get("impersonate_service_account_delegates")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def integration_connectors_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integration_connectors_custom_endpoint GoogleProvider#integration_connectors_custom_endpoint}.'''
         result = self._values.get("integration_connectors_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def integrations_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#integrations_custom_endpoint GoogleProvider#integrations_custom_endpoint}.'''
         result = self._values.get("integrations_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#kms_custom_endpoint GoogleProvider#kms_custom_endpoint}.'''
         result = self._values.get("kms_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logging_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#logging_custom_endpoint GoogleProvider#logging_custom_endpoint}.'''
         result = self._values.get("logging_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def looker_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#looker_custom_endpoint GoogleProvider#looker_custom_endpoint}.'''
         result = self._values.get("looker_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lustre_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#lustre_custom_endpoint GoogleProvider#lustre_custom_endpoint}.'''
         result = self._values.get("lustre_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def managed_kafka_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#managed_kafka_custom_endpoint GoogleProvider#managed_kafka_custom_endpoint}.'''
         result = self._values.get("managed_kafka_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memcache_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memcache_custom_endpoint GoogleProvider#memcache_custom_endpoint}.'''
         result = self._values.get("memcache_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memorystore_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#memorystore_custom_endpoint GoogleProvider#memorystore_custom_endpoint}.'''
         result = self._values.get("memorystore_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def migration_center_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#migration_center_custom_endpoint GoogleProvider#migration_center_custom_endpoint}.'''
         result = self._values.get("migration_center_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ml_engine_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#ml_engine_custom_endpoint GoogleProvider#ml_engine_custom_endpoint}.'''
         result = self._values.get("ml_engine_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def monitoring_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#monitoring_custom_endpoint GoogleProvider#monitoring_custom_endpoint}.'''
         result = self._values.get("monitoring_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def netapp_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#netapp_custom_endpoint GoogleProvider#netapp_custom_endpoint}.'''
         result = self._values.get("netapp_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_connectivity_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_connectivity_custom_endpoint GoogleProvider#network_connectivity_custom_endpoint}.'''
         result = self._values.get("network_connectivity_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_management_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_management_custom_endpoint GoogleProvider#network_management_custom_endpoint}.'''
         result = self._values.get("network_management_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_security_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_security_custom_endpoint GoogleProvider#network_security_custom_endpoint}.'''
         result = self._values.get("network_security_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_services_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#network_services_custom_endpoint GoogleProvider#network_services_custom_endpoint}.'''
         result = self._values.get("network_services_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def notebooks_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#notebooks_custom_endpoint GoogleProvider#notebooks_custom_endpoint}.'''
         result = self._values.get("notebooks_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def oracle_database_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#oracle_database_custom_endpoint GoogleProvider#oracle_database_custom_endpoint}.'''
         result = self._values.get("oracle_database_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def org_policy_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#org_policy_custom_endpoint GoogleProvider#org_policy_custom_endpoint}.'''
         result = self._values.get("org_policy_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os_config_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_custom_endpoint GoogleProvider#os_config_custom_endpoint}.'''
         result = self._values.get("os_config_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os_config_v2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_config_v2_custom_endpoint GoogleProvider#os_config_v2_custom_endpoint}.'''
         result = self._values.get("os_config_v2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os_login_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#os_login_custom_endpoint GoogleProvider#os_login_custom_endpoint}.'''
         result = self._values.get("os_login_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parallelstore_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parallelstore_custom_endpoint GoogleProvider#parallelstore_custom_endpoint}.'''
         result = self._values.get("parallelstore_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameter_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_custom_endpoint GoogleProvider#parameter_manager_custom_endpoint}.'''
         result = self._values.get("parameter_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6685,13 +6685,13 @@ class GoogleProviderConfig:
     def parameter_manager_regional_custom_endpoint(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#parameter_manager_regional_custom_endpoint GoogleProvider#parameter_manager_regional_custom_endpoint}.'''
         result = self._values.get("parameter_manager_regional_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def privateca_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privateca_custom_endpoint GoogleProvider#privateca_custom_endpoint}.'''
         result = self._values.get("privateca_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6699,103 +6699,103 @@ class GoogleProviderConfig:
     def privileged_access_manager_custom_endpoint(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#privileged_access_manager_custom_endpoint GoogleProvider#privileged_access_manager_custom_endpoint}.'''
         result = self._values.get("privileged_access_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#project GoogleProvider#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#project GoogleProvider#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_ca_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#public_ca_custom_endpoint GoogleProvider#public_ca_custom_endpoint}.'''
         result = self._values.get("public_ca_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pubsub_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_custom_endpoint GoogleProvider#pubsub_custom_endpoint}.'''
         result = self._values.get("pubsub_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pubsub_lite_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#pubsub_lite_custom_endpoint GoogleProvider#pubsub_lite_custom_endpoint}.'''
         result = self._values.get("pubsub_lite_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recaptcha_enterprise_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#recaptcha_enterprise_custom_endpoint GoogleProvider#recaptcha_enterprise_custom_endpoint}.'''
         result = self._values.get("recaptcha_enterprise_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redis_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#redis_custom_endpoint GoogleProvider#redis_custom_endpoint}.'''
         result = self._values.get("redis_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#region GoogleProvider#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#region GoogleProvider#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def request_reason(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_reason GoogleProvider#request_reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_reason GoogleProvider#request_reason}.'''
         result = self._values.get("request_reason")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def request_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#request_timeout GoogleProvider#request_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#request_timeout GoogleProvider#request_timeout}.'''
         result = self._values.get("request_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_custom_endpoint GoogleProvider#resource_manager_custom_endpoint}.'''
         result = self._values.get("resource_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_manager_v3_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#resource_manager_v3_custom_endpoint GoogleProvider#resource_manager_v3_custom_endpoint}.'''
         result = self._values.get("resource_manager_v3_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#scopes GoogleProvider#scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#scopes GoogleProvider#scopes}.'''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def secret_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_custom_endpoint GoogleProvider#secret_manager_custom_endpoint}.'''
         result = self._values.get("secret_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret_manager_regional_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secret_manager_regional_custom_endpoint GoogleProvider#secret_manager_regional_custom_endpoint}.'''
         result = self._values.get("secret_manager_regional_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secure_source_manager_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#secure_source_manager_custom_endpoint GoogleProvider#secure_source_manager_custom_endpoint}.'''
         result = self._values.get("secure_source_manager_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_center_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_custom_endpoint GoogleProvider#security_center_custom_endpoint}.'''
         result = self._values.get("security_center_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6803,103 +6803,103 @@ class GoogleProviderConfig:
     def security_center_management_custom_endpoint(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_management_custom_endpoint GoogleProvider#security_center_management_custom_endpoint}.'''
         result = self._values.get("security_center_management_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_center_v2_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#security_center_v2_custom_endpoint GoogleProvider#security_center_v2_custom_endpoint}.'''
         result = self._values.get("security_center_v2_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def securityposture_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#securityposture_custom_endpoint GoogleProvider#securityposture_custom_endpoint}.'''
         result = self._values.get("securityposture_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_management_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_management_custom_endpoint GoogleProvider#service_management_custom_endpoint}.'''
         result = self._values.get("service_management_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_networking_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_networking_custom_endpoint GoogleProvider#service_networking_custom_endpoint}.'''
         result = self._values.get("service_networking_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_usage_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_usage_custom_endpoint GoogleProvider#service_usage_custom_endpoint}.'''
         result = self._values.get("service_usage_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def site_verification_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#site_verification_custom_endpoint GoogleProvider#site_verification_custom_endpoint}.'''
         result = self._values.get("site_verification_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_repo_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#source_repo_custom_endpoint GoogleProvider#source_repo_custom_endpoint}.'''
         result = self._values.get("source_repo_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def spanner_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#spanner_custom_endpoint GoogleProvider#spanner_custom_endpoint}.'''
         result = self._values.get("spanner_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sql_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#sql_custom_endpoint GoogleProvider#sql_custom_endpoint}.'''
         result = self._values.get("sql_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_batch_operations_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_batch_operations_custom_endpoint GoogleProvider#storage_batch_operations_custom_endpoint}.'''
         result = self._values.get("storage_batch_operations_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_control_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_control_custom_endpoint GoogleProvider#storage_control_custom_endpoint}.'''
         result = self._values.get("storage_control_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_custom_endpoint GoogleProvider#storage_custom_endpoint}.'''
         result = self._values.get("storage_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_insights_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_insights_custom_endpoint GoogleProvider#storage_insights_custom_endpoint}.'''
         result = self._values.get("storage_insights_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_transfer_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#storage_transfer_custom_endpoint GoogleProvider#storage_transfer_custom_endpoint}.'''
         result = self._values.get("storage_transfer_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_custom_endpoint GoogleProvider#tags_custom_endpoint}.'''
         result = self._values.get("tags_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags_location_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tags_location_custom_endpoint GoogleProvider#tags_location_custom_endpoint}.'''
         result = self._values.get("tags_location_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6907,25 +6907,25 @@ class GoogleProviderConfig:
     def terraform_attribution_label_addition_strategy(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#terraform_attribution_label_addition_strategy GoogleProvider#terraform_attribution_label_addition_strategy}.'''
         result = self._values.get("terraform_attribution_label_addition_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tpu_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#tpu_custom_endpoint GoogleProvider#tpu_custom_endpoint}.'''
         result = self._values.get("tpu_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transcoder_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#transcoder_custom_endpoint GoogleProvider#transcoder_custom_endpoint}.'''
         result = self._values.get("transcoder_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def universe_domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#universe_domain GoogleProvider#universe_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#universe_domain GoogleProvider#universe_domain}.'''
         result = self._values.get("universe_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6933,43 +6933,43 @@ class GoogleProviderConfig:
     def user_project_override(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#user_project_override GoogleProvider#user_project_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#user_project_override GoogleProvider#user_project_override}.'''
         result = self._values.get("user_project_override")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def vertex_ai_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vertex_ai_custom_endpoint GoogleProvider#vertex_ai_custom_endpoint}.'''
         result = self._values.get("vertex_ai_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vmwareengine_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vmwareengine_custom_endpoint GoogleProvider#vmwareengine_custom_endpoint}.'''
         result = self._values.get("vmwareengine_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_access_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#vpc_access_custom_endpoint GoogleProvider#vpc_access_custom_endpoint}.'''
         result = self._values.get("vpc_access_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def workbench_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workbench_custom_endpoint GoogleProvider#workbench_custom_endpoint}.'''
         result = self._values.get("workbench_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def workflows_custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#workflows_custom_endpoint GoogleProvider#workflows_custom_endpoint}.'''
         result = self._values.get("workflows_custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#zone GoogleProvider#zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#zone GoogleProvider#zone}.'''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7003,9 +7003,9 @@ class GoogleProviderExternalCredentials:
         service_account_email: builtins.str,
     ) -> None:
         '''
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#audience GoogleProvider#audience}.
-        :param identity_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#identity_token GoogleProvider#identity_token}.
-        :param service_account_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_account_email GoogleProvider#service_account_email}.
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#audience GoogleProvider#audience}.
+        :param identity_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#identity_token GoogleProvider#identity_token}.
+        :param service_account_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_account_email GoogleProvider#service_account_email}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__331f41525a02c8ff5015cb8d7e4f172be58cb05a8f174b1dd1d6005af02b0c90)
@@ -7020,21 +7020,21 @@ class GoogleProviderExternalCredentials:
 
     @builtins.property
     def audience(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#audience GoogleProvider#audience}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#audience GoogleProvider#audience}.'''
         result = self._values.get("audience")
         assert result is not None, "Required property 'audience' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#identity_token GoogleProvider#identity_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#identity_token GoogleProvider#identity_token}.'''
         result = self._values.get("identity_token")
         assert result is not None, "Required property 'identity_token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_account_email(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs#service_account_email GoogleProvider#service_account_email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs#service_account_email GoogleProvider#service_account_email}.'''
         result = self._values.get("service_account_email")
         assert result is not None, "Required property 'service_account_email' is missing"
         return typing.cast(builtins.str, result)

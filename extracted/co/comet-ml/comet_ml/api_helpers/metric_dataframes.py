@@ -80,6 +80,24 @@ def interpolate_metric_dataframe(
     return interpolated_df.sort_values(["experiment_key", x_axis])[columns]
 
 
+def metrics_to_total_fidelity_dataframe(
+    metrics: List[Dict[str, Any]]
+) -> "pd.DataFrame":
+    import pandas as pd
+
+    data = []
+    for metric in metrics:
+        data.append(
+            {
+                "value": float(metric["metricValue"]),
+                "timestamp": metric["timestamp"] / 1000.0,
+                "step": metric["step"],
+                "epoch": metric["epoch"],
+            }
+        )
+    return pd.DataFrame(data, columns=["value", "timestamp", "step", "epoch"])
+
+
 def _parse_value(element: Any) -> Any:
     try:
         if element is None:

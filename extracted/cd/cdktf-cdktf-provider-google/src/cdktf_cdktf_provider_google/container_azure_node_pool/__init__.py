@@ -1,7 +1,7 @@
 r'''
 # `google_container_azure_node_pool`
 
-Refer to the Terraform Registry for docs: [`google_container_azure_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool).
+Refer to the Terraform Registry for docs: [`google_container_azure_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAzureNodePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.containerAzureNodePool.ContainerAzureNodePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool google_container_azure_node_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool google_container_azure_node_pool}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class ContainerAzureNodePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool google_container_azure_node_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool google_container_azure_node_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
-        :param cluster: The azureCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
-        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
-        :param subnet_id: The ARM ID of the subnet where the node pool VMs run. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
-        :param version: The Kubernetes version (e.g. ``1.19.10-gke.1000``) running on this node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
-        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
-        :param azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
+        :param cluster: The azureCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
+        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
+        :param subnet_id: The ARM ID of the subnet where the node pool VMs run. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
+        :param version: The Kubernetes version (e.g. ``1.19.10-gke.1000``) running on this node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
+        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
+        :param azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class ContainerAzureNodePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAzureNodePool to import.
-        :param import_from_id: The id of the existing ContainerAzureNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAzureNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAzureNodePool to import is found.
         '''
         if __debug__:
@@ -161,8 +161,8 @@ class ContainerAzureNodePool(
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Maximum number of nodes in the node pool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes in the node pool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
+        :param max_node_count: Maximum number of nodes in the node pool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes in the node pool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
         '''
         value = ContainerAzureNodePoolAutoscaling(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -182,12 +182,12 @@ class ContainerAzureNodePool(
         vm_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
-        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
-        :param tags: Optional. A set of tags to apply to all underlying Azure resources for this node pool. This currently only includes Virtual Machine Scale Sets. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
-        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. See (/anthos/clusters/docs/azure/reference/supported-vms) for options. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
+        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
+        :param tags: Optional. A set of tags to apply to all underlying Azure resources for this node pool. This currently only includes Virtual Machine Scale Sets. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
+        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. See (/anthos/clusters/docs/azure/reference/supported-vms) for options. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
         '''
         value = ContainerAzureNodePoolConfigA(
             ssh_config=ssh_config,
@@ -207,7 +207,7 @@ class ContainerAzureNodePool(
         auto_repair: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
+        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
         '''
         value = ContainerAzureNodePoolManagement(auto_repair=auto_repair)
 
@@ -216,7 +216,7 @@ class ContainerAzureNodePool(
     @jsii.member(jsii_name="putMaxPodsConstraint")
     def put_max_pods_constraint(self, *, max_pods_per_node: jsii.Number) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
+        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
         '''
         value = ContainerAzureNodePoolMaxPodsConstraint(
             max_pods_per_node=max_pods_per_node
@@ -233,9 +233,9 @@ class ContainerAzureNodePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.
         '''
         value = ContainerAzureNodePoolTimeouts(
             create=create, delete=delete, update=update
@@ -540,8 +540,8 @@ class ContainerAzureNodePoolAutoscaling:
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: Maximum number of nodes in the node pool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes in the node pool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
+        :param max_node_count: Maximum number of nodes in the node pool. Must be >= min_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes in the node pool. Must be >= 1 and <= max_node_count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7879b03a2f3c46f01e02a9cd2b722ac8c0cc75acf6906b17000e09388700d98d)
@@ -556,7 +556,7 @@ class ContainerAzureNodePoolAutoscaling:
     def max_node_count(self) -> jsii.Number:
         '''Maximum number of nodes in the node pool. Must be >= min_node_count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_node_count ContainerAzureNodePool#max_node_count}
         '''
         result = self._values.get("max_node_count")
         assert result is not None, "Required property 'max_node_count' is missing"
@@ -566,7 +566,7 @@ class ContainerAzureNodePoolAutoscaling:
     def min_node_count(self) -> jsii.Number:
         '''Minimum number of nodes in the node pool. Must be >= 1 and <= max_node_count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#min_node_count ContainerAzureNodePool#min_node_count}
         '''
         result = self._values.get("min_node_count")
         assert result is not None, "Required property 'min_node_count' is missing"
@@ -715,20 +715,20 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
-        :param cluster: The azureCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
-        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
-        :param subnet_id: The ARM ID of the subnet where the node pool VMs run. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
-        :param version: The Kubernetes version (e.g. ``1.19.10-gke.1000``) running on this node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
-        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
-        :param azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
+        :param cluster: The azureCluster for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
+        :param max_pods_constraint: max_pods_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
+        :param subnet_id: The ARM ID of the subnet where the node pool VMs run. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
+        :param version: The Kubernetes version (e.g. ``1.19.10-gke.1000``) running on this node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
+        :param annotations: Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
+        :param azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -870,7 +870,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling(self) -> ContainerAzureNodePoolAutoscaling:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#autoscaling ContainerAzureNodePool#autoscaling}
         '''
         result = self._values.get("autoscaling")
         assert result is not None, "Required property 'autoscaling' is missing"
@@ -880,7 +880,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The azureCluster for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#cluster ContainerAzureNodePool#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -890,7 +890,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> "ContainerAzureNodePoolConfigA":
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#config ContainerAzureNodePool#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -900,7 +900,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#location ContainerAzureNodePool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -910,7 +910,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_pods_constraint(self) -> "ContainerAzureNodePoolMaxPodsConstraint":
         '''max_pods_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_constraint ContainerAzureNodePool#max_pods_constraint}
         '''
         result = self._values.get("max_pods_constraint")
         assert result is not None, "Required property 'max_pods_constraint' is missing"
@@ -920,7 +920,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#name ContainerAzureNodePool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -932,7 +932,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Make sure it's a subnet under the virtual network in the cluster configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#subnet_id ContainerAzureNodePool#subnet_id}
         '''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
@@ -942,7 +942,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> builtins.str:
         '''The Kubernetes version (e.g. ``1.19.10-gke.1000``) running on this node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#version ContainerAzureNodePool#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -959,7 +959,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field ``effective_annotations`` for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#annotations ContainerAzureNodePool#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -968,14 +968,14 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def azure_availability_zone(self) -> typing.Optional[builtins.str]:
         '''Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#azure_availability_zone ContainerAzureNodePool#azure_availability_zone}
         '''
         result = self._values.get("azure_availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#id ContainerAzureNodePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -987,7 +987,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def management(self) -> typing.Optional["ContainerAzureNodePoolManagement"]:
         '''management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#management ContainerAzureNodePool#management}
         '''
         result = self._values.get("management")
         return typing.cast(typing.Optional["ContainerAzureNodePoolManagement"], result)
@@ -996,7 +996,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#project ContainerAzureNodePool#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1005,7 +1005,7 @@ class ContainerAzureNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAzureNodePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#timeouts ContainerAzureNodePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAzureNodePoolTimeouts"], result)
@@ -1046,12 +1046,12 @@ class ContainerAzureNodePoolConfigA:
         vm_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
-        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
-        :param tags: Optional. A set of tags to apply to all underlying Azure resources for this node pool. This currently only includes Virtual Machine Scale Sets. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
-        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. See (/anthos/clusters/docs/azure/reference/supported-vms) for options. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
+        :param labels: Optional. The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
+        :param tags: Optional. A set of tags to apply to all underlying Azure resources for this node pool. This currently only includes Virtual Machine Scale Sets. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
+        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. See (/anthos/clusters/docs/azure/reference/supported-vms) for options. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
         '''
         if isinstance(ssh_config, dict):
             ssh_config = ContainerAzureNodePoolConfigSshConfig(**ssh_config)
@@ -1085,7 +1085,7 @@ class ContainerAzureNodePoolConfigA:
     def ssh_config(self) -> "ContainerAzureNodePoolConfigSshConfig":
         '''ssh_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#ssh_config ContainerAzureNodePool#ssh_config}
         '''
         result = self._values.get("ssh_config")
         assert result is not None, "Required property 'ssh_config' is missing"
@@ -1097,7 +1097,7 @@ class ContainerAzureNodePoolConfigA:
 
         The initial labels assigned to nodes of this node pool. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#labels ContainerAzureNodePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1108,7 +1108,7 @@ class ContainerAzureNodePoolConfigA:
     ) -> typing.Optional["ContainerAzureNodePoolConfigProxyConfig"]:
         '''proxy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#proxy_config ContainerAzureNodePool#proxy_config}
         '''
         result = self._values.get("proxy_config")
         return typing.cast(typing.Optional["ContainerAzureNodePoolConfigProxyConfig"], result)
@@ -1117,7 +1117,7 @@ class ContainerAzureNodePoolConfigA:
     def root_volume(self) -> typing.Optional["ContainerAzureNodePoolConfigRootVolume"]:
         '''root_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#root_volume ContainerAzureNodePool#root_volume}
         '''
         result = self._values.get("root_volume")
         return typing.cast(typing.Optional["ContainerAzureNodePoolConfigRootVolume"], result)
@@ -1128,7 +1128,7 @@ class ContainerAzureNodePoolConfigA:
 
         A set of tags to apply to all underlying Azure resources for this node pool. This currently only includes Virtual Machine Scale Sets. Specify at most 50 pairs containing alphanumerics, spaces, and symbols (.+-=_:@/). Keys can be up to 127 Unicode characters. Values can be up to 255 Unicode characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#tags ContainerAzureNodePool#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1137,7 +1137,7 @@ class ContainerAzureNodePoolConfigA:
     def vm_size(self) -> typing.Optional[builtins.str]:
         '''Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. See (/anthos/clusters/docs/azure/reference/supported-vms) for options. When unspecified, it defaults to ``Standard_DS2_v2``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#vm_size ContainerAzureNodePool#vm_size}
         '''
         result = self._values.get("vm_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1182,8 +1182,8 @@ class ContainerAzureNodePoolConfigAOutputReference(
         secret_id: builtins.str,
     ) -> None:
         '''
-        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
-        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
+        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
+        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
         '''
         value = ContainerAzureNodePoolConfigProxyConfig(
             resource_group_id=resource_group_id, secret_id=secret_id
@@ -1194,7 +1194,7 @@ class ContainerAzureNodePoolConfigAOutputReference(
     @jsii.member(jsii_name="putRootVolume")
     def put_root_volume(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
         '''
         value = ContainerAzureNodePoolConfigRootVolume(size_gib=size_gib)
 
@@ -1203,7 +1203,7 @@ class ContainerAzureNodePoolConfigAOutputReference(
     @jsii.member(jsii_name="putSshConfig")
     def put_ssh_config(self, *, authorized_key: builtins.str) -> None:
         '''
-        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
+        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
         '''
         value = ContainerAzureNodePoolConfigSshConfig(authorized_key=authorized_key)
 
@@ -1347,8 +1347,8 @@ class ContainerAzureNodePoolConfigProxyConfig:
         secret_id: builtins.str,
     ) -> None:
         '''
-        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
-        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
+        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
+        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b6dfd8333b72ab1cedeb9495423951b66456b257e4a3c75f708ce0284405e42)
@@ -1363,7 +1363,7 @@ class ContainerAzureNodePoolConfigProxyConfig:
     def resource_group_id(self) -> builtins.str:
         '''The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#resource_group_id ContainerAzureNodePool#resource_group_id}
         '''
         result = self._values.get("resource_group_id")
         assert result is not None, "Required property 'resource_group_id' is missing"
@@ -1373,7 +1373,7 @@ class ContainerAzureNodePoolConfigProxyConfig:
     def secret_id(self) -> builtins.str:
         '''The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#secret_id ContainerAzureNodePool#secret_id}
         '''
         result = self._values.get("secret_id")
         assert result is not None, "Required property 'secret_id' is missing"
@@ -1471,7 +1471,7 @@ class ContainerAzureNodePoolConfigProxyConfigOutputReference(
 class ContainerAzureNodePoolConfigRootVolume:
     def __init__(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ead60016868f32e6b4fbf72a0d4696646a5664e6dcf46a79c9d01446d277015c)
@@ -1486,7 +1486,7 @@ class ContainerAzureNodePoolConfigRootVolume:
 
         The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#size_gib ContainerAzureNodePool#size_gib}
         '''
         result = self._values.get("size_gib")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1568,7 +1568,7 @@ class ContainerAzureNodePoolConfigRootVolumeOutputReference(
 class ContainerAzureNodePoolConfigSshConfig:
     def __init__(self, *, authorized_key: builtins.str) -> None:
         '''
-        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
+        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eab52340903888026c004283949ea0755bb4aa786bec8712e3bf794e6111e59b)
@@ -1583,7 +1583,7 @@ class ContainerAzureNodePoolConfigSshConfig:
 
         This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#authorized_key ContainerAzureNodePool#authorized_key}
         '''
         result = self._values.get("authorized_key")
         assert result is not None, "Required property 'authorized_key' is missing"
@@ -1666,7 +1666,7 @@ class ContainerAzureNodePoolManagement:
         auto_repair: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
+        :param auto_repair: Optional. Whether or not the nodes will be automatically repaired. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d14b07e6f43ed4270e55fa9da53ba02f2c184341408a94a2526f2c8265932947)
@@ -1681,7 +1681,7 @@ class ContainerAzureNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Whether or not the nodes will be automatically repaired.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#auto_repair ContainerAzureNodePool#auto_repair}
         '''
         result = self._values.get("auto_repair")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1768,7 +1768,7 @@ class ContainerAzureNodePoolManagementOutputReference(
 class ContainerAzureNodePoolMaxPodsConstraint:
     def __init__(self, *, max_pods_per_node: jsii.Number) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
+        :param max_pods_per_node: The maximum number of pods to schedule on a single node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59c160ae8c4845e504ec11f0fdbeacf01ea42bb0a097e4a1988826d93bf5e385)
@@ -1781,7 +1781,7 @@ class ContainerAzureNodePoolMaxPodsConstraint:
     def max_pods_per_node(self) -> jsii.Number:
         '''The maximum number of pods to schedule on a single node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#max_pods_per_node ContainerAzureNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         assert result is not None, "Required property 'max_pods_per_node' is missing"
@@ -1868,9 +1868,9 @@ class ContainerAzureNodePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2fccc04a5efa699e7b515f11b10c360783680c81afa191d5d4d122a5195fbbc)
@@ -1887,19 +1887,19 @@ class ContainerAzureNodePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#create ContainerAzureNodePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#delete ContainerAzureNodePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_azure_node_pool#update ContainerAzureNodePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

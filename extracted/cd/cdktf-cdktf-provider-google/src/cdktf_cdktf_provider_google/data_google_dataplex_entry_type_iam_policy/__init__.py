@@ -1,7 +1,7 @@
 r'''
 # `data_google_dataplex_entry_type_iam_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_dataplex_entry_type_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy).
+Refer to the Terraform Registry for docs: [`data_google_dataplex_entry_type_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleDataplexEntryTypeIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleDataplexEntryTypeIamPolicy.DataGoogleDataplexEntryTypeIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy google_dataplex_entry_type_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy google_dataplex_entry_type_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleDataplexEntryTypeIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy google_dataplex_entry_type_iam_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy google_dataplex_entry_type_iam_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entry_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.
+        :param entry_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleDataplexEntryTypeIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleDataplexEntryTypeIamPolicy to import.
-        :param import_from_id: The id of the existing DataGoogleDataplexEntryTypeIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleDataplexEntryTypeIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleDataplexEntryTypeIamPolicy to import is found.
         '''
         if __debug__:
@@ -270,10 +270,10 @@ class DataGoogleDataplexEntryTypeIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entry_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.
+        :param entry_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -380,14 +380,14 @@ class DataGoogleDataplexEntryTypeIamPolicyConfig(
 
     @builtins.property
     def entry_type_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#entry_type_id DataGoogleDataplexEntryTypeIamPolicy#entry_type_id}.'''
         result = self._values.get("entry_type_id")
         assert result is not None, "Required property 'entry_type_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#id DataGoogleDataplexEntryTypeIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -397,13 +397,13 @@ class DataGoogleDataplexEntryTypeIamPolicyConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#location DataGoogleDataplexEntryTypeIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/dataplex_entry_type_iam_policy#project DataGoogleDataplexEntryTypeIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

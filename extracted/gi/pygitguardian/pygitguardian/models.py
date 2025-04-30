@@ -216,6 +216,11 @@ class DiffKind(str, Enum):
 
 class PolicyBreakSchema(BaseSchema):
     break_type = fields.String(data_key="type", required=True)
+    detector_name = fields.String(required=True)
+    detector_group_name = fields.String(required=True)
+    documentation_url = fields.String(
+        required=False, load_default=None, dump_default=None
+    )
     policy = fields.String(required=True)
     validity = fields.String(required=False, load_default=None, dump_default=None)
     known_secret = fields.Boolean(required=False, load_default=False, dump_default=None)
@@ -245,9 +250,12 @@ class PolicyBreak(FromDictWithBase):
     def __init__(
         self,
         break_type: str,
+        detector_name: str,
+        detector_group_name: str,
         policy: str,
         validity: str,
         matches: List[Match],
+        documentation_url: Optional[str] = None,
         known_secret: bool = False,
         incident_url: Optional[str] = None,
         is_excluded: bool = False,
@@ -257,6 +265,9 @@ class PolicyBreak(FromDictWithBase):
     ) -> None:
         super().__init__()
         self.break_type = break_type
+        self.detector_name = detector_name
+        self.detector_group_name = detector_group_name
+        self.documentation_url = documentation_url
         self.policy = policy
         self.validity = validity
         self.known_secret = known_secret
@@ -738,7 +749,11 @@ class TokenScope(str, Enum):
     IP_ALLOWLIST_WRITE = "ip_allowlist:write"
     SOURCES_READ = "sources:read"
     SOURCES_WRITE = "sources:write"
-    NHI_WRITE = "nhi:write"
+    NHI_WRITE_VAULT = "nhi:write-vault"
+    NHI_SEND_INVENTORY = "nhi:send-inventory"
+    CUSTOM_TAGS_READ = "custom_tags:read"
+    CUSTOM_TAGS_WRITE = "custom_tags:write"
+    SECRET_READ = "secrets:read"
 
 
 class APITokensResponseSchema(BaseSchema):
@@ -753,7 +768,7 @@ class APITokensResponseSchema(BaseSchema):
     revoked_at = fields.AwareDateTime(allow_none=True)
     member_id = fields.Int(allow_none=True)
     creator_id = fields.Int(allow_none=True)
-    scopes = fields.List(fields.Enum(TokenScope, by_value=True), required=False)
+    scopes = fields.List(fields.String, required=False)
 
     @post_load
     def make_api_tokens_response(
@@ -778,7 +793,7 @@ class APITokensResponse(Base, FromDictMixin):
         revoked_at: Optional[datetime] = None,
         member_id: Optional[int] = None,
         creator_id: Optional[int] = None,
-        scopes: Optional[List[TokenScope]] = None,
+        scopes: Optional[List[str]] = None,
     ):
         self.id = id
         self.name = name

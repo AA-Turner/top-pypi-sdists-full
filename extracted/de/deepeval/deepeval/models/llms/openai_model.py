@@ -1,8 +1,10 @@
+from openai.types.chat.chat_completion import ChatCompletion
 from typing import Optional, Tuple, Union, Dict
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 import logging
 import openai
+
 
 from tenacity import (
     retry,
@@ -10,9 +12,6 @@ from tenacity import (
     wait_exponential_jitter,
     RetryCallState,
 )
-from langchain_community.callbacks import get_openai_callback
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_openai import ChatOpenAI
 
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.models.llms.utils import trim_and_load_json
@@ -77,6 +76,9 @@ structured_outputs_models = [
     "gpt-4o-2024-11-20",
     "gpt-4o-mini",
     "gpt-4o-mini-2024-07-18",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
     "o1",
     "o1-preview",
     "o1-2024-12-17",
@@ -152,6 +154,7 @@ class GPTModel(DeepEvalBaseLLM):
         model: Optional[str] = None,
         _openai_api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        temperature: float = 0,
         *args,
         **kwargs,
     ):
@@ -168,6 +171,9 @@ class GPTModel(DeepEvalBaseLLM):
         self._openai_api_key = _openai_api_key
         self.base_url = base_url
         # args and kwargs will be passed to the underlying model, in load_model function
+        if temperature < 0:
+            raise ValueError("Temperature must be >= 0.")
+        self.temperature = temperature
         self.args = args
         self.kwargs = kwargs
         super().__init__(model_name)
@@ -184,8 +190,8 @@ class GPTModel(DeepEvalBaseLLM):
     def generate(
         self, prompt: str, schema: Optional[BaseModel] = None
     ) -> Tuple[Union[str, Dict], float]:
+        client = self.load_model(async_mode=False)
         if schema:
-            client = OpenAI(api_key=self._openai_api_key)
             if self.model_name in structured_outputs_models:
                 completion = client.beta.chat.completions.parse(
                     model=self.model_name,
@@ -193,6 +199,7 @@ class GPTModel(DeepEvalBaseLLM):
                         {"role": "user", "content": prompt},
                     ],
                     response_format=schema,
+                    temperature=self.temperature,
                 )
                 structured_output: BaseModel = completion.choices[
                     0
@@ -209,6 +216,7 @@ class GPTModel(DeepEvalBaseLLM):
                         {"role": "user", "content": prompt},
                     ],
                     response_format={"type": "json_object"},
+                    temperature=self.temperature,
                 )
                 json_output = trim_and_load_json(
                     completion.choices[0].message.content
@@ -219,14 +227,19 @@ class GPTModel(DeepEvalBaseLLM):
                 )
                 return schema.model_validate(json_output), cost
 
-        chat_model = self.load_model()
-        with get_openai_callback() as cb:
-            res = chat_model.invoke(prompt)
-            if schema:
-                json_output = trim_and_load_json(res.content)
-                return schema.model_validate(json_output), cb.total_cost
-            else:
-                return res.content, cb.total_cost
+        completion = client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        output = completion.choices[0].message.content
+        cost = self.calculate_cost(
+            completion.usage.prompt_tokens, completion.usage.completion_tokens
+        )
+        if schema:
+            json_output = trim_and_load_json(output)
+            return schema.model_validate(json_output), cost
+        else:
+            return output, cost
 
     @retry(
         wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=2, max=10),
@@ -236,8 +249,8 @@ class GPTModel(DeepEvalBaseLLM):
     async def a_generate(
         self, prompt: str, schema: Optional[BaseModel] = None
     ) -> Tuple[Union[str, BaseModel], float]:
+        client = self.load_model(async_mode=True)
         if schema:
-            client = AsyncOpenAI(api_key=self._openai_api_key)
             if self.model_name in structured_outputs_models:
                 completion = await client.beta.chat.completions.parse(
                     model=self.model_name,
@@ -245,6 +258,7 @@ class GPTModel(DeepEvalBaseLLM):
                         {"role": "user", "content": prompt},
                     ],
                     response_format=schema,
+                    temperature=self.temperature,
                 )
                 structured_output: BaseModel = completion.choices[
                     0
@@ -261,6 +275,7 @@ class GPTModel(DeepEvalBaseLLM):
                         {"role": "user", "content": prompt},
                     ],
                     response_format={"type": "json_object"},
+                    temperature=self.temperature,
                 )
                 json_output = trim_and_load_json(
                     completion.choices[0].message.content
@@ -271,14 +286,19 @@ class GPTModel(DeepEvalBaseLLM):
                 )
                 return schema.model_validate(json_output), cost
 
-        chat_model = self.load_model()
-        with get_openai_callback() as cb:
-            res = await chat_model.ainvoke(prompt)
-            if schema:
-                json_output = trim_and_load_json(res.content)
-                return schema.model_validate(json_output), cb.total_cost
-            else:
-                return res.content, cb.total_cost
+        completion = await client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        output = completion.choices[0].message.content
+        cost = self.calculate_cost(
+            completion.usage.prompt_tokens, completion.usage.completion_tokens
+        )
+        if schema:
+            json_output = trim_and_load_json(output)
+            return schema.model_validate(json_output), cost
+        else:
+            return output, cost
 
     ###############################################
     # Other generate functions
@@ -290,12 +310,25 @@ class GPTModel(DeepEvalBaseLLM):
         after=log_retry_error,
     )
     def generate_raw_response(
-        self, prompt: str, **kwargs
-    ) -> Tuple[AIMessage, float]:
-        chat_model = self.load_model().bind(**kwargs)
-        with get_openai_callback() as cb:
-            res = chat_model.invoke(prompt)
-            return res, cb.total_cost
+        self,
+        prompt: str,
+        top_logprobs: int = 5,
+    ) -> Tuple[ChatCompletion, float]:
+        # Generate completion
+        client = self.load_model(async_mode=False)
+        completion = client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            logprobs=True,
+            top_logprobs=top_logprobs,
+        )
+        # Cost calculation
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = self.calculate_cost(input_tokens, output_tokens)
+
+        return completion, cost
 
     @retry(
         wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=2, max=10),
@@ -303,12 +336,25 @@ class GPTModel(DeepEvalBaseLLM):
         after=log_retry_error,
     )
     async def a_generate_raw_response(
-        self, prompt: str, **kwargs
-    ) -> Tuple[AIMessage, float]:
-        chat_model = self.load_model().bind(**kwargs)
-        with get_openai_callback() as cb:
-            res = await chat_model.ainvoke(prompt)
-        return res, cb.total_cost
+        self,
+        prompt: str,
+        top_logprobs: int = 5,
+    ) -> Tuple[ChatCompletion, float]:
+        # Generate completion
+        client = self.load_model(async_mode=True)
+        completion = await client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            logprobs=True,
+            top_logprobs=top_logprobs,
+        )
+        # Cost calculation
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = self.calculate_cost(input_tokens, output_tokens)
+
+        return completion, cost
 
     @retry(
         wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=2, max=10),
@@ -317,15 +363,15 @@ class GPTModel(DeepEvalBaseLLM):
     )
     def generate_samples(
         self, prompt: str, n: int, temperature: float
-    ) -> Tuple[AIMessage, float]:
-        chat_model = self.load_model()
-        og_parameters = {"n": chat_model.n, "temp": chat_model.temperature}
-        chat_model.n = n
-        chat_model.temperature = temperature
-        generations = chat_model._generate([HumanMessage(prompt)]).generations
-        chat_model.temperature = og_parameters["temp"]
-        chat_model.n = og_parameters["n"]
-        completions = [r.text for r in generations]
+    ) -> Tuple[list[str], float]:
+        client = self.load_model(async_mode=False)
+        response = client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            n=n,
+            temperature=temperature,
+        )
+        completions = [choice.message.content for choice in response.choices]
         return completions
 
     ###############################################
@@ -345,11 +391,8 @@ class GPTModel(DeepEvalBaseLLM):
     def get_model_name(self):
         return self.model_name
 
-    def load_model(self):
-        return ChatOpenAI(
-            model_name=self.model_name,
-            openai_api_key=self._openai_api_key,
-            base_url=self.base_url,
-            *self.args,
-            **self.kwargs,
-        )
+    def load_model(self, async_mode: bool = False):
+        if async_mode == False:
+            return OpenAI(api_key=self._openai_api_key)
+        else:
+            return AsyncOpenAI(api_key=self._openai_api_key)

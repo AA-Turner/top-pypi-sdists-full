@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-ai-generativelanguage
-Version: 0.6.17
+Version: 0.6.18
 Summary: Google Ai Generativelanguage API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-ai-generativelanguage
 Author: Google LLC
@@ -193,7 +193,7 @@ Code-Based Examples
 
     import logging
     
-    from google.cloud.translate_v3 import translate
+    from google.cloud import library_v1
     
     base_logger = logging.getLogger("google")
     base_logger.addHandler(logging.StreamHandler())
@@ -205,7 +205,7 @@ Code-Based Examples
 
     import logging
     
-    from google.cloud.translate_v3 import translate
+    from google.cloud import library_v1
     
     base_logger = logging.getLogger("google.cloud.library_v1")
     base_logger.addHandler(logging.StreamHandler())

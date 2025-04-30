@@ -62,6 +62,8 @@ from .type_defs import (
     ListStreamConsumersOutputTypeDef,
     ListStreamsInputTypeDef,
     ListStreamsOutputTypeDef,
+    ListTagsForResourceInputTypeDef,
+    ListTagsForResourceOutputTypeDef,
     ListTagsForStreamInputTypeDef,
     ListTagsForStreamOutputTypeDef,
     MergeShardsInputTypeDef,
@@ -78,6 +80,8 @@ from .type_defs import (
     StopStreamEncryptionInputTypeDef,
     SubscribeToShardInputTypeDef,
     SubscribeToShardOutputTypeDef,
+    TagResourceInputTypeDef,
+    UntagResourceInputTypeDef,
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
     UpdateStreamModeInputTypeDef,
@@ -340,6 +344,16 @@ class KinesisClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#list_streams)
         """
 
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
+    ) -> ListTagsForResourceOutputTypeDef:
+        """
+        List all tags added to the specified Kinesis resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/list_tags_for_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#list_tags_for_resource)
+        """
+
     def list_tags_for_stream(
         self, **kwargs: Unpack[ListTagsForStreamInputTypeDef]
     ) -> ListTagsForStreamOutputTypeDef:
@@ -448,6 +462,26 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/subscribe_to_shard.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#subscribe_to_shard)
+        """
+
+    def tag_resource(
+        self, **kwargs: Unpack[TagResourceInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Adds or updates tags for the specified Kinesis resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/tag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#tag_resource)
+        """
+
+    def untag_resource(
+        self, **kwargs: Unpack[UntagResourceInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes tags from the specified Kinesis resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/untag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#untag_resource)
         """
 
     def update_shard_count(

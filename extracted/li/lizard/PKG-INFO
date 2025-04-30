@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lizard
-Version: 1.17.27
+Version: 1.17.28
 Summary: A code analyzer without caring the C/C++ header files. It works with Java, C/C++, JavaScript, Python, Ruby, Swift, Objective C. Metrics includes cyclomatic complexity number etc.
 Home-page: http://www.lizard.ws
 Download-URL: https://pypi.python.org/lizard/
